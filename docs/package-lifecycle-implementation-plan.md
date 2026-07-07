@@ -1321,6 +1321,40 @@ Deterministic rules, grouped by concern. Each rule is written to be directly tra
 > rewritten to match what's actually implemented; the recurring model they
 > replace no longer exists anywhere in the codebase.
 
+> **Refined 2026-07-07 (Package Lifecycle activation workflow refinement):**
+> §12.4's "proposed check-in form list" and §12.5's restart rule below were
+> originally scoped to duration only. Three changes, all additive (no schema
+> or architecture change):
+> 1. The Configure Activation modal's check-in form list is now filtered to
+>    forms **compatible with the plan type being activated** — a check-in
+>    form (`form_type = 'check-in'`, `status != 'archived'`) whose
+>    `post_action` matches the plan type (`nutrition-plan` for Nutrition,
+>    `workout-plan` for Training). This is a pure metadata filter (no
+>    hardcoded names) — see `isCompatibleCheckInForm` in
+>    `ConfigureActivationModal.js`. Package-default forms are always
+>    included and pre-checked regardless of this filter (the package's own
+>    configuration is trusted over the form's `post_action`, in case the two
+>    ever drift); every other compatible form in the workspace is offered
+>    unselected.
+> 2. Choosing "Restart" (§12.5) no longer silently re-saves the existing
+>    duration and check-ins — it opens the same Configure Activation modal
+>    used for first activation, pre-filled from the client's package exactly
+>    like initial activation, so the coach can change duration and/or
+>    check-in forms before the restart is saved. This retires §12.9's "out
+>    of MVP scope" note on editing an active plan's check-in selection.
+> 3. The reconciliation between the coach's confirmed check-in selection and
+>    the *existing* `check_in_schedules` rows is a 3-way diff
+>    (`reconcileCheckInSchedules` in `planEngine.ts`, shared by
+>    nutrition/training): forms still selected are retargeted in place
+>    (`next_due_at` + the linked `form_requests.scheduled_at`, if still
+>    `scheduled`), forms deselected are removed (cancelling their linked
+>    `form_requests` row only if it's still `scheduled`, never a `pending`
+>    one already delivered), forms newly added get a fresh
+>    `sealVersionForAssignment` + `check_in_schedules`/`form_requests` pair.
+>    This is what guarantees "no duplicate scheduled requests" — an existing
+>    schedule row is always updated, never deleted-and-recreated, when it
+>    stays selected across a restart.
+
 ### 12.4 Plan activation
 - Activation always requires resolving (from the package, defaulting to empty/manual if none) a proposed `cycleDays` and a proposed check-in form list; the coach may accept, edit, or clear either before confirming.
 - On confirm: `activated_at = NOW()`, `cycle_end_at = cycleDays ? NOW() + cycleDays : NULL`, one `check_in_schedules` row per confirmed check-in form with `next_due_at = cycle_end_at` — skipped entirely if `cycle_end_at` didn't resolve (nothing to fire at).
@@ -1328,10 +1362,10 @@ Deterministic rules, grouped by concern. Each rule is written to be directly tra
 
 ### 12.5 Plan editing (the restart/extend rule)
 - The Continue/Restart prompt appears **if and only if** the plan being saved currently has `status = 'active'` **and** already has a non-null `activated_at`.
-- **Extend** (coach chooses "Continue remaining duration"): `activated_at`, `cycle_end_at`, and every associated `check_in_schedules.next_due_at` are carried forward unchanged from the pre-edit row.
-- **Restart** (coach chooses "Restart plan duration"): `activated_at = NOW()`; `cycle_end_at` recomputed from the plan's current `cycle_days` (or a newly-provided value if the coach also changes it in the same edit); every associated `check_in_schedules.next_due_at` re-pointed at the new `cycle_end_at` (skipped if it didn't resolve); `review_notified_at` reset to `NULL` (a restarted plan is eligible for a fresh review-due notice on its new timeline).
+- **Extend** (coach chooses "Continue remaining duration"): `activated_at`, `cycle_end_at`, and every associated `check_in_schedules.next_due_at` are carried forward unchanged from the pre-edit row. No reconfiguration modal — nothing about duration or check-ins can change on this path, by design (§12.5 refinement above).
+- **Restart** (coach chooses "Restart plan duration"): opens the Configure Activation modal, pre-filled from the client's package (§12.5 refinement above). On confirm: `activated_at = NOW()`; `cycle_end_at` recomputed from the confirmed `cycleDays` (defaults to the plan's current value if the coach doesn't change it); `check_in_schedules` reconciled via `reconcileCheckInSchedules` against the confirmed form selection (defaults to the existing selection if the coach doesn't change it); `review_notified_at` reset to `NULL` (a restarted plan is eligible for a fresh review-due notice on its new timeline).
 - A plan that is `draft` (never activated) or brand-new never triggers this prompt — there is nothing to extend from; saving simply persists the draft as today.
-- **Ambiguous rule flagged for a product decision** (not resolved by this document — see [§18.1](#181-open-questions) item 4): a check-in form dispatched under the *old* schedule that is still `pending`/unanswered at the moment of a "Restart" — does it stay outstanding, or does restart cancel/supersede it? This plan defaults to **"leave it outstanding"** (the safest, least-destructive behavior — never silently delete a client-facing task) unless product direction says otherwise.
+- **Ambiguous rule flagged for a product decision** (not resolved by this document — see [§18.1](#181-open-questions) item 4): a check-in form dispatched under the *old* schedule that is still `pending`/unanswered at the moment of a "Restart" — does it stay outstanding, or does restart cancel/supersede it? This plan defaults to **"leave it outstanding"** (the safest, least-destructive behavior — never silently delete a client-facing task) unless product direction says otherwise. Unchanged by the 2026-07-07 refinement: `reconcileCheckInSchedules` only ever cancels a linked `form_requests` row that is still `status = 'scheduled'`; a `pending` (already-dispatched) one is left outstanding exactly as this rule specifies.
 
 ### 12.6 Freeze
 - A plan's `cycle_end_at` is extended by a freeze's duration using the same shared helper (§Phase 3 Backend changes) — a frozen client does not lose plan time to the freeze window, consistent with how their subscription itself doesn't.
@@ -1346,7 +1380,7 @@ Deterministic rules, grouped by concern. Each rule is written to be directly tra
 
 ### 12.9 One-shot check-ins
 - A check-in form fires exactly once: `check_in_schedules.next_due_at` is set once (at activation, `cycle_end_at`) or re-set once (on restart, the new `cycle_end_at`) — there is no recurrence and no `interval_days` field. On successful dispatch (`runCheckInDispatchTick`), the schedule row is deleted rather than advanced to a next occurrence.
-- Editing an active plan's check-in selection (adding/removing forms in a future "edit activation" affordance, if built — see [§18.1](#181-open-questions)) is out of MVP scope; today's MVP only sets check-ins at activation time and lets restart/extend govern their timing thereafter.
+- **Superseded 2026-07-07:** editing an active plan's check-in selection is no longer out of scope — the Restart path (§12.5 refinement) is exactly that affordance, backed by `reconcileCheckInSchedules`. "Extend" still never touches the selection, by design.
 
 ### 12.10 Review reminder / notification timing
 - `plan.review_due` fires exactly once per cycle, guarded by `review_notified_at` (set the moment the notice fires, cleared only by a restart — §12.5).
@@ -1445,6 +1479,7 @@ For each phase: Unit / Integration / E2E / Regression. These are formal test-typ
 - **Integration:** `loadExistingPlan` for both nutrition and training now returns `activated_at`/`cycle_days`/`cycle_end_at`/`review_notified_at` — assert the full round-trip through `saveSinglePlanDraft` preserves them on `extend` and resets them on `restart`.
 - **E2E:** activate a plan via the real Configure Activation modal; edit and save with "Continue"; edit and save with "Restart"; assert the builder header reflects the correct dates after each step.
 - **Regression:** this is the phase most likely to silently break something unrelated — explicitly re-run (a) the full nutrition/training save-draft flow for a **non-active** (draft) plan, confirming it behaves exactly as before this phase (no prompt, no cycle math); (b) `computeClientStatus`'s `firstActivation` MIN-query classification for a sample of existing clients, since it reads `activated_at` from the same tables this phase modifies.
+- **Added 2026-07-07 (restart reconfiguration refinement):** `tests/integration/packageLifecycleRestart.test.ts` drives the real `/api/nutrition/plans/:id/activate` and `/api/nutrition/plans/save-plan-draft` endpoints through: first activation (28-day, form A) → restart with a shorter duration and form A swapped for form B (asserts form A's schedule + its still-`scheduled` `form_requests` row are both gone, form B is freshly scheduled against the new plan id) → a second restart keeping form B selected (asserts the *same* `check_in_schedules`/`form_requests` row is retargeted, not duplicated — the explicit proof of the "no duplicate scheduled requests" rule in §12.5).
 
 ### Phase 4
 - **Unit:** `next_due_at` advancement math (advances from previous due date, not from "now" — verifies the no-drift rule in §12.9); the freeze pause/resume transition.
