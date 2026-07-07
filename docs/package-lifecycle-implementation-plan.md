@@ -1355,6 +1355,31 @@ Deterministic rules, grouped by concern. Each rule is written to be directly tra
 >    schedule row is always updated, never deleted-and-recreated, when it
 >    stays selected across a restart.
 
+> **Refined 2026-07-07, part 2 (Package Variation default check-in forms
+> split by plan type):** every mention of `package_default_forms` above
+> (§12.2, §12.3, [§7](#7-conceptual-model), [Phase 1](#phase-1--package-configuration-surface))
+> describes the original single `kind = 'checkin'` design — a package
+> variation's Configure Package modal had one "Default check-in forms"
+> field mixing Nutrition and Training forms together, so *both* plan types
+> pre-filled from the same list regardless of which was actually being
+> activated. Migration `042_split_checkin_forms_by_plan_type.js` splits
+> `kind = 'checkin'` into `kind = 'checkin-nutrition'` and `kind =
+> 'checkin-training'`, backfilling each existing row from its form's
+> `post_action` (`nutrition-plan` → checkin-nutrition, `workout-plan` →
+> checkin-training; a row whose form's `post_action` is ambiguous — i.e.
+> neither of those two — is duplicated into both kinds rather than
+> arbitrarily assigned or dropped, so no existing default is lost). The
+> `package_default_forms_kind_check` constraint is updated to match.
+> `PackageFormsPicker.js` now renders two independent multi-selects —
+> **Default Nutrition Check-in Forms** and **Default Training Check-in
+> Forms** — each pre-filtered with the same `isCompatibleCheckInForm` rule
+> used by the activation modal (now extracted to a shared
+> `client/lib/formCompatibility.js` so the two surfaces can't drift). `GET
+> /api/clients/:id/package-defaults` takes a `?planType=nutrition|training`
+> query param and resolves only the matching kind, so the Configure
+> Activation modal — for both first activation and restart (part 1 above) —
+> only ever pre-fills the compatible half of a package's defaults.
+
 ### 12.4 Plan activation
 - Activation always requires resolving (from the package, defaulting to empty/manual if none) a proposed `cycleDays` and a proposed check-in form list; the coach may accept, edit, or clear either before confirming.
 - On confirm: `activated_at = NOW()`, `cycle_end_at = cycleDays ? NOW() + cycleDays : NULL`, one `check_in_schedules` row per confirmed check-in form with `next_due_at = cycle_end_at` — skipped entirely if `cycle_end_at` didn't resolve (nothing to fire at).
@@ -1467,6 +1492,7 @@ For each phase: Unit / Integration / E2E / Regression. These are formal test-typ
 - **Integration:** `POST`/`PUT /api/packages` round-trip with `defaultForms`, cycle-length, and policy fields; `GET /api/packages` includes them without an extra query per variation (assert query count, not just response shape).
 - **E2E:** create a package end-to-end through the real admin UI (base fields → policy → defaults) in one modal session.
 - **Regression:** existing package CRUD (name/variation edit, activate/deactivate, delete) unaffected by the new optional fields.
+- **Added 2026-07-07 (default check-in forms split by plan type):** `tests/integration/packageDefaultCheckinForms.test.ts` creates a variation with all three kinds (`assessment`, `checkin-nutrition`, `checkin-training`), asserts the create/read round-trip keeps them separate, asserts the old `kind = 'checkin'` is rejected, asserts `GET /package-defaults?planType=nutrition|training` each return only their own kind (and that omitting `planType` defaults to nutrition, never leaking training forms), and asserts a variation update fully replaces defaults with no leftover rows from the deleted kind.
 
 ### Phase 2
 - **Unit:** the wizard's default-form-seeding function — union semantics (adds package defaults without removing manually-selected/removed forms), idempotency on repeated selection of the same package.
@@ -1510,6 +1536,8 @@ How existing workspaces transition safely. This section is the consolidated, cro
 
 ### 16.1 Existing packages
 No migration needed to the `packages`/`package_variations` rows themselves — Phase 1's new columns are nullable with sensible defaults (`plan_update_mode` defaults to `'extend'`). Every existing package simply has "no defaults configured" until a coach opts in through the editor. **Manual intervention:** none required; **optional:** product/success team may want to proactively configure defaults for the workspace's most-used packages post-launch, but this is an adoption activity, not a technical migration step.
+
+**Added 2026-07-07:** migration `042_split_checkin_forms_by_plan_type.js` reclassifies every existing `package_default_forms` row with `kind = 'checkin'` into `checkin-nutrition` or `checkin-training` by its form's `post_action`, duplicating (never dropping) an ambiguous row into both. **Validation query** run at the end of the migration (fails the migration if non-zero): `SELECT count(*) FROM package_default_forms WHERE kind = 'checkin'`. No manual intervention required — the split is fully automatic and the app has zero code paths left that read or write the old `kind = 'checkin'` value.
 
 ### 16.2 Existing subscriptions
 Phase 0's backfill (exact SQL in [Phase 0 → Database changes](#phase-0--data-model-foundation)) is the only migration step here: match every existing `transactions.package_variation`/`clients.current_package` string to a real `package_variations.id` within the same workspace, by exact name match. **Validation query** (run before considering the backfill complete):
