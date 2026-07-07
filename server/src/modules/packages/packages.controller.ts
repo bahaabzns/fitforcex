@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { serializePackage, serializePackages } from './packages.serializer';
 
 const PLAN_UPDATE_MODES = ['restart', 'extend'];
-const DEFAULT_FORM_KINDS = ['assessment', 'checkin'];
+const DEFAULT_FORM_KINDS = ['assessment', 'checkin-nutrition', 'checkin-training'];
 
 // Shared include shape for both a single package and the list — a variation's
 // default forms + their resolved titles are fetched via one Prisma `include`,

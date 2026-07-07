@@ -494,7 +494,15 @@ export async function getClientAudit(req: Request, res: Response, next: NextFunc
 // modal pre-fills from: the client's current package variation's cycle
 // lengths, plan-update mode, and check-in-kind default forms. Read only at
 // the moment the modal opens; never a live/enforced constraint (§12.8).
+//
+// Post-review refinement: default check-in forms are now split by plan type
+// (kind='checkin-nutrition' | 'checkin-training' — migration 042), so the
+// caller must say which plan it's activating via ?planType=nutrition|training.
+// Anything other than 'training' resolves to nutrition, matching the same
+// default used by isCompatibleCheckInForm on the frontend.
 export async function getClientPackageDefaults(req: Request, res: Response, next: NextFunction) {
+    const planType = req.query.planType === 'training' ? 'training' : 'nutrition';
+    const checkinKind = planType === 'training' ? 'checkin-training' : 'checkin-nutrition';
     try {
         const client = await prisma.clients.findFirst({
             where:  { id: req.params.id as string, workspace_id: req.user!.workspaceId },
@@ -507,7 +515,7 @@ export async function getClientPackageDefaults(req: Request, res: Response, next
 
         const variation = await prisma.package_variations.findUnique({
             where:   { id: client.current_package_variation_id },
-            include: { package_default_forms: { where: { kind: 'checkin' }, include: { forms: { select: { title_en: true, title_ar: true } } } } },
+            include: { package_default_forms: { where: { kind: checkinKind }, include: { forms: { select: { title_en: true, title_ar: true } } } } },
         });
         if (!variation) return res.json(empty);
 
