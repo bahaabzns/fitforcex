@@ -797,9 +797,12 @@ export async function buildTransformationPayload(clientId: string, workspaceId: 
     }) as { id: string; title_en: string | null; title_ar: string | null }[];
     const formMap = new Map(forms.map(f => [f.id, f]));
 
-    // 4. Question labels
+    // 4. Question labels — Forms Versioning Phase 3: joins the immutable
+    // snapshot each response actually belongs to (form_version_questions),
+    // so a progress-chart data point's label never drifts if the source
+    // form is edited later.
     const questionIds = [...new Set(responses.map(r => r.question_id).filter((id): id is string => !!id))];
-    const questions   = await prisma.form_questions.findMany({
+    const questions   = await prisma.form_version_questions.findMany({
         where:  { id: { in: questionIds } },
         select: { id: true, label_en: true, label_ar: true },
     });

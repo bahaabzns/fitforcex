@@ -53,10 +53,13 @@ type FormRow = Record<string, unknown>;
 
 export async function getForms(req: Request, res: Response, next: NextFunction) {
     try {
+        // Forms Versioning Phase 3 — the list's question_count reflects the
+        // CURRENT version's question set (form_version_questions), not the
+        // now-frozen form_questions table.
         const rows = await prisma.$queryRaw<FormRow[]>`
-            SELECT f.*, COUNT(fq.id)::int AS question_count
+            SELECT f.*, COUNT(fvq.id)::int AS question_count
             FROM forms f
-            LEFT JOIN form_questions fq ON fq.form_id = f.id
+            LEFT JOIN form_version_questions fvq ON fvq.form_version_id = f.current_version_id
             WHERE f.workspace_id = ${req.user!.workspaceId}
             GROUP BY f.id
             ORDER BY f.created_at DESC
@@ -471,7 +474,11 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
                 where:   { request_id: row.id as string },
                 select:  { answer: true, question_id: true },
             });
-            const questionsForResponse = await prisma.form_questions.findMany({
+            // Forms Versioning Phase 3 — join against form_version_questions,
+            // the immutable snapshot each response actually belongs to, so a
+            // historical answer always renders under the label/type it was
+            // originally asked with, regardless of later form edits.
+            const questionsForResponse = await prisma.form_version_questions.findMany({
                 where:   { id: { in: responses.map(r => r.question_id).filter((id): id is string => id !== null) } },
                 select:  { id: true, label_en: true, label_ar: true, type: true, order_index: true },
             });
@@ -532,7 +539,9 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 where:  { request_id: row.id as string },
                 select: { question_id: true, answer: true },
             });
-            const questions = await prisma.form_questions.findMany({
+            // Forms Versioning Phase 3 — see the identical note in
+            // getRequestsByClient above.
+            const questions = await prisma.form_version_questions.findMany({
                 where:   { id: { in: responses.map(r => r.question_id).filter((id): id is string => id !== null) } },
                 select:  { id: true, label_en: true, label_ar: true, type: true, order_index: true },
             });
