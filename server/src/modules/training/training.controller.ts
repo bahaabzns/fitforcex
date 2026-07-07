@@ -12,6 +12,7 @@ import {
     activateSinglePlan,
     saveSinglePlanDraft,
     withTransaction,
+    reconcileCheckInSchedules,
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
@@ -452,9 +453,12 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
 }
 
 export async function savePlanDraft(req: Request, res: Response, next: NextFunction) {
-    const { clientId, plan, activePlanId = null, durationChoice } = req.body as {
+    const { clientId, plan, activePlanId = null, durationChoice, cycleDays: restartCycleDays, checkInForms: restartCheckInForms } = req.body as {
         clientId: string; plan: Row; activePlanId?: string | null;
         durationChoice?: 'restart' | 'extend';
+        // See the identical note in nutrition.controller.ts's savePlanDraft.
+        cycleDays?: number | null;
+        checkInForms?: Array<{ formId: string }>;
     };
 
     try {
@@ -567,9 +571,9 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 return newPlan;
             },
             activatePlanInTransaction: async ({ dbClient, planId, coachId }: { dbClient: PoolClient; planId: unknown; clientId: string; coachId: string }) => {
-                // Package Lifecycle Phase 3b: consolidated onto the shared
-                // activateSinglePlan -- see the identical note in
-                // nutrition.controller.ts's savePlanDraft.
+                // Package Lifecycle Phase 3b, post-review refinement:
+                // consolidated onto the shared activateSinglePlan -- see the
+                // identical note in nutrition.controller.ts's savePlanDraft.
                 const restarted = await activateSinglePlan({
                     db: dbClient,
                     tableName:      'training_plans',
@@ -577,32 +581,27 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                     coachId,
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
+                    ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
                 if (restarted && durationChoice === 'restart') {
                     // See the identical note in nutrition.controller.ts:
                     // matched by client + plan type, not source_plan_id,
                     // since this save path's plan id already changed by now.
-                    // Check-in forms are one-shot at the plan's end date --
-                    // re-point next_due_at at the new cycle_end_at, skipped
-                    // if the restart didn't resolve one.
+                    // reconcileCheckInSchedules retargets/removes/adds
+                    // check-in schedules for the new cycle_end_at -- see its
+                    // doc comment in lib/planEngine.ts. Skipped if the
+                    // restart didn't resolve a cycle_end_at.
                     if (restarted.cycle_end_at) {
-                        await dbClient.query(
-                            `UPDATE check_in_schedules SET next_due_at = $2
-                             WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL`,
-                            [restarted.client_id, restarted.cycle_end_at]
-                        );
-                        // Bug fix -- see the identical note in
-                        // nutrition.controller.ts's savePlanDraft: retarget the
-                        // linked, still-'scheduled' form_requests row so Plans
-                        // Queue reflects the new date, not the pre-restart one.
-                        await dbClient.query(
-                            `UPDATE form_requests SET scheduled_at = $2
-                             WHERE status = 'scheduled' AND id IN (
-                                 SELECT form_request_id FROM check_in_schedules
-                                 WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL AND form_request_id IS NOT NULL
-                             )`,
-                            [restarted.client_id, restarted.cycle_end_at]
-                        );
+                        await reconcileCheckInSchedules({
+                            dbClient,
+                            sourcePlanType: 'training',
+                            sourcePlanId:   restarted.id as string,
+                            clientId:       restarted.client_id as string,
+                            workspaceId:    coachId,
+                            cycleEndAt:     restarted.cycle_end_at as Date,
+                            checkInForms:   restartCheckInForms,
+                            actorUserId:    req.user!.userId,
+                        });
                     }
                     restartedClientId = restarted.client_id as string;
                 }

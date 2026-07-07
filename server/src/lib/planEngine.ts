@@ -1,4 +1,6 @@
 import { Pool, PoolClient } from 'pg';
+import { createId } from '@paralleldrive/cuid2';
+import { sealVersionForAssignment } from '../modules/forms/forms.service';
 
 type PlainRecord = Record<string, unknown>;
 
@@ -172,6 +174,98 @@ export async function activateSinglePlan({
     );
 
     return serializePlanRow(updated.rows[0] as PlainRecord);
+}
+
+/**
+ * Package Lifecycle — reconciles a client's scheduled check-ins for one
+ * plan against a NEW desired form set and due date. Called on plan restart
+ * (the Configure Activation modal re-opened with the coach free to change
+ * duration and/or check-in forms, not just confirm the same ones) — shared
+ * by nutrition and training's savePlanDraft so the reconciliation rules
+ * live in exactly one place, matching activateSinglePlan's pattern above.
+ *
+ * Three-way diff against what's already scheduled (paused_at IS NULL, i.e.
+ * still live):
+ *  - Still selected  -> retarget the SAME check_in_schedules/form_requests
+ *    row to the new due date. Never re-created, so this can't duplicate a
+ *    scheduled request no matter how many times a plan is restarted.
+ *  - No longer selected -> cancel: delete the still-'scheduled' (not yet
+ *    delivered) form_requests row and its schedule row. A request that's
+ *    already moved past 'scheduled' (delivered, answered, etc.) is left
+ *    alone — restarting a plan must never retroactively erase a client's
+ *    submitted history, only affect what hasn't happened yet.
+ *  - Newly selected -> a fresh schedule+request pair, sealed exactly like
+ *    first activation (sealVersionForAssignment pins the wording the
+ *    client will actually see, same "assignment moment" convention used
+ *    everywhere else a check-in is committed to a client).
+ *
+ * `checkInForms === undefined` (the coach's save didn't go through the
+ * reconfigure flow) preserves the pre-existing behavior exactly: every
+ * currently-scheduled form is treated as "still selected" and only its due
+ * date moves — no adds, no removals.
+ */
+export async function reconcileCheckInSchedules({
+    dbClient,
+    sourcePlanType,
+    sourcePlanId,
+    clientId,
+    workspaceId,
+    cycleEndAt,
+    checkInForms,
+    actorUserId,
+}: {
+    dbClient: PoolClient;
+    sourcePlanType: 'nutrition' | 'training';
+    sourcePlanId: string;
+    clientId: string;
+    workspaceId: string;
+    cycleEndAt: Date;
+    checkInForms?: Array<{ formId: string }>;
+    actorUserId: string | null;
+}): Promise<void> {
+    const existing = await dbClient.query(
+        `SELECT id, form_id, form_request_id FROM check_in_schedules
+         WHERE source_plan_type = $1 AND client_id = $2 AND paused_at IS NULL`,
+        [sourcePlanType, clientId]
+    );
+    const existingRows = existing.rows as { id: string; form_id: string; form_request_id: string | null }[];
+    const existingFormIds = new Set(existingRows.map((r) => r.form_id));
+    const desiredFormIds = checkInForms !== undefined
+        ? new Set(checkInForms.map((f) => f.formId).filter(Boolean))
+        : existingFormIds;
+
+    for (const row of existingRows) {
+        if (desiredFormIds.has(row.form_id)) {
+            await dbClient.query(`UPDATE check_in_schedules SET next_due_at = $2 WHERE id = $1`, [row.id, cycleEndAt]);
+            if (row.form_request_id) {
+                await dbClient.query(
+                    `UPDATE form_requests SET scheduled_at = $2 WHERE id = $1 AND status = 'scheduled'`,
+                    [row.form_request_id, cycleEndAt]
+                );
+            }
+        } else {
+            if (row.form_request_id) {
+                await dbClient.query(`DELETE FROM form_requests WHERE id = $1 AND status = 'scheduled'`, [row.form_request_id]);
+            }
+            await dbClient.query(`DELETE FROM check_in_schedules WHERE id = $1`, [row.id]);
+        }
+    }
+
+    const toAdd = [...desiredFormIds].filter((id) => !existingFormIds.has(id));
+    for (const formId of toAdd) {
+        const { versionId } = await sealVersionForAssignment(formId, workspaceId, actorUserId);
+        const requestId = createId();
+        await dbClient.query(
+            `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
+             VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
+            [requestId, formId, versionId, clientId, workspaceId, cycleEndAt]
+        );
+        await dbClient.query(
+            `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [createId(), workspaceId, clientId, formId, cycleEndAt, sourcePlanType, sourcePlanId, requestId]
+        );
+    }
 }
 
 interface SaveSinglePlanDraftParams {

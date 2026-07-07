@@ -11,6 +11,7 @@ import {
     activateSinglePlan,
     saveSinglePlanDraft,
     withTransaction,
+    reconcileCheckInSchedules,
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
@@ -410,11 +411,19 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
 }
 
 export async function savePlanDraft(req: Request, res: Response, next: NextFunction) {
-    const { clientId, plan, activePlanId = null, durationChoice } = req.body as {
+    const { clientId, plan, activePlanId = null, durationChoice, cycleDays: restartCycleDays, checkInForms: restartCheckInForms } = req.body as {
         clientId: string; plan: Row; activePlanId?: string | null;
         // Package Lifecycle Phase 3b: required by the frontend only when the
         // plan being saved is currently active (§12.5); ignored otherwise.
         durationChoice?: 'restart' | 'extend';
+        // Post-review refinement: only meaningful when durationChoice ===
+        // 'restart' — the coach reconfigured duration/check-ins through the
+        // same Configure Activation modal used for first activation, instead
+        // of the restart silently reusing the plan's existing values.
+        // Undefined preserves the old behavior exactly (see
+        // reconcileCheckInSchedules's doc comment in lib/planEngine.ts).
+        cycleDays?: number | null;
+        checkInForms?: Array<{ formId: string }>;
     };
 
     try {
@@ -543,12 +552,13 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 return newPlan;
             },
             activatePlanInTransaction: async ({ dbClient, planId, coachId }: { dbClient: PoolClient; planId: unknown; clientId: string; coachId: string }) => {
-                // Package Lifecycle Phase 3b: consolidated onto the shared
-                // activateSinglePlan (previously a bespoke inline UPDATE that
-                // never touched activated_at at all -- see Phase 3a). This is
-                // the "edit an active plan" path, not first activation, so
-                // cycleDays is left untouched (undefined) and only
-                // durationChoice (restart/extend) is consulted -- see
+                // Package Lifecycle Phase 3b, post-review refinement:
+                // consolidated onto the shared activateSinglePlan. This is
+                // the "edit an active plan" path, not first activation --
+                // cycleDays is only passed through when the coach actually
+                // reconfigured it via the restart flow's Configure
+                // Activation modal (restartCycleDays !== undefined);
+                // otherwise it's left untouched exactly as before. See
                 // Business Logic §12.5 in the Package Lifecycle plan.
                 const restarted = await activateSinglePlan({
                     db: dbClient,
@@ -557,6 +567,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                     coachId,
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
+                    ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
                 if (restarted && durationChoice === 'restart') {
                     // Matched by client + plan type, not source_plan_id: this
@@ -569,32 +580,25 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                     // by client_id is unambiguous in practice.
                     //
                     // Check-in forms are one-shot, fired exactly at the
-                    // plan's end -- a restart pushes that end date out, so
-                    // next_due_at is re-pointed at the new cycle_end_at
-                    // rather than advanced by an interval (there is no
-                    // recurring cadence to advance). Skipped entirely if the
-                    // restart didn't resolve a cycle_end_at (no cycle_days
+                    // plan's end -- a restart pushes that end date out.
+                    // reconcileCheckInSchedules retargets everything still
+                    // selected, cancels what was deselected (without
+                    // touching anything already delivered/answered), and
+                    // schedules anything newly added -- see its doc comment
+                    // in lib/planEngine.ts. Skipped entirely if the restart
+                    // didn't resolve a cycle_end_at (no cycle_days
                     // configured) -- nothing to reschedule to.
                     if (restarted.cycle_end_at) {
-                        await dbClient.query(
-                            `UPDATE check_in_schedules SET next_due_at = $2
-                             WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL`,
-                            [restarted.client_id, restarted.cycle_end_at]
-                        );
-                        // Bug fix: the form_requests row created at activation
-                        // (status 'scheduled', visible in Plans Queue) must move
-                        // with the schedule, or the queue keeps showing the
-                        // pre-restart date. Only rows still 'scheduled' (not yet
-                        // flipped to pending) are retargeted -- one already due
-                        // has already reached the client and shouldn't move.
-                        await dbClient.query(
-                            `UPDATE form_requests SET scheduled_at = $2
-                             WHERE status = 'scheduled' AND id IN (
-                                 SELECT form_request_id FROM check_in_schedules
-                                 WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL AND form_request_id IS NOT NULL
-                             )`,
-                            [restarted.client_id, restarted.cycle_end_at]
-                        );
+                        await reconcileCheckInSchedules({
+                            dbClient,
+                            sourcePlanType: 'nutrition',
+                            sourcePlanId:   restarted.id as string,
+                            clientId:       restarted.client_id as string,
+                            workspaceId:    coachId,
+                            cycleEndAt:     restarted.cycle_end_at as Date,
+                            checkInForms:   restartCheckInForms,
+                            actorUserId:    req.user!.userId,
+                        });
                     }
                     restartedClientId = restarted.client_id as string;
                 }
