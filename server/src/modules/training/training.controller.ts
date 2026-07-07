@@ -17,6 +17,7 @@ import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { FileBag } from './training.service';
 import { recordEvent } from '../../lib/events';
+import { sealVersionForAssignment } from '../forms/forms.service';
 
 type Row = Record<string, unknown>;
 
@@ -590,6 +591,18 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                              WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL`,
                             [restarted.client_id, restarted.cycle_end_at]
                         );
+                        // Bug fix -- see the identical note in
+                        // nutrition.controller.ts's savePlanDraft: retarget the
+                        // linked, still-'scheduled' form_requests row so Plans
+                        // Queue reflects the new date, not the pre-restart one.
+                        await dbClient.query(
+                            `UPDATE form_requests SET scheduled_at = $2
+                             WHERE status = 'scheduled' AND id IN (
+                                 SELECT form_request_id FROM check_in_schedules
+                                 WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL AND form_request_id IS NOT NULL
+                             )`,
+                            [restarted.client_id, restarted.cycle_end_at]
+                        );
                     }
                     restartedClientId = restarted.client_id as string;
                 }
@@ -648,6 +661,15 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             if (!plan) return null;
 
             if (updateMode === 'restart') {
+                // Bug fix -- see the identical note in
+                // nutrition.controller.ts's activatePlan.
+                await dbClient.query(
+                    `DELETE FROM form_requests WHERE status = 'scheduled' AND id IN (
+                         SELECT form_request_id FROM check_in_schedules
+                         WHERE source_plan_type = 'training' AND source_plan_id = $1 AND form_request_id IS NOT NULL
+                     )`,
+                    [planId]
+                );
                 await dbClient.query(
                     `DELETE FROM check_in_schedules WHERE source_plan_type = 'training' AND source_plan_id = $1`,
                     [planId]
@@ -658,10 +680,22 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             if (Array.isArray(checkInForms) && checkInForms.length > 0 && plan.cycle_end_at) {
                 for (const f of checkInForms) {
                     if (!f.formId) continue;
+
+                    // Bug fix -- see the identical note in
+                    // nutrition.controller.ts's activatePlan: create the
+                    // form_requests row immediately (status 'scheduled') so
+                    // it's visible in Plans Queue right away.
+                    const { versionId } = await sealVersionForAssignment(f.formId, req.user!.userId);
+                    const requestId = createId();
                     await dbClient.query(
-                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id)
-                         VALUES ($1, $2, $3, $4, $5, 'training', $6)`,
-                        [createId(), coachId, plan.client_id, f.formId, plan.cycle_end_at, plan.id]
+                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
+                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
+                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at]
+                    );
+                    await dbClient.query(
+                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)
+                         VALUES ($1, $2, $3, $4, $5, 'training', $6, $7)`,
+                        [createId(), coachId, plan.client_id, f.formId, plan.cycle_end_at, plan.id, requestId]
                     );
                 }
             }

@@ -189,12 +189,22 @@ export async function runReviewDueCheckTick(): Promise<number> {
 }
 
 /**
- * Package Lifecycle Phase 4 — dispatches due check_in_schedules rows into
- * form_requests, one-off. Hourly, same cadence as scheduleFormDispatcher.
- * Batched (take 500) with bounded concurrency (chunks of 50) so a large
- * backlog can't balloon a single tick — see §14.2-14.3 of the plan. The tick
- * body is exported separately from its cron registration so it can be
- * exercised directly (e.g. for verification) without waiting for the clock.
+ * Package Lifecycle Phase 4 — dispatches due check_in_schedules rows.
+ * Hourly, same cadence as scheduleFormDispatcher. Batched (take 500) with
+ * bounded concurrency (chunks of 50) so a large backlog can't balloon a
+ * single tick — see §14.2-14.3 of the plan. The tick body is exported
+ * separately from its cron registration so it can be exercised directly
+ * (e.g. for verification) without waiting for the clock.
+ *
+ * Bug fix: the form_requests row (status 'scheduled') is now created at
+ * activation time, not here — this tick's job is just to flip it to
+ * 'pending' once due (the same transition activateDueScheduledRequests
+ * already makes lazily on every queue read) and fire the client
+ * notification exactly once, deterministically, regardless of whether
+ * anyone has loaded a queue view in the meantime. Schedules from before
+ * this fix have no linked request (form_request_id is null) and fall back
+ * to creating one directly in 'pending', since their due date has already
+ * arrived.
  */
 export async function runCheckInDispatchTick(): Promise<number> {
     const due = await prisma.check_in_schedules.findMany({
@@ -215,14 +225,31 @@ export async function runCheckInDispatchTick(): Promise<number> {
                 const effective = await getEffectiveAccessForClient(row.client_id, row.workspace_id);
                 if (effective.status !== 'Active' && !effective.withinGrace) return;
 
+                // The coach may have already cancelled the visible
+                // 'scheduled' queue item (Plans Queue's cancel action)
+                // before its due date — nothing left to dispatch.
+                if (row.form_request_id) {
+                    const linked = await prisma.form_requests.findUnique({
+                        where:  { id: row.form_request_id },
+                        select: { id: true },
+                    });
+                    if (!linked) {
+                        await prisma.check_in_schedules.delete({ where: { id: row.id } });
+                        return;
+                    }
+                }
+
                 // Forms Versioning Phase 5 — a form can be archived out from
                 // under an active package after its check_in_schedules row
-                // was created. Skip the dispatch (leave the schedule row
-                // alone, don't delete it) and tell the coach explicitly,
-                // rather than either sending a retired form or crashing.
+                // was created. Cancel the dispatch and tell the coach
+                // explicitly, rather than either sending a retired form or
+                // leaving a stuck "scheduled" item nobody can ever answer.
                 // See docs/forms-versioning-implementation-plan.md Phase 5.
                 const form = await prisma.forms.findUnique({ where: { id: row.form_id }, select: { status: true } });
                 if (!form || form.status === 'archived') {
+                    if (row.form_request_id) {
+                        await prisma.form_requests.deleteMany({ where: { id: row.form_request_id, status: 'scheduled' } });
+                    }
                     await recordEvent({
                         workspaceId: row.workspace_id,
                         type:        'checkin.dispatch_skipped_archived_form',
@@ -233,35 +260,38 @@ export async function runCheckInDispatchTick(): Promise<number> {
                         entity:      { type: 'check_in_schedule', id: row.id },
                         metadata:    { clientId: row.client_id, formId: row.form_id },
                     });
+                    await prisma.check_in_schedules.delete({ where: { id: row.id } });
                     return;
                 }
 
-                // Forms Versioning Phase 2 — this is the assignment moment
-                // for a scheduled check-in, exactly like a coach-initiated
-                // createRequests call: seal the form's current version now
-                // (system-triggered, no actor) so this dispatch permanently
-                // pins the wording the client will actually see.
-                const { versionId } = await sealVersionForAssignment(row.form_id, null);
-
-                await prisma.$transaction([
-                    prisma.form_requests.create({
+                if (row.form_request_id) {
+                    await prisma.form_requests.updateMany({
+                        where: { id: row.form_request_id, status: 'scheduled' },
+                        data:  { status: 'pending', requested_at: new Date() },
+                    });
+                } else {
+                    // Legacy schedule row, created before this fix, with no
+                    // linked request — Forms Versioning Phase 2's assignment
+                    // moment (sealing the version) happens right here instead
+                    // of at activation, same as before.
+                    const { versionId } = await sealVersionForAssignment(row.form_id, null);
+                    await prisma.form_requests.create({
                         data: {
                             id:              createId(),
                             form_id:         row.form_id,
                             form_version_id: versionId,
                             client_id:       row.client_id,
                             workspace_id:    row.workspace_id,
-                            status:          'sent',
+                            status:          'pending',
                             requested_at:    new Date(),
-                            scheduled_at:    new Date(),
-                            action_taken_at: new Date(),
                         },
-                    }),
-                    // Check-in forms are one-shot -- fired exactly once, at
-                    // the plan's end date -- so the schedule row is deleted
-                    // rather than advanced to a next occurrence.
-                    prisma.check_in_schedules.delete({ where: { id: row.id } }),
-                ]);
+                    });
+                }
+
+                // Check-in forms are one-shot -- fired exactly once, at the
+                // plan's end date -- so the schedule row is deleted rather
+                // than advanced to a next occurrence.
+                await prisma.check_in_schedules.delete({ where: { id: row.id } });
 
                 await recordEvent({
                     workspaceId: row.workspace_id,

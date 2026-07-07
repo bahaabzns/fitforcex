@@ -16,6 +16,7 @@ import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { toNumberOrNull } from './nutrition.service';
 import { recordEvent } from '../../lib/events';
+import { sealVersionForAssignment } from '../forms/forms.service';
 
 type Row = Record<string, unknown>;
 
@@ -580,6 +581,20 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                              WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL`,
                             [restarted.client_id, restarted.cycle_end_at]
                         );
+                        // Bug fix: the form_requests row created at activation
+                        // (status 'scheduled', visible in Plans Queue) must move
+                        // with the schedule, or the queue keeps showing the
+                        // pre-restart date. Only rows still 'scheduled' (not yet
+                        // flipped to pending) are retargeted -- one already due
+                        // has already reached the client and shouldn't move.
+                        await dbClient.query(
+                            `UPDATE form_requests SET scheduled_at = $2
+                             WHERE status = 'scheduled' AND id IN (
+                                 SELECT form_request_id FROM check_in_schedules
+                                 WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL AND form_request_id IS NOT NULL
+                             )`,
+                            [restarted.client_id, restarted.cycle_end_at]
+                        );
                     }
                     restartedClientId = restarted.client_id as string;
                 }
@@ -667,6 +682,17 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             // extend (or first activation) simply adds any newly-confirmed
             // forms without touching schedules from a prior activation.
             if (updateMode === 'restart') {
+                // Bug fix: cancel the linked form_requests rows too (only if
+                // still 'scheduled' -- one already flipped to pending has
+                // already reached the client and is left alone), or Plans
+                // Queue keeps showing check-ins from the plan's previous cycle.
+                await dbClient.query(
+                    `DELETE FROM form_requests WHERE status = 'scheduled' AND id IN (
+                         SELECT form_request_id FROM check_in_schedules
+                         WHERE source_plan_type = 'nutrition' AND source_plan_id = $1 AND form_request_id IS NOT NULL
+                     )`,
+                    [planId]
+                );
                 await dbClient.query(
                     `DELETE FROM check_in_schedules WHERE source_plan_type = 'nutrition' AND source_plan_id = $1`,
                     [planId]
@@ -678,10 +704,24 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             if (Array.isArray(checkInForms) && checkInForms.length > 0 && plan.cycle_end_at) {
                 for (const f of checkInForms) {
                     if (!f.formId) continue;
+
+                    // Bug fix: create the form_requests row immediately
+                    // (status 'scheduled') so it's visible in Plans Queue right
+                    // away, instead of waiting for the dispatch cron to create
+                    // it on the plan's end date. Sealing the version now (same
+                    // "assignment moment" convention as the manual schedule-a-
+                    // form flow) pins the wording the client will see.
+                    const { versionId } = await sealVersionForAssignment(f.formId, req.user!.userId);
+                    const requestId = createId();
                     await dbClient.query(
-                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id)
-                         VALUES ($1, $2, $3, $4, $5, 'nutrition', $6)`,
-                        [createId(), coachId, plan.client_id, f.formId, plan.cycle_end_at, plan.id]
+                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
+                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
+                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at]
+                    );
+                    await dbClient.query(
+                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)
+                         VALUES ($1, $2, $3, $4, $5, 'nutrition', $6, $7)`,
+                        [createId(), coachId, plan.client_id, f.formId, plan.cycle_end_at, plan.id, requestId]
                     );
                 }
             }
