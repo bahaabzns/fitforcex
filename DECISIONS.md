@@ -109,3 +109,35 @@ Significant choices: the question, what we picked, what we rejected, and why.
 - **What:** The exercise and food pickers show a "Create …" CTA when a search has no match;
   it creates the record (prefilled with the query) and adds it straight to the plan.
 - **Why:** Removes the "go set up your library first" detour — fastest time-to-value.
+
+## 2026-07-07 — Forms historical-integrity architecture
+
+### Copy-on-Write versioning, sealed on first use
+- **Question:** How should FitForce preserve historical form submissions/metrics
+  so that editing or deleting a form never corrupts a client's past history?
+- **Picked:** A real versioning system (`form_versions`/`form_version_questions`) where a
+  version is freely editable in place until its first real-world use (an assignment or
+  scheduler dispatch), at which point it seals permanently; the next edit after that
+  transparently forks a new version. `forms.current_version_id` is the single source of
+  truth for "current" (no per-row status enum). See
+  [docs/forms-versioning-architecture-decision.md](docs/forms-versioning-architecture-decision.md).
+- **Rejected:** (A) Snapshot-on-Assignment — cheaper but gives every request its own private
+  snapshot with no shared version identity to compare/report on. (B) A manual Draft →
+  Publish → Version workflow — same data model, but a human-gated publish step is a worse
+  fit for how coaches actually edit forms and doesn't protect history if they forget to
+  publish before editing.
+- **Why:** Usage-driven sealing needs no UI ceremony and can't be bypassed by forgetting a
+  step, while still giving full, comparable version history for future analytics/AI/audit
+  use cases the ADR argues for.
+- **Full writeup:** root-cause analysis in
+  [docs/forms-architecture-investigation.md](docs/forms-architecture-investigation.md),
+  architecture decision in
+  [docs/forms-versioning-architecture-decision.md](docs/forms-versioning-architecture-decision.md),
+  phase-by-phase implementation in
+  [docs/forms-versioning-implementation-plan.md](docs/forms-versioning-implementation-plan.md).
+- **Implemented:** all 7 phases (0–6) shipped on `feature/forms-versioning`. `form_questions`
+  is fully retired (migration 039); `form_responses.question_id` and all historical-answer
+  read paths now resolve against the immutable `form_version_questions` snapshot pinned at
+  assignment time. The three destructive cascades identified in the investigation
+  (`forms→form_requests`, `forms→check_in_schedules`, `forms→package_default_forms`) are now
+  `RESTRICT`, backed by an application-layer 409 guard (archive instead of delete).

@@ -386,3 +386,15 @@ Format:
 **Why it matters:** Fine at current scale, but the per-client round-trips will degrade as client counts grow; it's a single-instance in-process cron with no horizontal-scale story.
 **Effort:** Medium (batch per workspace; reuse a shared bulk status helper extracted from getClients)
 **Priority:** Low
+
+---
+
+## 2026-07-07 — server/src/modules/forms, server/prisma (Forms Versioning follow-ups)
+**Type:** Knowledge
+**What:** Three items deliberately deferred during the Forms Versioning project (see `docs/forms-architecture-investigation.md`, `docs/forms-versioning-architecture-decision.md`, `docs/forms-versioning-implementation-plan.md`):
+1. `notifications.entity_id` has no FK to anything (plain string). A `form_request` a notification points at can still be deleted (`cancelQueue`/`deleteRequest`, pending/scheduled only) leaving a dangling pointer — pre-existing, unrelated to this project, not introduced or fixed by it.
+2. Form-level metadata (`title_en`, `form_type`, `post_action`) is deliberately NOT versioned per the ADR — only the question set is. `post_action` is already denormalized onto `form_requests` at creation time (unaffected by later edits); `form_type`/`title_en` are not. If this ever becomes a real coach complaint (a historical submission showing the *current* form title/type instead of what it was at submission time), the fix is an independent, small addition (denormalize onto `form_requests` the same way `post_action` already is) — not a reopening of the versioning architecture.
+3. The Phase 1 backfill's "when was version 1 sealed" timestamp for pre-existing forms is best-effort (earliest `form_requests.requested_at`, or left unsealed if the form had none) — pre-migration provenance is inherently approximate, since multiple silent edits may already have blurred what "version 1" meant for old data. This is a one-time cutover limitation, not an ongoing gap.
+**Why it matters:** None of these block correctness of the shipped feature; they're follow-up candidates if product priorities surface them.
+**Effort:** Small each
+**Priority:** Low

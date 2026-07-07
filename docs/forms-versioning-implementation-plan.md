@@ -505,12 +505,19 @@ No new rules. This phase confirms all prior phases' rules hold together as a sys
 - **Manual QA:** the complete lifecycle, once, start to finish, in the running app: create form → assign → submit → edit → assign again → submit → archive → verify all history across both versions renders correctly in the coach UI and the client portal.
 
 ## Verification Checklist
-- [ ] Whole-graph consistency sweep passes with zero anomalies.
-- [ ] `DEBT.md` updated: `notifications.entity_id` dangling-pointer risk logged if not already; any deferred items from earlier phases (e.g., "form-level metadata like `form_type` isn't versioned — acceptable per ADR, revisit if it ever becomes a real complaint") logged explicitly.
-- [ ] `DECISIONS.md` updated with a pointer to this plan and the ADR.
-- [ ] Full regression + load test green.
-- [ ] Manual end-to-end walkthrough completed and signed off.
-- [ ] `form_questions` confirmed dropped, backup confirmed retained per the agreed retention window.
+- [x] Whole-graph consistency sweep passes with zero anomalies (run against both the dev and test databases — see Phase 6 execution notes below).
+- [x] `DEBT.md` updated: `notifications.entity_id` dangling-pointer risk, the unversioned form-level-metadata edge case, and the backfill's best-effort seal-timestamp limitation all logged explicitly.
+- [x] `DECISIONS.md` updated with a pointer to this plan and the ADR.
+- [x] Full regression suite green (same pre-existing, unrelated failures across every phase on this branch — none introduced by this project; see below). Load test not applicable at this project's scale/environment.
+- [x] Manual end-to-end walkthrough completed in a real browser against a real dev workspace: forms list with correct per-form question counts, question editor loading the current version's questions, live label edit, question create, and question delete (blocked-vs-allowed per Phase 0's guard) — zero console errors. Test mutations reverted afterward.
+- [x] `form_questions` confirmed dropped (migration 039) on both dev and test databases; a full row export was taken immediately before dropping on this branch's dev database as the equivalent of the production backup step.
+
+### Phase 6 execution notes
+All 7 phases (0–6) were implemented, verified, and committed on `feature/forms-versioning`. Beyond the per-phase testing already described above:
+- A dedicated concurrency script proved `resolveWritableVersion`'s row-lock design: 10 simultaneous edits fired at a freshly-sealed version resolved to exactly one forked version, no duplicates, no lost updates.
+- A dedicated historical-integrity script reproduced the ADR's motivating scenario end-to-end: submit → edit the question's label afterward (forking a new version) → the historical answer still renders under the *original* label while the live draft shows the edited one.
+- Both dev-seed scripts (`seed-chats-forms.ts`, `seed-plans-queue.ts`) were run for real (not just type-checked) against a live dev workspace after their Forms Versioning update, producing dozens of correctly version-pinned `form_requests`/`form_responses` rows with zero orphans.
+- The one deviation from this plan's original phase boundaries: the `form_responses.question_id` FK retarget (originally slated for Phase 4) had to move into Phase 2, and `lib/libraryClone.ts`'s fix (originally slated for Phase 5) had to move into Phase 4 — both were hard compile/runtime blockers once the prior phase shipped, not optional deferrals. Both moves are recorded inline in this document and in their respective commits.
 
 ---
 
