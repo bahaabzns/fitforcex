@@ -48,6 +48,7 @@ export default function FormsPage() {
         handleCreateForm,
         handleUpdateForm,
         handleDeleteForm,
+        handleArchiveForm,
         handleDuplicateForm,
         handleCreateQuestion,
         handleUpdateQuestion,
@@ -86,6 +87,7 @@ export default function FormsPage() {
                     handleCreateForm={handleCreateForm}
                     handleUpdateForm={handleUpdateForm}
                     handleDeleteForm={handleDeleteForm}
+                    handleArchiveForm={handleArchiveForm}
                     handleDuplicateForm={handleDuplicateForm}
                 />
             </div>

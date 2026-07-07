@@ -261,7 +261,13 @@ export default function QuestionsPanel({
                                             <button
                                                 title={t('deleteQuestion')}
                                                 className="cursor-pointer shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id); }}
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    // A question with recorded answers can't be deleted (it would
+                                                    // cascade-erase client history) — see forms.controller.ts.
+                                                    const result = await handleDeleteQuestion(q.id);
+                                                    if (result?.blocked) window.alert(t('deleteQuestionBlocked', { count: result.answerCount }));
+                                                }}
                                             >
                                                 <TrashIcon />
                                             </button>

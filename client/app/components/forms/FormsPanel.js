@@ -33,10 +33,25 @@ export default function FormsPanel({
     handleCreateForm,
     handleUpdateForm,
     handleDeleteForm,
+    handleArchiveForm,
     handleDuplicateForm,
 }) {
     const tNutrition = useTranslations('nutrition');
+    const tForms = useTranslations('forms');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["forms"]));
+
+    // A form with client history can't be deleted (see forms.controller.ts —
+    // `form_requests` would be silently destroyed by the DB cascade). Offer
+    // archiving as the sanctioned alternative instead of just failing.
+    async function handleDeleteOrArchive(form) {
+        const result = await handleDeleteForm(form.id);
+        if (result?.blocked) {
+            const shouldArchive = window.confirm(
+                tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount })
+            );
+            if (shouldArchive) await handleArchiveForm(form.id);
+        }
+    }
 
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
@@ -111,7 +126,8 @@ export default function FormsPanel({
                                                         setPendingFocusFormId={setPendingFocusFormId}
                                                         onSelect={() => handleSelectForm(form)}
                                                         onUpdate={(updates) => handleUpdateForm(form.id, updates)}
-                                                        onDelete={() => handleDeleteForm(form.id)}
+                                                        onDelete={() => handleDeleteOrArchive(form)}
+                                                        onArchive={() => handleArchiveForm(form.id)}
                                                         onDuplicate={() => handleDuplicateForm(form.id)}
                                                     />
                                                 );
@@ -129,7 +145,7 @@ export default function FormsPanel({
     );
 }
 
-function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onDuplicate }) {
+function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onArchive, onDuplicate }) {
     const tForms = useTranslations('forms');
     const tCommon = useTranslations('common');
 
@@ -137,6 +153,8 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
         <div
             onClick={onSelect}
             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 ${
+                form.status === 'archived' ? "opacity-60" : ""
+            } ${
                 isActive
                     ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
                     : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
@@ -161,6 +179,11 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                             <Chip.Label>{tForms('active')}</Chip.Label>
                         </Chip>
                     )}
+                    {form.status === 'archived' && (
+                        <Chip size="sm" color="default" variant="soft" className="shrink-0">
+                            <Chip.Label>{tForms('archived')}</Chip.Label>
+                        </Chip>
+                    )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                     {tForms('questionCount', { count: form.question_count ?? 0 })}
@@ -180,6 +203,11 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                         onSelect: () => onUpdate({ status: 'active' }),
                     }] : []),
                     { key: 'duplicate', label: tForms('duplicateForm'), icon: <DuplicateIcon />, onSelect: onDuplicate },
+                    ...(form.status !== 'archived' ? [{
+                        key: 'archive',
+                        label: tForms('archiveForm'),
+                        onSelect: onArchive,
+                    }] : []),
                     { key: 'delete', label: tForms('deleteForm'), icon: <TrashIcon />, danger: true, onSelect: onDelete },
                 ]}
             />

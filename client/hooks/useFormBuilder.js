@@ -89,8 +89,27 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
                 setQuestions([]);
                 setSelectedQuestion(null);
             }
+            return { ok: true };
         } catch (err) {
+            if (err?.response?.status === 409) {
+                // Form has client history — archiving (not deleting) is the
+                // sanctioned path. Let the caller show an archive prompt.
+                return { ok: false, blocked: true, submissionCount: err.response.data?.submissionCount ?? 0 };
+            }
             console.error('Error deleting form:', err);
+            return { ok: false, blocked: false };
+        }
+    };
+
+    const handleArchiveForm = async (id) => {
+        try {
+            const res = await api.put(`${basePath}/${id}`, { status: 'archived' });
+            setForms(prev => prev.map(f => f.id === id ? { ...f, ...res.data } : f));
+            if (selectedForm?.id === id) setSelectedForm(prev => ({ ...prev, ...res.data }));
+            return { ok: true };
+        } catch (err) {
+            console.error('Error archiving form:', err);
+            return { ok: false };
         }
     };
 
@@ -165,7 +184,7 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
     };
 
     const handleDeleteQuestion = async (qid) => {
-        if (!selectedForm) return;
+        if (!selectedForm) return { ok: false };
         try {
             await api.delete(`${basePath}/${selectedForm.id}/questions/${qid}`);
             setQuestions(prev => prev.filter(q => q.id !== qid));
@@ -175,8 +194,13 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
                     ? { ...f, question_count: Math.max(0, (f.question_count || 1) - 1) }
                     : f
             ));
+            return { ok: true };
         } catch (err) {
+            if (err?.response?.status === 409) {
+                return { ok: false, blocked: true, answerCount: err.response.data?.answerCount ?? 0 };
+            }
             console.error('Error deleting question:', err);
+            return { ok: false, blocked: false };
         }
     };
 
@@ -210,6 +234,7 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         handleCreateForm,
         handleUpdateForm,
         handleDeleteForm,
+        handleArchiveForm,
         handleDuplicateForm,
         handleCreateQuestion,
         handleUpdateQuestion,

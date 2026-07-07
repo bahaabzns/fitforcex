@@ -52,7 +52,7 @@ router.use(async (_req: Request, _res: Response, next: NextFunction) => {
  *       200:
  *         description: Form updated
  *   delete:
- *     summary: Delete a form
+ *     summary: Delete a form (blocked if it has any client assignments — archive instead via PUT status=archived)
  *     tags: [Forms]
  *     security:
  *       - cookieAuth: []
@@ -61,6 +61,8 @@ router.use(async (_req: Request, _res: Response, next: NextFunction) => {
  *     responses:
  *       200:
  *         description: Form deleted
+ *       409:
+ *         description: Form has existing client submissions/assignments — archive it instead
  */
 router.get('/',        formsController.getForms);
 router.post('/',       formsController.createForm);
@@ -116,7 +118,7 @@ router.delete('/:id',  formsController.deleteForm);
  *       200:
  *         description: Question updated
  *   delete:
- *     summary: Delete a question
+ *     summary: Delete a question (blocked if it has any recorded answers)
  *     tags: [Forms]
  *     security:
  *       - cookieAuth: []
@@ -126,6 +128,8 @@ router.delete('/:id',  formsController.deleteForm);
  *     responses:
  *       200:
  *         description: Question deleted
+ *       409:
+ *         description: Question has recorded answers — cannot be deleted
  */
 router.get('/:id/questions',           formsController.getQuestions);
 router.post('/:id/questions',          formsController.createQuestion);

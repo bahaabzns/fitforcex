@@ -17,6 +17,11 @@ export function normalizeFormType(value: unknown): string {
     return allowed.includes(value as string) ? (value as string) : 'check-in';
 }
 
+const FORM_STATUSES = ['draft', 'active', 'archived'];
+export function normalizeStatus(value: unknown): string | undefined {
+    return FORM_STATUSES.includes(value as string) ? (value as string) : undefined;
+}
+
 // DDL — kept as raw pool (ALTER TABLE cannot run inside Prisma)
 export async function ensureFormsQueueSchema(): Promise<void> {
     if (!schemaReadyPromise) {
@@ -88,6 +93,7 @@ export async function updateForm(req: Request, res: Response, next: NextFunction
     const { title_en, title_ar, description_en, description_ar, status, postAction, formType } = req.body as Record<string, unknown>;
     const safePostAction = postAction !== undefined ? normalizePostAction(postAction) : undefined;
     const safeFormType   = formType   !== undefined ? normalizeFormType(formType)    : undefined;
+    const safeStatus     = status     !== undefined ? normalizeStatus(status)        : undefined;
     try {
         const updated = await prisma.forms.updateMany({
             where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
@@ -96,7 +102,7 @@ export async function updateForm(req: Request, res: Response, next: NextFunction
                 title_ar:       (title_ar       as string | undefined) ?? undefined,
                 description_en: (description_en as string | undefined) ?? undefined,
                 description_ar: (description_ar as string | undefined) ?? undefined,
-                status:         (status         as string | undefined) ?? undefined,
+                status:         safeStatus,
                 post_action:    safePostAction,
                 form_type:      safeFormType,
                 updated_at:     new Date(),
@@ -110,12 +116,28 @@ export async function updateForm(req: Request, res: Response, next: NextFunction
     }
 }
 
+// Forms Versioning Phase 0 — a form with any history (client assignments) is
+// never hard-deleted: the DB cascade would silently wipe every submission,
+// metric, and scheduled check-in tied to it (see
+// docs/forms-architecture-investigation.md). Archiving via updateForm's
+// status field is the sanctioned retirement path instead.
 export async function deleteForm(req: Request, res: Response, next: NextFunction) {
     try {
-        const deleted = await prisma.forms.deleteMany({
-            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+        const form = await prisma.forms.findFirst({
+            where:  { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
         });
-        if (deleted.count === 0) return res.status(404).json({ error: 'Form not found' });
+        if (!form) return res.status(404).json({ error: 'Form not found' });
+
+        const submissionCount = await prisma.form_requests.count({ where: { form_id: form.id } });
+        if (submissionCount > 0) {
+            return res.status(409).json({
+                error: `This form has ${submissionCount} client submission(s)/assignment(s). Archive it instead of deleting.`,
+                submissionCount,
+            });
+        }
+
+        await prisma.forms.deleteMany({ where: { id: form.id, workspace_id: req.user!.workspaceId } });
         res.json({ deleted: req.params.id });
     } catch (err) {
         next(err);
@@ -261,6 +283,24 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
 
 export async function deleteQuestion(req: Request, res: Response, next: NextFunction) {
     try {
+        const existing = await prisma.form_questions.findFirst({
+            where:  { id: req.params.qid as string, form_id: req.params.id as string },
+            select: { id: true },
+        });
+        if (!existing) return res.status(404).json({ error: 'Question not found' });
+
+        // Forms Versioning Phase 0 — a question with any historical answers is
+        // never hard-deleted: form_responses cascades on question_id, so this
+        // would silently erase every past answer (and metric data point) tied
+        // to it. See docs/forms-architecture-investigation.md.
+        const answerCount = await prisma.form_responses.count({ where: { question_id: existing.id } });
+        if (answerCount > 0) {
+            return res.status(409).json({
+                error: `This question has ${answerCount} recorded answer(s). It cannot be deleted without losing client history.`,
+                answerCount,
+            });
+        }
+
         const deleted = await prisma.form_questions.deleteMany({
             where: { id: req.params.qid as string, form_id: req.params.id as string },
         });
