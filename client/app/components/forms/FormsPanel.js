@@ -49,8 +49,19 @@ export default function FormsPanel({
             const shouldArchive = window.confirm(
                 tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount })
             );
-            if (shouldArchive) await handleArchiveForm(form.id);
+            if (shouldArchive) await archiveWithWarning(form);
         }
+    }
+
+    // Archiving itself is never destructive (see forms.controller.ts's
+    // updateForm), but a form that's still a package default keeps being
+    // offered by that package's future activations until the coach updates
+    // it — surface that blast radius immediately rather than let the coach
+    // find out later. Shared by both archive entry points (the direct menu
+    // action and the archive-instead-of-delete prompt above).
+    async function archiveWithWarning(form) {
+        const result = await handleArchiveForm(form.id);
+        if (result?.warning) window.alert(result.warning);
     }
 
     return (
@@ -127,7 +138,7 @@ export default function FormsPanel({
                                                         onSelect={() => handleSelectForm(form)}
                                                         onUpdate={(updates) => handleUpdateForm(form.id, updates)}
                                                         onDelete={() => handleDeleteOrArchive(form)}
-                                                        onArchive={() => handleArchiveForm(form.id)}
+                                                        onArchive={() => archiveWithWarning(form)}
                                                         onDuplicate={() => handleDuplicateForm(form.id)}
                                                     />
                                                 );

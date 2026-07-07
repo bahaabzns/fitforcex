@@ -274,7 +274,7 @@ export async function runCheckInDispatchTick(): Promise<number> {
                     // linked request — Forms Versioning Phase 2's assignment
                     // moment (sealing the version) happens right here instead
                     // of at activation, same as before.
-                    const { versionId } = await sealVersionForAssignment(row.form_id, null);
+                    const { versionId } = await sealVersionForAssignment(row.form_id, row.workspace_id, null);
                     await prisma.form_requests.create({
                         data: {
                             id:              createId(),

@@ -106,7 +106,10 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
             const res = await api.put(`${basePath}/${id}`, { status: 'archived' });
             setForms(prev => prev.map(f => f.id === id ? { ...f, ...res.data } : f));
             if (selectedForm?.id === id) setSelectedForm(prev => ({ ...prev, ...res.data }));
-            return { ok: true };
+            // Forms Versioning Phase 5/post-review fix — the backend only sets
+            // this when the form is a package default; the caller decides how
+            // to display it (see FormsPanel.js).
+            return { ok: true, warning: res.data?.warning };
         } catch (err) {
             console.error('Error archiving form:', err);
             return { ok: false };

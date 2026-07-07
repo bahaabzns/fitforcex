@@ -685,7 +685,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     // nutrition.controller.ts's activatePlan: create the
                     // form_requests row immediately (status 'scheduled') so
                     // it's visible in Plans Queue right away.
-                    const { versionId } = await sealVersionForAssignment(f.formId, req.user!.userId);
+                    const { versionId } = await sealVersionForAssignment(f.formId, coachId, req.user!.userId);
                     const requestId = createId();
                     await dbClient.query(
                         `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)

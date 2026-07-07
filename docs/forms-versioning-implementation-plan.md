@@ -17,12 +17,13 @@
 7. [Phase 4 — Cascade Hardening & Legacy Retirement](#phase-4--cascade-hardening--legacy-retirement)
 8. [Phase 5 — Ecosystem Safety (Scheduler, Packages, Onboarding)](#phase-5--ecosystem-safety-scheduler-packages-onboarding)
 9. [Phase 6 — Final Validation & Cleanup](#phase-6--final-validation--cleanup)
-10. [Sequence Diagrams](#sequence-diagrams)
-11. [Final ER Diagram](#final-er-diagram)
-12. [File-by-File Implementation Plan](#file-by-file-implementation-plan)
-13. [Feature Dependency Map](#feature-dependency-map)
-14. [Risk Assessment](#risk-assessment)
-15. [Release Strategy](#release-strategy)
+10. [Phase 7 — Release-Readiness Review Fixes](#phase-7--release-readiness-review-fixes)
+11. [Sequence Diagrams](#sequence-diagrams)
+12. [Final ER Diagram](#final-er-diagram)
+13. [File-by-File Implementation Plan](#file-by-file-implementation-plan)
+14. [Feature Dependency Map](#feature-dependency-map)
+15. [Risk Assessment](#risk-assessment)
+16. [Release Strategy](#release-strategy)
 16. [Future Compatibility](#future-compatibility)
 17. [Final Review](#final-review)
 
@@ -518,6 +519,35 @@ All 7 phases (0–6) were implemented, verified, and committed on `feature/forms
 - A dedicated historical-integrity script reproduced the ADR's motivating scenario end-to-end: submit → edit the question's label afterward (forking a new version) → the historical answer still renders under the *original* label while the live draft shows the edited one.
 - Both dev-seed scripts (`seed-chats-forms.ts`, `seed-plans-queue.ts`) were run for real (not just type-checked) against a live dev workspace after their Forms Versioning update, producing dozens of correctly version-pinned `form_requests`/`form_responses` rows with zero orphans.
 - The one deviation from this plan's original phase boundaries: the `form_responses.question_id` FK retarget (originally slated for Phase 4) had to move into Phase 2, and `lib/libraryClone.ts`'s fix (originally slated for Phase 5) had to move into Phase 4 — both were hard compile/runtime blockers once the prior phase shipped, not optional deferrals. Both moves are recorded inline in this document and in their respective commits.
+
+---
+
+## Phase 7 — Release-Readiness Review Fixes
+
+### Objective
+An independent review (external-senior-engineer stance, assuming no prior involvement in the branch) audited Phases 0–6 against the ADR and the actual diff, and returned a **Go with Conditions** verdict — sound architecture, but specific, fixable gaps. This phase closes every one of them, adds the automated test coverage the review found missing, and documents one genuine concurrency bug the new tests caught that pure code-reading had missed.
+
+### Why this phase exists
+"Verified end-to-end" in Phase 6 was true for the scenarios that were actually exercised. The review's value was finding the scenarios that weren't — cross-tenant writes through the new fork mechanism, archived forms remaining assignable through paths other than the scheduler, a computed-but-never-displayed warning, missing indexes on the project's own new foreign keys, and — the most important find — a lock-granularity bug in `resolveWritableVersion`/`sealVersionForAssignment` that only surfaces under real concurrent load.
+
+### Fixes
+
+1. **Workspace ownership validation, centralized (not duplicated).** `resolveWritableVersion` and `sealVersionForAssignment` (`forms.service.ts`) now both require a `workspaceId` parameter and verify the form belongs to it *before* any read or write, via a shared `lockForm` helper (see fix #5). Every caller — `createQuestion`, `updateQuestion`, `deleteQuestion`, `reorderQuestions`, `createRequests` (`forms.controller.ts`), the scheduler's dispatch tick, and nutrition/training's `activatePlan` — was updated to pass it. A form that doesn't exist, or belongs to another workspace, now returns `404` (`FormNotFoundError`, deliberately not `403`, so the endpoint can't be used to enumerate which form ids exist in other tenants) instead of silently operating on it. `updateQuestion`/`deleteQuestion`'s catch blocks were also fixed to route through `next(err)` instead of hardcoding `500` — they were swallowing this new error's `.status` before that change.
+2. **Archived forms can no longer be assigned through any path.** `sealVersionForAssignment` — the one function every assignment path (`createRequests`, plan activation, the scheduler) already funneled through — now throws `FormArchivedError` (409) for an archived form, enforced once rather than duplicated at each call site. `createRequests` additionally excludes archived forms from its own form lookup so a mixed batch silently skips just the archived ones (matching its existing behavior for an invalid form id) instead of failing the whole batch mid-loop.
+3. **The archive warning now actually reaches the coach.** The backend already computed it (Phase 5); `useFormBuilder.js`'s `handleArchiveForm` now returns it, and `FormsPanel.js` displays it via the same `window.alert`/`window.confirm` pattern already used one function away in this exact file for the archive-instead-of-delete prompt — no new UI system introduced.
+4. **Missing indexes added** (migration `041`): `forms.current_version_id`, `form_requests.form_version_id` (named explicitly by the review), plus three more FK columns whose *constraint* this project's own migrations modified without indexing them — `form_responses.question_id` (retargeted in migration 037), and `check_in_schedules.form_id`/`form_requests.form_id` (hardened to `RESTRICT` in migration 038). Genuinely pre-existing unindexed FKs on the same tables (`forms.workspace_id`, `form_requests.workspace_id`/`client_id`) were deliberately left alone and logged to `DEBT.md` instead — out of scope for this project, which only touches what it introduced or modified.
+5. **A real concurrency bug, found by the new test, not by re-reading the code.** The review flagged that edit-vs-assignment concurrency was "proven by reasoning, not testing." Writing that test found a genuine bug: `resolveWritableVersion` locked the `form_versions` row `current_version_id` pointed *at* (read without a lock, before the lock was taken), not the `forms` row whose pointer can move. Two concurrent callers could both capture the same stale `current_version_id`, both queue on the same `form_versions` row's `FOR UPDATE`, and — since neither re-checks whether the pointer moved while it waited — both compute `version_number = parent + 1` off the same parent, forking two sibling versions with the same number and crashing on `@@unique([form_id, version_number])`. A 10-concurrent-call burst test (5 edits + 5 assignments against one fresh form) reproduced this reliably. **Fix:** both functions now share a `lockForm` helper that takes `SELECT ... FOR UPDATE` on the `forms` row itself, first, before reading `current_version_id` — the row that can change is what needs the lock, not the row it happened to point at when read. This also closes a second, quieter bug the same design flaw caused: `sealVersionForAssignment` could seal an already-superseded version if it read a stale pointer, silently pinning a new assignment to old wording instead of the coach's just-finished edit. Re-verified: the burst test now passes consistently across 5 repeated runs (previously failed the very first time it was written).
+6. **A pre-existing historical-integrity bug, found by the end-to-end lifecycle test.** `buildTransformationPayload` (`clients.controller.ts`, backs both the coach and client-portal progress-chart/metrics views) only ever included `form_requests` with `status: 'submitted'` — the moment a coach reviews a check-in or assessment (`status` → `'reviewed'`), it silently disappeared from progress charts and metric history. This predates Forms Versioning entirely (this function's read-path JOIN target changed in Phase 3; this filter condition did not) and was only surfaced by writing the full lifecycle test the review's item 6 called for — a plain unit-level check would never have exercised "submit → review → then check the chart" in sequence. Fixed by including `'reviewed'` in the status filter.
+
+### New automated test coverage
+- `tests/integration/formsVersioning.test.ts` — tenant isolation on all four question-CRUD endpoints (positive: 404 + untouched data; a nonexistent form also 404s, not 500), archived-form assignment blocking (single and mixed-batch), and two concurrency tests (a single simultaneous edit+assign pair, and the 10-way burst that caught fix #5's bug).
+- `tests/integration/formsVersioningLifecycle.test.ts` — the full business workflow requested by the review's item 6, through real HTTP endpoints: package-adjacent plan activation → assessment assignment → client submission → coach review → automatic check-in scheduling (via the Package Lifecycle bug-fix's activation-time `form_requests` creation) → Plans Queue visibility → scheduler dispatch → client check-in submission → coach review → **coach edits the assessment question (forks a version)** → historical submission, metrics/progress-chart, and Plans Queue all still render the *original* wording and values → archiving the form leaves all history intact but blocks new assignment. This test is what caught fix #6.
+
+### Verification
+- Both new test files pass consistently across repeated runs (5× for the concurrency-sensitive suite, to rule out a lucky pass — it wasn't lucky the first time before the fix, and is consistently green after).
+- Full regression suite: 118 passing (up from 107 pre-Phase-7), same three pre-existing, unrelated failures present since before this branch existed (a cookie env-config test, stale `packages.serializer` assertions, shared-test-DB flakiness) — zero new regressions.
+- `tsc` build clean throughout.
+- `prisma generate` could not be re-run at the time of this phase (a Windows file lock on the query engine binary from a concurrently-running process) — not a blocker, since every change in this phase is either an `@@index` addition (no effect on the generated Client's type surface at all) or application code with no schema shape change; confirmed via a full `tsc --noEmit` pass instead. Retry `prisma generate` on the next clean checkout as routine housekeeping, not a correctness gap.
 
 ---
 

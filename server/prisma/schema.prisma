@@ -139,6 +139,7 @@ model check_in_schedules {
 
   @@index([next_due_at], map: "idx_checkin_sched_due")
   @@index([client_id], map: "idx_checkin_sched_client")
+  @@index([form_id])
 }
 
 model clients {

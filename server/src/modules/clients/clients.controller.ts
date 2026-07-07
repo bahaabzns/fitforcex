@@ -772,9 +772,15 @@ export async function getClientWorkoutLog(req: Request, res: Response, next: Nex
 // Shared by getClientTransformation (coach) and re-exported for the portal controller.
 // Uses flat queries + in-memory joins to stay compatible with this Prisma client version.
 export async function buildTransformationPayload(clientId: string, workspaceId: string) {
-    // 1. Submitted form requests for this client
+    // 1. Every form request this client has ever answered — 'reviewed' is
+    // included, not just 'submitted' (found via Forms Versioning's
+    // end-to-end lifecycle test): a coach reviewing a check-in/assessment
+    // only advances its queue status, it doesn't un-happen the submission,
+    // so it must stay in progress charts/metric history exactly as it did
+    // before review. Pre-existing gap, not introduced by Forms Versioning —
+    // this function's JOIN target changed in Phase 3, this filter didn't.
     const requests = await prisma.form_requests.findMany({
-        where:  { client_id: clientId, workspace_id: workspaceId, status: 'submitted' },
+        where:  { client_id: clientId, workspace_id: workspaceId, status: { in: ['submitted', 'reviewed'] } },
         select: { id: true, submitted_at: true, form_id: true },
     });
     if (requests.length === 0) return { metrics: [], timeline: [] };

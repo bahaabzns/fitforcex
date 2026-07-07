@@ -398,3 +398,20 @@ Format:
 **Why it matters:** None of these block correctness of the shipped feature; they're follow-up candidates if product priorities surface them.
 **Effort:** Small each
 **Priority:** Low
+
+---
+
+## 2026-07-07 — server/prisma (pre-existing unindexed FKs, out of Forms Versioning's scope)
+**Type:** Shortcut
+**What:** `forms.workspace_id`, `form_requests.workspace_id`/`client_id`, and `check_in_schedules.workspace_id` are FK columns with no index. Discovered during the Forms Versioning Release-Readiness Review's FK-indexing audit, alongside (now-fixed, migration 041) unindexed Forms-Versioning-owned columns — these four predate the project and were never touched by any of its migrations, so they were deliberately left alone to keep migration 041 scoped to what the project actually introduced or modified.
+**Why it matters:** Same category of risk as the ones just fixed — tenant-scoped queries filtering by `workspace_id` on these tables do a sequential scan rather than an index scan as row counts grow.
+**Effort:** Small (a single additive migration, same shape as 041)
+**Priority:** Low-Medium
+
+## 2026-07-07 — server/src/modules/clients/clients.controller.ts (buildTransformationPayload)
+**Type:** Shortcut → ✅ RESOLVED 2026-07-07
+**What:** `buildTransformationPayload` (backs both the coach's client-transformation view and the client portal's progress page) only included `form_requests` with `status: 'submitted'` — the moment a coach reviewed a check-in/assessment (`status` → `'reviewed'`), it silently dropped out of progress charts and metric history. Pre-existing, predates Forms Versioning (this function's JOIN target changed in Phase 3; this filter did not) — found by Forms Versioning's Release-Readiness Review end-to-end lifecycle test (`tests/integration/formsVersioningLifecycle.test.ts`), which was the first test to exercise "submit → review → check the chart" in sequence.
+**Why it matters:** Every reviewed submission's data point was invisible to the exact people who needed to see it (the coach tracking progress, the client checking their own history) — arguably the single most product-visible bug found during this whole project.
+**Effort:** Small — one-line filter change (`status: { in: ['submitted', 'reviewed'] } }`)
+**Priority:** High
+✅ RESOLVED 2026-07-07 — fixed in the same commit as the Forms Versioning Release-Readiness Review pass.

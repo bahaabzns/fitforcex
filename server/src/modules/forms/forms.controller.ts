@@ -212,7 +212,7 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
         // new one and every existing question gets a new id. The duplicate
         // check and order_index below must run against the (possibly new)
         // resolved version, not the version that existed before this call.
-        const { versionId, isNewVersion } = await resolveWritableVersion(formId, req.user!.userId);
+        const { versionId, isNewVersion } = await resolveWritableVersion(formId, req.user!.workspaceId, req.user!.userId);
 
         if (resolvedMetricId) {
             const metric = await prisma.metrics.findFirst({
@@ -274,7 +274,7 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
         // looking up the question: if the current version was sealed, the
         // qid the client sent belongs to the now-superseded version and
         // must be translated to its clone in the new one.
-        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.userId);
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.workspaceId, req.user!.userId);
         const qid = questionIdMap.get(req.params.qid as string) ?? (req.params.qid as string);
 
         const existing = await prisma.form_version_questions.findFirst({
@@ -329,8 +329,10 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
         });
         res.json({ ...updated, versionChanged: isNewVersion });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        // Routes through the global error handler so FormNotFoundError's
+        // .status (404) is respected rather than always collapsing to 500 —
+        // matches the pattern already used by createQuestion/reorderQuestions.
+        next(err);
     }
 }
 
@@ -351,7 +353,7 @@ export async function deleteQuestion(req: Request, res: Response, next: NextFunc
             });
         }
 
-        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.userId);
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.workspaceId, req.user!.userId);
         const qid = questionIdMap.get(req.params.qid as string) ?? (req.params.qid as string);
 
         const deleted = await prisma.form_version_questions.deleteMany({
@@ -365,8 +367,10 @@ export async function deleteQuestion(req: Request, res: Response, next: NextFunc
         });
         res.json({ deleted: req.params.qid, versionChanged: isNewVersion });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        // Routes through the global error handler so FormNotFoundError's
+        // .status (404) is respected rather than always collapsing to 500 —
+        // matches the pattern already used by createQuestion/reorderQuestions.
+        next(err);
     }
 }
 
@@ -374,7 +378,7 @@ export async function reorderQuestions(req: Request, res: Response, next: NextFu
     const { order } = req.body as { order?: Array<{ id: string; order_index: number }> };
     const formId = req.params.id as string;
     try {
-        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.userId);
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.workspaceId, req.user!.userId);
         await prisma.$transaction(
             (order || []).map(({ id, order_index }) =>
                 prisma.form_version_questions.updateMany({
@@ -419,8 +423,15 @@ export async function createRequests(req: Request, res: Response, next: NextFunc
 
         const inserted = [];
         for (const form_id of form_ids) {
+            // Forms Versioning Phase 5/Post-review fix — archived forms are
+            // excluded here (not just by the frontend picker) so a stale
+            // page or a direct API call can't assign one. Skipped silently,
+            // matching this loop's existing behavior for an invalid/missing
+            // form_id, rather than failing the whole batch partway through
+            // (sealVersionForAssignment's own FormArchivedError check below
+            // remains as a backstop for any other caller of this module).
             const formCheck = await prisma.forms.findFirst({
-                where:  { id: form_id as string, workspace_id: req.user!.workspaceId },
+                where:  { id: form_id as string, workspace_id: req.user!.workspaceId, status: { not: 'archived' } },
                 select: { id: true, post_action: true },
             });
             if (!formCheck) continue;
@@ -433,7 +444,7 @@ export async function createRequests(req: Request, res: Response, next: NextFunc
             // this is the assignment moment: seal the current version now so
             // this request permanently answers exactly this wording, even
             // if the coach edits the form again before the client responds.
-            const { versionId } = await sealVersionForAssignment(formCheck.id, req.user!.userId);
+            const { versionId } = await sealVersionForAssignment(formCheck.id, req.user!.workspaceId, req.user!.userId);
 
             const request = await prisma.form_requests.create({
                 data: {
@@ -630,8 +641,10 @@ export async function reviewQueue(req: Request, res: Response, next: NextFunctio
         });
         res.json({ updatedIds: updated.map(r => r.id) });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        // Routes through the global error handler so FormNotFoundError's
+        // .status (404) is respected rather than always collapsing to 500 —
+        // matches the pattern already used by createQuestion/reorderQuestions.
+        next(err);
     }
 }
 

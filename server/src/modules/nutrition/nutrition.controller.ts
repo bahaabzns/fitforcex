@@ -711,7 +711,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     // it on the plan's end date. Sealing the version now (same
                     // "assignment moment" convention as the manual schedule-a-
                     // form flow) pins the wording the client will see.
-                    const { versionId } = await sealVersionForAssignment(f.formId, req.user!.userId);
+                    const { versionId } = await sealVersionForAssignment(f.formId, coachId, req.user!.userId);
                     const requestId = createId();
                     await dbClient.query(
                         `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)

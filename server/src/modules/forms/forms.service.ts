@@ -4,6 +4,43 @@ import { prisma } from '../../lib/prisma';
 
 type TxClient = Prisma.TransactionClient;
 type VersionRow = { id: string; version_number: number; sealed_at: Date | null };
+type FormRow = { id: string; current_version_id: string | null; status: string };
+
+/**
+ * Thrown by resolveWritableVersion/sealVersionForAssignment when formId
+ * doesn't resolve inside the given workspace — either it doesn't exist, or
+ * it belongs to a different tenant. Deliberately indistinguishable between
+ * the two (404, not 403) so a caller can't use this endpoint to enumerate
+ * which form ids exist in other workspaces. Carries `.status` so it maps
+ * straight through the global error handler (see app.ts) when a controller
+ * does `catch (err) { next(err); }`.
+ */
+export class FormNotFoundError extends Error {
+    status = 404;
+    constructor(message = 'Form not found') {
+        super(message);
+        this.name = 'FormNotFoundError';
+    }
+}
+
+/**
+ * Thrown by sealVersionForAssignment when the form has been archived.
+ * Archiving means "stop offering this for new assignments" (see
+ * docs/forms-versioning-implementation-plan.md Phase 5) — every caller that
+ * commits a form to a client (coach-initiated createRequests, package/plan
+ * activation, the scheduler's dispatch tick) goes through this one function,
+ * so the rule is enforced here once rather than duplicated at each call site.
+ * 409, not 404: the form exists and is visible to this workspace, it's just
+ * not in an assignable state — matches deleteForm's existing 409 convention
+ * for "exists but blocked" responses.
+ */
+export class FormArchivedError extends Error {
+    status = 409;
+    constructor(message = 'This form has been archived and can no longer be assigned') {
+        super(message);
+        this.name = 'FormArchivedError';
+    }
+}
 
 export interface WritableVersionResult {
     versionId: string;
@@ -31,17 +68,37 @@ export interface WritableVersionResult {
  * edit after a seal) and cheap, so lock contention is a non-issue. See
  * docs/forms-versioning-implementation-plan.md, Phase 2 "Transactions &
  * Concurrency".
+ *
+ * Post-review fix: `workspaceId` is required and checked before any read or
+ * write touches the form, here rather than duplicated in every caller, so
+ * every write path through this module is tenant-scoped by construction —
+ * see docs/forms-versioning-implementation-plan.md's Release-Readiness
+ * Review addendum for why this was centralized here specifically.
+ *
+ * Post-review fix #2 (found by an automated concurrency test, not by
+ * reasoning — see tests/integration/formsVersioning.test.ts): the lock used
+ * to be taken on the `form_versions` row `current_version_id` pointed at,
+ * read via a prior, unlocked `forms` read. Two concurrent callers could
+ * both capture the same (soon-to-be-stale) `current_version_id` before
+ * either committed, both queue on the FOR UPDATE for that same version row,
+ * and — since neither ever re-checks whether `forms.current_version_id`
+ * moved while it waited — both compute `version_number = parent + 1` off
+ * the SAME parent, forking two sibling versions with the same number and
+ * crashing on the `@@unique([form_id, version_number])` constraint. Fixed
+ * by locking the `forms` row itself first: the pointer that can change is
+ * what needs the lock, not the row it happened to point at when read.
+ * `resolveWritableVersion` and `sealVersionForAssignment` now take this
+ * exact same lock, in the same order, so every combination of concurrent
+ * edit/assign calls for one form is fully serialized against every other.
  */
-export async function resolveWritableVersion(formId: string, actorUserId: string | null): Promise<WritableVersionResult> {
+export async function resolveWritableVersion(formId: string, workspaceId: string, actorUserId: string | null): Promise<WritableVersionResult> {
     return prisma.$transaction(async (tx) => {
-        const form = await tx.forms.findUniqueOrThrow({
-            where: { id: formId },
-            select: { current_version_id: true },
-        });
+        const form = await lockForm(tx, formId, workspaceId);
+        if (!form) throw new FormNotFoundError();
 
         if (form.current_version_id) {
             const rows = await tx.$queryRaw<VersionRow[]>`
-                SELECT id, version_number, sealed_at FROM form_versions WHERE id = ${form.current_version_id} FOR UPDATE
+                SELECT id, version_number, sealed_at FROM form_versions WHERE id = ${form.current_version_id}
             `;
             const current = rows[0];
             if (current && !current.sealed_at) {
@@ -64,6 +121,23 @@ export async function resolveWritableVersion(formId: string, actorUserId: string
         await tx.forms.update({ where: { id: formId }, data: { current_version_id: versionId } });
         return { versionId, isNewVersion: true, questionIdMap: new Map() };
     });
+}
+
+/**
+ * Locks the `forms` row (tenant-scoped) and returns its version-resolution
+ * fields, or `null` if it doesn't exist in this workspace. Shared by
+ * resolveWritableVersion and sealVersionForAssignment so both lock the same
+ * row, in the same way, before either reads current_version_id — see the
+ * "Post-review fix #2" note above for why the lock has to be here, not on
+ * form_versions.
+ */
+async function lockForm(tx: TxClient, formId: string, workspaceId: string): Promise<FormRow | null> {
+    const rows = await tx.$queryRaw<FormRow[]>`
+        SELECT id, current_version_id, status FROM forms
+        WHERE id = ${formId} AND workspace_id = ${workspaceId}
+        FOR UPDATE
+    `;
+    return rows[0] ?? null;
 }
 
 async function forkVersion(
@@ -113,18 +187,28 @@ async function forkVersion(
  * draft; a no-op if it's already sealed. Returns the (now guaranteed
  * sealed) version id to pin on the new `form_requests` row.
  *
- * The `sealed_at = null` guard in the UPDATE (not a prior read-then-write)
- * makes two simultaneous first-assignments race-safe without needing a
- * row lock: whichever caller's UPDATE lands first seals it; the other's
- * UPDATE simply affects zero rows and both callers proceed with the same
- * version id.
+ * Post-review fix: now takes the same `forms`-row lock as
+ * resolveWritableVersion (via the shared `lockForm` helper) instead of a
+ * lock-free read + `sealed_at = null` guarded UPDATE. The guarded UPDATE
+ * alone was race-safe against a second simultaneous *seal*, but not against
+ * a concurrent *edit*: without the lock, this function could read a stale
+ * `current_version_id` that a concurrent fork was about to replace, and
+ * seal the now-superseded old version instead of the one the coach's edit
+ * just created — the new assignment would silently carry the old wording.
+ * Sharing the same lock as resolveWritableVersion (same row, same order)
+ * closes this and makes every edit/assign combination for one form fully
+ * serialized. See resolveWritableVersion's doc comment for the full trace
+ * (found by an automated concurrency test, not by reasoning).
+ *
+ * `workspaceId` is required and checked before touching the form — see the
+ * identical note on resolveWritableVersion above. Also rejects an archived
+ * form (FormArchivedError) — see that class's doc comment.
  */
-export async function sealVersionForAssignment(formId: string, actorUserId: string | null = null): Promise<{ versionId: string }> {
+export async function sealVersionForAssignment(formId: string, workspaceId: string, actorUserId: string | null = null): Promise<{ versionId: string }> {
     return prisma.$transaction(async (tx) => {
-        const form = await tx.forms.findUniqueOrThrow({
-            where: { id: formId },
-            select: { current_version_id: true },
-        });
+        const form = await lockForm(tx, formId, workspaceId);
+        if (!form) throw new FormNotFoundError();
+        if (form.status === 'archived') throw new FormArchivedError();
 
         if (!form.current_version_id) {
             const versionId = createId();
