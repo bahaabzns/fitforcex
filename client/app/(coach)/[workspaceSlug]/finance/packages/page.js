@@ -9,6 +9,7 @@ import PackagePolicyOverride from "@/app/components/PackagePolicyOverride";
 import PackageFormsPicker from "@/app/components/PackageFormsPicker";
 import PlanUpdateModeToggle from "@/app/components/PlanUpdateModeToggle";
 import { FieldLabel } from "@/app/components/Field";
+import { isCompatibleCheckInForm } from "@/lib/formCompatibility";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Table } from "@heroui/react/table";
@@ -77,7 +78,7 @@ function CurrencySelect({ value, onChange, className }) {
 function emptyVariation() {
     return {
         name: "", description: "", duration: "", price: "", currency: "EGP",
-        defaultAssessmentFormIds: [], defaultCheckinForms: [],
+        defaultAssessmentFormIds: [], defaultNutritionCheckinForms: [], defaultTrainingCheckinForms: [],
         nutritionCycleDays: "", trainingCycleDays: "", reviewOffsetDays: "",
         planUpdateMode: "extend",
     };
@@ -88,7 +89,8 @@ function variationDefaultsFromServer(v) {
     const defaultForms = v.defaultForms ?? [];
     return {
         defaultAssessmentFormIds: defaultForms.filter(f => f.kind === "assessment").map(f => f.formId),
-        defaultCheckinForms: defaultForms.filter(f => f.kind === "checkin").map(f => ({ formId: f.formId })),
+        defaultNutritionCheckinForms: defaultForms.filter(f => f.kind === "checkin-nutrition").map(f => ({ formId: f.formId })),
+        defaultTrainingCheckinForms: defaultForms.filter(f => f.kind === "checkin-training").map(f => ({ formId: f.formId })),
         nutritionCycleDays: v.nutritionCycleDays != null ? String(v.nutritionCycleDays) : "",
         trainingCycleDays: v.trainingCycleDays != null ? String(v.trainingCycleDays) : "",
         reviewOffsetDays: v.reviewOffsetDays != null ? String(v.reviewOffsetDays) : "",
@@ -100,9 +102,12 @@ function variationDefaultsFromServer(v) {
 function variationDefaultsToApi(v) {
     const defaultForms = [
         ...(v.defaultAssessmentFormIds || []).map(formId => ({ formId, kind: "assessment" })),
-        ...(v.defaultCheckinForms || [])
+        ...(v.defaultNutritionCheckinForms || [])
             .filter(c => c.formId)
-            .map(c => ({ formId: c.formId, kind: "checkin" })),
+            .map(c => ({ formId: c.formId, kind: "checkin-nutrition" })),
+        ...(v.defaultTrainingCheckinForms || [])
+            .filter(c => c.formId)
+            .map(c => ({ formId: c.formId, kind: "checkin-training" })),
     ];
     return {
         nutritionCycleDays: v.nutritionCycleDays ? Number(v.nutritionCycleDays) : undefined,
@@ -115,7 +120,7 @@ function variationDefaultsToApi(v) {
 
 // Package Lifecycle defaults section, shared by the Create/Add/Edit variation
 // forms so the three surfaces stay identical rather than drifting.
-function VariationDefaultsFields({ v, formOptions, onFieldChange, onDefaultFormsChange }) {
+function VariationDefaultsFields({ v, assessmentFormOptions, nutritionCheckinFormOptions, trainingCheckinFormOptions, onFieldChange, onDefaultFormsChange }) {
     const t = useTranslations('packages');
     return (
         <div className="flex flex-col gap-3 pt-2 mt-1 border-t border-border">
@@ -142,8 +147,14 @@ function VariationDefaultsFields({ v, formOptions, onFieldChange, onDefaultForms
             </div>
             <PlanUpdateModeToggle value={v.planUpdateMode} onChange={(val) => onFieldChange("planUpdateMode", val)} />
             <PackageFormsPicker
-                formOptions={formOptions}
-                value={{ assessmentFormIds: v.defaultAssessmentFormIds, checkinForms: v.defaultCheckinForms }}
+                assessmentFormOptions={assessmentFormOptions}
+                nutritionCheckinFormOptions={nutritionCheckinFormOptions}
+                trainingCheckinFormOptions={trainingCheckinFormOptions}
+                value={{
+                    assessmentFormIds: v.defaultAssessmentFormIds,
+                    nutritionCheckinForms: v.defaultNutritionCheckinForms,
+                    trainingCheckinForms: v.defaultTrainingCheckinForms,
+                }}
                 onChange={onDefaultFormsChange}
             />
         </div>
@@ -204,6 +215,17 @@ export default function PackagesPage() {
     // Forms store localized titles (title_en / title_ar); resolve by active locale.
     const formTitle = (f) => (locale === "ar" ? f.title_ar || f.title_en : f.title_en) || f.title_en;
     const formOptions = availableForms.map(f => ({ value: f.id, label: formTitle(f) }));
+    // Post-review refinement: the two check-in default pickers only offer
+    // plan-type-compatible check-in forms (form_type + post_action metadata,
+    // not hardcoded names) — same rule the Configure Activation modal uses,
+    // so a package can never default to a Training form on a Nutrition Plan
+    // or vice versa. The assessment picker is unaffected (all active forms).
+    const nutritionCheckinFormOptions = availableForms
+        .filter(f => isCompatibleCheckInForm(f, "nutrition"))
+        .map(f => ({ value: f.id, label: formTitle(f) }));
+    const trainingCheckinFormOptions = availableForms
+        .filter(f => isCompatibleCheckInForm(f, "training"))
+        .map(f => ({ value: f.id, label: formTitle(f) }));
 
     // Ctrl+K focuses the quick search (matches the shared DataTable shortcut).
     useEffect(() => {
@@ -513,16 +535,16 @@ export default function PackagesPage() {
 
     function updateVariationDefaultForms(index, next) {
         setVariations(prev => prev.map((v, i) => i === index
-            ? { ...v, defaultAssessmentFormIds: next.assessmentFormIds, defaultCheckinForms: next.checkinForms }
+            ? { ...v, defaultAssessmentFormIds: next.assessmentFormIds, defaultNutritionCheckinForms: next.nutritionCheckinForms, defaultTrainingCheckinForms: next.trainingCheckinForms }
             : v));
     }
 
     function updateEditingVariationDefaultForms(next) {
-        setEditingVariation(ev => ({ ...ev, defaultAssessmentFormIds: next.assessmentFormIds, defaultCheckinForms: next.checkinForms }));
+        setEditingVariation(ev => ({ ...ev, defaultAssessmentFormIds: next.assessmentFormIds, defaultNutritionCheckinForms: next.nutritionCheckinForms, defaultTrainingCheckinForms: next.trainingCheckinForms }));
     }
 
     function updateNewVariationDefaultForms(next) {
-        setNewVariation(prev => ({ ...prev, defaultAssessmentFormIds: next.assessmentFormIds, defaultCheckinForms: next.checkinForms }));
+        setNewVariation(prev => ({ ...prev, defaultAssessmentFormIds: next.assessmentFormIds, defaultNutritionCheckinForms: next.nutritionCheckinForms, defaultTrainingCheckinForms: next.trainingCheckinForms }));
     }
 
     function addVariation() {
@@ -713,7 +735,9 @@ export default function PackagesPage() {
                                     {/* Package Lifecycle defaults — read only at client-creation / plan-activation time */}
                                     <VariationDefaultsFields
                                         v={v}
-                                        formOptions={formOptions}
+                                        assessmentFormOptions={formOptions}
+                                        nutritionCheckinFormOptions={nutritionCheckinFormOptions}
+                                        trainingCheckinFormOptions={trainingCheckinFormOptions}
                                         onFieldChange={(field, val) => updateVariation(i, field, val)}
                                         onDefaultFormsChange={(next) => updateVariationDefaultForms(i, next)}
                                     />
@@ -791,7 +815,9 @@ export default function PackagesPage() {
 
                     <VariationDefaultsFields
                         v={newVariation}
-                        formOptions={formOptions}
+                        assessmentFormOptions={formOptions}
+                        nutritionCheckinFormOptions={nutritionCheckinFormOptions}
+                        trainingCheckinFormOptions={trainingCheckinFormOptions}
                         onFieldChange={updateNewVariation}
                         onDefaultFormsChange={updateNewVariationDefaultForms}
                     />
@@ -882,7 +908,9 @@ export default function PackagesPage() {
                     {editingVariation && (
                         <VariationDefaultsFields
                             v={editingVariation}
-                            formOptions={formOptions}
+                            assessmentFormOptions={formOptions}
+                            nutritionCheckinFormOptions={nutritionCheckinFormOptions}
+                            trainingCheckinFormOptions={trainingCheckinFormOptions}
                             onFieldChange={(field, val) => setEditingVariation(ev => ({ ...ev, [field]: val }))}
                             onDefaultFormsChange={updateEditingVariationDefaultForms}
                         />

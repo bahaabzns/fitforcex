@@ -1183,8 +1183,10 @@
     "planUpdateModeHint": "يمكن للمدرب اختيار أي من الخيارين وقت الحفظ — هذا فقط الخيار الافتراضي الذي تبدأ منه النافذة.",
     "defaultAssessmentFormsLabel": "استمارات التقييم الافتراضية",
     "defaultAssessmentFormsHint": "تُملأ تلقائيًا في خطوة استمارات التقييم عند إضافة المدرب لعميل على هذه النسخة.",
-    "defaultCheckinFormsLabel": "استمارات المتابعة الافتراضية",
-    "defaultCheckinFormsHint": "تُملأ تلقائيًا في نافذة تفعيل الخطة؛ تُرسل للعميل تلقائيًا عند انتهاء الخطة.",
+    "defaultNutritionCheckinFormsLabel": "استمارات متابعة التغذية الافتراضية",
+    "defaultNutritionCheckinFormsHint": "تُحدد تلقائيًا عند تفعيل المدرب لخطة تغذية على هذه النسخة؛ تُرسل للعميل تلقائيًا عند انتهاء الخطة.",
+    "defaultTrainingCheckinFormsLabel": "استمارات متابعة التدريب الافتراضية",
+    "defaultTrainingCheckinFormsHint": "تُحدد تلقائيًا عند تفعيل المدرب لخطة تدريب على هذه النسخة؛ تُرسل للعميل تلقائيًا عند انتهاء الخطة.",
     "selectFormsPlaceholder": "اختر الاستمارات..."
   },
   "paymentMethods": {
