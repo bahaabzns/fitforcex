@@ -589,14 +589,17 @@ model package_variations {
   package_default_forms package_default_forms[]
 }
 
-// Package Lifecycle — default forms proposed at client-creation (kind=assessment)
-// or plan-activation (kind=checkin, with a recurrence interval) time. Read only
-// at the moment of the triggering action, never re-read live afterward.
+// Package Lifecycle — default forms proposed at client-creation
+// (kind=assessment) or plan-activation (kind=checkin-nutrition |
+// checkin-training, one-shot) time. Read only at the moment of the
+// triggering action, never re-read live afterward. checkin-nutrition/
+// checkin-training were split from a single 'checkin' kind (migration 042)
+// so a package's check-in defaults can differ by plan type.
 model package_default_forms {
   id                   String             @id
   package_variation_id String
   form_id              String
-  kind                 String // 'assessment' | 'checkin'
+  kind                 String // 'assessment' | 'checkin-nutrition' | 'checkin-training'
   sort_order           Int                @default(1)
   created_at           DateTime           @default(now()) @db.Timestamptz(6)
   package_variations   package_variations @relation(fields: [package_variation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
