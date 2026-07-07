@@ -560,7 +560,10 @@ export function useTrainingPlan(clientId) {
     // Package Lifecycle Phase 3b: `durationChoice` ('restart'|'extend') comes
     // from the Continue/Restart prompt, required only when `target` is
     // currently active (§12.5).
-    const handleSaveSelectedPlan = useCallback(async (planId = selectedPlan?.id, durationChoice = undefined) => {
+    //
+    // Post-review refinement: `restartOptions` ({ cycleDays, checkInForms })
+    // -- see the identical note in useNutritionPlan.js's handleSaveSelectedPlan.
+    const handleSaveSelectedPlan = useCallback(async (planId = selectedPlan?.id, durationChoice = undefined, restartOptions = undefined) => {
         if (!clientId || !planId || isSaving) return { success: false };
 
         const target = plans.find((p) => String(p.id) === String(planId));
@@ -578,6 +581,9 @@ export function useTrainingPlan(clientId) {
                 activePlanId: activePlan?.id ?? null,
                 plan: target,
                 ...(target.status === "active" && durationChoice ? { durationChoice } : {}),
+                ...(target.status === "active" && durationChoice === "restart" && restartOptions
+                    ? { cycleDays: restartOptions.cycleDays, checkInForms: restartOptions.checkInForms }
+                    : {}),
             });
 
             const oldPlanId = response.data?.oldPlanId ?? planId;

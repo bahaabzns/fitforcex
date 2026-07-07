@@ -39,6 +39,11 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     // active plan (§12.5) -- not dismissible without a choice.
     const [durationChoicePrompt, setDurationChoicePrompt] = useState(false);
     const [savingDurationChoice, setSavingDurationChoice] = useState(false);
+    // Post-review refinement: choosing "Restart" no longer saves silently --
+    // it opens the same Configure Activation experience used for first
+    // activation, pre-filled from the package, so the coach can change
+    // duration and/or check-in forms before the restart actually saves.
+    const [restartConfigureOpen, setRestartConfigureOpen] = useState(false);
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (meal detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
@@ -184,13 +189,34 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
 
     // Package Lifecycle Phase 3b: fires only when saving an edit to a plan
     // that is currently active (§12.5).
+    //
+    // Post-review refinement: "Continue Remaining Duration" still saves
+    // immediately (nothing about duration/check-ins changes). "Restart Plan
+    // Duration" no longer saves here -- it hands off to the Configure
+    // Activation modal (below) so the coach can set a new duration and/or
+    // check-in forms first; that modal's confirm is what actually saves.
     async function handleDurationChoice(choice) {
+        if (choice === "restart") {
+            setDurationChoicePrompt(false);
+            setRestartConfigureOpen(true);
+            return;
+        }
         setSavingDurationChoice(true);
         try {
             await handleSaveSelectedPlan(selectedPlan?.id, choice);
         } finally {
             setSavingDurationChoice(false);
             setDurationChoicePrompt(false);
+        }
+    }
+
+    async function handleRestartConfigureConfirm(options) {
+        setRestartConfigureOpen(false);
+        setSavingDurationChoice(true);
+        try {
+            await handleSaveSelectedPlan(selectedPlan?.id, "restart", options);
+        } finally {
+            setSavingDurationChoice(false);
         }
     }
 
@@ -449,6 +475,16 @@ return (
             onContinue={() => handleDurationChoice("extend")}
             onRestart={() => handleDurationChoice("restart")}
             submitting={savingDurationChoice}
+        />
+        {/* Post-review refinement: restart reconfiguration, same modal as first activation */}
+        <ConfigureActivationModal
+            open={restartConfigureOpen}
+            onClose={() => setRestartConfigureOpen(false)}
+            clientId={id}
+            planType="nutrition"
+            onConfirm={handleRestartConfigureConfirm}
+            confirming={savingDurationChoice}
+            titleKey="restartConfigureTitle"
         />
     </div>
     </div>

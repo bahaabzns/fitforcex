@@ -32,6 +32,8 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const [pendingActivationOptions, setPendingActivationOptions] = useState(null);
     const [durationChoicePrompt, setDurationChoicePrompt] = useState(false);
     const [savingDurationChoice, setSavingDurationChoice] = useState(false);
+    // Post-review refinement -- see the identical note in nutrition/page.js.
+    const [restartConfigureOpen, setRestartConfigureOpen] = useState(false);
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (day detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
@@ -166,13 +168,29 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         }
     }
 
+    // Post-review refinement -- see the identical note in nutrition/page.js.
     async function handleDurationChoice(choice) {
+        if (choice === "restart") {
+            setDurationChoicePrompt(false);
+            setRestartConfigureOpen(true);
+            return;
+        }
         setSavingDurationChoice(true);
         try {
             await handleSaveSelectedPlan(selectedPlan?.id, choice);
         } finally {
             setSavingDurationChoice(false);
             setDurationChoicePrompt(false);
+        }
+    }
+
+    async function handleRestartConfigureConfirm(options) {
+        setRestartConfigureOpen(false);
+        setSavingDurationChoice(true);
+        try {
+            await handleSaveSelectedPlan(selectedPlan?.id, "restart", options);
+        } finally {
+            setSavingDurationChoice(false);
         }
     }
 
@@ -362,6 +380,16 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     onContinue={() => handleDurationChoice("extend")}
                     onRestart={() => handleDurationChoice("restart")}
                     submitting={savingDurationChoice}
+                />
+                {/* Post-review refinement: restart reconfiguration, same modal as first activation */}
+                <ConfigureActivationModal
+                    open={restartConfigureOpen}
+                    onClose={() => setRestartConfigureOpen(false)}
+                    clientId={id}
+                    planType="training"
+                    onConfirm={handleRestartConfigureConfirm}
+                    confirming={savingDurationChoice}
+                    titleKey="restartConfigureTitle"
                 />
             </div>
         </div>

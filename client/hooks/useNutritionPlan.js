@@ -906,7 +906,14 @@ export function useNutritionPlan(clientId) {
     // from the Continue/Restart prompt, required only when `target` is
     // currently active (§12.5) -- the caller (page component) is responsible
     // for showing that prompt before calling this with a choice.
-    const handleSaveSelectedPlan = async (planId = selectedPlan?.id, durationChoice = undefined) => {
+    //
+    // Post-review refinement: `restartOptions` ({ cycleDays, checkInForms })
+    // is only meaningful alongside durationChoice === 'restart' -- it comes
+    // from the coach reconfiguring duration/check-ins in the same Configure
+    // Activation modal used for first activation. Omitted for 'extend'
+    // (Continue Remaining Duration never touches these) and for a plain
+    // draft save (dirty-only, no active-plan prompt involved).
+    const handleSaveSelectedPlan = async (planId = selectedPlan?.id, durationChoice = undefined, restartOptions = undefined) => {
         if (!clientId || isSaving || !planId) return { success: false };
 
         const target = plans.find((p) => String(p.id) === String(planId));
@@ -924,6 +931,9 @@ export function useNutritionPlan(clientId) {
                 activePlanId: activePlan?.id ?? null,
                 plan: target,
                 ...(target.status === "active" && durationChoice ? { durationChoice } : {}),
+                ...(target.status === "active" && durationChoice === "restart" && restartOptions
+                    ? { cycleDays: restartOptions.cycleDays, checkInForms: restartOptions.checkInForms }
+                    : {}),
             });
 
             const oldPlanId = response.data?.oldPlanId ?? planId;
