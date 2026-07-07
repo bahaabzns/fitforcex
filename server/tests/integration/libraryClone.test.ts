@@ -98,7 +98,10 @@ describe('Default Libraries clone engine', () => {
 
         const assessment = forms.find((f) => f.form_type === 'assessment');
         expect(assessment).toBeDefined();
-        const questions = await testPrisma.form_questions.findMany({ where: { form_id: assessment!.id } });
+        // Forms Versioning — the cloned form's questions live in its version
+        // 1 snapshot (form_version_questions), not the retired form_questions.
+        expect(assessment!.current_version_id).toBeTruthy();
+        const questions = await testPrisma.form_version_questions.findMany({ where: { form_version_id: assessment!.current_version_id! } });
         expect(questions).toHaveLength(ASSESSMENT_QUESTIONS);
     });
 

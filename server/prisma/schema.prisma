@@ -345,32 +345,10 @@ model master_form_questions {
   @@index([master_form_id])
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model form_questions {
-  id             String           @id
-  form_id        String
-  label_en       String           @default("Question")
-  type           String           @default("text") @db.VarChar(30)
-  required       Boolean          @default(false)
-  order_index    Int              @default(0)
-  options        Json?
-  placeholder_en String?
-  min_value      Int?
-  max_value      Int?
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  label_ar       String?
-  placeholder_ar String?
-  options_ar     Json?
-  metric_id      String?
-  forms          forms            @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  metrics        metrics?         @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  // Forms Versioning Phase 2 — form_responses now references
-  // form_version_questions, not this table (migration 037). This table is
-  // legacy/frozen (no more reads or writes as of Phase 3) and dropped
-  // entirely in Phase 4 once its bake period passes.
-
-  @@index([metric_id])
-}
+// form_questions was retired in Forms Versioning Phase 4 (migration 039) —
+// fully superseded by form_versions/form_version_questions. See
+// docs/forms-architecture-investigation.md and
+// docs/forms-versioning-implementation-plan.md.
 
 model form_requests {
   id                  String                @id
@@ -387,7 +365,7 @@ model form_requests {
   form_version_id     String? // Forms Versioning — the version pinned at creation time; never changes after
   workspaces          workspaces            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
   clients             clients?              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  forms               forms?                @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forms               forms?                @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   form_versions       form_versions?        @relation(fields: [form_version_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   form_responses      form_responses[]
   client_observations client_observations[]
@@ -425,7 +403,6 @@ model forms {
   title_ar           String?          @db.VarChar(255)
   description_ar     String?
   current_version_id String? // Forms Versioning — the version coaches currently edit/assign; NULL only pre-backfill
-  form_questions     form_questions[]
   form_requests      form_requests[]
   package_default_forms package_default_forms[]
   workspaces         workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_forms_workspace")
@@ -486,7 +463,6 @@ model metrics {
   updated_at     DateTime         @default(now()) @db.Timestamptz(6)
   deleted_at     DateTime?        @db.Timestamptz(6)
   workspaces     workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  form_questions form_questions[]
   form_responses form_responses[]
   form_version_questions form_version_questions[]
 
@@ -611,7 +587,7 @@ model package_default_forms {
   sort_order           Int                @default(1)
   created_at           DateTime           @default(now()) @db.Timestamptz(6)
   package_variations   package_variations @relation(fields: [package_variation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  forms                forms              @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forms                forms              @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([package_variation_id], map: "idx_pkg_default_forms_variation")
   @@index([form_id], map: "idx_pkg_default_forms_form")

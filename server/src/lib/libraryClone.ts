@@ -41,9 +41,11 @@ export async function getLibraryCounts(workspaceId: string): Promise<LibraryCoun
 
 /**
  * Clone every Master Form Template (master_forms + master_form_questions) into the given
- * workspace as fully-editable coach forms (forms + form_questions). Each form gets a fresh
- * cuid and its questions get fresh cuids with the FK remapped to the new form. The coach
- * copy is fully decoupled — later edits to the master never touch existing copies.
+ * workspace as fully-editable coach forms (forms + form_versions + form_version_questions).
+ * Each form gets a fresh cuid and starts life as an unsealed version 1 — fully
+ * version-aware from the moment it exists, exactly like createForm (Forms Versioning
+ * Phase 2/5). The coach copy is fully decoupled — later edits to the master never touch
+ * existing copies.
  */
 async function cloneMasterForms(workspaceId: string): Promise<{ forms: number; questions: number }> {
     const masterForms = await prisma.master_forms.findMany({
@@ -54,6 +56,7 @@ async function cloneMasterForms(workspaceId: string): Promise<{ forms: number; q
     let questionCount = 0;
     for (const mf of masterForms) {
         const newFormId = createId();
+        const versionId = createId();
         await prisma.forms.create({
             data: {
                 id:             newFormId,
@@ -67,23 +70,27 @@ async function cloneMasterForms(workspaceId: string): Promise<{ forms: number; q
                 form_type:      mf.form_type,
             },
         });
+        await prisma.form_versions.create({
+            data: { id: versionId, form_id: newFormId, version_number: 1 },
+        });
+        await prisma.forms.update({ where: { id: newFormId }, data: { current_version_id: versionId } });
 
         if (mf.questions.length) {
-            await prisma.form_questions.createMany({
+            await prisma.form_version_questions.createMany({
                 data: mf.questions.map((q) => ({
-                    id:             createId(),
-                    form_id:        newFormId,
-                    label_en:       q.label_en,
-                    label_ar:       q.label_ar,
-                    type:           q.type,
-                    required:       q.required,
-                    order_index:    q.order_index,
-                    options:        q.options ?? Prisma.DbNull,
-                    options_ar:     q.options_ar ?? Prisma.DbNull,
-                    placeholder_en: q.placeholder_en,
-                    placeholder_ar: q.placeholder_ar,
-                    min_value:      q.min_value,
-                    max_value:      q.max_value,
+                    id:              createId(),
+                    form_version_id: versionId,
+                    label_en:        q.label_en,
+                    label_ar:        q.label_ar,
+                    type:            q.type,
+                    required:        q.required,
+                    order_index:     q.order_index,
+                    options:         q.options ?? Prisma.DbNull,
+                    options_ar:      q.options_ar ?? Prisma.DbNull,
+                    placeholder_en:  q.placeholder_en,
+                    placeholder_ar:  q.placeholder_ar,
+                    min_value:       q.min_value,
+                    max_value:       q.max_value,
                 })),
             });
             questionCount += mf.questions.length;
