@@ -9,6 +9,18 @@ import { Button } from "@heroui/react/button";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Chip } from "@heroui/react/chip";
+
+// A check-in form is "compatible" with a plan type when its own
+// post-submission action targets that plan type -- the same form metadata
+// the coach already sets in the Forms builder (After Submission Action),
+// not a hardcoded name/title match. Package defaults are always included
+// and pre-checked regardless of this filter (trust the package's own
+// configuration over the form's post_action, in case the two ever drift).
+function isCompatibleCheckInForm(form, planType) {
+    if (form.form_type !== "check-in" || form.status === "archived") return false;
+    return form.post_action === (planType === "training" ? "workout-plan" : "nutrition-plan");
+}
 
 /**
  * Package Lifecycle Phase 3b — fires before a plan is activated. Pre-fills
@@ -18,12 +30,18 @@ import { Skeleton } from "@heroui/react/skeleton";
  * actually triggers activation (onConfirm) — it does not activate anything
  * itself. Deliberately separate from the existing submission-linked "Mark as
  * Done" modal (AD-3): different trigger, different consequence.
+ *
+ * Post-review refinement: the Check-in Forms list now shows every
+ * plan-type-compatible check-in form in the workspace, not just the
+ * package's defaults -- package defaults are pre-selected, everything else
+ * compatible is offered unselected, and incompatible forms (assessments,
+ * the other plan type's check-ins) never appear at all.
  */
-export default function ConfigureActivationModal({ open, onClose, clientId, planType, onConfirm, confirming }) {
+export default function ConfigureActivationModal({ open, onClose, clientId, planType, onConfirm, confirming, titleKey = "title" }) {
     const t = useTranslations("planActivation");
     const [loading, setLoading] = useState(true);
     const [cycleDays, setCycleDays] = useState("");
-    const [checkInForms, setCheckInForms] = useState([]); // [{ formId, titleEn, titleAr, checked }]
+    const [checkInForms, setCheckInForms] = useState([]); // [{ formId, titleEn, titleAr, checked, isPackageDefault }]
     // Not surfaced as an editable field (the vision only asks for Duration +
     // Check-in Forms) -- just carried through silently so the daily
     // review-due check has a snapshotted value to read (Phase 4).
@@ -33,13 +51,26 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
         if (!open || !clientId) return;
         let active = true;
         setLoading(true);
-        api.get(`/api/clients/${clientId}/package-defaults`)
-            .then(({ data }) => {
+        Promise.all([
+            api.get(`/api/clients/${clientId}/package-defaults`),
+            api.get(`/api/forms`),
+        ])
+            .then(([{ data }, { data: allForms }]) => {
                 if (!active) return;
                 const days = planType === "training" ? data?.trainingCycleDays : data?.nutritionCycleDays;
                 setCycleDays(days != null ? String(days) : "");
-                setCheckInForms((data?.checkInForms ?? []).map(f => ({ ...f, checked: true })));
                 setReviewOffsetDays(data?.reviewOffsetDays ?? null);
+
+                const defaults = data?.checkInForms ?? [];
+                const defaultIds = new Set(defaults.map(f => f.formId));
+                const compatible = (allForms ?? [])
+                    .filter(f => isCompatibleCheckInForm(f, planType) && !defaultIds.has(f.id))
+                    .map(f => ({ formId: f.id, titleEn: f.title_en, titleAr: f.title_ar, checked: false, isPackageDefault: false }));
+
+                setCheckInForms([
+                    ...defaults.map(f => ({ ...f, checked: true, isPackageDefault: true })),
+                    ...compatible,
+                ]);
             })
             .catch(() => { if (active) { setCycleDays(""); setCheckInForms([]); setReviewOffsetDays(null); } })
             .finally(() => { if (active) setLoading(false); });
@@ -59,7 +90,7 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
     }
 
     return (
-        <Modal open={open} onClose={onClose} title={t("title")}>
+        <Modal open={open} onClose={onClose} title={t(titleKey)}>
             <div className="flex flex-col gap-5 px-1 py-1">
                 {loading ? (
                     <div className="flex flex-col gap-3">
@@ -91,6 +122,11 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
                                                 className="rounded shrink-0"
                                             />
                                             <span className="text-sm text-foreground flex-1 min-w-0 truncate">{f.titleEn}</span>
+                                            {f.isPackageDefault && (
+                                                <Chip size="sm" color="secondary" variant="soft" className="shrink-0">
+                                                    <Chip.Label>{t("packageDefault")}</Chip.Label>
+                                                </Chip>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
