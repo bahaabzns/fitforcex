@@ -240,16 +240,17 @@ async function main() {
 
     // ── Forms + form requests ─────────────────────────────────────────────────
 
-    // Ensure at least one form exists
-    let forms = await prisma.forms.findMany({
-        where:  { workspace_id: wsId },
-        select: { id: true, post_action: true, form_type: true, form_questions: { select: { id: true, type: true, min_value: true, max_value: true, options: true, label_en: true } } },
-    });
+    // Ensure at least one form exists. Forms Versioning — a form's questions
+    // live in its current version's snapshot (form_version_questions), not
+    // the retired form_questions table.
+    const formSelect = { id: true, post_action: true, form_type: true, current_version_id: true } as const;
+    let forms = await prisma.forms.findMany({ where: { workspace_id: wsId }, select: formSelect });
 
     if (forms.length === 0) {
         console.log('\n  No forms found — creating 2 stub forms...');
         for (const tmpl of FORM_TEMPLATES) {
-            const formId = createId();
+            const formId    = createId();
+            const versionId = createId();
             await prisma.forms.create({
                 data: {
                     id:          formId,
@@ -258,28 +259,39 @@ async function main() {
                     status:      'published',
                     form_type:   tmpl.type,
                     post_action: tmpl.post_action,
-                    form_questions: {
-                        createMany: {
-                            data: tmpl.questions.map((q, i) => ({
-                                id:          createId(),
-                                label_en:    q.label_en,
-                                type:        q.type,
-                                order_index: i,
-                                min_value:   q.min ?? null,
-                                max_value:   q.max ?? null,
-                                options:     q.options ? q.options as unknown as Prisma.InputJsonValue : Prisma.DbNull,
-                            })),
-                        },
-                    },
                 },
             });
+            await prisma.form_versions.create({ data: { id: versionId, form_id: formId, version_number: 1 } });
+            await prisma.form_version_questions.createMany({
+                data: tmpl.questions.map((q, i) => ({
+                    id:              createId(),
+                    form_version_id: versionId,
+                    label_en:        q.label_en,
+                    type:            q.type,
+                    order_index:     i,
+                    min_value:       q.min ?? null,
+                    max_value:       q.max ?? null,
+                    options:         q.options ? q.options as unknown as Prisma.InputJsonValue : Prisma.DbNull,
+                })),
+            });
+            await prisma.forms.update({ where: { id: formId }, data: { current_version_id: versionId } });
         }
-        forms = await prisma.forms.findMany({
-            where:  { workspace_id: wsId },
-            select: { id: true, post_action: true, form_type: true, form_questions: { select: { id: true, type: true, min_value: true, max_value: true, options: true, label_en: true } } },
-        });
+        forms = await prisma.forms.findMany({ where: { workspace_id: wsId }, select: formSelect });
         console.log(`  Created ${forms.length} forms with questions.`);
     }
+
+    // Flatten each form's current-version questions and seal that version —
+    // this seed script writes form_requests directly (bypassing the
+    // createRequests/sealVersionForAssignment path), so the invariant "an
+    // assigned form's version is sealed" is applied by hand here instead.
+    const formsWithQuestions = await Promise.all(forms.map(async (f) => {
+        const version = await prisma.form_versions.findUnique({
+            where: { id: f.current_version_id ?? '' },
+            select: { id: true, form_version_questions: { select: { id: true, type: true, min_value: true, max_value: true, options: true, label_en: true } } },
+        });
+        if (version) await prisma.form_versions.updateMany({ where: { id: version.id, sealed_at: null }, data: { sealed_at: new Date() } });
+        return { id: f.id, post_action: f.post_action, form_type: f.form_type, current_version_id: f.current_version_id, questions: version?.form_version_questions ?? [] };
+    }));
 
     // Skip clients that already have form requests
     const existingReqs = await prisma.form_requests.findMany({
@@ -310,7 +322,7 @@ async function main() {
     for (const client of clientsNeedingForms) {
         const reqCount = randInt(1, 3);
         for (let i = 0; i < reqCount; i++) {
-            const form       = pick(forms);
+            const form       = pick(formsWithQuestions);
             const status     = pickStatus();
             const requestId  = createId();
             const requestedAt = new Date(Date.now() - randInt(1, 60) * DAY - randInt(0, DAY));
@@ -332,6 +344,7 @@ async function main() {
             reqRows.push({
                 id:             requestId,
                 form_id:        form.id,
+                form_version_id: form.current_version_id,
                 client_id:      client.id,
                 workspace_id:   wsId,
                 status,
@@ -343,7 +356,7 @@ async function main() {
             });
 
             if (status === 'submitted' || status === 'reviewed') {
-                for (const q of form.form_questions) {
+                for (const q of form.questions) {
                     respRows.push({
                         id:          createId(),
                         request_id:  requestId,

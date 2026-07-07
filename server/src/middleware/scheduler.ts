@@ -215,6 +215,27 @@ export async function runCheckInDispatchTick(): Promise<number> {
                 const effective = await getEffectiveAccessForClient(row.client_id, row.workspace_id);
                 if (effective.status !== 'Active' && !effective.withinGrace) return;
 
+                // Forms Versioning Phase 5 — a form can be archived out from
+                // under an active package after its check_in_schedules row
+                // was created. Skip the dispatch (leave the schedule row
+                // alone, don't delete it) and tell the coach explicitly,
+                // rather than either sending a retired form or crashing.
+                // See docs/forms-versioning-implementation-plan.md Phase 5.
+                const form = await prisma.forms.findUnique({ where: { id: row.form_id }, select: { status: true } });
+                if (!form || form.status === 'archived') {
+                    await recordEvent({
+                        workspaceId: row.workspace_id,
+                        type:        'checkin.dispatch_skipped_archived_form',
+                        importance:  'actionable',
+                        title:       'A scheduled check-in was skipped because its form was archived',
+                        recipients:  await ownerRecipients(row.workspace_id),
+                        actor:       { type: 'system' },
+                        entity:      { type: 'check_in_schedule', id: row.id },
+                        metadata:    { clientId: row.client_id, formId: row.form_id },
+                    });
+                    return;
+                }
+
                 // Forms Versioning Phase 2 — this is the assignment moment
                 // for a scheduled check-in, exactly like a coach-initiated
                 // createRequests call: seal the form's current version now

@@ -2,7 +2,7 @@
  * Seed the Plans Queue with demo data for a workspace.
  *
  * The Plans Queue (client: /plans-queue) is backed by `form_requests` joined to
- * `forms`, `form_questions`, `clients`, plus `form_responses` for answered ones.
+ * `forms`, `form_version_questions`, `clients`, plus `form_responses` for answered ones.
  * Request status maps to the four queue lanes the UI renders:
  *
  *   DB status   → UI status     meaning
@@ -126,13 +126,19 @@ function answerFor(q: { type: string; min_value: number | null; max_value: numbe
 
 interface SeedForm {
     id: string;
+    current_version_id: string;
     post_action: string;
     form_type: string;
     questions: Array<{ id: string; type: string; min_value: number | null; max_value: number | null; options: unknown; label_en: string }>;
 }
 
 // Ensure a stub form has questions + a meaningful action. Returns the ready form.
-async function prepareForm(form: { id: string; title_en: string; post_action: string; form_type: string }): Promise<SeedForm> {
+// Forms Versioning — questions live in the form's current version's snapshot
+// (form_version_questions), not the retired form_questions table. This
+// script writes form_requests directly (bypassing createRequests), so it
+// also seals the version by hand to keep the "an assigned form's version
+// is sealed" invariant true for the demo data.
+async function prepareForm(form: { id: string; title_en: string; post_action: string; form_type: string; current_version_id: string | null }): Promise<SeedForm> {
     let postAction = form.post_action;
     let formType = form.form_type;
 
@@ -146,16 +152,23 @@ async function prepareForm(form: { id: string; title_en: string; post_action: st
         });
     }
 
-    let questions = await prisma.form_questions.findMany({
-        where: { form_id: form.id },
+    let versionId = form.current_version_id;
+    if (!versionId) {
+        versionId = createId();
+        await prisma.form_versions.create({ data: { id: versionId, form_id: form.id, version_number: 1 } });
+        await prisma.forms.update({ where: { id: form.id }, data: { current_version_id: versionId } });
+    }
+
+    let questions = await prisma.form_version_questions.findMany({
+        where: { form_version_id: versionId },
         select: { id: true, type: true, min_value: true, max_value: true, options: true, label_en: true },
     });
 
     if (questions.length === 0) {
         const set = QUESTION_SETS[postAction] ?? QUESTION_SETS['workout-plan'];
-        const rows: Prisma.form_questionsCreateManyInput[] = set.map((q, i) => ({
+        const rows: Prisma.form_version_questionsCreateManyInput[] = set.map((q, i) => ({
             id: createId(),
-            form_id: form.id,
+            form_version_id: versionId,
             label_en: q.label_en,
             label_ar: q.label_ar,
             type: q.type,
@@ -164,15 +177,17 @@ async function prepareForm(form: { id: string; title_en: string; post_action: st
             max_value: q.type === 'scale' ? (q.max ?? 10) : null,
             options: q.options ? (q.options as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
         }));
-        await prisma.form_questions.createMany({ data: rows });
-        questions = await prisma.form_questions.findMany({
-            where: { form_id: form.id },
+        await prisma.form_version_questions.createMany({ data: rows });
+        questions = await prisma.form_version_questions.findMany({
+            where: { form_version_id: versionId },
             select: { id: true, type: true, min_value: true, max_value: true, options: true, label_en: true },
         });
         console.log(`  + seeded ${rows.length} questions for form "${form.id}"`);
     }
 
-    return { id: form.id, post_action: postAction, form_type: formType, questions };
+    await prisma.form_versions.updateMany({ where: { id: versionId, sealed_at: null }, data: { sealed_at: new Date() } });
+
+    return { id: form.id, current_version_id: versionId, post_action: postAction, form_type: formType, questions };
 }
 
 async function main() {
@@ -186,7 +201,7 @@ async function main() {
 
     const rawForms = await prisma.forms.findMany({
         where: { workspace_id: workspace.id },
-        select: { id: true, title_en: true, post_action: true, form_type: true },
+        select: { id: true, title_en: true, post_action: true, form_type: true, current_version_id: true },
     });
     if (rawForms.length === 0) {
         throw new Error(`Workspace "${SLUG}" has no forms — create/seed forms before seeding the queue.`);
@@ -233,6 +248,7 @@ async function main() {
         requests.push({
             id: requestId,
             form_id: form.id,
+            form_version_id: form.current_version_id,
             client_id: client.id,
             workspace_id: workspace.id,
             status,

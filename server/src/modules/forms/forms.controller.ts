@@ -126,7 +126,20 @@ export async function updateForm(req: Request, res: Response, next: NextFunction
         });
         if (updated.count === 0) return res.status(404).json({ error: 'Form not found' });
         const form = await prisma.forms.findFirst({ where: { id: req.params.id as string } });
-        res.json(form);
+
+        // Forms Versioning Phase 5 — archiving doesn't touch package
+        // defaults or schedules (never destructive), but the coach should
+        // know if they just retired a form other automation still depends
+        // on, rather than discover it silently later.
+        let warning: string | undefined;
+        if (safeStatus === 'archived') {
+            const packageCount = await prisma.package_default_forms.count({ where: { form_id: req.params.id as string } });
+            if (packageCount > 0) {
+                warning = `This form is a default on ${packageCount} package variation(s). New activations will keep offering it unless you update those packages.`;
+            }
+        }
+
+        res.json(warning ? { ...form, warning } : form);
     } catch (err) {
         next(err);
     }

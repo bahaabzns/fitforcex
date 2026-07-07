@@ -389,6 +389,7 @@ Since `form_version_questions` has no cascade path that could delete it while re
 
 ## Backend
 - Remove all remaining references to `form_questions` in code (there should be none left after Phase 2/3, but this phase's PR is the explicit "grep for `form_questions` and confirm zero hits outside migration history" checkpoint).
+- **Implementation-time correction:** `lib/libraryClone.ts`'s `cloneMasterForms` still referenced `form_questions` and is part of the main compiled build (unlike the dev-only scripts under `src/scripts`, which `tsconfig.json` excludes from the build entirely). Dropping the table broke the build immediately, so this file's fix — originally scoped to Phase 5 — had to land in this same commit: new workspaces now get a version-complete form (version 1, unsealed) from the moment `cloneMasterForms` runs, matching `createForm`'s shape. `tests/integration/libraryClone.test.ts` needed the same update (a real regression the suite caught, fixed here rather than deferred). Phase 5's remaining libraryClone/onboarding scope is now just the archive-safety guards below, not the clone logic itself.
 - `deleteForm`/`deleteQuestion`'s Phase-0 application-level guard remains as the primary, friendly control (specific error message, submission count); the new `RESTRICT` FKs are the backstop for any code path that might bypass the controller (scripts, admin tooling, future engineers who forget the guard).
 
 ## Frontend
