@@ -5,8 +5,9 @@
     "durationPlaceholder": "e.g. 28",
     "durationHint": "Pre-filled from the client's package. You can change it before activating.",
     "checkInFormsLabel": "Check-in Forms",
-    "noCheckInDefaults": "No default check-in forms configured for this client's package.",
-    "checkInFormsHint": "Selected forms will be sent to the client automatically when the plan ends.",
+    "noCheckInDefaults": "No compatible check-in forms available for this plan type yet.",
+    "checkInFormsHint": "Package defaults are pre-selected. Selected forms will be sent to the client automatically when the plan ends.",
+    "packageDefault": "Package default",
     "cancel": "Cancel",
     "activating": "Activating...",
     "confirmAndActivate": "Confirm & Activate",
@@ -14,7 +15,8 @@
     "restartPromptBody": "This plan is already active. Do you want to continue its remaining duration, or restart the plan duration from today?",
     "restartConsequence": "Restarting sets a new end date ({date}) and reschedules check-ins.",
     "continueRemaining": "Continue remaining duration",
-    "restartDuration": "Restart plan duration"
+    "restartDuration": "Restart plan duration",
+    "restartConfigureTitle": "Restart & Reconfigure Plan"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -1375,6 +1377,7 @@
     "collapse": "Collapse",
     "activate": "Activate",
     "deactivate": "Deactivate",
+    "scheduled": "Scheduled",
     "chooseLanguage": "Choose a language",
     "add": "Add",
     "create": "Create",
