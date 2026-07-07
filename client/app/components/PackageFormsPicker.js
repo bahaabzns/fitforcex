@@ -4,17 +4,15 @@ import { useTranslations } from "next-intl";
 import { FieldLabel } from "@/app/components/Field";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
-import { TextField } from "@heroui/react/textfield";
-import { Input } from "@heroui/react/input";
 
 /**
  * Package Lifecycle — per-variation default-forms picker. Two independent
  * multi-selects (same Select+ListBox pattern as the add-client wizard's forms
- * step): assessment forms are a flat id list; check-in forms carry a per-form
- * recurrence interval, entered inline once a form is checked.
+ * step): assessment forms are a flat id list; check-in forms are also a flat
+ * id list -- each fires once, automatically, when the plan's duration ends.
  *
  * `formOptions`: [{ value: formId, label }]
- * `value`: { assessmentFormIds: string[], checkinForms: { formId, intervalDays }[] }
+ * `value`: { assessmentFormIds: string[], checkinForms: { formId }[] }
  */
 export default function PackageFormsPicker({ formOptions, value, onChange }) {
     const t = useTranslations("packages");
@@ -26,17 +24,7 @@ export default function PackageFormsPicker({ formOptions, value, onChange }) {
     }
 
     function setCheckinFormIds(ids) {
-        const next = ids.map(formId =>
-            checkinForms.find(c => c.formId === formId) || { formId, intervalDays: "" }
-        );
-        onChange({ ...value, checkinForms: next });
-    }
-
-    function setCheckinInterval(formId, intervalDays) {
-        onChange({
-            ...value,
-            checkinForms: checkinForms.map(c => c.formId === formId ? { ...c, intervalDays } : c),
-        });
+        onChange({ ...value, checkinForms: ids.map(formId => ({ formId })) });
     }
 
     return (
@@ -95,28 +83,6 @@ export default function PackageFormsPicker({ formOptions, value, onChange }) {
                     </Select.Popover>
                 </Select>
                 <p className="text-xs text-muted-foreground">{t("defaultCheckinFormsHint")}</p>
-
-                {checkinForms.length > 0 && (
-                    <div className="flex flex-col gap-2 mt-1">
-                        {checkinForms.map(c => {
-                            const form = formOptions.find(f => f.value === c.formId);
-                            return (
-                                <div key={c.formId} className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground flex-1 min-w-0 truncate">{form?.label || c.formId}</span>
-                                    <TextField
-                                        variant="secondary"
-                                        aria-label={t("intervalDaysPlaceholder")}
-                                        className="w-28 shrink-0"
-                                        value={String(c.intervalDays ?? "")}
-                                        onChange={(val) => setCheckinInterval(c.formId, val)}
-                                    >
-                                        <Input type="number" min="1" inputMode="numeric" placeholder={t("intervalDaysPlaceholder")} />
-                                    </TextField>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
         </div>
     );

@@ -244,12 +244,13 @@ export async function getPlan(req: Request, res: Response, next: NextFunction) {
         );
 
         const serializedPlan = serializePlanRow(planResult.rows[0] as Row)!;
-        const plan = planResult.rows[0] as Row;
 
-        res.json({
-            id: plan.id, name: plan.name, client_id: plan.client_id, status: plan.status,
-            created_at: serializedPlan.created_at, updated_at: serializedPlan.updated_at, cycles,
-        });
+        // Spread the full row (matches training.controller.ts's getPlan) --
+        // a prior hand-picked field list silently dropped activated_at/
+        // cycle_days/cycle_end_at/review_offset_days/review_notified_at on
+        // every plan-detail fetch, so a page reload lost the active plan's
+        // cycle progress even though the DB had it.
+        res.json({ ...serializedPlan, cycles });
     } catch (err) { next(err); }
 }
 
@@ -565,11 +566,21 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                     // schedule rows at their original creation. A client has
                     // at most one active nutrition plan at a time, so scoping
                     // by client_id is unambiguous in practice.
-                    await dbClient.query(
-                        `UPDATE check_in_schedules SET next_due_at = NOW() + (interval_days || ' days')::interval
-                         WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL`,
-                        [restarted.client_id]
-                    );
+                    //
+                    // Check-in forms are one-shot, fired exactly at the
+                    // plan's end -- a restart pushes that end date out, so
+                    // next_due_at is re-pointed at the new cycle_end_at
+                    // rather than advanced by an interval (there is no
+                    // recurring cadence to advance). Skipped entirely if the
+                    // restart didn't resolve a cycle_end_at (no cycle_days
+                    // configured) -- nothing to reschedule to.
+                    if (restarted.cycle_end_at) {
+                        await dbClient.query(
+                            `UPDATE check_in_schedules SET next_due_at = $2
+                             WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL`,
+                            [restarted.client_id, restarted.cycle_end_at]
+                        );
+                    }
                     restartedClientId = restarted.client_id as string;
                 }
             },
@@ -630,7 +641,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
     // lib/planEngine.ts's activateSinglePlan for the restart/extend rule.
     const { cycleDays, checkInForms, reviewOffsetDays, updateMode } = req.body as {
         cycleDays?: number | null;
-        checkInForms?: { formId: string; intervalDays: number }[];
+        checkInForms?: { formId: string }[];
         reviewOffsetDays?: number | null;
         updateMode?: 'restart' | 'extend';
     };
@@ -661,13 +672,16 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     [planId]
                 );
             }
-            if (Array.isArray(checkInForms) && checkInForms.length > 0) {
+            // Check-in forms fire once, at the plan's own end date -- no
+            // cycle_end_at means no resolved end to fire at, so skip entirely
+            // rather than schedule against a null date.
+            if (Array.isArray(checkInForms) && checkInForms.length > 0 && plan.cycle_end_at) {
                 for (const f of checkInForms) {
-                    if (!f.formId || !(Number(f.intervalDays) > 0)) continue;
+                    if (!f.formId) continue;
                     await dbClient.query(
-                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, interval_days, next_due_at, source_plan_type, source_plan_id)
-                         VALUES ($1, $2, $3, $4, $5, NOW() + ($6 || ' days')::interval, 'nutrition', $7)`,
-                        [createId(), coachId, plan.client_id, f.formId, Number(f.intervalDays), Number(f.intervalDays), plan.id]
+                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id)
+                         VALUES ($1, $2, $3, $4, $5, 'nutrition', $6)`,
+                        [createId(), coachId, plan.client_id, f.formId, plan.cycle_end_at, plan.id]
                     );
                 }
             }

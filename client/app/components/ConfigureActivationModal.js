@@ -23,7 +23,7 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
     const t = useTranslations("planActivation");
     const [loading, setLoading] = useState(true);
     const [cycleDays, setCycleDays] = useState("");
-    const [checkInForms, setCheckInForms] = useState([]); // [{ formId, intervalDays, titleEn, titleAr, checked }]
+    const [checkInForms, setCheckInForms] = useState([]); // [{ formId, titleEn, titleAr, checked }]
     // Not surfaced as an editable field (the vision only asks for Duration +
     // Check-in Forms) -- just carried through silently so the daily
     // review-due check has a snapshotted value to read (Phase 4).
@@ -50,15 +50,11 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
         setCheckInForms(prev => prev.map(f => f.formId === formId ? { ...f, checked: !f.checked } : f));
     }
 
-    function updateInterval(formId, intervalDays) {
-        setCheckInForms(prev => prev.map(f => f.formId === formId ? { ...f, intervalDays } : f));
-    }
-
     function handleConfirm() {
         const resolvedCycleDays = cycleDays ? Number(cycleDays) : null;
         const resolvedCheckInForms = checkInForms
-            .filter(f => f.checked && Number(f.intervalDays) > 0)
-            .map(f => ({ formId: f.formId, intervalDays: Number(f.intervalDays) }));
+            .filter(f => f.checked)
+            .map(f => ({ formId: f.formId }));
         onConfirm({ cycleDays: resolvedCycleDays, checkInForms: resolvedCheckInForms, reviewOffsetDays });
     }
 
@@ -95,17 +91,6 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
                                                 className="rounded shrink-0"
                                             />
                                             <span className="text-sm text-foreground flex-1 min-w-0 truncate">{f.titleEn}</span>
-                                            {f.checked && (
-                                                <TextField
-                                                    variant="secondary"
-                                                    aria-label={t("intervalPlaceholder")}
-                                                    className="w-28 shrink-0"
-                                                    value={String(f.intervalDays ?? "")}
-                                                    onChange={(val) => updateInterval(f.formId, val)}
-                                                >
-                                                    <Input type="number" min="1" inputMode="numeric" placeholder={t("intervalPlaceholder")} />
-                                                </TextField>
-                                            )}
                                         </div>
                                     ))}
                                 </div>

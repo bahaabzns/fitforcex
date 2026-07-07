@@ -88,7 +88,7 @@ function variationDefaultsFromServer(v) {
     const defaultForms = v.defaultForms ?? [];
     return {
         defaultAssessmentFormIds: defaultForms.filter(f => f.kind === "assessment").map(f => f.formId),
-        defaultCheckinForms: defaultForms.filter(f => f.kind === "checkin").map(f => ({ formId: f.formId, intervalDays: String(f.intervalDays ?? "") })),
+        defaultCheckinForms: defaultForms.filter(f => f.kind === "checkin").map(f => ({ formId: f.formId })),
         nutritionCycleDays: v.nutritionCycleDays != null ? String(v.nutritionCycleDays) : "",
         trainingCycleDays: v.trainingCycleDays != null ? String(v.trainingCycleDays) : "",
         reviewOffsetDays: v.reviewOffsetDays != null ? String(v.reviewOffsetDays) : "",
@@ -101,8 +101,8 @@ function variationDefaultsToApi(v) {
     const defaultForms = [
         ...(v.defaultAssessmentFormIds || []).map(formId => ({ formId, kind: "assessment" })),
         ...(v.defaultCheckinForms || [])
-            .filter(c => c.formId && Number(c.intervalDays) > 0)
-            .map(c => ({ formId: c.formId, kind: "checkin", intervalDays: Number(c.intervalDays) })),
+            .filter(c => c.formId)
+            .map(c => ({ formId: c.formId, kind: "checkin" })),
     ];
     return {
         nutritionCycleDays: v.nutritionCycleDays ? Number(v.nutritionCycleDays) : undefined,

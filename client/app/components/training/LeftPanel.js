@@ -8,6 +8,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ProgressBar } from "@heroui/react/progress-bar";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
@@ -105,30 +106,8 @@ export default function LeftPanel({
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
     const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
 
-    // Package Lifecycle Phase 3b -- see the identical note in nutrition/LeftPanel.js.
-    const showCycleStats = selectedPlan?.status === "active" && !!selectedPlan?.cycle_end_at;
-    const remainingDays = showCycleStats
-        ? Math.ceil((new Date(selectedPlan.cycle_end_at).getTime() - Date.now()) / 86400000)
-        : null;
-
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
-            {showCycleStats && (
-                <div className="flex items-center justify-between gap-2 px-2 py-2 mb-2 rounded-xl bg-secondary/60 text-xs">
-                    <div className="flex flex-col">
-                        <span className="text-muted-foreground">{t('planActivatedOn')}</span>
-                        <span className="font-medium text-foreground">{formatDate(selectedPlan.activated_at)}</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <span className="text-muted-foreground">{t('planDaysRemaining')}</span>
-                        <span className="font-semibold text-foreground">{remainingDays}</span>
-                    </div>
-                    <div className="flex flex-col items-end">
-                        <span className="text-muted-foreground">{t('planEndsOn')}</span>
-                        <span className="font-medium text-foreground">{formatDate(selectedPlan.cycle_end_at)}</span>
-                    </div>
-                </div>
-            )}
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}
@@ -208,47 +187,78 @@ export default function LeftPanel({
                                         {plans.map((plan) => {
                                             const isActive = String(selectedPlan?.id) === String(plan.id);
                                             const isPlanDirty = dirtyPlanIds?.includes(String(plan.id));
+                                            const isPlanActive = plan.status === "active";
+                                            // Package Lifecycle: see the identical note in nutrition/LeftPanel.js.
+                                            const hasCycleProgress = isPlanActive && !!plan.cycle_days && !!plan.cycle_end_at;
+                                            let currentDay = null, progressPercent = null;
+                                            if (hasCycleProgress) {
+                                                const daysRemaining = Math.ceil((new Date(plan.cycle_end_at).getTime() - Date.now()) / 86400000);
+                                                currentDay = Math.min(plan.cycle_days, Math.max(1, plan.cycle_days - daysRemaining + 1));
+                                                progressPercent = Math.min(100, Math.max(0, (currentDay / plan.cycle_days) * 100));
+                                            }
                                             return (
                                                 <div
                                                     key={plan.id}
                                                     onClick={() => handleSelectedPlan(plan)}
-                                                    className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
+                                                    className={`group flex flex-col gap-2 rounded-xl px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
                                                         isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                                     }`}
                                                 >
-                                                    <div className={`relative shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                                                        isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted group-hover:text-foreground"
-                                                    }`}>
-                                                        <PlanIcon />
-                                                        {isPlanDirty && (
-                                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-card dark:ring-(--color-surface-secondary)" title={t('unsaved')} />
-                                                        )}
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`relative shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                                                            isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted group-hover:text-foreground"
+                                                        }`}>
+                                                            <PlanIcon />
+                                                            {isPlanDirty && (
+                                                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-card dark:ring-(--color-surface-secondary)" title={t('unsaved')} />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
+                                                                {plan.name}
+                                                            </p>
+                                                            <p className="text-xs leading-5 text-muted truncate">
+                                                                {t('daysCount', { count: plan.day_count ?? plan.days?.length ?? 0 })}
+                                                                {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            {isPlanActive && (
+                                                                <Chip size="sm" color="success" variant="soft" className="shrink-0">
+                                                                    <StatusDot />
+                                                                    <Chip.Label>{t('active')}</Chip.Label>
+                                                                </Chip>
+                                                            )}
+                                                            <CardActionsMenu
+                                                                isActive={isActive}
+                                                                ariaLabel={t('planOptions')}
+                                                                items={[
+                                                                    { key: "duplicate", label: t('duplicatePlan'), icon: <DuplicateIcon />, onSelect: () => handleDuplicatePlan(plan.id) },
+                                                                    { key: "delete", label: t('deletePlan'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeletePlan(plan.id) },
+                                                                ]}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
-                                                            {plan.name}
-                                                        </p>
-                                                        <p className="text-xs leading-5 text-muted truncate">
-                                                            {t('daysCount', { count: plan.day_count ?? plan.days?.length ?? 0 })}
-                                                            {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        {plan.status === "active" && (
-                                                            <Chip size="sm" color="success" variant="soft" className="shrink-0">
-                                                                <StatusDot />
-                                                                <Chip.Label>{t('active')}</Chip.Label>
-                                                            </Chip>
-                                                        )}
-                                                        <CardActionsMenu
-                                                            isActive={isActive}
-                                                            ariaLabel={t('planOptions')}
-                                                            items={[
-                                                                { key: "duplicate", label: t('duplicatePlan'), icon: <DuplicateIcon />, onSelect: () => handleDuplicatePlan(plan.id) },
-                                                                { key: "delete", label: t('deletePlan'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeletePlan(plan.id) },
-                                                            ]}
-                                                        />
-                                                    </div>
+                                                    {hasCycleProgress && (
+                                                        <div className="pl-12 flex flex-col gap-1">
+                                                            <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                                                                <span>{t('planDayProgress', { current: currentDay, total: plan.cycle_days })}</span>
+                                                                <span>{Math.round(progressPercent)}%</span>
+                                                            </div>
+                                                            <ProgressBar
+                                                                value={progressPercent}
+                                                                size="sm"
+                                                                aria-label={t('planDayProgress', { current: currentDay, total: plan.cycle_days })}
+                                                            >
+                                                                <ProgressBar.Track>
+                                                                    <ProgressBar.Fill />
+                                                                </ProgressBar.Track>
+                                                            </ProgressBar>
+                                                            <p className="text-[11px] text-muted-foreground">
+                                                                {t('planActivatedOn')} {formatDate(plan.activated_at)} • {t('planEndsOn')} {formatDate(plan.cycle_end_at)}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}

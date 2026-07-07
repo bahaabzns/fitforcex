@@ -581,11 +581,16 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                     // See the identical note in nutrition.controller.ts:
                     // matched by client + plan type, not source_plan_id,
                     // since this save path's plan id already changed by now.
-                    await dbClient.query(
-                        `UPDATE check_in_schedules SET next_due_at = NOW() + (interval_days || ' days')::interval
-                         WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL`,
-                        [restarted.client_id]
-                    );
+                    // Check-in forms are one-shot at the plan's end date --
+                    // re-point next_due_at at the new cycle_end_at, skipped
+                    // if the restart didn't resolve one.
+                    if (restarted.cycle_end_at) {
+                        await dbClient.query(
+                            `UPDATE check_in_schedules SET next_due_at = $2
+                             WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL`,
+                            [restarted.client_id, restarted.cycle_end_at]
+                        );
+                    }
                     restartedClientId = restarted.client_id as string;
                 }
             },
@@ -620,7 +625,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
     // nutrition.controller.ts's activatePlan.
     const { cycleDays, checkInForms, reviewOffsetDays, updateMode } = req.body as {
         cycleDays?: number | null;
-        checkInForms?: { formId: string; intervalDays: number }[];
+        checkInForms?: { formId: string }[];
         reviewOffsetDays?: number | null;
         updateMode?: 'restart' | 'extend';
     };
@@ -648,13 +653,15 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     [planId]
                 );
             }
-            if (Array.isArray(checkInForms) && checkInForms.length > 0) {
+            // Check-in forms fire once, at the plan's own end date -- see
+            // the identical note in nutrition.controller.ts's activatePlan.
+            if (Array.isArray(checkInForms) && checkInForms.length > 0 && plan.cycle_end_at) {
                 for (const f of checkInForms) {
-                    if (!f.formId || !(Number(f.intervalDays) > 0)) continue;
+                    if (!f.formId) continue;
                     await dbClient.query(
-                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, interval_days, next_due_at, source_plan_type, source_plan_id)
-                         VALUES ($1, $2, $3, $4, $5, NOW() + ($6 || ' days')::interval, 'training', $7)`,
-                        [createId(), coachId, plan.client_id, f.formId, Number(f.intervalDays), Number(f.intervalDays), plan.id]
+                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id)
+                         VALUES ($1, $2, $3, $4, $5, 'training', $6)`,
+                        [createId(), coachId, plan.client_id, f.formId, plan.cycle_end_at, plan.id]
                     );
                 }
             }

@@ -639,7 +639,7 @@ Explicitly **not** part of this MVP. Listed to prevent scope creep during implem
 - **Analytics** — package performance, plan-completion/renewal-rate dashboards.
 - **Automation templates** — reusable bundles of defaults shareable across packages/workspaces.
 - **AI recommendations** — suggesting a package or cycle length based on client history.
-- **Advanced recurrence** — non-fixed-interval check-in cadences (e.g. "every 2nd Monday"), calendar-aware scheduling.
+- **Recurring check-ins** — check-in forms are one-shot as of 2026-07-07 (§12.9); any repeating cadence (fixed-interval or calendar-aware, e.g. "every 2nd Monday") is out of scope unless product revisits the one-shot decision.
 - **Multi-stage workflows** — packages that auto-transition a client through a sequence of different variations over time.
 - **Package cloning** — duplicate an existing package/variation as a starting point for a new one.
 - **Versioning** — historical snapshots of a package's configuration over time (beyond the per-record snapshot fields this plan already includes).
@@ -1034,6 +1034,17 @@ Turn the check-in selections confirmed in Phase 3's activation modal into an act
 #### Why this phase exists
 Directly implements §3.4. Builds on Phase 3's `cycle_end_at` for review timing and reuses the existing scheduler/notification infrastructure almost unchanged.
 
+> **Superseded 2026-07-07:** this phase originally shipped check-in forms as
+> recurring (`interval_days`, re-dispatched on every cadence for as long as
+> the plan stayed active). A later product decision (see the note at the top
+> of [§12](#12-business-logic)) made check-in forms one-shot instead — sent
+> exactly once, at `cycle_end_at`. The `CREATE TABLE`/scheduler snippets below
+> are left as originally written for implementation history; `interval_days`
+> no longer exists on `check_in_schedules` (dropped in migration
+> `034_checkin_forms_one_shot.js`), and dispatch deletes the row on success
+> instead of advancing `next_due_at`. §12.4/§12.5/§12.9 reflect the current,
+> actually-implemented behavior.
+
 #### Database changes
 ```sql
 CREATE TABLE check_in_schedules (
@@ -1293,32 +1304,48 @@ Deterministic rules, grouped by concern. Each rule is written to be directly tra
 ### 12.3 Package snapshot
 - Every value copied from a package default into a client-specific record (a plan's `cycle_days`, a Check-in Schedule's `interval_days`) is a **one-time copy**, matching the precedent already set by `transactions.duration` (itself a snapshot of the variation's duration at purchase time, immune to later variation edits).
 
+> **Superseded 2026-07-07 (post-Phase-4 UI review):** §12.4, §12.5, and §12.9
+> originally specified check-in forms as **recurring**, dispatched every
+> `interval_days` for as long as the plan stayed active. Reviewing the
+> Configure Activation modal surfaced that this cadence was redundant with —
+> and conceptually competed with — Plan Duration: a coach configuring "42
+> days" and a check-in form "every 14 days" had no way to express the far
+> more common case, "ask the client one end-of-plan question to inform the
+> restart/extend decision," without picking an interval that happened to
+> divide the duration evenly. Product direction (confirmed 2026-07-07):
+> check-in forms are **one-shot** — sent exactly once, at `cycle_end_at` —
+> and the coach-facing `interval_days` field is removed entirely, from the
+> package config UI, the Configure Activation modal, and the schema
+> (`package_default_forms.interval_days` / `check_in_schedules.interval_days`
+> dropped in migration `034_checkin_forms_one_shot.js`). The rules below are
+> rewritten to match what's actually implemented; the recurring model they
+> replace no longer exists anywhere in the codebase.
+
 ### 12.4 Plan activation
 - Activation always requires resolving (from the package, defaulting to empty/manual if none) a proposed `cycleDays` and a proposed check-in form list; the coach may accept, edit, or clear either before confirming.
-- On confirm: `activated_at = NOW()`, `cycle_end_at = cycleDays ? NOW() + cycleDays : NULL`, one `check_in_schedules` row per confirmed check-in form with `next_due_at = NOW() + interval_days`.
-- A plan activated with no resolvable `cycleDays` (no package, or coach clears the field) has `cycle_end_at = NULL` indefinitely — the builder header omits the stat row entirely in this case (never shows "Remaining: —" or similar ambiguous placeholder).
+- On confirm: `activated_at = NOW()`, `cycle_end_at = cycleDays ? NOW() + cycleDays : NULL`, one `check_in_schedules` row per confirmed check-in form with `next_due_at = cycle_end_at` — skipped entirely if `cycle_end_at` didn't resolve (nothing to fire at).
+- A plan activated with no resolvable `cycleDays` (no package, or coach clears the field) has `cycle_end_at = NULL` indefinitely — the builder header omits the stat row entirely in this case (never shows "Remaining: —" or similar ambiguous placeholder), and no check-in schedule rows are created (there is no end date to fire at).
 
 ### 12.5 Plan editing (the restart/extend rule)
 - The Continue/Restart prompt appears **if and only if** the plan being saved currently has `status = 'active'` **and** already has a non-null `activated_at`.
 - **Extend** (coach chooses "Continue remaining duration"): `activated_at`, `cycle_end_at`, and every associated `check_in_schedules.next_due_at` are carried forward unchanged from the pre-edit row.
-- **Restart** (coach chooses "Restart plan duration"): `activated_at = NOW()`; `cycle_end_at` recomputed from the plan's current `cycle_days` (or a newly-provided value if the coach also changes it in the same edit); every associated `check_in_schedules.next_due_at` recomputed as `NOW() + interval_days`; `review_notified_at` reset to `NULL` (a restarted plan is eligible for a fresh review-due notice on its new timeline).
+- **Restart** (coach chooses "Restart plan duration"): `activated_at = NOW()`; `cycle_end_at` recomputed from the plan's current `cycle_days` (or a newly-provided value if the coach also changes it in the same edit); every associated `check_in_schedules.next_due_at` re-pointed at the new `cycle_end_at` (skipped if it didn't resolve); `review_notified_at` reset to `NULL` (a restarted plan is eligible for a fresh review-due notice on its new timeline).
 - A plan that is `draft` (never activated) or brand-new never triggers this prompt — there is nothing to extend from; saving simply persists the draft as today.
 - **Ambiguous rule flagged for a product decision** (not resolved by this document — see [§18.1](#181-open-questions) item 4): a check-in form dispatched under the *old* schedule that is still `pending`/unanswered at the moment of a "Restart" — does it stay outstanding, or does restart cancel/supersede it? This plan defaults to **"leave it outstanding"** (the safest, least-destructive behavior — never silently delete a client-facing task) unless product direction says otherwise.
 
 ### 12.6 Freeze
-- While a client's computed status is `Frozen`, `check_in_schedules` rows for that client are marked `paused_at = NOW()` and do not advance or dispatch.
-- On unfreeze, `paused_at` clears and `next_due_at` shifts forward by the freeze's duration — mirroring exactly how `computeSubscriptionDetails` already extends a subscription period's end by a freeze's duration (same arithmetic, applied to a different date field).
 - A plan's `cycle_end_at` is extended by a freeze's duration using the same shared helper (§Phase 3 Backend changes) — a frozen client does not lose plan time to the freeze window, consistent with how their subscription itself doesn't.
+- **Known gap, pre-existing and unrelated to the one-shot change above:** `check_in_schedules.paused_at` is only ever read (as a dispatch filter) — nothing in the codebase ever sets it, so a freeze does not currently re-point a schedule row's `next_due_at` to match the plan's freeze-extended `cycle_end_at`. In practice this is masked by §12.7's dispatch-time `Active`/grace check (a frozen client's dispatch is skipped regardless), but the *date itself* can go stale relative to the true, extended end. Logged as debt, not fixed here — out of scope for this UI-driven change.
 
 ### 12.7 Expire
-- Once a client's computed status is `Expired` and outside any grace window, `scheduleCheckInDispatch` skips creating new `form_requests` for that client's schedules (checked at dispatch time, not by mutating the schedule rows) — an expired client's portal already blocks `allow_submit_checkins` via the existing, unchanged policy engine, so dispatching would be a dead end.
-- Expiring does **not** delete or reset `check_in_schedules`/plan dates — if the client resubscribes and their status returns to `Active`, dispatch resumes from wherever `next_due_at` already was (potentially immediately, if it's in the past), not from a reset point.
+- Once a client's computed status is `Expired` and outside any grace window, `runCheckInDispatchTick` skips creating new `form_requests` for that client's schedules (checked at dispatch time, not by mutating the schedule rows) — an expired client's portal already blocks `allow_submit_checkins` via the existing, unchanged policy engine, so dispatching would be a dead end.
+- Expiring does **not** delete or reset `check_in_schedules`/plan dates — if the client resubscribes and their status returns to `Active`, dispatch resumes and fires (the one-shot form is still owed), rather than being silently skipped.
 
 ### 12.8 Manual override
 - At every point a package default is proposed (wizard forms, activation modal), the coach's manual edit **always wins** over the package's proposed value for that specific action — package configuration is a convenience default, never an enforced constraint, at any layer.
 
-### 12.9 Recurring check-ins
-- `check_in_schedules.next_due_at` advances by exactly `interval_days` on each successful dispatch, computed from the *previous* `next_due_at` (not from "now"), so a temporarily-delayed cron tick doesn't compound drift.
+### 12.9 One-shot check-ins
+- A check-in form fires exactly once: `check_in_schedules.next_due_at` is set once (at activation, `cycle_end_at`) or re-set once (on restart, the new `cycle_end_at`) — there is no recurrence and no `interval_days` field. On successful dispatch (`runCheckInDispatchTick`), the schedule row is deleted rather than advanced to a next occurrence.
 - Editing an active plan's check-in selection (adding/removing forms in a future "edit activation" affordance, if built — see [§18.1](#181-open-questions)) is out of MVP scope; today's MVP only sets check-ins at activation time and lets restart/extend govern their timing thereafter.
 
 ### 12.10 Review reminder / notification timing
@@ -1515,7 +1542,7 @@ A deployment roadmap per release, aligned 1:1 with the git milestones in [§18.9
 ### 18.1 Open questions
 
 1. Does the Nutrition/Training builder page already have the active client's resolved package variation in state at the point the Configure Activation modal opens, or does it need a new fetch? (Affects whether §11.3/§11.4's "Data flow" needs a new endpoint call.) **Needs a 15-minute implementation-time check against `nutrition/page.js`/`training/page.js`'s existing data-loading effects before Phase 3 starts.**
-2. Should `package_default_forms` for check-ins support more than one interval per form (e.g. a form used both as a one-off assessment and, separately, as a recurring check-in on a different package)? Current design allows this naturally (the `kind` column disambiguates per join row), but confirm this dual-use case is real before building UI for it.
+2. ~~Should `package_default_forms` for check-ins support more than one interval per form...~~ **Moot as of 2026-07-07:** check-in forms are one-shot (fire once, at `cycle_end_at`), so there is no interval to configure at all — see the superseded-note at the top of [§12](#12-business-logic).
 3. Is there an existing "form assigned to client" notification fired today when a coach manually assigns a one-off form (outside the wizard)? Not confirmed during this analysis — worth a quick check before Phase 4 finalizes the `checkin.requested` event key, to avoid a near-duplicate.
 4. **(New)** What should happen to a check-in form that was already dispatched (a `form_requests` row exists, unanswered) at the moment a coach chooses "Restart" on the plan that spawned it? §12.5 defaults to "leave it outstanding" as the safe choice, but this is a genuine product decision, not an engineering one — confirm before Phase 4 ships.
 5. **(New)** Should the system record *which* choice (restart/extend) was made on each edit, as queryable history (not just a fire-and-forget notification)? Listed in [§9.2 Deferred](#92-deferred) as out of MVP, but flagged here in case product wants it pulled forward — it would be a small addition (`last_duration_choice`/`last_duration_choice_at` on the plan) if decided before Phase 3 ships, and a more awkward retrofit after.
@@ -1558,6 +1585,8 @@ Rationale: variations within one package legitimately differ in length (a 4-week
 - **Newly discovered during Phase 0 implementation:** the pre-existing `resolveClientPackageId()` matched `client.current_package` against the bare `package_variations.name` column (`where: { name: client.current_package }`). But both the add-client wizard (`clients/page.js`) and `TransactionModal.js` store this label as the **composed** string `"${package.name} — ${variation.name}"`, never the bare variation name. This match could only ever succeed if a variation's own name happened to equal that full composed string — in practice it never matched real data. Confirmed empirically: the Phase 0 backfill script (`server/src/scripts/backfill-package-variation-ids.ts`), run against local dev data with the *old* bare-name matching strategy, resolved 0/23 transactions and 0/19 clients; splitting the label on `" — "` and matching `package.name` + `variation.name` together (with a bare-name fallback for any row not in the composed format) resolved 23/23 and 19/19. This means package-specific `subscription_access_policies` overrides likely never actually applied for any client in production either — they silently fell back to the workspace-global policy every time. The backfill script implements the corrected matching; the new FK-based `resolveClientPackageId()` is unaffected going forward since it no longer does any name matching at all. **Action for the team:** after this backfill runs against production data, review whether any workspace has a package-specific policy override configured that differs from its global policy — those overrides will start taking effect for the first time, which is the *intended*, *correct* behavior, but is a real behavior change worth a heads-up to any coach who configured such an override expecting it to already be active.
 - **Phase 4 implementation note — job body split from cron registration for testability:** `scheduler.ts`'s existing jobs (Phase 0-3 code, unchanged) all inline their logic directly inside the `cron.schedule(...)` callback, with no way to invoke a tick outside its clock. Phase 4's two new jobs (`runCheckInDispatchTick`, `runReviewDueCheckTick`) are written as separately exported `async function`s that `scheduleCheckInDispatch()`/`scheduleClientStatusSync()` merely call from inside their `cron.schedule` wrapper. This isn't a parallel system — it's the same production code path invoked two ways — but it is a small deviation from the pre-existing in-file convention, made specifically so both ticks could be driven directly (seed data → invoke tick → assert DB state) rather than waiting on real wall-clock cron ticks during verification. Live-verified end-to-end against the running dev server + real DB: seeded a due `check_in_schedules` row, ran the tick, confirmed a `form_requests` row was created and `next_due_at` advanced past "now"; seeded an active `nutrition_plans` row with `cycle_end_at - review_offset_days` in the past, ran the tick, confirmed `review_notified_at` was stamped; both confirmed a durable `notifications` row was created via `recordEvent` (the socket emit itself no-ops outside the running app, caught by `recordEvent`'s existing best-effort try/catch — the DB write happens before that call, so it's unaffected). Also verified `plan.duration_restarted` through the real HTTP surface (login → activate → activate again with `updateMode: 'restart'`) and confirmed the notification fired to the client with no duplicate `plan.assigned` noise, since `activatePlan` now branches on `updateMode` to send exactly one of the two event types.
 - **New discovered nuance — skipped check-in dispatch does not advance `next_due_at`:** per §12.7, a client outside `Active`/grace can't act on a check-in, so `runCheckInDispatchTick` returns early for that row without creating a `form_requests` row *or* advancing `next_due_at`. This means dispatch resumes from the same due timestamp once the client's status returns to `Active`, rather than skipping silently to the next interval — the intended behavior, but worth stating explicitly since it wasn't spelled out in the original Phase 4 plan text at this level of detail.
+- **Post-implementation UI review (2026-07-07) — the builder header stat row moved into the plan card, and surfaced a real bug along the way:** a follow-up UI pass moved the "Activated/Days left/Ends" strip (§11.3/§11.4, previously a standalone strip above the Plans list, tied to whichever plan was *selected*) into the active plan's own card in the Plans list — now rendered as "Day X of Y" + a HeroUI `ProgressBar` + a compact "Activated … · Ends …" line, keyed off `plan.status === 'active'` regardless of selection, so the card is the single source of truth for the active plan's state. While verifying this against a fresh page load (not just immediately after activating in the same session), `nutrition.controller.ts`'s `getPlan` endpoint was found to hand-pick `{id, name, client_id, status, created_at, updated_at, cycles}` in its response — silently omitting `activated_at`/`cycle_days`/`cycle_end_at`/`review_offset_days`/`review_notified_at` on every plan-detail fetch. `training.controller.ts`'s equivalent endpoint already spread the full serialized row and never had this problem. This meant a coach reloading the nutrition tab (not just the in-session activation flow) would see an active plan with no cycle info at all, despite the DB holding correct data — a real, previously-undiscovered gap, not something the redesign introduced. Fixed by spreading the full serialized row (matching training's pattern). Verified live: activated a 42-day nutrition plan and a 56-day training plan, confirmed both showed correct progress on a fresh Playwright page load in both light and dark mode, then restored both plans to inactive.
+- **Post-implementation architecture change (2026-07-07) — check-in forms became one-shot, not recurring:** while reviewing the Configure Activation modal, it became clear the coach-facing `interval_days` field (repeat every N days) was redundant with, and conceptually competed with, Plan Duration — the common case ("ask the client one end-of-plan question before deciding restart/extend") had no clean way to express itself without picking an interval that happened to divide the duration evenly. Product decision: check-in forms are now one-shot, firing exactly once at `cycle_end_at`. This is a genuine, deliberate architecture change made *after* Phase 4 shipped, not a bug fix — see the superseded-notes at the top of [§12](#12-business-logic) and in the Phase 4 section for the full old-vs-new rationale. Scope of the change: `interval_days` dropped from both `package_default_forms` and `check_in_schedules` (migration `034_checkin_forms_one_shot.js`); `runCheckInDispatchTick` deletes a schedule row on successful dispatch instead of advancing `next_due_at`; activation/restart set `next_due_at = cycle_end_at` directly; the per-form interval input removed from `PackageFormsPicker.js` and `ConfigureActivationModal.js`. Verified: server + client builds clean; a full grep for `interval_days`/`intervalDays` across the repo turns up nothing outside immutable migration history and this document's historical narrative.
 
 ### 18.5 Assumptions
 

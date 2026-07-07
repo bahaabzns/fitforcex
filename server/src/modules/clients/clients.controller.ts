@@ -517,10 +517,9 @@ export async function getClientPackageDefaults(req: Request, res: Response, next
             reviewOffsetDays:   variation.review_offset_days ?? null,
             planUpdateMode:     variation.plan_update_mode || 'extend',
             checkInForms: variation.package_default_forms.map(f => ({
-                formId:       f.form_id,
-                intervalDays: f.interval_days,
-                titleEn:      f.forms.title_en,
-                titleAr:      f.forms.title_ar,
+                formId:  f.form_id,
+                titleEn: f.forms.title_en,
+                titleAr: f.forms.title_ar,
             })),
         });
     } catch (err) { next(err); }

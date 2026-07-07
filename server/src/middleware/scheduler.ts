@@ -227,12 +227,10 @@ export async function runCheckInDispatchTick(): Promise<number> {
                             action_taken_at: new Date(),
                         },
                     }),
-                    prisma.check_in_schedules.update({
-                        where: { id: row.id },
-                        // Advances from the row's own previous next_due_at, not
-                        // "now" -- a delayed tick doesn't compound drift (§12.9).
-                        data: { next_due_at: new Date(row.next_due_at.getTime() + row.interval_days * 86400000) },
-                    }),
+                    // Check-in forms are one-shot -- fired exactly once, at
+                    // the plan's end date -- so the schedule row is deleted
+                    // rather than advanced to a next occurrence.
+                    prisma.check_in_schedules.delete({ where: { id: row.id } }),
                 ]);
 
                 await recordEvent({

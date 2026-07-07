@@ -7,7 +7,6 @@
 type RawDefaultForm = {
     form_id: string;
     kind: string;
-    interval_days: number | null;
     sort_order: number;
     forms?: { id: string; title_en: string; title_ar: string | null } | null;
 };
@@ -16,7 +15,6 @@ function serializeDefaultForm(f: RawDefaultForm) {
     return {
         formId: f.form_id,
         kind: f.kind,
-        intervalDays: f.interval_days,
         sortOrder: f.sort_order,
         titleEn: f.forms?.title_en ?? null,
         titleAr: f.forms?.title_ar ?? null,

@@ -28,7 +28,7 @@ function getPackageWithVariations(id: string, workspaceId: string) {
     });
 }
 
-type DefaultFormInput = { formId?: string; kind?: string; intervalDays?: number };
+type DefaultFormInput = { formId?: string; kind?: string };
 
 /** Validates a variation's defaultForms array; throws with a user-facing message on the first violation. */
 function validateDefaultForms(defaultForms: unknown, variationLabel: string): DefaultFormInput[] {
@@ -38,9 +38,6 @@ function validateDefaultForms(defaultForms: unknown, variationLabel: string): De
         const f = raw as DefaultFormInput;
         if (!f.formId?.trim()) throw new Error(`defaultForms[${i}] for ${variationLabel} is missing formId`);
         if (!f.kind || !DEFAULT_FORM_KINDS.includes(f.kind)) throw new Error(`defaultForms[${i}] for ${variationLabel} has an invalid kind`);
-        if (f.kind === 'checkin' && !(Number.isFinite(f.intervalDays) && Number(f.intervalDays) > 0)) {
-            throw new Error(`defaultForms[${i}] for ${variationLabel} needs a positive intervalDays (kind=checkin)`);
-        }
         return f;
     });
 }
@@ -117,7 +114,6 @@ export async function createPackage(req: Request, res: Response, next: NextFunct
                     package_variation_id: v.id,
                     form_id: f.formId as string,
                     kind: f.kind as string,
-                    interval_days: f.kind === 'checkin' ? Number(f.intervalDays) : null,
                     sort_order: i + 1,
                 }))
             );
@@ -237,7 +233,6 @@ export async function updatePackage(req: Request, res: Response, next: NextFunct
                         package_variation_id: variationId,
                         form_id: f.formId as string,
                         kind: f.kind as string,
-                        interval_days: f.kind === 'checkin' ? Number(f.intervalDays) : null,
                         sort_order: i + 1,
                     }))
                 );
