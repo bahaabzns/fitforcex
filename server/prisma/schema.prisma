@@ -381,9 +381,11 @@ model form_requests {
   scheduled_at        DateTime?             @db.Timestamptz(6)
   action_taken_at     DateTime?             @db.Timestamptz(6)
   assigned_to         String? // user id of the team member this request is assigned to
+  form_version_id     String? // Forms Versioning — the version pinned at creation time; never changes after
   workspaces          workspaces            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
   clients             clients?              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   forms               forms?                @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_versions       form_versions?        @relation(fields: [form_version_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   form_responses      form_responses[]
   client_observations client_observations[]
   observation_relations observation_relations[]
@@ -408,21 +410,64 @@ model form_responses {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model forms {
-  id             String           @id
-  workspace_id   String
-  title_en       String           @default("Untitled Form") @db.VarChar(255)
-  description_en String?
-  status         String           @default("draft") @db.VarChar(20)
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
-  post_action    String           @default("nothing")
-  form_type      String           @default("check-in")
-  title_ar       String?          @db.VarChar(255)
-  description_ar String?
-  form_questions form_questions[]
-  form_requests  form_requests[]
+  id                 String           @id
+  workspace_id       String
+  title_en           String           @default("Untitled Form") @db.VarChar(255)
+  description_en     String?
+  status             String           @default("draft") @db.VarChar(20)
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  post_action        String           @default("nothing")
+  form_type          String           @default("check-in")
+  title_ar           String?          @db.VarChar(255)
+  description_ar     String?
+  current_version_id String? // Forms Versioning — the version coaches currently edit/assign; NULL only pre-backfill
+  form_questions     form_questions[]
+  form_requests      form_requests[]
   package_default_forms package_default_forms[]
-  workspaces     workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_forms_workspace")
+  workspaces         workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_forms_workspace")
+  form_versions      form_versions[]  @relation("FormVersionsByForm")
+  current_version    form_versions?   @relation("FormCurrentVersion", fields: [current_version_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+}
+
+model form_versions {
+  id             String           @id
+  form_id        String
+  version_number Int
+  sealed_at      DateTime?        @db.Timestamptz(6) // NULL = still an editable draft
+  created_by     String? // user id; NULL for system/scheduler-triggered forks
+  change_note    String? // reserved for a future manual-publish UI; unused today
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  forms          forms            @relation("FormVersionsByForm", fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  current_of_forms       forms[]                 @relation("FormCurrentVersion")
+  form_version_questions form_version_questions[]
+  form_requests          form_requests[]
+
+  @@unique([form_id, version_number])
+  @@index([form_id])
+}
+
+model form_version_questions {
+  id             String        @id
+  form_version_id String
+  label_en       String        @default("Question")
+  label_ar       String?
+  type           String        @default("text") @db.VarChar(30)
+  required       Boolean       @default(false)
+  order_index    Int           @default(0)
+  options        Json?
+  options_ar     Json?
+  placeholder_en String?
+  placeholder_ar String?
+  min_value      Int?
+  max_value      Int?
+  metric_id      String?
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  form_versions  form_versions @relation(fields: [form_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  metrics        metrics?      @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([form_version_id])
+  @@index([metric_id])
 }
 
 model metrics {
@@ -439,6 +484,7 @@ model metrics {
   workspaces     workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   form_questions form_questions[]
   form_responses form_responses[]
+  form_version_questions form_version_questions[]
 
   @@unique([workspace_id, name])
   @@index([workspace_id, deleted_at])
