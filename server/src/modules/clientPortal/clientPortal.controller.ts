@@ -359,6 +359,7 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
 
         const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
             SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
+                   fr.form_version_id,
                    f.id AS form_id,
                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
@@ -377,12 +378,19 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
             return res.status(403).json({ error: 'This form is not available yet' });
         }
 
+        // Forms Versioning Phase 2 — always render the version PINNED to this
+        // request (set at assignment time), never the form's live current
+        // draft. This is what guarantees a client answers exactly what was
+        // asked when they were assigned the form, even if the coach has
+        // since edited it.
         const [rawQuestions, responses] = await Promise.all([
-            prisma.form_questions.findMany({
-                where:   { form_id: request.form_id as string },
-                orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
-                include: { metrics: { select: { type: true, unit: true, name: true, icon: true } } },
-            }),
+            request.form_version_id
+                ? prisma.form_version_questions.findMany({
+                    where:   { form_version_id: request.form_version_id as string },
+                    orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+                    include: { metrics: { select: { type: true, unit: true, name: true, icon: true } } },
+                  })
+                : Promise.resolve([]),
             request.status !== 'pending' && request.status !== 'scheduled'
                 ? prisma.form_responses.findMany({
                     where:  { request_id: request.id as string },
@@ -420,9 +428,11 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
 
         // Fetch metric_ids so they can be denormalized into each answer row.
         // This keeps transformation queries fast and preserves history even if
-        // the question is later re-linked or deleted.
+        // the question is later re-linked or deleted. Reads from
+        // form_version_questions (Forms Versioning Phase 2) — the pinned,
+        // immutable snapshot these question ids actually belong to.
         const questionIds = answers.map(a => a.question_id).filter(Boolean);
-        const questionMetrics = await prisma.form_questions.findMany({
+        const questionMetrics = await prisma.form_version_questions.findMany({
             where:  { id: { in: questionIds } },
             select: { id: true, metric_id: true },
         });

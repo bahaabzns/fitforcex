@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
+import { resolveWritableVersion, sealVersionForAssignment } from './forms.service';
 
 let schemaReadyPromise: Promise<void> | undefined;
 
@@ -71,17 +72,29 @@ export async function createForm(req: Request, res: Response, next: NextFunction
     const safePostAction = normalizePostAction(postAction);
     const safeFormType   = normalizeFormType(formType);
     try {
-        const form = await prisma.forms.create({
-            data: {
-                id:             createId(),
-                workspace_id:   req.user!.workspaceId as string,
-                title_en:       (title_en as string | undefined) || 'Untitled Form',
-                title_ar:       (title_ar as string | undefined) || null,
-                description_en: (description_en as string | undefined) || null,
-                description_ar: (description_ar as string | undefined) || null,
-                post_action:    safePostAction,
-                form_type:      safeFormType,
-            },
+        const formId    = createId();
+        const versionId = createId();
+        // Forms Versioning Phase 2 — every form is born version-aware: a
+        // fresh, unsealed version 1 with zero questions. This means
+        // resolveWritableVersion never has to special-case "no version yet"
+        // for anything created through this path.
+        const form = await prisma.$transaction(async (tx) => {
+            const created = await tx.forms.create({
+                data: {
+                    id:             formId,
+                    workspace_id:   req.user!.workspaceId as string,
+                    title_en:       (title_en as string | undefined) || 'Untitled Form',
+                    title_ar:       (title_ar as string | undefined) || null,
+                    description_en: (description_en as string | undefined) || null,
+                    description_ar: (description_ar as string | undefined) || null,
+                    post_action:    safePostAction,
+                    form_type:      safeFormType,
+                },
+            });
+            await tx.form_versions.create({
+                data: { id: versionId, form_id: formId, version_number: 1, created_by: req.user!.userId },
+            });
+            return tx.forms.update({ where: { id: formId }, data: { current_version_id: versionId } });
         });
         res.status(201).json({ ...form, question_count: 0 });
     } catch (err) {
@@ -148,14 +161,19 @@ export async function getQuestions(req: Request, res: Response, next: NextFuncti
     try {
         const form = await prisma.forms.findFirst({
             where:  { id: req.params.id as string, workspace_id: req.user!.workspaceId },
-            select: { id: true },
+            select: { id: true, current_version_id: true },
         });
         if (!form) return res.status(404).json({ error: 'Form not found' });
 
-        const questions = await prisma.form_questions.findMany({
-            where:   { form_id: req.params.id as string },
-            orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
-        });
+        // Forms Versioning Phase 2 — the builder always shows the form's
+        // current version (the live, editable draft), never a sealed
+        // historical one.
+        const questions = form.current_version_id
+            ? await prisma.form_version_questions.findMany({
+                  where:   { form_version_id: form.current_version_id },
+                  orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+              })
+            : [];
         res.json(questions);
     } catch (err) {
         next(err);
@@ -166,27 +184,35 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
     const { label_en, label_ar, type, metric_id } = req.body as Record<string, unknown>;
     const questionType = (type as string | undefined) || 'text';
     const isMetricType = questionType === 'metric';
+    const formId = req.params.id as string;
 
     // Non-metric types must never carry a metric_id.
     // Metric type may be created without a metric_id (coach picks it in the editor).
     const resolvedMetricId = isMetricType ? ((metric_id as string | undefined) || null) : null;
 
     try {
+        // Forms Versioning Phase 2 — resolve the writable version FIRST: if
+        // the current version is sealed (already assigned), this forks a
+        // new one and every existing question gets a new id. The duplicate
+        // check and order_index below must run against the (possibly new)
+        // resolved version, not the version that existed before this call.
+        const { versionId, isNewVersion } = await resolveWritableVersion(formId, req.user!.userId);
+
         if (resolvedMetricId) {
             const metric = await prisma.metrics.findFirst({
                 where: { id: resolvedMetricId, workspace_id: req.user!.workspaceId, deleted_at: null },
             });
             if (!metric) return res.status(400).json({ error: 'Metric not found' });
 
-            const duplicate = await prisma.form_questions.findFirst({
-                where: { form_id: req.params.id as string, metric_id: resolvedMetricId },
+            const duplicate = await prisma.form_version_questions.findFirst({
+                where: { form_version_id: versionId, metric_id: resolvedMetricId },
             });
             if (duplicate) return res.status(409).json({ error: 'This metric is already tracked by another question in this form' });
         }
 
-        const agg = await prisma.form_questions.aggregate({
-            where:   { form_id: req.params.id as string },
-            _max:    { order_index: true },
+        const agg = await prisma.form_version_questions.aggregate({
+            where: { form_version_id: versionId },
+            _max:  { order_index: true },
         });
         const orderIndex = (agg._max.order_index ?? -1) + 1;
 
@@ -196,26 +222,29 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
             options:   ['select', 'multiselect'].includes(questionType) ? ([] as Prisma.InputJsonValue) : null,
         };
 
-        const question = await prisma.form_questions.create({
+        const question = await prisma.form_version_questions.create({
             data: {
-                id:          createId(),
-                form_id:     req.params.id as string,
-                label_en:    (label_en as string | undefined) || 'Question',
-                label_ar:    (label_ar as string | undefined) || null,
-                type:        questionType,
-                order_index: orderIndex,
-                min_value:   defaults.min_value,
-                max_value:   defaults.max_value,
-                options:     defaults.options ?? Prisma.DbNull,
-                metric_id:   resolvedMetricId,
+                id:              createId(),
+                form_version_id: versionId,
+                label_en:        (label_en as string | undefined) || 'Question',
+                label_ar:        (label_ar as string | undefined) || null,
+                type:            questionType,
+                order_index:     orderIndex,
+                min_value:       defaults.min_value,
+                max_value:       defaults.max_value,
+                options:         defaults.options ?? Prisma.DbNull,
+                metric_id:       resolvedMetricId,
             },
         });
 
         await prisma.forms.updateMany({
-            where: { id: req.params.id as string },
+            where: { id: formId },
             data:  { updated_at: new Date() },
         });
-        res.status(201).json(question);
+        // versionChanged tells the builder every other question id it holds
+        // for this form is now stale (a fork silently reassigns all of
+        // them) and it must refetch the full list, not just patch this one in.
+        res.status(201).json({ ...question, versionChanged: isNewVersion });
     } catch (err) {
         next(err);
     }
@@ -223,9 +252,17 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
 
 export async function updateQuestion(req: Request, res: Response, next: NextFunction) {
     const { label_en, label_ar, type, required, placeholder_en, placeholder_ar, options, options_ar, min_value, max_value, metric_id } = req.body as Record<string, unknown>;
+    const formId = req.params.id as string;
     try {
-        const existing = await prisma.form_questions.findFirst({
-            where: { id: req.params.qid as string, form_id: req.params.id as string },
+        // Forms Versioning Phase 2 — resolve (and possibly fork) BEFORE
+        // looking up the question: if the current version was sealed, the
+        // qid the client sent belongs to the now-superseded version and
+        // must be translated to its clone in the new one.
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.userId);
+        const qid = questionIdMap.get(req.params.qid as string) ?? (req.params.qid as string);
+
+        const existing = await prisma.form_version_questions.findFirst({
+            where: { id: qid, form_version_id: versionId },
         });
         if (!existing) return res.status(404).json({ error: 'Question not found' });
 
@@ -245,16 +282,16 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
             });
             if (!metric) return res.status(400).json({ error: 'Metric not found' });
 
-            const duplicate = await prisma.form_questions.findFirst({
-                where: { form_id: req.params.id as string, metric_id: metric_id as string, id: { not: req.params.qid as string } },
+            const duplicate = await prisma.form_version_questions.findFirst({
+                where: { form_version_id: versionId, metric_id: metric_id as string, id: { not: qid } },
             });
             if (duplicate) return res.status(409).json({ error: 'This metric is already tracked by another question in this form' });
 
             resolvedMetricId = metric_id as string;
         }
 
-        const updated = await prisma.form_questions.update({
-            where: { id: req.params.qid as string },
+        const updated = await prisma.form_version_questions.update({
+            where: { id: qid },
             data: {
                 label_en:       label_en       !== undefined ? (label_en       as string) : existing.label_en,
                 label_ar:       label_ar       !== undefined ? (label_ar       as string | null) : existing.label_ar,
@@ -271,10 +308,10 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
         });
 
         await prisma.forms.updateMany({
-            where: { id: req.params.id as string },
+            where: { id: formId },
             data:  { updated_at: new Date() },
         });
-        res.json(updated);
+        res.json({ ...updated, versionChanged: isNewVersion });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -282,18 +319,15 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
 }
 
 export async function deleteQuestion(req: Request, res: Response, next: NextFunction) {
+    const formId = req.params.id as string;
     try {
-        const existing = await prisma.form_questions.findFirst({
-            where:  { id: req.params.qid as string, form_id: req.params.id as string },
-            select: { id: true },
-        });
-        if (!existing) return res.status(404).json({ error: 'Question not found' });
-
-        // Forms Versioning Phase 0 — a question with any historical answers is
-        // never hard-deleted: form_responses cascades on question_id, so this
-        // would silently erase every past answer (and metric data point) tied
-        // to it. See docs/forms-architecture-investigation.md.
-        const answerCount = await prisma.form_responses.count({ where: { question_id: existing.id } });
+        // Forms Versioning Phase 0/2 — check for recorded answers BEFORE
+        // resolving/forking the version: a blocked delete shouldn't create
+        // a needless new version. Note this checks form_responses, which
+        // (as of this phase's migration 037) references form_version_questions
+        // directly, so the requested qid is checked as-is here, prior to any
+        // fork-driven id translation.
+        const answerCount = await prisma.form_responses.count({ where: { question_id: req.params.qid as string } });
         if (answerCount > 0) {
             return res.status(409).json({
                 error: `This question has ${answerCount} recorded answer(s). It cannot be deleted without losing client history.`,
@@ -301,16 +335,19 @@ export async function deleteQuestion(req: Request, res: Response, next: NextFunc
             });
         }
 
-        const deleted = await prisma.form_questions.deleteMany({
-            where: { id: req.params.qid as string, form_id: req.params.id as string },
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.userId);
+        const qid = questionIdMap.get(req.params.qid as string) ?? (req.params.qid as string);
+
+        const deleted = await prisma.form_version_questions.deleteMany({
+            where: { id: qid, form_version_id: versionId },
         });
         if (deleted.count === 0) return res.status(404).json({ error: 'Question not found' });
 
         await prisma.forms.updateMany({
-            where: { id: req.params.id as string },
+            where: { id: formId },
             data:  { updated_at: new Date() },
         });
-        res.json({ deleted: req.params.qid });
+        res.json({ deleted: req.params.qid, versionChanged: isNewVersion });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -319,20 +356,22 @@ export async function deleteQuestion(req: Request, res: Response, next: NextFunc
 
 export async function reorderQuestions(req: Request, res: Response, next: NextFunction) {
     const { order } = req.body as { order?: Array<{ id: string; order_index: number }> };
+    const formId = req.params.id as string;
     try {
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.userId);
         await prisma.$transaction(
             (order || []).map(({ id, order_index }) =>
-                prisma.form_questions.updateMany({
-                    where: { id, form_id: req.params.id as string },
+                prisma.form_version_questions.updateMany({
+                    where: { id: questionIdMap.get(id) ?? id, form_version_id: versionId },
                     data:  { order_index },
                 })
             )
         );
         await prisma.forms.updateMany({
-            where: { id: req.params.id as string },
+            where: { id: formId },
             data:  { updated_at: new Date() },
         });
-        res.json({ success: true });
+        res.json({ success: true, versionChanged: isNewVersion });
     } catch (err) {
         next(err);
     }
@@ -373,15 +412,23 @@ export async function createRequests(req: Request, res: Response, next: NextFunc
             const formPostAction = normalizePostAction(formCheck.post_action);
             const initialStatus  = requestMode === 'schedule' ? 'scheduled' : 'pending';
 
+            // Forms Versioning Phase 2 — the row exists from this moment on
+            // (even a "scheduled" one just waits to flip pending later), so
+            // this is the assignment moment: seal the current version now so
+            // this request permanently answers exactly this wording, even
+            // if the coach edits the form again before the client responds.
+            const { versionId } = await sealVersionForAssignment(formCheck.id, req.user!.userId);
+
             const request = await prisma.form_requests.create({
                 data: {
-                    id:           createId(),
-                    form_id:      form_id as string,
-                    client_id:    client_id as string,
-                    workspace_id: req.user!.workspaceId,
-                    status:       initialStatus,
-                    scheduled_at: scheduledAt,
-                    post_action:  formPostAction,
+                    id:              createId(),
+                    form_id:         form_id as string,
+                    form_version_id: versionId,
+                    client_id:       client_id as string,
+                    workspace_id:    req.user!.workspaceId,
+                    status:          initialStatus,
+                    scheduled_at:    scheduledAt,
+                    post_action:     formPostAction,
                 },
             });
             inserted.push(request);

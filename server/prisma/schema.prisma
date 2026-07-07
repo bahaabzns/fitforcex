@@ -364,7 +364,10 @@ model form_questions {
   metric_id      String?
   forms          forms            @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   metrics        metrics?         @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  form_responses form_responses[]
+  // Forms Versioning Phase 2 — form_responses now references
+  // form_version_questions, not this table (migration 037). This table is
+  // legacy/frozen (no more reads or writes as of Phase 3) and dropped
+  // entirely in Phase 4 once its bake period passes.
 
   @@index([metric_id])
 }
@@ -400,7 +403,7 @@ model form_responses {
   answer         String?
   created_at     DateTime?       @default(now()) @db.Timestamp(6)
   metric_id      String?
-  form_questions form_questions? @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_version_questions form_version_questions? @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   form_requests  form_requests?  @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   metrics        metrics?        @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
@@ -465,6 +468,7 @@ model form_version_questions {
   created_at     DateTime      @default(now()) @db.Timestamptz(6)
   form_versions  form_versions @relation(fields: [form_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   metrics        metrics?      @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  form_responses form_responses[]
 
   @@index([form_version_id])
   @@index([metric_id])

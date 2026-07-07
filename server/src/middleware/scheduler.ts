@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../lib/prisma';
 import { computeClientStatus, logSubscriptionAudit, getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, ownerRecipients } from '../lib/events';
+import { sealVersionForAssignment } from '../modules/forms/forms.service';
 
 function chunk<T>(items: T[], size: number): T[][] {
     const out: T[][] = [];
@@ -214,11 +215,19 @@ export async function runCheckInDispatchTick(): Promise<number> {
                 const effective = await getEffectiveAccessForClient(row.client_id, row.workspace_id);
                 if (effective.status !== 'Active' && !effective.withinGrace) return;
 
+                // Forms Versioning Phase 2 — this is the assignment moment
+                // for a scheduled check-in, exactly like a coach-initiated
+                // createRequests call: seal the form's current version now
+                // (system-triggered, no actor) so this dispatch permanently
+                // pins the wording the client will actually see.
+                const { versionId } = await sealVersionForAssignment(row.form_id, null);
+
                 await prisma.$transaction([
                     prisma.form_requests.create({
                         data: {
                             id:              createId(),
                             form_id:         row.form_id,
+                            form_version_id: versionId,
                             client_id:       row.client_id,
                             workspace_id:    row.workspace_id,
                             status:          'sent',

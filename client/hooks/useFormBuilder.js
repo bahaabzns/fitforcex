@@ -150,6 +150,22 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
 
     // ── Question Handlers ──────────────────────────────────────────────────────
 
+    // Forms Versioning Phase 2 — editing a question on a form that's already
+    // been assigned forks a new version behind the scenes, which silently
+    // gives EVERY question on the form a new id (not just the one edited).
+    // The API flags this via `versionChanged`; when it fires, a local patch
+    // would leave every other question in state pointing at a now-stale id,
+    // so the full list is refetched instead.
+    const refetchQuestions = async () => {
+        if (!selectedForm) return;
+        try {
+            const res = await api.get(`${basePath}/${selectedForm.id}/questions`);
+            setQuestions(res.data);
+        } catch (err) {
+            console.error('Error refetching questions:', err);
+        }
+    };
+
     const handleCreateQuestion = async (type = 'text') => {
         if (!selectedForm) return;
         try {
@@ -158,13 +174,17 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
                 type,
             });
             const newQ = res.data;
-            setQuestions(prev => [...prev, newQ]);
-            setSelectedQuestion(newQ);
             setForms(prev => prev.map(f =>
                 f.id === selectedForm.id
                     ? { ...f, question_count: (f.question_count || 0) + 1 }
                     : f
             ));
+            if (newQ.versionChanged) {
+                await refetchQuestions();
+            } else {
+                setQuestions(prev => [...prev, newQ]);
+            }
+            setSelectedQuestion(newQ);
             setPendingFocusQuestionId(newQ.id);
         } catch (err) {
             console.error('Error creating question:', err);
@@ -176,8 +196,13 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         try {
             const res = await api.put(`${basePath}/${selectedForm.id}/questions/${qid}`, updates);
             const updated = res.data;
-            setQuestions(prev => prev.map(q => q.id === qid ? updated : q));
-            if (selectedQuestion?.id === qid) setSelectedQuestion(updated);
+            if (updated.versionChanged) {
+                await refetchQuestions();
+                if (selectedQuestion?.id === qid) setSelectedQuestion(updated);
+            } else {
+                setQuestions(prev => prev.map(q => q.id === qid ? updated : q));
+                if (selectedQuestion?.id === qid) setSelectedQuestion(updated);
+            }
         } catch (err) {
             console.error('Error updating question:', err);
         }
@@ -186,14 +211,18 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
     const handleDeleteQuestion = async (qid) => {
         if (!selectedForm) return { ok: false };
         try {
-            await api.delete(`${basePath}/${selectedForm.id}/questions/${qid}`);
-            setQuestions(prev => prev.filter(q => q.id !== qid));
-            if (selectedQuestion?.id === qid) setSelectedQuestion(null);
+            const res = await api.delete(`${basePath}/${selectedForm.id}/questions/${qid}`);
             setForms(prev => prev.map(f =>
                 f.id === selectedForm.id
                     ? { ...f, question_count: Math.max(0, (f.question_count || 1) - 1) }
                     : f
             ));
+            if (res.data?.versionChanged) {
+                await refetchQuestions();
+            } else {
+                setQuestions(prev => prev.filter(q => q.id !== qid));
+            }
+            if (selectedQuestion?.id === qid) setSelectedQuestion(null);
             return { ok: true };
         } catch (err) {
             if (err?.response?.status === 409) {
@@ -212,9 +241,13 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         // Optimistic update
         setQuestions(reordered);
         try {
-            await api.put(`${basePath}/${selectedForm.id}/questions/reorder`, {
+            const res = await api.put(`${basePath}/${selectedForm.id}/questions/reorder`, {
                 order: reordered.map((q, i) => ({ id: q.id, order_index: i })),
             });
+            // A fork on reorder is rare (only if the version was sealed the
+            // instant this call landed) but possible — reconcile with the
+            // server's ids rather than trust the optimistic ones.
+            if (res.data?.versionChanged) await refetchQuestions();
         } catch (err) {
             console.error('Error reordering questions:', err);
         }
