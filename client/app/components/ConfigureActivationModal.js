@@ -10,17 +10,7 @@ import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
-
-// A check-in form is "compatible" with a plan type when its own
-// post-submission action targets that plan type -- the same form metadata
-// the coach already sets in the Forms builder (After Submission Action),
-// not a hardcoded name/title match. Package defaults are always included
-// and pre-checked regardless of this filter (trust the package's own
-// configuration over the form's post_action, in case the two ever drift).
-function isCompatibleCheckInForm(form, planType) {
-    if (form.form_type !== "check-in" || form.status === "archived") return false;
-    return form.post_action === (planType === "training" ? "workout-plan" : "nutrition-plan");
-}
+import { isCompatibleCheckInForm } from "@/lib/formCompatibility";
 
 /**
  * Package Lifecycle Phase 3b — fires before a plan is activated. Pre-fills
@@ -52,7 +42,7 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
         let active = true;
         setLoading(true);
         Promise.all([
-            api.get(`/api/clients/${clientId}/package-defaults`),
+            api.get(`/api/clients/${clientId}/package-defaults`, { params: { planType } }),
             api.get(`/api/forms`),
         ])
             .then(([{ data }, { data: allForms }]) => {
@@ -61,6 +51,11 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
                 setCycleDays(days != null ? String(days) : "");
                 setReviewOffsetDays(data?.reviewOffsetDays ?? null);
 
+                // checkInForms is already scoped to this plan type by the
+                // server (?planType=). Package defaults are always included
+                // and pre-checked regardless of the compatibility filter
+                // below (trust the package's own configuration over the
+                // form's post_action, in case the two ever drift).
                 const defaults = data?.checkInForms ?? [];
                 const defaultIds = new Set(defaults.map(f => f.formId));
                 const compatible = (allForms ?? [])
