@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import api from "@/lib/axios";
+import { normalizeEmail } from "@/lib/normalizeEmail";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
@@ -34,7 +35,7 @@ function ResetPasswordContent() {
         setError('');
         try {
             await api.post('/api/auth/reset-password', {
-                email: formData.email,
+                email: normalizeEmail(formData.email),
                 code: formData.code,
                 newPassword: formData.newPassword,
             });

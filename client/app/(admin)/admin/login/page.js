@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import api from '@/lib/axios';
+import { normalizeEmail } from '@/lib/normalizeEmail';
 import { useRouter } from 'next/navigation';
 import { TextField } from '@heroui/react/textfield';
 import { Label } from '@heroui/react/label';
@@ -20,7 +21,7 @@ export default function AdminLoginPage() {
         setError('');
         setLoading(true);
         try {
-            await api.post('/api/admin/login', { email, password });
+            await api.post('/api/admin/login', { email: normalizeEmail(email), password });
             router.push('/');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');

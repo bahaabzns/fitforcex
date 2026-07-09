@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import api from "@/lib/axios";
+import { normalizeEmail } from "@/lib/normalizeEmail";
 import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
@@ -21,8 +22,9 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         setError('');
         try {
-            await api.post('/api/auth/forgot-password', { email });
-            router.push(`/check-mail?email=${encodeURIComponent(email)}`);
+            const normalizedEmail = normalizeEmail(email);
+            await api.post('/api/auth/forgot-password', { email: normalizedEmail });
+            router.push(`/check-mail?email=${encodeURIComponent(normalizedEmail)}`);
         } catch (err) {
             setError(err.response?.data?.message || t('genericError'));
         } finally {

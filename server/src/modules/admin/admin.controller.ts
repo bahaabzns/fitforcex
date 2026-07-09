@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { applyPayment } from '../billing/index';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
+import { normalizeEmail } from '../../utils/email';
 
 type Row = Record<string, unknown>;
 
@@ -33,7 +34,9 @@ export async function adminLogin(req: Request, res: Response, next: NextFunction
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
 
     try {
-        const admin = await prisma.admins.findFirst({ where: { email } });
+        const admin = await prisma.admins.findFirst({
+            where: { email: { equals: normalizeEmail(email), mode: 'insensitive' } },
+        });
         if (!admin) return res.status(401).json({ message: 'Invalid email or password' });
 
         const match = await bcrypt.compare(password, admin.password!);

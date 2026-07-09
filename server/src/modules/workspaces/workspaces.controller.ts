@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { DEFAULT_PERMISSIONS, VALID_ROLES } from '../../lib/defaultPermissions';
 import { checkSeatLimit, checkWorkspaceLimit } from '../../lib/seatLimits';
 import { prisma } from '../../lib/prisma';
+import { normalizeEmail } from '../../utils/email';
 
 // Must stay in sync with client/middleware.js RESERVED set
 const RESERVED_SLUGS = new Set([
@@ -205,7 +206,7 @@ export async function addMember(req: Request, res: Response, next: NextFunction)
         await checkSeatLimit(req.user!.workspaceId);
 
         const targetUser = await prisma.users.findFirst({
-            where: { email: email.trim().toLowerCase() },
+            where: { email: { equals: normalizeEmail(email), mode: 'insensitive' } },
             select: { id: true },
         });
         if (!targetUser) return res.status(400).json({ message: 'This email is not registered on FitForce' });
@@ -414,7 +415,7 @@ export async function sendInvitation(req: Request, res: Response, next: NextFunc
         await checkSeatLimit(req.user!.workspaceId);
 
         const targetUser = await prisma.users.findFirst({
-            where: { email: email.trim().toLowerCase() },
+            where: { email: { equals: normalizeEmail(email), mode: 'insensitive' } },
             select: { id: true },
         });
         if (!targetUser) return res.status(400).json({ message: 'This email is not registered on FitForce' });

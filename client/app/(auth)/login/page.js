@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import api from "@/lib/axios";
 import { redirectToDashboard } from "@/lib/coachSlug";
+import { normalizeEmail } from "@/lib/normalizeEmail";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
@@ -41,7 +42,7 @@ function LoginContent() {
         setError('');
         setSuccess('');
         try {
-            await api.post('/api/auth/login', formData);
+            await api.post('/api/auth/login', { ...formData, email: normalizeEmail(formData.email) });
             const me = await api.get('/api/auth/me');
             // Email-verification gate disabled for now.
             const slug = me.data?.currentWorkspace?.slug;

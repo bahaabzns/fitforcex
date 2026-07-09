@@ -1,4 +1,4 @@
-import { request, createTestUser } from '../helpers/testServer';
+import { request, createTestUser, createTestWorkspace } from '../helpers/testServer';
 import { testPrisma } from '../helpers/testDb';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -27,6 +27,15 @@ describe('POST /auth/register — phone required + email/phone uniqueness', () =
         expect(res.body.message).toMatch(/email/i);
     });
 
+    test('rejects a duplicate email that only differs by case (409)', async () => {
+        const localPart = `dupecase-${createId()}`;
+        await createTestUser({ email: `${localPart}@test.com`, phone: `+2010${Date.now()}4` });
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email: `${localPart.toUpperCase()}@TEST.COM`, phone: `+2010${Date.now()}5` });
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/email/i);
+    });
+
     test('rejects a duplicate phone number (409)', async () => {
         const phone = `+2010${Date.now()}3`;
         await createTestUser({ email: `phone-owner-${createId()}@test.com`, phone });
@@ -34,6 +43,32 @@ describe('POST /auth/register — phone required + email/phone uniqueness', () =
             .send({ ...base, email: `other-${createId()}@test.com`, phone });
         expect(res.status).toBe(409);
         expect(res.body.message).toMatch(/phone/i);
+    });
+});
+
+describe('POST /auth/login — case-insensitive email', () => {
+    test('logs in with the exact stored casing', async () => {
+        const user = await createTestUser({ email: 'CaseUser@Test.com' });
+        await createTestWorkspace(user.id);
+        const res = await request.post('/api/auth/login').send({ email: 'CaseUser@Test.com', password: 'password123' });
+        expect(res.status).toBe(200);
+    });
+
+    test('logs in with a different case than what was stored', async () => {
+        const user = await createTestUser({ email: 'CaseUser2@Test.com' });
+        await createTestWorkspace(user.id);
+        const res = await request.post('/api/auth/login').send({ email: 'caseuser2@test.com', password: 'password123' });
+        expect(res.status).toBe(200);
+    });
+
+    test('a fresh registration normalizes the stored email to lowercase', async () => {
+        const localPart = `newcoach-${createId()}`;
+        const res = await request.post('/api/auth/register').send({
+            fname: 'New', lname: 'Coach', password: 'password123',
+            phone: `+2010${Date.now()}`, email: `${localPart.toUpperCase()}@TEST.COM`,
+        });
+        expect(res.status).toBe(201);
+        expect(res.body.email).toBe(`${localPart}@test.com`);
     });
 });
 
@@ -57,6 +92,24 @@ describe('P1-1 — Forgot / Reset Password', () => {
         const user = await testPrisma.users.findFirst({ where: { email: 'tokenuser@test.com' } });
         const row = await testPrisma.password_reset_tokens.findFirst({ where: { user_id: user!.id } });
         expect(row).not.toBeNull();
+    });
+
+    test('creates a password_reset_tokens row when requested with a different case', async () => {
+        const user = await createTestUser({ email: 'CaseReset@Test.com' });
+        await request.post('/api/auth/forgot-password').send({ email: 'casereset@test.com' });
+        const row = await testPrisma.password_reset_tokens.findFirst({ where: { user_id: user.id } });
+        expect(row).not.toBeNull();
+    });
+
+    test('resets the password when the request email differs in case from the stored one', async () => {
+        await createTestUser({ email: 'CaseFlow@Test.com' });
+        await request.post('/api/auth/forgot-password').send({ email: 'caseflow@test.com' });
+        const user = await testPrisma.users.findFirst({ where: { email: 'CaseFlow@Test.com' } });
+        const row  = await testPrisma.password_reset_tokens.findFirst({ where: { user_id: user!.id } });
+
+        const res = await request.post('/api/auth/reset-password')
+            .send({ email: 'CASEFLOW@TEST.COM', code: row!.code, newPassword: 'NewPassword123!' });
+        expect(res.status).toBe(200);
     });
 
     test('POST /auth/reset-password succeeds with a valid code', async () => {

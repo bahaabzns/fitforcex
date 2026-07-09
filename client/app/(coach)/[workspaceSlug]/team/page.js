@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
+import { normalizeEmail } from "@/lib/normalizeEmail";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
@@ -261,12 +262,13 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
         setInviteSuccess("");
         setInviting(true);
         try {
+            const normalizedEmail = normalizeEmail(inviteEmail);
             await api.post(`/api/workspaces/${wsId}/invitations`, {
-                email: inviteEmail.trim(),
+                email: normalizedEmail,
                 role: inviteRole,
                 message: inviteMessage.trim() || undefined,
             });
-            setInviteSuccess(t("inviteSent", { email: inviteEmail.trim() }));
+            setInviteSuccess(t("inviteSent", { email: normalizedEmail }));
             setInviteEmail("");
             setInviteMessage("");
         } catch (err) {

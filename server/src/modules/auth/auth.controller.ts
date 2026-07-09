@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { sendPasswordResetEmail } from '../../lib/email';
 import { prisma } from '../../lib/prisma';
+import { normalizeEmail } from '../../utils/email';
 import { cloneDefaultLibraries, getLibraryCounts } from '../../lib/libraryClone';
 import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
@@ -31,17 +32,18 @@ export async function register(req: Request, res: Response, next: NextFunction) 
             return res.status(400).json({ message: 'Phone number is required' });
         }
 
-        const trimmedEmail = email.trim();
+        const normalizedEmail = normalizeEmail(email);
         const trimmedPhone = phone.trim();
 
         // Email and phone must each be unique across coaches. (email has a DB unique
-        // constraint; phone does not, so it's enforced here.)
+        // constraint; phone does not, so it's enforced here.) Email is matched
+        // case-insensitively so "John@x.com" and "john@x.com" collide.
         const existing = await prisma.users.findFirst({
-            where:  { OR: [{ email: trimmedEmail }, { phone: trimmedPhone }] },
+            where:  { OR: [{ email: { equals: normalizedEmail, mode: 'insensitive' } }, { phone: trimmedPhone }] },
             select: { email: true, phone: true },
         });
         if (existing) {
-            const message = existing.email === trimmedEmail
+            const message = normalizeEmail(existing.email) === normalizedEmail
                 ? 'An account with this email already exists'
                 : 'An account with this phone number already exists';
             return res.status(409).json({ message });
@@ -64,7 +66,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                 const newUser = await tx.users.create({
                     data: {
                         id: userId, fname: fname || '', lname: lname || '',
-                        email: trimmedEmail, password: hashed,
+                        email: normalizedEmail, password: hashed,
                         phone: trimmedPhone,
                     },
                     select: { id: true, fname: true, lname: true, email: true },
@@ -103,7 +105,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                 return [newUser];
             });
 
-            await storeAndSendVerificationCode(userId, email.trim());
+            await storeAndSendVerificationCode(userId, normalizedEmail);
 
             // Seed the new workspace with the global Default Libraries in the
             // background — the response returns immediately; the onboarding screen
@@ -165,7 +167,9 @@ export async function login(req: Request, res: Response, next: NextFunction) {
             return res.status(400).json({ message: 'Password is required' });
         }
 
-        const user = await prisma.users.findFirst({ where: { email: email.trim() } });
+        const user = await prisma.users.findFirst({
+            where: { email: { equals: normalizeEmail(email), mode: 'insensitive' } },
+        });
         if (!user) return res.status(401).json({ message: 'Invalid email or password' });
 
         const match = await bcrypt.compare(password, user.password!);
@@ -372,7 +376,7 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
 
     try {
         const user = await prisma.users.findFirst({
-            where:  { email: email.trim().toLowerCase() },
+            where:  { email: { equals: normalizeEmail(email), mode: 'insensitive' } },
             select: { id: true },
         });
 
@@ -411,7 +415,7 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
 
     try {
         const user = await prisma.users.findFirst({
-            where:  { email: email.trim().toLowerCase() },
+            where:  { email: { equals: normalizeEmail(email), mode: 'insensitive' } },
             select: { id: true },
         });
         if (!user) return res.status(400).json({ message: 'Invalid or expired reset code' });

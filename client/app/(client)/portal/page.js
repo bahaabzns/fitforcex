@@ -4,6 +4,7 @@ import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { getCoachSlug } from "@/lib/coachSlug";
+import { normalizeEmail } from "@/lib/normalizeEmail";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
@@ -40,7 +41,7 @@ export default function PortalLoginPage() {
         setError("");
         setLoading(true);
         try {
-            await api.post("/api/client-portal/login", { email, password, coach_slug: coachSlug });
+            await api.post("/api/client-portal/login", { email: normalizeEmail(email), password, coach_slug: coachSlug });
             router.push("/portal/home");
         } catch (err) {
             setError(err.response?.data?.message || "Login failed");
