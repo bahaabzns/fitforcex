@@ -7,7 +7,7 @@ import {
     requireClientAccess,
     requireAnyClientAccess,
 } from '../../middleware/clientAccessPolicy';
-import { loginLimiter } from '../../middleware/rateLimit';
+import { loginLimiter, workspaceDiscoveryLimiter } from '../../middleware/rateLimit';
 import * as clientPortalController from './clientPortal.controller';
 import * as clientPortalNotificationsController from './clientPortalNotifications.controller';
 
@@ -17,6 +17,46 @@ const router = Router();
 const authed = [clientAuthMiddleware, loadClientAccess];
 // Feature chain: also blocks entirely when keep_portal_access is off.
 const open   = [clientAuthMiddleware, loadClientAccess, requirePortalOpen];
+
+/**
+ * @openapi
+ * /client-portal/discover-workspace:
+ *   post:
+ *     summary: Email-first workspace discovery for the mobile login flow
+ *     tags: [Client Portal]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string, format: email }
+ *     responses:
+ *       200:
+ *         description: One or more workspaces matched this email
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 workspaces:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       slug:       { type: string }
+ *                       name:       { type: string }
+ *                       logoUrl:    { type: string, nullable: true }
+ *                       clientName: { type: string, nullable: true }
+ *       400:
+ *         description: Invalid email
+ *       404:
+ *         description: No account found with this email
+ */
+router.post('/discover-workspace', workspaceDiscoveryLimiter, clientPortalController.discoverWorkspace);
 
 /**
  * @openapi
@@ -380,6 +420,19 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
  *       200:
  *         description: Ascending array of progress points
  *
+ * /client-portal/workout-logs/exercise-insights:
+ *   get:
+ *     summary: Progress chart, personal records, recent sessions and trend insights for one exercise
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: exercise_library_id, schema: { type: string } }
+ *       - { in: query, name: exercise_id, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: "{ progressPoints, recentSessions, personalRecords, insights, timeline }"
+ *
  * /client-portal/workout-logs/{id}:
  *   get:
  *     summary: Get a single logged session with its sets
@@ -400,6 +453,7 @@ router.get('/workout-logs',                   ...open, requireClientAccess('view
 router.post('/workout-logs',                  ...open, requireClientAccess('view_training_plans'),   clientPortalController.createWorkoutLog);
 router.get('/workout-logs/previous',          ...open, requireClientAccess('view_training_plans'),   clientPortalController.getWorkoutLogPrevious);
 router.get('/workout-logs/exercise-progress', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseProgress);
+router.get('/workout-logs/exercise-insights', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseInsights);
 router.get('/workout-logs/exercises',         ...open, requireClientAccess('view_progress_history'), clientPortalController.getLoggedExercises);
 router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
 

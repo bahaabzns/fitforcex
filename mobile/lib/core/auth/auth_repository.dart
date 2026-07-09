@@ -59,13 +59,15 @@ class AuthRepository {
     }
   }
 
+  /// Explicit user logout: clears the token *and* the remembered workspace,
+  /// so the next login starts from the email step again.
   Future<void> logout() async {
     try {
       await _dio.post<void>('/api/client-portal/logout');
     } on DioException {
       // Best-effort; we clear local state regardless.
     } finally {
-      await _tokenStorage.clear();
+      await _tokenStorage.clearAll();
     }
   }
 }

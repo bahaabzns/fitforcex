@@ -5,7 +5,9 @@ import '../network/api_exception.dart';
 import '../network/dio_client.dart';
 import 'workspace.dart';
 
-/// Resolves a workspace slug to its branding for the branded-login screen.
+/// Resolves workspaces for the login flow: by slug (branding lookup, used for
+/// deep-link pre-branding) or by email (workspace discovery, so the client
+/// never has to know or enter a slug).
 class WorkspaceRepository {
   WorkspaceRepository(this._dio);
 
@@ -24,6 +26,27 @@ class WorkspaceRepository {
       return Workspace.fromJson(res.data!);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Resolves every workspace with a client matching [email]. Empty when no
+  /// account was found (HTTP 404) — that's a normal outcome, not an error.
+  /// Other failures throw [ApiException].
+  Future<List<Workspace>> discoverByEmail(String email) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) return const [];
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/api/client-portal/discover-workspace',
+        data: {'email': trimmed},
+      );
+      final raw = res.data?['workspaces'] as List<dynamic>? ?? const [];
+      return raw
+          .map((e) => Workspace.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return const [];
       throw ApiException.fromDio(e);
     }
   }

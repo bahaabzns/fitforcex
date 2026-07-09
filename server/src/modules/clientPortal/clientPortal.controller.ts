@@ -13,11 +13,15 @@ import {
     buildExerciseProgress,
     extractPreviousSets,
     distinctLoggedExercises,
+    extractRecentSessions,
+    computePersonalRecords,
+    computeCoachInsights,
     type LoggedExercise,
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
 import { buildTransformationPayload } from '../clients/clients.controller';
+import { normalizeEmail } from '../../utils/email';
 
 /** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
 async function getClientDisplayName(clientId: string): Promise<string | null> {
@@ -158,6 +162,48 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
     return { ...plan, days };
 }
 
+const discoverWorkspaceSchema = z.object({
+    email: z.string().trim().min(1).email(),
+});
+
+/**
+ * Email-first workspace discovery for the mobile app login flow. clients.email
+ * is unique per-workspace, not globally (@@unique([workspace_id, email])), so
+ * the same email can belong to a client at more than one workspace — this
+ * returns every match and lets the caller disambiguate before asking for a
+ * password. Reuses the same archived-row filtering as login() so a workspace
+ * returned here is guaranteed to be loginable.
+ */
+export async function discoverWorkspace(req: Request, res: Response, next: NextFunction) {
+    const parsed = discoverWorkspaceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'A valid email is required' });
+
+    try {
+        const rows = await prisma.$queryRaw<Array<{ slug: string; name: string; fname: string }>>`
+            SELECT w.slug, w.name, c.fname
+            FROM clients c
+            JOIN workspaces w ON w.id = c.workspace_id
+            WHERE LOWER(c.email) = ${normalizeEmail(parsed.data.email)}
+              AND w.archived_at IS NULL AND c.archived_at IS NULL
+        `;
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "We couldn't find an account with this email." });
+        }
+
+        res.json({
+            workspaces: rows.map(row => ({
+                slug:       row.slug,
+                name:       row.name,
+                logoUrl:    null,
+                clientName: row.fname,
+            })),
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function login(req: Request, res: Response, next: NextFunction) {
     const { email, password, workspace_slug, coach_slug } = req.body as Record<string, string | undefined>;
     const slug = workspace_slug || coach_slug;
@@ -170,7 +216,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
         const rows = await prisma.$queryRaw<ClientLoginRow[]>`
             SELECT c.* FROM clients c
             JOIN workspaces w ON w.id = c.workspace_id
-            WHERE c.email = ${email} AND w.slug = ${slug.trim()}
+            WHERE LOWER(c.email) = ${normalizeEmail(email)} AND w.slug = ${slug.trim()}
               AND w.archived_at IS NULL AND c.archived_at IS NULL
         `;
 
@@ -837,6 +883,40 @@ export async function getExerciseProgress(req: Request, res: Response, next: Nex
             logs.map(toLogRow),
             { exercise_library_id: exerciseLibraryId ?? null, exercise_id: exerciseId ?? null },
         ));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getExerciseInsights(req: Request, res: Response, next: NextFunction) {
+    const exerciseLibraryId = req.query.exercise_library_id as string | undefined;
+    const exerciseId        = req.query.exercise_id as string | undefined;
+    if (!exerciseLibraryId && !exerciseId) {
+        return res.status(400).json({ error: 'exercise_library_id or exercise_id is required' });
+    }
+
+    try {
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: { date: 'desc' },
+            take:    PROGRESS_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+
+        const logRows       = logs.map(toLogRow);
+        const key: ExerciseKey = { exercise_library_id: exerciseLibraryId ?? null, exercise_id: exerciseId ?? null };
+        const progressPoints = buildExerciseProgress(logRows, key);
+
+        res.json({
+            progressPoints,
+            recentSessions:  extractRecentSessions(logRows, key, 10),
+            personalRecords: computePersonalRecords(logRows, key, progressPoints),
+            insights:        computeCoachInsights(progressPoints),
+            timeline: {
+                first_session_date: progressPoints.length > 0 ? progressPoints[0].date : null,
+                total_sessions:     progressPoints.length,
+            },
+        });
     } catch (err) {
         next(err);
     }

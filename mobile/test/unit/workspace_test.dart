@@ -20,6 +20,19 @@ void main() {
       final ws = Workspace.fromJson(const {'slug': 'acme', 'name': 'Acme'});
       expect(ws.logoUrl, isNull);
       expect(ws.brandColor, isNull);
+      expect(ws.clientName, isNull);
+    });
+
+    test('parses the discovery response, including the client name', () {
+      final ws = Workspace.fromJson(const {
+        'slug': 'acme',
+        'name': 'Acme Coaching',
+        'logoUrl': null,
+        'clientName': 'Sara',
+      });
+      expect(ws.slug, 'acme');
+      expect(ws.name, 'Acme Coaching');
+      expect(ws.clientName, 'Sara');
     });
   });
 }
