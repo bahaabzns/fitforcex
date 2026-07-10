@@ -1,5 +1,5 @@
 name: fitforce_x
-description: FitForce X — client mobile app (iOS + Android).
+description: FitForce — client mobile app (iOS + Android).
 publish_to: "none"
 version: 0.1.0+1
 
@@ -66,7 +66,11 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.1
   flutter_native_splash: ^2.4.1
 
-# Launcher icon: the blue brand mark on a white background.
+# Launcher icon: the blue brand mark (client/public/blue_f_only.svg, the same
+# artwork the web favicon/PWA icons use), on a white background. The adaptive
+# (Android 8+) foreground is a separate, more generously padded rasterization
+# of the same mark so it survives circle/squircle/rounded-square launcher
+# masks without clipping — see mobile/assets/icon/README.md.
 flutter_launcher_icons:
   android: true
   ios: true
@@ -74,7 +78,7 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   background_color_ios: "#FFFFFF"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
 
 # Native splash: brand mark centered; light + dark backgrounds.
 flutter_native_splash:

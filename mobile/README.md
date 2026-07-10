@@ -1,4 +1,4 @@
-# FitForce X — Mobile (Flutter Client App)
+# FitForce — Mobile (Flutter Client App)
 
 Native iOS + Android client app that mirrors the web **client portal** (`client/app/(client)/portal/*`) and consumes the same backend API (`/api/client-portal/*`). See [`docs/_FlutterClientApp.md`](../docs/_FlutterClientApp.md) for the full build plan.
 
