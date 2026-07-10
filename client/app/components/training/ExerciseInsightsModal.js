@@ -93,6 +93,7 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
 
     useEffect(() => {
         if (!open || !exercise || !clientId) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reset before the fetch below re-populates
         setLoading(true);
         setError(false);
         setInsights(null);
@@ -147,6 +148,10 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
         { icon: "🏆", label: "Highest Volume",   value: pr.highest_volume ? `${Math.round(pr.highest_volume.value).toLocaleString()} kg` : null },
         { icon: "🏆", label: "Estimated 1RM",    value: pr.est_1rm ? `${pr.est_1rm.value} kg` : null },
     ].filter(c => c.value !== null) : [];
+
+    const clientNotes = (insights?.recentSessions ?? [])
+        .filter(s => s.note)
+        .map(s => ({ date: s.date, note: s.note }));
 
     return (
         <>
@@ -301,6 +306,21 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
                                             onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
                                             onDeleted={(deletedId) => setRelatedObservations(prev => prev.filter(x => x.id !== deletedId))}
                                         />
+
+                                        {/* Client Notes — client-submitted exercise notes from logged sessions, kept separate from coach observations */}
+                                        {clientNotes.length > 0 && (
+                                            <div>
+                                                <SectionLabel>Client Notes</SectionLabel>
+                                                <div className="flex flex-col gap-2">
+                                                    {clientNotes.map((entry, i) => (
+                                                        <div key={i} className="p-3 rounded-xl bg-app-surface-card">
+                                                            <p className="text-xs text-muted-foreground">{shortDate(entry.date)}</p>
+                                                            <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{entry.note}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Workout History */}
                                         {insights.recentSessions?.length > 0 && (

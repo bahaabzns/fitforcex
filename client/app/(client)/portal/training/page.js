@@ -10,12 +10,7 @@ import { getLocalizedField } from "@/utils/localization";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
-
-function getYoutubeEmbedUrl(url) {
-    if (!url) return null;
-    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
-    return m?.[1] ? `https://www.youtube.com/embed/${m[1]}` : null;
-}
+import { getYoutubeEmbedUrl } from "@/utils/video";
 
 export default function ClientTrainingPage() {
     const t      = useTranslations('portal.training');

@@ -6,6 +6,9 @@ import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { ChevronLeft, Flag, Trash2 } from "lucide-react";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Button } from "@heroui/react/button";
+import { Tooltip } from "@heroui/react/tooltip";
+import { Modal } from "@heroui/react/modal";
 import ExerciseLogCard from "@/app/components/training-mode/ExerciseLogCard";
 import RestTimerBar from "@/app/components/training-mode/RestTimerBar";
 import { formatDuration, totalVolume, completedSetCount } from "@/utils/workout";
@@ -37,6 +40,8 @@ function buildSession(plan, day, dayIndex) {
                 exercise_library_id: ex.exercise_library_id ?? null,
                 name:                ex.name,
                 thumbnail_path:      ex.thumbnail_path ?? null,
+                youtube_url:         ex.youtube_url ?? null,
+                video_path:          ex.video_path ?? null,
                 muscle_group:        ex.muscle_group ?? null,
                 equipment:           ex.equipment ?? null,
                 prescribed:          prescribed.map(s => ({ reps: s.reps, rest_seconds: s.rest_seconds, rir: s.rir, tempo: s.tempo })),
@@ -51,6 +56,7 @@ function buildSession(plan, day, dayIndex) {
 
 export default function TrainingSessionPage() {
     const t = useTranslations("portal.training");
+    const tCommon = useTranslations("common");
     const router = useRouter();
     const searchParams = useSearchParams();
     const dayIndex = parseInt(searchParams.get("day"), 10) || 0;
@@ -61,6 +67,8 @@ export default function TrainingSessionPage() {
     const [saving, setSaving]     = useState(false);
     const [now, setNow]           = useState(() => currentMillis());
     const [rest, setRest]         = useState(null); // { startedAt, target }
+    const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+    const [finishEmptyOpen, setFinishEmptyOpen]       = useState(false);
 
     const lastCompletionRef = useRef(null);
 
@@ -165,34 +173,32 @@ export default function TrainingSessionPage() {
         setRest({ startedAt: nowMs, target });
     }
 
-    function addSet(exIdx) {
-        updateExercise(exIdx, ex => ({
-            ...ex,
-            sets: [...ex.sets, { set_order: ex.sets.length + 1, weight: "", reps: "", rir: "", rest_seconds: null, completed: false }],
-        }));
-    }
-
-    function removeSet(exIdx, setIdx) {
-        updateExercise(exIdx, ex => ({
-            ...ex,
-            sets: ex.sets.filter((_, i) => i !== setIdx).map((s, i) => ({ ...s, set_order: i + 1 })),
-        }));
-    }
-
     function changeNote(exIdx, value) {
         updateExercise(exIdx, ex => ({ ...ex, note: value }));
     }
 
     function discard() {
-        if (!window.confirm(t("discardConfirm"))) return;
+        setDiscardConfirmOpen(true);
+    }
+
+    function confirmDiscard() {
+        setDiscardConfirmOpen(false);
         localStorage.removeItem(STORAGE_KEY);
         router.replace("/portal/training");
     }
 
-    async function finish() {
+    function finish() {
         const completed = completedSetCount(session.exercises);
-        if (completed === 0 && !window.confirm(t("finishEmptyConfirm"))) return;
+        if (completed === 0) { setFinishEmptyOpen(true); return; }
+        submitFinish();
+    }
 
+    function confirmFinishEmpty() {
+        setFinishEmptyOpen(false);
+        submitFinish();
+    }
+
+    async function submitFinish() {
         setSaving(true);
         try {
             await api.post("/api/client-portal/workout-logs", {
@@ -243,20 +249,19 @@ export default function TrainingSessionPage() {
         <div className="max-w-4xl mx-auto flex flex-col">
             {/* Sticky session header */}
             <div className="sticky top-14 z-30 bg-background px-6 pt-4 pb-3 flex items-center gap-3 border-b border-border">
-                <button onClick={discard} aria-label={t("discard")} className="shrink-0 p-1.5 rounded-full text-muted-foreground hover:text-red-500 hover:bg-default cursor-pointer">
-                    <Trash2 className="w-5 h-5" />
-                </button>
+                <Tooltip>
+                    <Button isIconOnly variant="ghost" size="sm" onClick={discard} aria-label={t("discard")} className="shrink-0 text-muted-foreground hover:text-danger">
+                        <Trash2 className="w-5 h-5" />
+                    </Button>
+                    <Tooltip.Content>{t("discard")}</Tooltip.Content>
+                </Tooltip>
                 <div className="flex-1 min-w-0">
                     <h1 className="text-base font-bold text-foreground truncate">{session.day_name}</h1>
                     <span className="text-xs text-muted-foreground tabular-nums">{formatDuration(elapsedSeconds)} · {totalVolume(session.exercises)} {t("volumeUnit")}</span>
                 </div>
-                <button
-                    onClick={finish}
-                    disabled={saving}
-                    className="shrink-0 flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60 cursor-pointer"
-                >
+                <Button variant="primary" size="sm" onClick={finish} isDisabled={saving} className="shrink-0">
                     <Flag className="w-4 h-4" /> {saving ? t("saving") : t("finish")}
-                </button>
+                </Button>
             </div>
 
             <div className="px-6 pt-4 pb-28 flex flex-col gap-3">
@@ -265,21 +270,15 @@ export default function TrainingSessionPage() {
                         key={exercise.exercise_id}
                         exercise={exercise}
                         previous={previous[exercise.exercise_id]}
-                        index={exIdx}
                         onChangeSet={(setIdx, field, value) => changeSet(exIdx, setIdx, field, value)}
                         onToggleSet={(setIdx) => toggleSet(exIdx, setIdx)}
-                        onAddSet={() => addSet(exIdx)}
-                        onRemoveSet={(setIdx) => removeSet(exIdx, setIdx)}
                         onChangeNote={(value) => changeNote(exIdx, value)}
                     />
                 ))}
 
-                <button
-                    onClick={discard}
-                    className="self-center mt-2 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-red-500 cursor-pointer"
-                >
+                <Button variant="ghost" size="sm" onClick={discard} className="self-center mt-2 text-muted-foreground hover:text-danger">
                     <ChevronLeft className="w-4 h-4" /> {t("discard")}
-                </button>
+                </Button>
             </div>
 
             {rest && (
@@ -290,6 +289,56 @@ export default function TrainingSessionPage() {
                     onSkip={() => setRest(null)}
                 />
             )}
+
+            {/* Discard confirmation */}
+            <Modal isOpen={discardConfirmOpen} onOpenChange={(o) => !o && setDiscardConfirmOpen(false)}>
+                <Modal.Backdrop>
+                    <Modal.Container className="max-w-sm">
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>{t("discard")}</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body>
+                                <p className="text-sm text-muted-foreground">{t("discardConfirm")}</p>
+                            </Modal.Body>
+                            <Modal.Footer className="flex justify-end gap-2 pt-2">
+                                <Button size="sm" variant="ghost" onClick={() => setDiscardConfirmOpen(false)}>
+                                    {tCommon("cancel")}
+                                </Button>
+                                <Button size="sm" variant="danger" onClick={confirmDiscard}>
+                                    {t("discard")}
+                                </Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
+
+            {/* Finish-with-nothing-completed confirmation */}
+            <Modal isOpen={finishEmptyOpen} onOpenChange={(o) => !o && setFinishEmptyOpen(false)}>
+                <Modal.Backdrop>
+                    <Modal.Container className="max-w-sm">
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>{t("finish")}</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body>
+                                <p className="text-sm text-muted-foreground">{t("finishEmptyConfirm")}</p>
+                            </Modal.Body>
+                            <Modal.Footer className="flex justify-end gap-2 pt-2">
+                                <Button size="sm" variant="ghost" onClick={() => setFinishEmptyOpen(false)}>
+                                    {tCommon("cancel")}
+                                </Button>
+                                <Button size="sm" variant="primary" onClick={confirmFinishEmpty}>
+                                    {t("finish")}
+                                </Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
         </div>
     );
 }
