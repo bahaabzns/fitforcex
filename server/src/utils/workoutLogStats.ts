@@ -189,7 +189,7 @@ export function distinctLoggedExercises(logs: WorkoutLogRow[]): LoggedExerciseRe
 
 export interface PersonalRecords {
     heaviest_weight: { value: number; date: string } | null;
-    best_set:        { weight: number; reps: number; date: string } | null;
+    best_set:        { weight: number; reps: number; rir: number | null; date: string } | null;
     highest_volume:  { value: number; date: string } | null;
     est_1rm:         { value: number; date: string } | null;
 }
@@ -205,7 +205,8 @@ export interface CoachInsights {
 
 export interface RecentSession {
     date:     string;
-    best_set: { weight: number; reps: number } | null;
+    best_set: { weight: number; reps: number; rir: number | null } | null;
+    note:     string | null;
 }
 
 /**
@@ -231,14 +232,14 @@ export function computePersonalRecords(
         if (p.total_volume > volPoint.total_volume) volPoint = p;
     }
 
-    let bestSet: { weight: number; reps: number; date: string } | null = null;
+    let bestSet: { weight: number; reps: number; rir: number | null; date: string } | null = null;
     for (const log of logs) {
         const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
         if (!exercise) continue;
         for (const set of completedSets(exercise)) {
             const vol = (set.weight as number) * (set.reps as number);
             if (!bestSet || vol > bestSet.weight * bestSet.reps) {
-                bestSet = { weight: set.weight as number, reps: set.reps as number, date: toDateString(log.date) };
+                bestSet = { weight: set.weight as number, reps: set.reps as number, rir: set.rir, date: toDateString(log.date) };
             }
         }
     }
@@ -307,14 +308,14 @@ export function extractRecentSessions(logs: WorkoutLogRow[], key: ExerciseKey, l
         const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
         if (!exercise) continue;
         const sets = completedSets(exercise);
-        let bestSet: { weight: number; reps: number } | null = null;
+        let bestSet: { weight: number; reps: number; rir: number | null } | null = null;
         for (const set of sets) {
             const vol = (set.weight as number) * (set.reps as number);
             if (!bestSet || vol > bestSet.weight * bestSet.reps) {
-                bestSet = { weight: set.weight as number, reps: set.reps as number };
+                bestSet = { weight: set.weight as number, reps: set.reps as number, rir: set.rir };
             }
         }
-        sessions.push({ date: toDateString(log.date), best_set: bestSet });
+        sessions.push({ date: toDateString(log.date), best_set: bestSet, note: exercise.note ?? null });
         if (sessions.length >= limit) break;
     }
     return sessions;
