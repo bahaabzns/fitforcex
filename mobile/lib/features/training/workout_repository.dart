@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
+import '../../shared/models/exercise_insights.dart';
 import '../../shared/models/workout_log.dart';
 
 /// Talks to `/client-portal/workout-logs/*` — Training Mode history, progress,
@@ -91,6 +92,25 @@ class WorkoutRepository {
     }
   }
 
+  Future<ExerciseInsights> fetchInsights({
+    String? exerciseLibraryId,
+    String? exerciseId,
+  }) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/api/client-portal/workout-logs/exercise-insights',
+        queryParameters: {
+          if (exerciseLibraryId != null)
+            'exercise_library_id': exerciseLibraryId,
+          if (exerciseId != null) 'exercise_id': exerciseId,
+        },
+      );
+      return ExerciseInsights.fromJson(res.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   Future<void> createLog(Map<String, dynamic> payload) async {
     try {
       await _dio.post<Map<String, dynamic>>(
@@ -129,6 +149,19 @@ final exerciseProgressProvider = FutureProvider.autoDispose
   key,
 ) {
   return ref.watch(workoutRepositoryProvider).fetchProgress(
+        exerciseLibraryId: key.libraryId,
+        exerciseId: key.exerciseId,
+      );
+});
+
+/// PRs + recent sessions + chart for one exercise, shown in the Training Mode
+/// insights modal. Family key is "libraryId|exerciseId".
+final exerciseInsightsProvider = FutureProvider.autoDispose
+    .family<ExerciseInsights, ({String? libraryId, String? exerciseId})>((
+  ref,
+  key,
+) {
+  return ref.watch(workoutRepositoryProvider).fetchInsights(
         exerciseLibraryId: key.libraryId,
         exerciseId: key.exerciseId,
       );

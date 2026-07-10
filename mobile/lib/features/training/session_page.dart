@@ -37,7 +37,7 @@ class SessionPage extends ConsumerStatefulWidget {
 class _SessionPageState extends ConsumerState<SessionPage> {
   WorkoutSession? _session;
   Map<String, List<PreviousSet>> _previous = {};
-  Map<String, String?> _thumbnails = {}; // exerciseId -> resolved url
+  Map<String, String?> _videoUrls = {}; // exerciseId -> resolved video_path url
   bool _loading = true;
   bool _saving = false;
 
@@ -52,9 +52,17 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   void initState() {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() => _nowMs = DateTime.now().millisecondsSinceEpoch);
-      }
+      if (!mounted) return;
+      setState(() {
+        _nowMs = DateTime.now().millisecondsSinceEpoch;
+        // Rest panel is the single source of truth for rest — once the
+        // countdown reaches zero it collapses itself instead of waiting
+        // for the client to tap Skip.
+        if (_restStartMs != null &&
+            _restTarget - (_nowMs - _restStartMs!) / 1000 <= 0) {
+          _restStartMs = null;
+        }
+      });
     });
     unawaited(_load());
   }
@@ -79,9 +87,9 @@ class _SessionPageState extends ConsumerState<SessionPage> {
 
       _previous =
           await ref.read(workoutRepositoryProvider).fetchPrevious(day.id);
-      _thumbnails = {
+      _videoUrls = {
         for (final ex in day.exercises)
-          ex.id: resolveMediaUrl(ex.thumbnailPath, baseUrl),
+          ex.id: resolveMediaUrl(ex.videoPath, baseUrl),
       };
 
       final saved = await ref.read(sessionStoreProvider).read();
@@ -117,8 +125,12 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             exerciseLibraryId: ex.exerciseLibraryId,
             name: ex.name,
             thumbnailPath: ex.thumbnailPath,
+            youtubeUrl: ex.youtubeUrl,
+            videoPath: ex.videoPath,
             muscleGroup: ex.muscleGroup,
             equipment: ex.equipment,
+            instructionsEn: ex.instructionsEn,
+            instructionsAr: ex.instructionsAr,
             prescribed: [
               for (final s in ex.sets)
                 PrescribedSet(
@@ -203,23 +215,6 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     setState(() {
       _restStartMs = nowMs;
       _restTarget = target;
-    });
-  }
-
-  void _addSet(int exIdx) {
-    _updateExercise(exIdx, (ex) {
-      final sets = [...ex.sets, SessionSet(setOrder: ex.sets.length + 1)];
-      return ex.copyWith(sets: sets);
-    });
-  }
-
-  void _removeSet(int exIdx, int setIdx) {
-    _updateExercise(exIdx, (ex) {
-      final sets = [...ex.sets]..removeAt(setIdx);
-      for (var i = 0; i < sets.length; i++) {
-        sets[i] = sets[i].copyWith(setOrder: i + 1);
-      }
-      return ex.copyWith(sets: sets);
     });
   }
 
@@ -375,27 +370,30 @@ class _SessionPageState extends ConsumerState<SessionPage> {
           ),
         ],
       ),
-      body: ListView(
+      // Flat, borderless list (Strong-style) — exercises are separated by
+      // spacing and a hairline divider instead of individual card chrome.
+      body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          for (var i = 0; i < session.exercises.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ExerciseLogCard(
-                exercise: session.exercises[i],
-                previous:
-                    _previous[session.exercises[i].exerciseId] ?? const [],
-                index: i,
-                thumbnailUrl: _thumbnails[session.exercises[i].exerciseId],
-                onChangeSet: (setIdx, field, value) =>
-                    _changeSet(i, setIdx, field, value),
-                onToggleSet: (setIdx) => _toggleSet(i, setIdx),
-                onAddSet: () => _addSet(i),
-                onRemoveSet: (setIdx) => _removeSet(i, setIdx),
-                onChangeNote: (value) => _changeNote(i, value),
-              ),
-            ),
-        ],
+        itemCount: session.exercises.length,
+        separatorBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Divider(
+            height: 1,
+            color: context.appColors.border.withValues(alpha: 0.5),
+          ),
+        ),
+        itemBuilder: (context, i) => ExerciseLogCard(
+          exercise: session.exercises[i],
+          previous: _previous[session.exercises[i].exerciseId] ?? const [],
+          videoUrl: _videoUrls[session.exercises[i].exerciseId],
+          focusSetIndex: restRemaining != null && _lastCompletion?.exIdx == i
+              ? _lastCompletion!.setIdx + 1
+              : null,
+          onChangeSet: (setIdx, field, value) =>
+              _changeSet(i, setIdx, field, value),
+          onToggleSet: (setIdx) => _toggleSet(i, setIdx),
+          onChangeNote: (value) => _changeNote(i, value),
+        ),
       ),
       bottomNavigationBar: restRemaining != null
           ? RestTimerBar(

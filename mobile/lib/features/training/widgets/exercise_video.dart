@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../../../shared/utils/media_url.dart';
 
-/// Inline exercise video. Uploaded mp4 plays inline via [VideoPlayer]; YouTube
-/// shows a tappable thumbnail that opens the YouTube app/browser (we avoid an
-/// in-app webview — see the dependency note in pubspec).
+/// Inline exercise video. Uploaded mp4 plays inline via [VideoPlayer].
+/// YouTube plays inline too, via [YoutubePlayerThumbnail] — the WebView-backed
+/// iframe player only mounts after the client taps the thumbnail, so the
+/// client never leaves the workout for the external YouTube app.
 class ExerciseVideo extends StatefulWidget {
   const ExerciseVideo({super.key, this.youtubeUrl, this.videoUrl});
 
@@ -22,13 +25,15 @@ class ExerciseVideo extends StatefulWidget {
 class _ExerciseVideoState extends State<ExerciseVideo> {
   VideoPlayerController? _video;
   bool _videoReady = false;
-
-  bool get _isYoutube => youtubeVideoId(widget.youtubeUrl) != null;
+  YoutubePlayerController? _youtube;
 
   @override
   void initState() {
     super.initState();
-    if (!_isYoutube && widget.videoUrl != null) {
+    final youtubeId = youtubeVideoId(widget.youtubeUrl);
+    if (youtubeId != null) {
+      _youtube = YoutubePlayerController.fromVideoId(videoId: youtubeId);
+    } else if (widget.videoUrl != null) {
       _video = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!))
         ..initialize().then((_) {
           if (mounted) setState(() => _videoReady = true);
@@ -39,45 +44,16 @@ class _ExerciseVideoState extends State<ExerciseVideo> {
   @override
   void dispose() {
     _video?.dispose();
+    unawaited(_youtube?.close());
     super.dispose();
-  }
-
-  Future<void> _openYoutube() async {
-    final uri = Uri.tryParse(widget.youtubeUrl ?? '');
-    if (uri != null) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isYoutube) {
-      final id = youtubeVideoId(widget.youtubeUrl)!;
-      final thumb = 'https://img.youtube.com/vi/$id/hqdefault.jpg';
-      return GestureDetector(
-        onTap: _openYoutube,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  thumb,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const ColoredBox(color: Colors.black),
-                ),
-                const ColoredBox(color: Color(0x33000000)),
-                const Center(
-                  child: Icon(Icons.play_circle_fill,
-                      size: 56, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
+    if (_youtube != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: YoutubePlayerThumbnail(controller: _youtube!),
       );
     }
 

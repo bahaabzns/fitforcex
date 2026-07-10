@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import '../../core/access/access_controller.dart';
 import '../../core/config/providers.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
 import '../../core/widgets/empty_state.dart';
@@ -21,11 +24,48 @@ import 'widgets/exercise_video.dart';
 /// The client's active training plan. Parity port of the web portal training
 /// page: day tabs, collapsible plan/day notes, exercise cards with thumbnail,
 /// muscle/equipment chips, sets grid, alternatives, and inline video.
-class TrainingPage extends ConsumerWidget {
+class TrainingPage extends ConsumerStatefulWidget {
   const TrainingPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrainingPage> createState() => _TrainingPageState();
+}
+
+class _TrainingPageState extends ConsumerState<TrainingPage> {
+  @override
+  void initState() {
+    super.initState();
+    // fireImmediately: ref.listen (used in build()) only fires on a state
+    // *transition* — it never fires for a value the provider already holds
+    // when the listener registers. Since the shell keeps this provider warm
+    // (it watches the unread flags on every tab), the plan is often already
+    // loaded by the time this page mounts, so a build()-scoped ref.listen
+    // never marks it seen. listenManual + fireImmediately fixes that, and
+    // keeps listening for the plan's lifetime so a new plan published while
+    // this tab is already active (kept alive by the IndexedStack) still
+    // clears the dot correctly. The mutation itself is deferred a microtask
+    // — Riverpod forbids modifying provider state while the widget tree is
+    // still building, which fireImmediately's synchronous initState call is.
+    if (ref.read(clientAccessProvider).canViewTraining) {
+      ref.listenManual<AsyncValue<TrainingPlan?>>(
+        activeTrainingPlanProvider,
+        (_, next) {
+          final loaded = next.asData?.value;
+          if (loaded != null) {
+            unawaited(Future.microtask(() {
+              ref
+                  .read(trainingPlanSeenProvider.notifier)
+                  .markSeen('${loaded.id}|${loaded.activatedAt ?? ''}');
+            }));
+          }
+        },
+        fireImmediately: true,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
     if (!ref.watch(clientAccessProvider).canViewTraining) {

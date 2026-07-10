@@ -29,10 +29,13 @@ dependencies:
   # Deep links (workspace onboarding: fitforcex://w/<slug>)
   app_links: ^6.3.2
 
-  # Exercise video: inline mp4 player (native) + open YouTube externally.
-  # NB: we deliberately avoid webview-based YouTube players — flutter_inappwebview
-  # ships a Gradle file incompatible with modern AGP (proguard-android.txt).
+  # Exercise video: inline mp4 player (native) for uploaded videos, embedded
+  # YouTube iframe player for youtube_url. youtube_player_iframe builds on
+  # webview_flutter (the official Flutter-team package) — NOT
+  # flutter_inappwebview, which is the one we avoid: its Gradle file is
+  # incompatible with modern AGP (references a missing proguard-android.txt).
   video_player: ^2.9.2
+  youtube_player_iframe: ^6.0.2
   url_launcher: ^6.3.1
 
   # Realtime chat (pure Dart, no native) — falls back to polling
@@ -53,7 +56,6 @@ dependencies:
   # ── Added in later phases (kept here as a documented roadmap) ──
   # hive / hive_flutter                     # Phase 4 — session draft
   # fl_chart                                # Phase 4 — progress chart
-  # youtube_player_flutter / video_player   # Phase 3 — exercise video
   # socket_io_client                        # Phase 6 — realtime chat
   # firebase_core / firebase_messaging      # Phase 7 — push
 

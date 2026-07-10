@@ -8,7 +8,7 @@ part 'workout_session.g.dart';
 /// resumes the same day. Field names are our own (camelCase) — both ends are
 /// the app, so no server mapping is needed.
 @freezed
-class WorkoutSession with _$WorkoutSession {
+abstract class WorkoutSession with _$WorkoutSession {
   const factory WorkoutSession({
     String? planId,
     required String dayId,
@@ -23,14 +23,18 @@ class WorkoutSession with _$WorkoutSession {
 }
 
 @freezed
-class SessionExercise with _$SessionExercise {
+abstract class SessionExercise with _$SessionExercise {
   const factory SessionExercise({
     required String exerciseId,
     String? exerciseLibraryId,
     @Default('') String name,
     String? thumbnailPath,
+    String? youtubeUrl,
+    String? videoPath,
     String? muscleGroup,
     String? equipment,
+    String? instructionsEn,
+    String? instructionsAr,
     @Default(<PrescribedSet>[]) List<PrescribedSet> prescribed,
     @Default('') String note,
     @Default(<SessionSet>[]) List<SessionSet> sets,
@@ -42,7 +46,7 @@ class SessionExercise with _$SessionExercise {
 
 /// The coach-prescribed target for a set (shown as faint guidance).
 @freezed
-class PrescribedSet with _$PrescribedSet {
+abstract class PrescribedSet with _$PrescribedSet {
   const factory PrescribedSet({
     String? reps,
     int? restSeconds,
@@ -57,7 +61,7 @@ class PrescribedSet with _$PrescribedSet {
 /// A logged set being edited. Weight/reps/rir stay as text while the user types
 /// (parsed to numbers on save), matching the web inputs.
 @freezed
-class SessionSet with _$SessionSet {
+abstract class SessionSet with _$SessionSet {
   const factory SessionSet({
     required int setOrder,
     @Default('') String weight,
