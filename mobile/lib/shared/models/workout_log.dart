@@ -7,7 +7,7 @@ part 'workout_log.g.dart';
 
 /// A saved workout session summary (`GET /client-portal/workout-logs`).
 @freezed
-class WorkoutLogSummary with _$WorkoutLogSummary {
+abstract class WorkoutLogSummary with _$WorkoutLogSummary {
   const factory WorkoutLogSummary({
     required String id,
     required String date,
@@ -26,7 +26,7 @@ class WorkoutLogSummary with _$WorkoutLogSummary {
 
 /// A single saved session with its exercises (`GET /client-portal/workout-logs/:id`).
 @freezed
-class WorkoutLogDetail with _$WorkoutLogDetail {
+abstract class WorkoutLogDetail with _$WorkoutLogDetail {
   const factory WorkoutLogDetail({
     required String id,
     required String date,
@@ -45,7 +45,7 @@ class WorkoutLogDetail with _$WorkoutLogDetail {
 }
 
 @freezed
-class LoggedExerciseDetail with _$LoggedExerciseDetail {
+abstract class LoggedExerciseDetail with _$LoggedExerciseDetail {
   const factory LoggedExerciseDetail({
     @Default('') String name,
     String? note,
@@ -57,7 +57,7 @@ class LoggedExerciseDetail with _$LoggedExerciseDetail {
 }
 
 @freezed
-class LoggedSet with _$LoggedSet {
+abstract class LoggedSet with _$LoggedSet {
   const factory LoggedSet({
     @JsonKey(name: 'set_order') @Default(0) int setOrder,
     @NumToDoubleOrNull() double? weight,
@@ -73,7 +73,7 @@ class LoggedSet with _$LoggedSet {
 /// One point in an exercise progress series
 /// (`GET /client-portal/workout-logs/exercise-progress`).
 @freezed
-class ProgressPoint with _$ProgressPoint {
+abstract class ProgressPoint with _$ProgressPoint {
   const factory ProgressPoint({
     required String date,
     @JsonKey(name: 'top_weight') @NumToDouble() @Default(0) double topWeight,
@@ -91,7 +91,7 @@ class ProgressPoint with _$ProgressPoint {
 /// A distinct logged exercise for the progress picker
 /// (`GET /client-portal/workout-logs/exercises`).
 @freezed
-class LoggedExerciseRef with _$LoggedExerciseRef {
+abstract class LoggedExerciseRef with _$LoggedExerciseRef {
   const factory LoggedExerciseRef({
     @JsonKey(name: 'exercise_id') String? exerciseId,
     @JsonKey(name: 'exercise_library_id') String? exerciseLibraryId,
@@ -105,7 +105,7 @@ class LoggedExerciseRef with _$LoggedExerciseRef {
 /// A previously-logged set keyed by order, for the "previous" hint column
 /// (`GET /client-portal/workout-logs/previous`).
 @freezed
-class PreviousSet with _$PreviousSet {
+abstract class PreviousSet with _$PreviousSet {
   const factory PreviousSet({
     @JsonKey(name: 'set_order') @Default(0) int setOrder,
     @NumToDoubleOrNull() double? weight,
