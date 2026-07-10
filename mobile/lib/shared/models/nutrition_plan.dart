@@ -10,10 +10,15 @@ part 'nutrition_plan.g.dart';
 /// Shapes mirror `buildNutritionPlanHierarchy` on the server: a plan holds
 /// ordered cycles → meals → items → alternatives.
 @freezed
-class NutritionPlan with _$NutritionPlan {
+abstract class NutritionPlan with _$NutritionPlan {
   const factory NutritionPlan({
     required String id,
     @Default('') String name,
+    // Present on the wire (the endpoint spreads the full plan row) but not
+    // rendered anywhere in the UI — used only to detect "a new plan was
+    // activated since the client last opened this tab" for the bottom-nav
+    // unread dot. Changes on activation/restart, not on ordinary edits.
+    @JsonKey(name: 'activated_at') String? activatedAt,
     @Default(<NutritionCycle>[]) List<NutritionCycle> cycles,
   }) = _NutritionPlan;
 
@@ -22,7 +27,7 @@ class NutritionPlan with _$NutritionPlan {
 }
 
 @freezed
-class NutritionCycle with _$NutritionCycle {
+abstract class NutritionCycle with _$NutritionCycle {
   const factory NutritionCycle({
     required String id,
     @Default('') String name,
@@ -40,7 +45,7 @@ class NutritionCycle with _$NutritionCycle {
 }
 
 @freezed
-class NutritionMeal with _$NutritionMeal {
+abstract class NutritionMeal with _$NutritionMeal {
   const factory NutritionMeal({
     required String id,
     @Default('') String name,
@@ -54,7 +59,7 @@ class NutritionMeal with _$NutritionMeal {
 }
 
 @freezed
-class NutritionMealItem with _$NutritionMealItem {
+abstract class NutritionMealItem with _$NutritionMealItem {
   const factory NutritionMealItem({
     required String id,
     @Default('') String name,
@@ -89,7 +94,7 @@ class NutritionMealItem with _$NutritionMealItem {
 }
 
 @freezed
-class NutritionAlternative with _$NutritionAlternative {
+abstract class NutritionAlternative with _$NutritionAlternative {
   const factory NutritionAlternative({
     required String id,
     @Default('') String name,

@@ -7,9 +7,17 @@ import '../../core/access/client_access.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/router/app_routes.dart';
+import '../../core/unread/unread_indicators.dart';
+import '../../core/widgets/brand_logo.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../access/subscription_status_banner.dart';
 import '../access/subscription_status_card.dart';
+import '../notifications/notifications_repository.dart';
+
+/// Bottom-nav unread dot color — deliberately a fixed red (not the theme's
+/// `error` color, which may be tuned for form-validation contexts) so it
+/// reads as "new" consistently in both light and dark mode.
+const _unreadDotColor = Color(0xFFEF4444);
 
 /// App shell: top bar (avatar · logo · notifications) + bottom tab bar.
 /// The parallel of `ClientPortalNav`. Hides tabs the subscription no longer
@@ -52,6 +60,7 @@ class _ShellPageState extends ConsumerState<ShellPage>
     final l10n = AppLocalizations.of(context);
     final auth = ref.watch(authControllerProvider);
     final access = ref.watch(clientAccessProvider);
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
     final initials = switch (auth) {
       Authenticated(:final client) => client.initials,
       _ => '?',
@@ -75,13 +84,15 @@ class _ShellPageState extends ConsumerState<ShellPage>
           ),
         ),
       ),
-      title: Text(
-        l10n.appName,
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
+      centerTitle: true,
+      title: const BrandLogo(),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined),
+          icon: Badge(
+            isLabelVisible: unreadCount > 0,
+            label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+            child: const Icon(Icons.notifications_outlined),
+          ),
           onPressed: () => context.push(AppRoutes.notifications),
         ),
       ],
@@ -95,7 +106,13 @@ class _ShellPageState extends ConsumerState<ShellPage>
       );
     }
 
-    final tabs = _visibleTabs(l10n, access);
+    final unread = _UnreadFlags(
+      nutrition: ref.watch(nutritionUnreadProvider),
+      training: ref.watch(trainingUnreadProvider),
+      forms: ref.watch(formsUnreadProvider),
+      messages: ref.watch(messagesUnreadProvider),
+    );
+    final tabs = _visibleTabs(l10n, access, unread);
     final currentBranch = widget.navigationShell.currentIndex;
     final selected = tabs.indexWhere((t) => t.branchIndex == currentBranch);
 
@@ -114,29 +131,39 @@ class _ShellPageState extends ConsumerState<ShellPage>
           : NavigationBar(
               selectedIndex: selected < 0 ? 0 : selected,
               onDestinationSelected: (i) => _goBranch(tabs[i].branchIndex),
+              // Material 3 modern pattern: only the selected tab shows its
+              // label (icon-only otherwise); NavigationBar animates the
+              // label's appearance/disappearance itself.
+              labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
               destinations: [
                 for (final t in tabs)
                   NavigationDestination(
-                    icon: Icon(t.icon),
-                    selectedIcon: Icon(t.selectedIcon),
+                    icon: _BadgedIcon(icon: t.icon, showDot: t.hasUnread),
+                    selectedIcon:
+                        _BadgedIcon(icon: t.selectedIcon, showDot: t.hasUnread),
                     label: t.label,
+                    tooltip: t.hasUnread
+                        ? l10n.navUnreadTooltip(t.label)
+                        : t.label,
                   ),
               ],
             ),
     );
   }
 
-  List<_Tab> _visibleTabs(AppLocalizations l10n, ClientAccess access) {
+  List<_Tab> _visibleTabs(
+      AppLocalizations l10n, ClientAccess access, _UnreadFlags unread) {
     return [
-      _Tab(0, Icons.home_outlined, Icons.home, l10n.navHome, true),
+      _Tab(0, Icons.home_outlined, Icons.home, l10n.navHome, true, false),
       _Tab(1, Icons.restaurant_outlined, Icons.restaurant, l10n.navNutrition,
-          access.canViewNutrition),
+          access.canViewNutrition, unread.nutrition),
       _Tab(2, Icons.fitness_center_outlined, Icons.fitness_center,
-          l10n.navTraining, access.canViewTraining || access.canViewProgress),
+          l10n.navTraining, access.canViewTraining || access.canViewProgress,
+          unread.training),
       _Tab(3, Icons.assignment_outlined, Icons.assignment, l10n.navForms,
-          access.canViewForms),
+          access.canViewForms, unread.forms),
       _Tab(4, Icons.chat_bubble_outline, Icons.chat_bubble, l10n.navMessages,
-          access.canMessage),
+          access.canMessage, unread.messages),
     ].where((t) => t.visible).toList();
   }
 
@@ -149,11 +176,46 @@ class _ShellPageState extends ConsumerState<ShellPage>
 }
 
 class _Tab {
-  const _Tab(
-      this.branchIndex, this.icon, this.selectedIcon, this.label, this.visible);
+  const _Tab(this.branchIndex, this.icon, this.selectedIcon, this.label,
+      this.visible, this.hasUnread);
   final int branchIndex;
   final IconData icon;
   final IconData selectedIcon;
   final String label;
   final bool visible;
+  final bool hasUnread;
+}
+
+/// Snapshot of which tabs currently have unseen content, computed once per
+/// build so `_visibleTabs` stays a pure mapping function.
+class _UnreadFlags {
+  const _UnreadFlags({
+    required this.nutrition,
+    required this.training,
+    required this.forms,
+    required this.messages,
+  });
+  final bool nutrition;
+  final bool training;
+  final bool forms;
+  final bool messages;
+}
+
+/// A tab icon with a small red "unseen content" dot — deliberately a plain
+/// dot (no count) per the product spec. Doesn't affect the icon's layout box.
+class _BadgedIcon extends StatelessWidget {
+  const _BadgedIcon({required this.icon, required this.showDot});
+
+  final IconData icon;
+  final bool showDot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Badge(
+      isLabelVisible: showDot,
+      backgroundColor: _unreadDotColor,
+      offset: const Offset(4, -4),
+      child: Icon(icon),
+    );
+  }
 }

@@ -6,11 +6,13 @@ part 'training_plan.g.dart';
 /// The client's active training plan (`GET /client-portal/active-training-plan`).
 /// Mirrors `buildTrainingPlanHierarchy`: plan → days → exercises → sets/alts.
 @freezed
-class TrainingPlan with _$TrainingPlan {
+abstract class TrainingPlan with _$TrainingPlan {
   const factory TrainingPlan({
     required String id,
     @Default('') String name,
     String? notes,
+    // See NutritionPlan.activatedAt — same purpose (bottom-nav unread dot).
+    @JsonKey(name: 'activated_at') String? activatedAt,
     @Default(<TrainingDay>[]) List<TrainingDay> days,
   }) = _TrainingPlan;
 
@@ -19,7 +21,7 @@ class TrainingPlan with _$TrainingPlan {
 }
 
 @freezed
-class TrainingDay with _$TrainingDay {
+abstract class TrainingDay with _$TrainingDay {
   const factory TrainingDay({
     required String id,
     @Default('') String name,
@@ -33,7 +35,7 @@ class TrainingDay with _$TrainingDay {
 }
 
 @freezed
-class TrainingExercise with _$TrainingExercise {
+abstract class TrainingExercise with _$TrainingExercise {
   const factory TrainingExercise({
     required String id,
     @Default('') String name,
@@ -56,7 +58,7 @@ class TrainingExercise with _$TrainingExercise {
 }
 
 @freezed
-class TrainingSet with _$TrainingSet {
+abstract class TrainingSet with _$TrainingSet {
   const factory TrainingSet({
     required String id,
     @JsonKey(name: 'set_order') @Default(0) int setOrder,
@@ -72,7 +74,7 @@ class TrainingSet with _$TrainingSet {
 }
 
 @freezed
-class TrainingAlternative with _$TrainingAlternative {
+abstract class TrainingAlternative with _$TrainingAlternative {
   const factory TrainingAlternative({
     required String id,
     @JsonKey(name: 'alt_order') @Default(0) int altOrder,
