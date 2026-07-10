@@ -4,6 +4,7 @@
 >
 > This document is the source of truth for the mobile build. It is the parallel of `CLAUDE.md` for the Flutter side: it defines the stack, architecture, conventions, and a phased roadmap. Keep it honest — when a pattern changes, fix the code or fix this file.
 
+flutter build apk --debug
 flutter run --dart-define=API_BASE_URL=http://192.168.1.18:4000 --dart-define=FLAVOR=dev
 
 ---
