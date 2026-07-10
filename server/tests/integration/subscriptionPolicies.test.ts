@@ -28,16 +28,16 @@ function daysAgo(n: number): Date {
     return d;
 }
 
-async function createClient(workspaceId: string, currentPackage: string | null = null) {
+async function createClient(workspaceId: string, currentPackageVariationId: string | null = null) {
     return testPrisma.clients.create({
         data: {
-            id:              createId(),
-            client_code:     Math.floor(Math.random() * 90000) + 10000,
-            fname:           'Test',
-            lname:           'Client',
-            email:           `client-${createId()}@test.com`,
-            workspace_id:    workspaceId,
-            current_package: currentPackage,
+            id:                           createId(),
+            client_code:                  Math.floor(Math.random() * 90000) + 10000,
+            fname:                        'Test',
+            lname:                        'Client',
+            email:                        `client-${createId()}@test.com`,
+            workspace_id:                 workspaceId,
+            current_package_variation_id: currentPackageVariationId,
         },
     });
 }
@@ -200,10 +200,10 @@ describe('Subscription policies — client portal enforcement', () => {
 
     test('package override beats the global policy', async () => {
         const pkg = await testPrisma.packages.create({ data: { id: createId(), workspace_id: workspaceId, name: 'Gold' } });
-        await testPrisma.package_variations.create({
+        const variation = await testPrisma.package_variations.create({
             data: { id: createId(), package_id: pkg.id, name: 'Gold Monthly', duration: 30, price: 100 },
         });
-        const client = await createClient(workspaceId, 'Gold Monthly');
+        const client = await createClient(workspaceId, variation.id);
         await createSubscriptionTx(workspaceId, client.id, daysAgo(60), 30);
         const cookie = makeClientCookie(client.id, workspaceId);
 
