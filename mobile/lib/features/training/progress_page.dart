@@ -7,10 +7,10 @@ import '../../core/access/access_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/line_chart.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
 import '../access/restricted_view.dart';
-import 'widgets/line_chart.dart';
 import 'workout_repository.dart';
 
 enum _Metric { topWeight, est1rm, totalVolume }
