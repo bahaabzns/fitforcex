@@ -1,5 +1,16 @@
 import { serializePackage, serializePackages } from '../../src/modules/packages/packages.serializer';
 
+// Every serialized variation carries these regardless of the raw row's
+// shape — camelCased cycle/offset defaults plus an empty defaultForms list
+// when the row has no package_default_forms relation loaded.
+const VARIATION_DEFAULTS = {
+    nutritionCycleDays: null,
+    trainingCycleDays: null,
+    reviewOffsetDays: null,
+    planUpdateMode: 'extend',
+    defaultForms: [],
+};
+
 describe('serializePackage', () => {
     test('exposes variations under "variations" and drops "package_variations"', () => {
         // ARRANGE — a package row shaped like Prisma returns it
@@ -9,7 +20,14 @@ describe('serializePackage', () => {
         const result = serializePackage(row);
 
         // ASSERT
-        expect(result).toEqual({ id: 'p1', name: 'Gold', variations: [{ id: 'v1' }, { id: 'v2' }] });
+        expect(result).toEqual({
+            id: 'p1',
+            name: 'Gold',
+            variations: [
+                { id: 'v1', ...VARIATION_DEFAULTS },
+                { id: 'v2', ...VARIATION_DEFAULTS },
+            ],
+        });
         expect(result).not.toHaveProperty('package_variations');
     });
 
@@ -31,7 +49,7 @@ describe('serializePackages', () => {
         ];
         const result = serializePackages(rows);
         expect(result).toEqual([
-            { id: 'p1', variations: [{ id: 'v1' }] },
+            { id: 'p1', variations: [{ id: 'v1', ...VARIATION_DEFAULTS }] },
             { id: 'p2', variations: [] },
         ]);
     });
