@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/access/access_controller.dart';
+import '../../core/media/photo_answer_field.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -285,6 +287,26 @@ class _QuestionField extends StatelessWidget {
           enabled: enabled,
           onChanged: onChanged,
         );
+      case 'date':
+        return _DateInput(value: value, enabled: enabled, onChanged: onChanged);
+      case 'metric':
+        if (question.metricType == 'image') {
+          return PhotoAnswerField(
+            value: (value ?? '').isEmpty ? null : value,
+            enabled: enabled,
+            onChanged: onChanged,
+          );
+        }
+        return TextFormField(
+          initialValue: value,
+          enabled: enabled,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixText: question.metricUnit,
+          ),
+          onChanged: onChanged,
+        );
       default: // text
         return TextFormField(
           initialValue: value,
@@ -344,6 +366,55 @@ class _ScaleInput extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DateInput extends StatelessWidget {
+  const _DateInput({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final parsed = DateTime.tryParse(value ?? '');
+    final locale = Localizations.localeOf(context).toString();
+    final label =
+        parsed != null ? DateFormat.yMMMd(locale).format(parsed) : null;
+
+    return InkWell(
+      onTap: enabled
+          ? () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: parsed ?? DateTime.now(),
+                firstDate: DateTime(1900),
+                lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+              );
+              if (picked != null) {
+                onChanged(DateFormat('yyyy-MM-dd').format(picked));
+              }
+            }
+          : null,
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+        ),
+        child: Text(
+          label ?? l10n.formsSelectDate,
+          style: label == null
+              ? TextStyle(color: context.appColors.mutedForeground)
+              : null,
+        ),
+      ),
     );
   }
 }

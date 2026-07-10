@@ -38,6 +38,11 @@ dependencies:
   # Realtime chat (pure Dart, no native) — falls back to polling
   socket_io_client: ^2.0.3
 
+  # Photo capture/pick — progress photos, form metric photos, chat image
+  # attachments. Single shared picker, uploaded via multipart to the
+  # existing /uploads/photo and /messages/attachments endpoints.
+  image_picker: ^1.1.2
+
   # i18n
   intl: ^0.20.2
 

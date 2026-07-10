@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/access/access_controller.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -26,6 +29,45 @@ class FormsPage extends ConsumerStatefulWidget {
 
 class _FormsPageState extends ConsumerState<FormsPage> {
   _Filter _filter = _Filter.pending;
+
+  @override
+  void initState() {
+    super.initState();
+    // fireImmediately: ref.listen (used in build()) only fires on a state
+    // *transition* — it never fires for a value the provider already holds
+    // when the listener registers. Since the shell keeps this provider warm
+    // (it watches the unread flags on every tab), the list is often already
+    // loaded by the time this page mounts, so a build()-scoped ref.listen
+    // never marks it seen. listenManual + fireImmediately fixes that, and
+    // keeps listening for the page's lifetime so a newly-arrived request
+    // while this tab is already active (kept alive by the IndexedStack)
+    // still clears the dot correctly. The mutation itself is deferred a
+    // microtask — Riverpod forbids modifying provider state while the widget
+    // tree is still building, which fireImmediately's synchronous initState
+    // call is.
+    if (ref.read(clientAccessProvider).canViewForms) {
+      ref.listenManual<AsyncValue<List<FormRequestSummary>>>(
+        formRequestsProvider,
+        (_, next) {
+          final loaded = next.asData?.value;
+          if (loaded != null) {
+            unawaited(Future.microtask(() {
+              // Mark every currently-actionable request "seen" — clears the
+              // bottom-nav dot even for requests still unfilled (the dot
+              // means "new," not "incomplete"); it only reappears for ids
+              // not in this set, i.e. a genuinely new request.
+              final actionable = loaded
+                  .where(formRequestNeedsAction)
+                  .map((r) => r.id)
+                  .toSet();
+              ref.read(formsSeenProvider.notifier).markSeen(actionable);
+            }));
+          }
+        },
+        fireImmediately: true,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
