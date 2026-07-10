@@ -28,8 +28,12 @@ describe('cookieOptions', () => {
         expect(cookieOptions().httpOnly).toBe(true);
     });
 
-    test('sameSite is strict', () => {
-        expect(cookieOptions().sameSite).toBe('strict');
+    // 'lax', not 'strict' — the cookie carries an explicit `domain` (see
+    // COOKIE_DOMAIN below) so it's shared across workspace subdomains
+    // (my.fitforce.app -> acme.fitforce.app); Strict would drop it on that
+    // top-level navigation. Deliberate tradeoff from abdd950.
+    test('sameSite is lax', () => {
+        expect(cookieOptions().sameSite).toBe('lax');
     });
 
     // env.NODE_ENV is captured at module load time from process.env.NODE_ENV.
