@@ -24,7 +24,8 @@ function attachmentKindFromFile(file) {
  *
  * @param {(key: string, values?: object) => string} t   translations for:
  *   replyPlaceholder, editingLabel, cancelEdit, attachLabel, recordLabel,
- *   stopRecordingLabel, cancelRecordingLabel, removeAttachmentLabel, sendLabel
+ *   stopRecordingLabel, cancelRecordingLabel, removeAttachmentLabel, sendLabel,
+ *   sendFailed
  * @param {{ id: string, body: string } | null} editingMessage
  * @param {() => void} onCancelEdit
  * @param {(id: string, body: string) => Promise<void>} onSaveEdit
@@ -38,6 +39,7 @@ export default function MessageComposer({
     const [pendingAttachment, setPendingAttachment] = useState(null);
     const [sending, setSending] = useState(false);
     const [micError, setMicError] = useState("");
+    const [sendError, setSendError] = useState("");
     const fileInputRef = useRef(null);
     const { recording, elapsedSeconds, start, stop, cancel } = useVoiceRecorder();
 
@@ -89,19 +91,30 @@ export default function MessageComposer({
     async function handleStopRecording() {
         const result = await stop();
         if (result) {
-            setPendingAttachment({ kind: "voice", file: result.blob, name: "voice-message.webm", durationSeconds: result.durationSeconds });
+            setPendingAttachment({
+                kind: "voice", file: result.blob, name: "voice-message.webm",
+                durationSeconds: result.durationSeconds,
+                previewUrl: URL.createObjectURL(result.blob),
+            });
         }
     }
 
+    // The three branches below keep the draft/attachment/edit state intact on
+    // failure so the user can retry (rather than losing their input) — but a
+    // failure must still be visible, or a retry-able state is indistinguishable
+    // from "nothing happened." `sendError` surfaces whatever the server said
+    // (falling back to a generic message for network-level failures that never
+    // reach a response), for every send kind alike.
     async function handleSubmit(e) {
         e?.preventDefault();
         if (sending) return;
+        setSendError("");
 
         if (editingMessage) {
             if (!draft.trim()) return;
             setSending(true);
             try { await onSaveEdit(editingMessage.id, draft.trim()); setDraft(""); }
-            catch { /* silent — stays in edit mode so the user can retry */ }
+            catch (err) { setSendError(err?.response?.data?.error || t("sendFailed")); }
             finally { setSending(false); }
             return;
         }
@@ -109,7 +122,7 @@ export default function MessageComposer({
         if (pendingAttachment) {
             setSending(true);
             try { await onSendAttachment(pendingAttachment, draft.trim()); setPendingAttachment(null); setDraft(""); }
-            catch { /* silent — attachment stays pending so the user can retry */ }
+            catch (err) { setSendError(err?.response?.data?.error || t("sendFailed")); }
             finally { setSending(false); }
             return;
         }
@@ -117,7 +130,7 @@ export default function MessageComposer({
         if (!draft.trim()) return;
         setSending(true);
         try { await onSendText(draft.trim()); setDraft(""); }
-        catch { /* silent — message stays in draft */ }
+        catch (err) { setSendError(err?.response?.data?.error || t("sendFailed")); }
         finally { setSending(false); }
     }
 
@@ -153,21 +166,31 @@ export default function MessageComposer({
                 </div>
             )}
 
-            {pendingAttachment && (
+            {pendingAttachment && pendingAttachment.kind === "voice" ? (
+                <div className="flex items-center gap-2 pb-1.5">
+                    {/* Listen-before-send: native controls give play/pause, a
+                        scrubber, and its own duration readout for free. */}
+                    <audio controls src={pendingAttachment.previewUrl} className="h-9 flex-1 min-w-0" />
+                    <button
+                        type="button"
+                        aria-label={t("removeAttachmentLabel")}
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        onClick={() => setPendingAttachment(null)}
+                    >
+                        <X size={15} />
+                    </button>
+                </div>
+            ) : pendingAttachment && (
                 <div className="flex items-center gap-2 pb-1.5">
                     {pendingAttachment.kind === "image" ? (
                         <img src={pendingAttachment.previewUrl} alt="" className="h-12 w-12 rounded-lg object-cover shrink-0" />
-                    ) : pendingAttachment.kind === "voice" ? (
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                            <Mic size={18} />
-                        </div>
                     ) : (
                         <div className="h-12 w-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                             <FileText size={18} />
                         </div>
                     )}
                     <span className="flex-1 min-w-0 truncate text-sm text-foreground">
-                        {pendingAttachment.kind === "voice" ? formatDuration(pendingAttachment.durationSeconds ?? 0) : pendingAttachment.name}
+                        {pendingAttachment.name}
                     </span>
                     <button
                         type="button"
@@ -197,6 +220,7 @@ export default function MessageComposer({
             </TextField>
 
             {micError && <p className="text-xs text-destructive">{micError}</p>}
+            {sendError && <p className="text-xs text-destructive">{sendError}</p>}
 
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">

@@ -1438,7 +1438,8 @@
       "editingLabel": "Editing message",
       "micUnsupported": "Voice recording isn't available on this connection — try HTTPS or localhost.",
       "micPermissionDenied": "Microphone access was denied. Allow microphone access to record a voice note.",
-      "micUnavailable": "Couldn't start recording — check that a microphone is connected."
+      "micUnavailable": "Couldn't start recording — check that a microphone is connected.",
+      "sendFailed": "Couldn't send — check your connection and try again."
     },
     "forms": {
       "title": "Forms",
@@ -1857,7 +1858,8 @@
     "editingLabel": "Editing message",
     "micUnsupported": "Voice recording isn't available on this connection — try HTTPS or localhost.",
     "micPermissionDenied": "Microphone access was denied. Allow microphone access to record a voice note.",
-    "micUnavailable": "Couldn't start recording — check that a microphone is connected."
+    "micUnavailable": "Couldn't start recording — check that a microphone is connected.",
+    "sendFailed": "Couldn't send — check your connection and try again."
   },
   "subscriptionPolicies": {
     "pageTitle": "Subscription Policies",
