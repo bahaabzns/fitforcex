@@ -173,6 +173,16 @@ export default function ClientFillFormPage() {
                                 />
                             )}
 
+                            {q.type === 'attachment' && (
+                                <AttachmentInput
+                                    questionId={q.id}
+                                    value={answers[q.id]}
+                                    isSubmitted={isSubmitted}
+                                    onChange={setAnswer}
+                                    category={q.options?.allowedCategory || 'any'}
+                                />
+                            )}
+
                             {q.type === 'scale' && (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-3">
@@ -299,6 +309,121 @@ function MetricPhotoInput({ questionId, value, isSubmitted, onChange }) {
                     </div>
                 )}
             </label>
+            {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+        </div>
+    );
+}
+
+const ACCEPT_BY_CATEGORY = {
+    images: 'image/*',
+    documents: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt',
+    videos: 'video/*',
+    any: undefined,
+};
+
+const HINT_BY_CATEGORY = {
+    images: 'JPG, PNG, HEIC, GIF up to 20 MB',
+    documents: 'PDF, Word, Excel, PowerPoint, or text up to 20 MB',
+    videos: 'Video files up to 20 MB',
+    any: 'Any file up to 20 MB',
+};
+
+function fileNameFromUrl(url) {
+    try {
+        return decodeURIComponent(new URL(url, window.location.origin).pathname.split('/').pop() || 'file');
+    } catch {
+        return 'file';
+    }
+}
+
+// Generalized from MetricPhotoInput — same upload-then-store-the-URL
+// pattern (see server/src/lib/formAttachments.ts), but for any of the 4
+// attachment categories a coach can configure on the question, not just
+// progress photos.
+function AttachmentInput({ questionId, value, isSubmitted, onChange, category }) {
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+
+    async function handleFile(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadError('');
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await api.post(`/api/client-portal/uploads/attachment/${category}`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            onChange(questionId, res.data.url);
+        } catch (err) {
+            setUploadError(err.response?.data?.error || 'Upload failed — please try again');
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    if (category === 'images') {
+        if (isSubmitted && value) {
+            return <img src={value} alt="Attachment" className="w-full max-h-72 object-cover rounded-lg border border-border" />;
+        }
+        return (
+            <div className="flex flex-col gap-2">
+                <label className={`flex flex-col items-center justify-center gap-2 w-full rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                    value ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/40 bg-secondary'
+                } ${isSubmitted ? 'opacity-60 pointer-events-none' : ''}`}>
+                    <input type="file" accept={ACCEPT_BY_CATEGORY.images} className="sr-only" onChange={handleFile} disabled={isSubmitted || uploading} />
+                    {uploading ? (
+                        <div className="py-8 flex flex-col items-center gap-2">
+                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs text-muted-foreground">Uploading…</span>
+                        </div>
+                    ) : value ? (
+                        <div className="relative w-full">
+                            <img src={value} alt="Attachment" className="w-full max-h-56 object-cover rounded-lg" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg opacity-0 hover:opacity-100 transition-opacity">
+                                <span className="text-white text-xs font-medium">Tap to replace</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="py-10 flex flex-col items-center gap-2">
+                            <span className="text-3xl">📷</span>
+                            <span className="text-sm font-medium text-foreground">Tap to upload image</span>
+                            <span className="text-xs text-muted-foreground">{HINT_BY_CATEGORY.images}</span>
+                        </div>
+                    )}
+                </label>
+                {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+            </div>
+        );
+    }
+
+    // documents / videos / any — a file-chip presentation, not an inline
+    // preview (see the Coach Portal viewer's identical category branching).
+    return (
+        <div className="flex flex-col gap-2">
+            {value ? (
+                <a href={value} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-secondary hover:border-primary/40 transition-colors">
+                    <span className="text-xl shrink-0">📎</span>
+                    <span className="flex-1 text-sm text-foreground truncate">{fileNameFromUrl(value)}</span>
+                    <span className="text-xs text-primary shrink-0">Open</span>
+                </a>
+            ) : null}
+            {!isSubmitted && (
+                <label className="flex items-center justify-center gap-2 w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/40 bg-secondary cursor-pointer transition-colors">
+                    <input type="file" accept={ACCEPT_BY_CATEGORY[category]} className="sr-only" onChange={handleFile} disabled={uploading} />
+                    {uploading ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                            <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            Uploading…
+                        </span>
+                    ) : (
+                        <span className="text-sm text-foreground">{value ? 'Tap to replace file' : 'Tap to upload file'}</span>
+                    )}
+                </label>
+            )}
+            {!isSubmitted && <p className="text-xs text-muted-foreground">{HINT_BY_CATEGORY[category]}</p>}
             {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
         </div>
     );

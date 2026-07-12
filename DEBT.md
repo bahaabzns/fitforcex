@@ -424,3 +424,12 @@ Format:
 **Why it matters:** A coach who tracks the wrong question as a metric can't cleanly undo it from the UI. Low risk in practice — the preview-count confirmation step is the safety gate before tracking — but worth closing before "Track as Metric" sees heavy use.
 **Effort:** Medium — one new `untrackMetric` endpoint (clear `metric_id`, decide whether to leave backfilled `form_responses.metric_id` in place or revert it) + a small `GET /metrics/:id/questions` endpoint + a metrics-management UI section.
 **Priority:** Low
+
+---
+
+## 2026-07-12 — Mobile Forms (no coach-side response viewer)
+**Type:** Shortcut (pre-existing, confirmed during the Attachment question type work)
+**What:** The Flutter app has no coach-facing surface for viewing submitted form answers — `forms_page.dart` only lists/manages requests. This meant the Attachment question type's category-aware preview (image inline / PDF / file chip) built for the web Coach Portal (Phase 3/5) has no mobile equivalent to extend, since there's nothing there to begin with.
+**Why it matters:** A coach using the mobile app has no way to review a client's check-in/assessment answers, attachments included — they must switch to the web app.
+**Effort:** Large — a new mobile page/feature, not a small addition.
+**Priority:** Low (matches the existing product gap; not a regression introduced by this work)
