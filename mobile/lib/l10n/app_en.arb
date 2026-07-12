@@ -180,6 +180,10 @@
   "formsPhotoChooseFromGallery": "Choose from Gallery",
   "formsPhotoRemove": "Remove",
   "formsPhotoUploadFailed": "Could not upload photo — check your connection and try again.",
+  "formsAttachmentUploadFailed": "Upload failed — please try again.",
+  "formsAttachmentTapToUpload": "Tap to upload file",
+  "formsAttachmentTapToReplace": "Tap to replace file",
+  "formsAttachmentCouldNotReadFile": "Could not read the selected file",
 
   "messagesEmptyTitle": "No messages yet",
   "messagesEmptyHint": "Send a message to your coach below.",

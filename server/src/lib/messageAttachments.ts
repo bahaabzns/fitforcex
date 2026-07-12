@@ -3,7 +3,7 @@ import { makeUploader, toPublicUrl } from './storage';
 // Shared between the coach messenger and the client portal chat — both send/
 // receive the same `messages` rows, so the upload rules and the URL
 // serialization need to match exactly or one side renders a broken link.
-const ALLOWED_ATTACHMENT_EXTS = [
+export const ALLOWED_ATTACHMENT_EXTS = [
     '.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic',
     '.mp3', '.m4a', '.wav', '.ogg', '.webm', '.aac',
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.zip',

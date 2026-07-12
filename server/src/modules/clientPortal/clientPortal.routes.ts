@@ -250,6 +250,24 @@ router.post('/uploads/photo', ...open, clientPortalController.photoUploader.sing
 
 /**
  * @openapi
+ * /client-portal/uploads/attachment/{category}:
+ *   post:
+ *     summary: Upload a file for an "attachment" form question, validated against the question's configured category
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: category, required: true, schema: { type: string, enum: [images, documents, videos, any] } }
+ *     responses:
+ *       201:
+ *         description: "{ url, name, mime, size }"
+ *       400:
+ *         description: Invalid category, no file, or a file outside the category's allowlist
+ */
+router.post('/uploads/attachment/:category', ...open, clientPortalController.uploadAttachmentMiddleware, clientPortalController.uploadAttachment);
+
+/**
+ * @openapi
  * /client-portal/messages:
  *   get:
  *     summary: Get message thread between client and coach team

@@ -745,6 +745,7 @@
     "typeMultiChoice": "Multi Choice",
     "typeDate": "Date",
     "typeMetric": "Metric",
+    "typeAttachment": "Attachment",
     "placeholderText": "Placeholder Text",
     "placeholderHint": "e.g. Your answer here…",
     "scaleRange": "Scale Range",

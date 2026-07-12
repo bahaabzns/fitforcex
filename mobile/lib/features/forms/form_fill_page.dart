@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/access/access_controller.dart';
+import '../../core/media/attachment_answer_field.dart';
 import '../../core/media/photo_answer_field.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
@@ -244,7 +245,7 @@ class _QuestionField extends StatelessWidget {
 
   Widget _input(BuildContext context, AppLocalizations l10n, String hint) {
     switch (question.type) {
-      case 'textarea':
+      case 'long_text':
         return TextFormField(
           initialValue: value,
           enabled: enabled,
@@ -306,6 +307,13 @@ class _QuestionField extends StatelessWidget {
             suffixText: question.metricUnit,
           ),
           onChanged: onChanged,
+        );
+      case 'attachment':
+        return AttachmentAnswerField(
+          value: (value ?? '').isEmpty ? null : value,
+          enabled: enabled,
+          onChanged: onChanged,
+          category: question.attachmentCategory ?? 'any',
         );
       default: // text
         return TextFormField(

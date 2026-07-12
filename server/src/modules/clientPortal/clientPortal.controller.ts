@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { toPublicUrl, makeUploader, deleteFile } from '../../lib/storage';
 import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
+import { attachmentUploaderFor, isValidAttachmentCategory } from '../../lib/formAttachments';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { recordEvent, teamRecipients } from '../../lib/events';
@@ -974,6 +975,28 @@ export const photoUploader = makeUploader(
     ['.jpg', '.jpeg', '.png', '.heic', '.webp'],
     { maxSize: 20 * 1024 * 1024 },
 );
+
+// Attachment question type (Phase 5) — the multer instance is chosen from
+// the route's :category param, which was itself set server-side by the
+// coach when configuring the question (forms.controller.ts), never trusted
+// from the client at upload time beyond selecting which pre-built,
+// already-vetted allowlist applies. See lib/formAttachments.ts.
+export function uploadAttachmentMiddleware(req: Request, res: Response, next: NextFunction) {
+    const category = req.params.category;
+    if (!isValidAttachmentCategory(category)) {
+        return res.status(400).json({ error: 'Invalid attachment category' });
+    }
+    attachmentUploaderFor(category).single('file')(req, res, next);
+}
+
+export async function uploadAttachment(req: Request, res: Response) {
+    const file = req.file as (Express.Multer.File & { key?: string; location?: string }) | undefined;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const key = file.key ?? file.path;
+    const url = toPublicUrl(key);
+    res.status(201).json({ url, name: file.originalname, mime: file.mimetype, size: file.size });
+}
 
 export async function getPortalTransformation(req: Request, res: Response, next: NextFunction) {
     try {

@@ -177,6 +177,10 @@
   "formsPhotoChooseFromGallery": "اختيار من المعرض",
   "formsPhotoRemove": "إزالة",
   "formsPhotoUploadFailed": "تعذّر رفع الصورة — تحقق من اتصالك وحاول مرة أخرى.",
+  "formsAttachmentUploadFailed": "فشل الرفع — يرجى المحاولة مرة أخرى.",
+  "formsAttachmentTapToUpload": "اضغط لرفع ملف",
+  "formsAttachmentTapToReplace": "اضغط لاستبدال الملف",
+  "formsAttachmentCouldNotReadFile": "تعذّرت قراءة الملف المحدد",
 
   "messagesEmptyTitle": "لا توجد رسائل بعد",
   "messagesEmptyHint": "أرسل رسالة إلى مدربك أدناه.",

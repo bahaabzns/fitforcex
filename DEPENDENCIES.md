@@ -90,3 +90,11 @@ Format per package:
 **Why:** Client had no test runner; needed to unit-test the portal subdomain-slug helper and future client code.
 **Used in:** client/lib/coachSlug.test.js (client test suite via `npm test`)
 **Review date:** 2026-09-11
+
+---
+
+## file_picker v11.0.2 (Flutter)
+**Installed:** 2026-07-12
+**Why:** The new Attachment form question type needs a generic native file picker for the "documents"/"any" categories — `image_picker` (already in use) only handles photos/videos, not arbitrary files (PDF, Word, etc.). Vetted: actively maintained, by far the most widely-adopted file-picker plugin on pub.dev, no known CVEs, thin wrapper over platform-native pickers (no realistic hand-rolled alternative).
+**Used in:** `mobile/lib/core/media/attachment_answer_field.dart` (Forms `attachment` question renderer)
+**Review date:** 2026-10-12

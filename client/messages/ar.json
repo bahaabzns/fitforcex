@@ -745,6 +745,7 @@
     "typeMultiChoice": "اختيار متعدد",
     "typeDate": "تاريخ",
     "typeMetric": "قياس",
+    "typeAttachment": "مرفق",
     "placeholderText": "نص الحقل الافتراضي",
     "placeholderHint": "مثال: أجب هنا…",
     "scaleRange": "نطاق المقياس",

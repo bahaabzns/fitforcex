@@ -50,7 +50,30 @@ abstract class FormRequestDetail with _$FormRequestDetail {
   }) = _FormRequestDetail;
 
   factory FormRequestDetail.fromJson(Map<String, dynamic> json) =>
-      _$FormRequestDetailFromJson(json);
+      _$FormRequestDetailFromJson(_withAttachmentCategoryKeys(json));
+}
+
+/// `attachment` questions store their category (images/documents/videos/any)
+/// in the same `options` JSON column select/multiselect use for their choice
+/// list — here it's an object, not an array. FormQuestion.options coerces
+/// non-arrays to `[]` (see `_stringList`), which would silently discard it,
+/// so each question's raw `options` is copied into a synthetic
+/// `attachment_category` key before the generated parser ever sees it. Done
+/// here (once, on the parent's raw question list) rather than by overriding
+/// FormQuestion.fromJson itself — a hand-written body there breaks freezed's
+/// toJson codegen for any type that embeds a `List<FormQuestion>`.
+Map<String, dynamic> _withAttachmentCategoryKeys(Map<String, dynamic> json) {
+  final questions = json['questions'];
+  if (questions is! List) return json;
+  return {
+    ...json,
+    'questions': questions.map((q) {
+      if (q is! Map) return q;
+      final rawOptions = q['options'];
+      if (rawOptions is! Map) return q;
+      return {...q, 'attachment_category': rawOptions['allowedCategory']};
+    }).toList(),
+  };
 }
 
 @freezed
@@ -75,6 +98,10 @@ abstract class FormQuestion with _$FormQuestion {
     @JsonKey(name: 'metric_type') String? metricType,
     @JsonKey(name: 'metric_unit') String? metricUnit,
     @JsonKey(name: 'metric_name') String? metricName,
+    // Populated from a synthetic key by _withAttachmentCategoryKeys above
+    // (see server/src/lib/formAttachments.ts's ATTACHMENT_CATEGORIES for the
+    // possible values) — not read directly off `options`.
+    @JsonKey(name: 'attachment_category') String? attachmentCategory,
   }) = _FormQuestion;
 
   factory FormQuestion.fromJson(Map<String, dynamic> json) =>
@@ -95,3 +122,4 @@ abstract class FormResponse with _$FormResponse {
 /// Options arrive as a JSON array (or null); coerce every element to a string.
 List<String> _stringList(dynamic value) =>
     value is List ? value.map((e) => e.toString()).toList() : const <String>[];
+
