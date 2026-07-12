@@ -263,16 +263,20 @@ async function main() {
             });
             await prisma.form_versions.create({ data: { id: versionId, form_id: formId, version_number: 1 } });
             await prisma.form_version_questions.createMany({
-                data: tmpl.questions.map((q, i) => ({
-                    id:              createId(),
-                    form_version_id: versionId,
-                    label_en:        q.label_en,
-                    type:            q.type,
-                    order_index:     i,
-                    min_value:       q.min ?? null,
-                    max_value:       q.max ?? null,
-                    options:         q.options ? q.options as unknown as Prisma.InputJsonValue : Prisma.DbNull,
-                })),
+                data: tmpl.questions.map((q, i) => {
+                    const questionId = createId();
+                    return {
+                        id:                 questionId,
+                        form_version_id:    versionId,
+                        label_en:           q.label_en,
+                        type:               q.type,
+                        order_index:        i,
+                        min_value:          q.min ?? null,
+                        max_value:          q.max ?? null,
+                        options:            q.options ? q.options as unknown as Prisma.InputJsonValue : Prisma.DbNull,
+                        origin_question_id: questionId,
+                    };
+                }),
             });
             await prisma.forms.update({ where: { id: formId }, data: { current_version_id: versionId } });
         }

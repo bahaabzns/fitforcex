@@ -76,22 +76,29 @@ async function cloneMasterForms(workspaceId: string): Promise<{ forms: number; q
         await prisma.forms.update({ where: { id: newFormId }, data: { current_version_id: versionId } });
 
         if (mf.questions.length) {
+            // Each cloned question starts a brand-new lineage (it's not a
+            // version fork of an existing coach question) — same rule as
+            // createQuestion's new-question path.
             await prisma.form_version_questions.createMany({
-                data: mf.questions.map((q) => ({
-                    id:              createId(),
-                    form_version_id: versionId,
-                    label_en:        q.label_en,
-                    label_ar:        q.label_ar,
-                    type:            q.type,
-                    required:        q.required,
-                    order_index:     q.order_index,
-                    options:         q.options ?? Prisma.DbNull,
-                    options_ar:      q.options_ar ?? Prisma.DbNull,
-                    placeholder_en:  q.placeholder_en,
-                    placeholder_ar:  q.placeholder_ar,
-                    min_value:       q.min_value,
-                    max_value:       q.max_value,
-                })),
+                data: mf.questions.map((q) => {
+                    const newQuestionId = createId();
+                    return {
+                        id:                 newQuestionId,
+                        form_version_id:    versionId,
+                        label_en:           q.label_en,
+                        label_ar:           q.label_ar,
+                        type:               q.type,
+                        required:           q.required,
+                        order_index:        q.order_index,
+                        options:            q.options ?? Prisma.DbNull,
+                        options_ar:         q.options_ar ?? Prisma.DbNull,
+                        placeholder_en:     q.placeholder_en,
+                        placeholder_ar:     q.placeholder_ar,
+                        min_value:          q.min_value,
+                        max_value:          q.max_value,
+                        origin_question_id: newQuestionId,
+                    };
+                }),
             });
             questionCount += mf.questions.length;
         }

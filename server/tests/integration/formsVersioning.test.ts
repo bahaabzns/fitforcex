@@ -47,8 +47,9 @@ describe('Forms Versioning — tenant isolation on question CRUD', () => {
         const { formId, versionId } = await createForm(wsB.id);
         wsBFormId = formId;
 
+        const qId = createId();
         const q = await testPrisma.form_version_questions.create({
-            data: { id: createId(), form_version_id: versionId, label_en: 'Original Label', order_index: 0 },
+            data: { id: qId, form_version_id: versionId, label_en: 'Original Label', order_index: 0, origin_question_id: qId },
         });
         wsBQuestionId = q.id;
     });
@@ -169,8 +170,9 @@ describe('Forms Versioning — concurrent edit vs. assignment', () => {
 
     test('an edit and an assignment firing at the same instant on a fresh (unsealed) form never corrupt state', async () => {
         const { formId, versionId: v1 } = await createForm(workspaceId);
+        const q1Id = createId();
         const q1 = await testPrisma.form_version_questions.create({
-            data: { id: createId(), form_version_id: v1, label_en: 'Original', order_index: 0 },
+            data: { id: q1Id, form_version_id: v1, label_en: 'Original', order_index: 0, origin_question_id: q1Id },
         });
 
         const [editResult, assignResult] = await Promise.all([
@@ -211,8 +213,9 @@ describe('Forms Versioning — concurrent edit vs. assignment', () => {
 
     test('a burst of 5 concurrent edits and 5 concurrent assignments on the same fresh form settles to a consistent, non-corrupted state', async () => {
         const { formId, versionId: v1 } = await createForm(workspaceId);
+        const burstQId = createId();
         await testPrisma.form_version_questions.create({
-            data: { id: createId(), form_version_id: v1, label_en: 'Q', order_index: 0 },
+            data: { id: burstQId, form_version_id: v1, label_en: 'Q', order_index: 0, origin_question_id: burstQId },
         });
 
         const operations = [

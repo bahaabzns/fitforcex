@@ -166,17 +166,21 @@ async function prepareForm(form: { id: string; title_en: string; post_action: st
 
     if (questions.length === 0) {
         const set = QUESTION_SETS[postAction] ?? QUESTION_SETS['workout-plan'];
-        const rows: Prisma.form_version_questionsCreateManyInput[] = set.map((q, i) => ({
-            id: createId(),
-            form_version_id: versionId,
-            label_en: q.label_en,
-            label_ar: q.label_ar,
-            type: q.type,
-            order_index: i,
-            min_value: q.type === 'scale' ? (q.min ?? 1) : null,
-            max_value: q.type === 'scale' ? (q.max ?? 10) : null,
-            options: q.options ? (q.options as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
-        }));
+        const rows: Prisma.form_version_questionsCreateManyInput[] = set.map((q, i) => {
+            const questionId = createId();
+            return {
+                id: questionId,
+                form_version_id: versionId,
+                label_en: q.label_en,
+                label_ar: q.label_ar,
+                type: q.type,
+                order_index: i,
+                min_value: q.type === 'scale' ? (q.min ?? 1) : null,
+                max_value: q.type === 'scale' ? (q.max ?? 10) : null,
+                options: q.options ? (q.options as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+                origin_question_id: questionId,
+            };
+        });
         await prisma.form_version_questions.createMany({ data: rows });
         questions = await prisma.form_version_questions.findMany({
             where: { form_version_id: versionId },

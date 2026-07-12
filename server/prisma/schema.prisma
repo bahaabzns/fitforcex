@@ -455,13 +455,21 @@ model form_version_questions {
   min_value      Int?
   max_value      Int?
   metric_id      String?
+  // Self-referencing root of this question's lineage across every version
+  // fork it survives — a brand-new question points at its own id; a forked
+  // clone copies its source's origin_question_id forward (see
+  // forms.service.ts's forkVersion). See migrations/043_form_version_questions_lineage.js.
+  origin_question_id String
   created_at     DateTime      @default(now()) @db.Timestamptz(6)
   form_versions  form_versions @relation(fields: [form_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   metrics        metrics?      @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   form_responses form_responses[]
+  origin_question  form_version_questions?  @relation("QuestionLineage", fields: [origin_question_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  lineage_children form_version_questions[] @relation("QuestionLineage")
 
   @@index([form_version_id])
   @@index([metric_id])
+  @@index([origin_question_id])
 }
 
 model metrics {
