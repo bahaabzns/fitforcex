@@ -31,7 +31,7 @@ export default function FormsPanel({
     pendingFocusFormId, setPendingFocusFormId,
     handleSelectForm,
     handleCreateForm,
-    handleUpdateForm,
+    handleEditForm,
     handleDeleteForm,
     handleArchiveForm,
     handleDuplicateForm,
@@ -136,7 +136,7 @@ export default function FormsPanel({
                                                         pendingFocusFormId={pendingFocusFormId}
                                                         setPendingFocusFormId={setPendingFocusFormId}
                                                         onSelect={() => handleSelectForm(form)}
-                                                        onUpdate={(updates) => handleUpdateForm(form.id, updates)}
+                                                        onUpdate={(updates) => handleEditForm(form.id, updates)}
                                                         onDelete={() => handleDeleteOrArchive(form)}
                                                         onArchive={() => archiveWithWarning(form)}
                                                         onDuplicate={() => handleDuplicateForm(form.id)}

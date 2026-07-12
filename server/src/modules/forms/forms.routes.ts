@@ -139,6 +139,57 @@ router.delete('/:id/questions/:qid',   formsController.deleteQuestion);
 
 /**
  * @openapi
+ * /forms/{id}/save-draft:
+ *   post:
+ *     summary: Save the builder's full local draft (form metadata + question set) in one batch
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Draft saved — returns the authoritative persisted form + question list
+ *       409:
+ *         description: One or more deleted questions have recorded answers, or a metric is double-linked
+ */
+router.post('/:id/save-draft',         formsController.saveDraft);
+
+/**
+ * @openapi
+ * /forms/{id}/questions/{qid}/metric-preview:
+ *   get:
+ *     summary: Preview how many historical answers "Track as Metric" would backfill for this question
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: qid, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: "{ count, convertible }"
+ *
+ * /forms/{id}/questions/{qid}/track-as-metric:
+ *   post:
+ *     summary: Link this question to a metric and automatically backfill its historical answers
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: qid, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: "{ question, backfilledCount, versionChanged }"
+ *       409:
+ *         description: This metric is already tracked by another question in this form
+ */
+router.get('/:id/questions/:qid/metric-preview',    formsController.getMetricTrackingPreview);
+router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestionAsMetric);
+
+/**
+ * @openapi
  * /forms/requests:
  *   post:
  *     summary: Dispatch form requests to one or more clients

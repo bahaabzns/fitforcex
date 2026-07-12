@@ -5,6 +5,7 @@ import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
 import { resolveWritableVersion, sealVersionForAssignment } from './forms.service';
+import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions } from './questionTypes';
 
 let schemaReadyPromise: Promise<void> | undefined;
 
@@ -56,12 +57,18 @@ export async function getForms(req: Request, res: Response, next: NextFunction) 
         // Forms Versioning Phase 3 — the list's question_count reflects the
         // CURRENT version's question set (form_version_questions), not the
         // now-frozen form_questions table.
+        // Builder Save Workflow — the sealed/unsealed badge needs to know the
+        // current version's number and seal state; both are additive fields
+        // that already existed on form_versions, just not projected here before.
         const rows = await prisma.$queryRaw<FormRow[]>`
-            SELECT f.*, COUNT(fvq.id)::int AS question_count
+            SELECT f.*, COUNT(fvq.id)::int AS question_count,
+                   fv.version_number AS current_version_number,
+                   fv.sealed_at AS current_version_sealed_at
             FROM forms f
             LEFT JOIN form_version_questions fvq ON fvq.form_version_id = f.current_version_id
+            LEFT JOIN form_versions fv ON fv.id = f.current_version_id
             WHERE f.workspace_id = ${req.user!.workspaceId}
-            GROUP BY f.id
+            GROUP BY f.id, fv.version_number, fv.sealed_at
             ORDER BY f.created_at DESC
         `;
         res.json(rows);
@@ -105,6 +112,18 @@ export async function createForm(req: Request, res: Response, next: NextFunction
     }
 }
 
+// Builder Save Workflow — projects the same version_number/sealed_at fields
+// getForms adds to its list query onto a single already-loaded form row, so
+// updateForm/saveDraft responses can refresh the sealed/unsealed badge too.
+async function attachVersionInfo<T extends { current_version_id: string | null }>(form: T) {
+    if (!form.current_version_id) return { ...form, current_version_number: null, current_version_sealed_at: null };
+    const version = await prisma.form_versions.findFirst({
+        where:  { id: form.current_version_id },
+        select: { version_number: true, sealed_at: true },
+    });
+    return { ...form, current_version_number: version?.version_number ?? null, current_version_sealed_at: version?.sealed_at ?? null };
+}
+
 export async function updateForm(req: Request, res: Response, next: NextFunction) {
     const { title_en, title_ar, description_en, description_ar, status, postAction, formType } = req.body as Record<string, unknown>;
     const safePostAction = postAction !== undefined ? normalizePostAction(postAction) : undefined;
@@ -125,7 +144,8 @@ export async function updateForm(req: Request, res: Response, next: NextFunction
             },
         });
         if (updated.count === 0) return res.status(404).json({ error: 'Form not found' });
-        const form = await prisma.forms.findFirst({ where: { id: req.params.id as string } });
+        const formRow = await prisma.forms.findFirst({ where: { id: req.params.id as string } });
+        const form = formRow ? await attachVersionInfo(formRow) : formRow;
 
         // Forms Versioning Phase 5 — archiving doesn't touch package
         // defaults or schedules (never destructive), but the coach should
@@ -197,8 +217,11 @@ export async function getQuestions(req: Request, res: Response, next: NextFuncti
 }
 
 export async function createQuestion(req: Request, res: Response, next: NextFunction) {
-    const { label_en, label_ar, type, metric_id } = req.body as Record<string, unknown>;
+    const { label_en, label_ar, type, metric_id, options } = req.body as Record<string, unknown>;
     const questionType = (type as string | undefined) || 'text';
+    if (!isValidQuestionType(questionType)) {
+        return res.status(400).json({ error: `Unknown question type: ${questionType}` });
+    }
     const isMetricType = questionType === 'metric';
     const formId = req.params.id as string;
 
@@ -235,12 +258,13 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
         const defaults = {
             min_value: questionType === 'scale' ? 1 : null,
             max_value: questionType === 'scale' ? 10 : null,
-            options:   ['select', 'multiselect'].includes(questionType) ? ([] as Prisma.InputJsonValue) : null,
+            options:   normalizeQuestionOptions(questionType, options),
         };
 
+        const newQuestionId = createId();
         const question = await prisma.form_version_questions.create({
             data: {
-                id:              createId(),
+                id:              newQuestionId,
                 form_version_id: versionId,
                 label_en:        (label_en as string | undefined) || 'Question',
                 label_ar:        (label_ar as string | undefined) || null,
@@ -250,6 +274,10 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
                 max_value:       defaults.max_value,
                 options:         defaults.options ?? Prisma.DbNull,
                 metric_id:       resolvedMetricId,
+                // Question lineage tracking — a brand-new question is the
+                // root of its own lineage. See forms.service.ts's
+                // forkVersion for how this propagates forward on a fork.
+                origin_question_id: newQuestionId,
             },
         });
 
@@ -269,6 +297,9 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
 export async function updateQuestion(req: Request, res: Response, next: NextFunction) {
     const { label_en, label_ar, type, required, placeholder_en, placeholder_ar, options, options_ar, min_value, max_value, metric_id } = req.body as Record<string, unknown>;
     const formId = req.params.id as string;
+    if (type !== undefined && !isValidQuestionType(type)) {
+        return res.status(400).json({ error: `Unknown question type: ${type}` });
+    }
     try {
         // Forms Versioning Phase 2 — resolve (and possibly fork) BEFORE
         // looking up the question: if the current version was sealed, the
@@ -315,7 +346,13 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
                 required:       required       !== undefined ? (required       as boolean) : existing.required,
                 placeholder_en: placeholder_en !== undefined ? (placeholder_en as string | null) : existing.placeholder_en,
                 placeholder_ar: placeholder_ar !== undefined ? (placeholder_ar as string | null) : existing.placeholder_ar,
-                options:        options    !== undefined ? (options    != null ? options    as Prisma.InputJsonValue : Prisma.DbNull) : (existing.options    ?? Prisma.DbNull),
+                // "attachment" always normalizes its allowedCategory (a
+                // server-enforced upload constraint, not just stored JSON);
+                // every other type keeps the original pass-through so
+                // untyped free-form options aren't disturbed.
+                options:        resolvedType === 'attachment'
+                    ? (normalizeQuestionOptions('attachment', options !== undefined ? options : existing.options) ?? Prisma.DbNull)
+                    : (options !== undefined ? (options != null ? options as Prisma.InputJsonValue : Prisma.DbNull) : (existing.options ?? Prisma.DbNull)),
                 options_ar:     options_ar !== undefined ? (options_ar != null ? options_ar as Prisma.InputJsonValue : Prisma.DbNull) : (existing.options_ar ?? Prisma.DbNull),
                 min_value:      min_value  !== undefined ? (min_value  as number | null) : existing.min_value,
                 max_value:      max_value  !== undefined ? (max_value  as number | null) : existing.max_value,
@@ -397,6 +434,287 @@ export async function reorderQuestions(req: Request, res: Response, next: NextFu
     }
 }
 
+type DraftQuestionInput = {
+    id?: string | null;
+    label_en?: string;
+    label_ar?: string | null;
+    type?: string;
+    required?: boolean;
+    placeholder_en?: string | null;
+    placeholder_ar?: string | null;
+    options?: unknown;
+    options_ar?: unknown;
+    min_value?: number | null;
+    max_value?: number | null;
+    metric_id?: string | null;
+};
+
+/**
+ * Builder Save Workflow (Phase 2) — the builder now edits locally and calls
+ * this once on Save, instead of firing one request per field edit. A single
+ * batched write is required (not just a UX nicety): resolveWritableVersion
+ * forks at most once per call and reassigns every question a fresh id when
+ * it does, so replaying many small per-field requests from stale client-held
+ * ids after a fork would need fragile client-side id reconciliation. Doing
+ * the whole diff (deletes, updates, creates, reorder) inside one
+ * resolveWritableVersion call sidesteps that entirely — this mirrors the
+ * same shape useTrainingPlan.js's save-plan-draft endpoint already uses:
+ * send the full desired state, get back the authoritative persisted state.
+ */
+export async function saveDraft(req: Request, res: Response, next: NextFunction) {
+    const { form, questions, deletedIds } = req.body as {
+        form?: Record<string, unknown>;
+        questions?: DraftQuestionInput[];
+        deletedIds?: string[];
+    };
+    const formId = req.params.id as string;
+    const incomingQuestions = questions || [];
+
+    for (const q of incomingQuestions) {
+        const qType = q.type || 'text';
+        if (!isValidQuestionType(qType)) {
+            return res.status(400).json({ error: `Unknown question type: ${qType}` });
+        }
+    }
+
+    try {
+        // Checked BEFORE resolveWritableVersion, against the ids exactly as
+        // the client sent them (mirrors deleteQuestion's identical ordering
+        // rationale — a blocked delete shouldn't create a needless fork) —
+        // AND across each question's full lineage (origin_question_id), not
+        // just its own id: an answer recorded against an earlier, already-
+        // forked version of "the same" question has a different question_id
+        // than the one the client is holding, so checking the given id alone
+        // would silently miss it and let the delete through.
+        if ((deletedIds || []).length > 0) {
+            const targetRows = await prisma.form_version_questions.findMany({
+                where: { id: { in: deletedIds } },
+                select: { id: true, origin_question_id: true },
+            });
+            const originIds = [...new Set(targetRows.map((r) => r.origin_question_id))];
+            if (originIds.length > 0) {
+                const answeredRows = await prisma.form_responses.findMany({
+                    where: { form_version_questions: { origin_question_id: { in: originIds } } },
+                    select: { form_version_questions: { select: { origin_question_id: true } } },
+                });
+                const answeredOrigins = new Set(
+                    answeredRows.map((r) => r.form_version_questions?.origin_question_id).filter((id): id is string => Boolean(id))
+                );
+                const blockedIds = targetRows.filter((r) => answeredOrigins.has(r.origin_question_id)).map((r) => r.id);
+                if (blockedIds.length > 0) {
+                    return res.status(409).json({
+                        error: `${blockedIds.length} question(s) have recorded answers and cannot be deleted without losing client history.`,
+                        blockedQuestionIds: blockedIds,
+                    });
+                }
+            }
+        }
+
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.workspaceId, req.user!.userId);
+        const translatedDeletedIds = (deletedIds || []).map((id) => questionIdMap.get(id) ?? id);
+
+        // Uniqueness within the submitted batch — the batch represents the
+        // version's full desired question set, so this is the same rule
+        // createQuestion/updateQuestion enforce, just checked in bulk up front.
+        const metricIdsUsed = incomingQuestions
+            .filter((q) => (q.type || 'text') === 'metric' && q.metric_id)
+            .map((q) => q.metric_id as string);
+        const duplicateMetricId = metricIdsUsed.find((id, idx) => metricIdsUsed.indexOf(id) !== idx);
+        if (duplicateMetricId) {
+            return res.status(409).json({ error: 'This metric is already tracked by another question in this form' });
+        }
+        if (metricIdsUsed.length > 0) {
+            const ownedMetrics = await prisma.metrics.findMany({
+                where: { id: { in: [...new Set(metricIdsUsed)] }, workspace_id: req.user!.workspaceId, deleted_at: null },
+                select: { id: true },
+            });
+            const ownedIds = new Set(ownedMetrics.map((m) => m.id));
+            if (metricIdsUsed.some((id) => !ownedIds.has(id))) {
+                return res.status(400).json({ error: 'Metric not found' });
+            }
+        }
+
+        await prisma.$transaction(async (tx) => {
+            if (translatedDeletedIds.length > 0) {
+                await tx.form_version_questions.deleteMany({
+                    where: { id: { in: translatedDeletedIds }, form_version_id: versionId },
+                });
+            }
+
+            let orderIndex = 0;
+            for (const q of incomingQuestions) {
+                const qType = q.type || 'text';
+                const isMetricType = qType === 'metric';
+                const resolvedMetricId = isMetricType ? (q.metric_id || null) : null;
+                const existingId = q.id ? (questionIdMap.get(q.id) ?? q.id) : null;
+
+                const dataFields = {
+                    label_en:       q.label_en || 'Question',
+                    label_ar:       q.label_ar ?? null,
+                    type:           qType,
+                    required:       Boolean(q.required),
+                    order_index:    orderIndex++,
+                    placeholder_en: q.placeholder_en ?? null,
+                    placeholder_ar: q.placeholder_ar ?? null,
+                    options:        qType === 'attachment'
+                        ? (normalizeQuestionOptions('attachment', q.options) ?? Prisma.DbNull)
+                        : (q.options != null ? (q.options as Prisma.InputJsonValue) : Prisma.DbNull),
+                    options_ar:     q.options_ar != null ? (q.options_ar as Prisma.InputJsonValue) : Prisma.DbNull,
+                    min_value:      qType === 'scale' ? (q.min_value ?? 1)  : (q.min_value ?? null),
+                    max_value:      qType === 'scale' ? (q.max_value ?? 10) : (q.max_value ?? null),
+                    metric_id:      resolvedMetricId,
+                };
+
+                if (existingId) {
+                    await tx.form_version_questions.update({ where: { id: existingId }, data: dataFields });
+                } else {
+                    // Question lineage tracking — a brand-new question is
+                    // the root of its own lineage (see createQuestion's
+                    // identical note above).
+                    const newQuestionId = createId();
+                    await tx.form_version_questions.create({
+                        data: { id: newQuestionId, form_version_id: versionId, origin_question_id: newQuestionId, ...dataFields },
+                    });
+                }
+            }
+
+            if (form) {
+                const safePostAction = form.postAction !== undefined ? normalizePostAction(form.postAction) : undefined;
+                const safeFormType   = form.formType   !== undefined ? normalizeFormType(form.formType)    : undefined;
+                await tx.forms.updateMany({
+                    where: { id: formId, workspace_id: req.user!.workspaceId },
+                    data: {
+                        title_en:       (form.title_en       as string | undefined) ?? undefined,
+                        title_ar:       (form.title_ar       as string | undefined) ?? undefined,
+                        description_en: (form.description_en as string | undefined) ?? undefined,
+                        description_ar: (form.description_ar as string | undefined) ?? undefined,
+                        post_action:    safePostAction,
+                        form_type:      safeFormType,
+                        updated_at:     new Date(),
+                    },
+                });
+            } else {
+                await tx.forms.updateMany({ where: { id: formId }, data: { updated_at: new Date() } });
+            }
+        });
+
+        const freshQuestions = await prisma.form_version_questions.findMany({
+            where:   { form_version_id: versionId },
+            orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+        });
+        const formRow = await prisma.forms.findFirst({
+            where: { id: formId, workspace_id: req.user!.workspaceId },
+        });
+
+        res.json({
+            form:      formRow ? await attachVersionInfo(formRow) : null,
+            questions: freshQuestions,
+            versionChanged: isNewVersion,
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/**
+ * "Track as Metric" (Phase 4) — read-only preview of how many historical
+ * answers would be backfilled if this question were tracked. Counts across
+ * the question's full lineage (origin_question_id, see
+ * migrations/043_form_version_questions_lineage.js), not just the current
+ * version's question id, so the count is accurate even if the form has been
+ * forked since some of those answers were submitted. No resolveWritableVersion
+ * here — this is a pure read against the id the builder already holds for
+ * the current version, nothing to fork.
+ */
+export async function getMetricTrackingPreview(req: Request, res: Response, next: NextFunction) {
+    try {
+        const question = await prisma.form_version_questions.findFirst({
+            where: {
+                id: req.params.qid as string,
+                form_versions: { form_id: req.params.id as string, forms: { workspace_id: req.user!.workspaceId } },
+            },
+            select: { id: true, type: true, origin_question_id: true },
+        });
+        if (!question) return res.status(404).json({ error: 'Question not found' });
+
+        const count = await prisma.form_responses.count({
+            where: {
+                metric_id: null,
+                form_version_questions: { origin_question_id: question.origin_question_id },
+            },
+        });
+        res.json({ count, convertible: isMetricConvertibleType(question.type) });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/**
+ * "Track as Metric" (Phase 4) — links an existing, previously-untracked
+ * question to a metric and automatically backfills every past answer in its
+ * lineage that isn't already linked to a metric. Backfill is automatic, not
+ * opt-in: the coach's intent in choosing this action is unambiguous, and the
+ * preview endpoint above is what they see (and can cancel from) before
+ * calling this. Not reversible via the API — see DEBT.md if an "untrack"
+ * action becomes needed.
+ */
+export async function trackQuestionAsMetric(req: Request, res: Response, next: NextFunction) {
+    const { metric_id } = req.body as Record<string, unknown>;
+    const formId = req.params.id as string;
+    if (!metric_id || typeof metric_id !== 'string') {
+        return res.status(400).json({ error: 'metric_id is required' });
+    }
+
+    try {
+        const { versionId, isNewVersion, questionIdMap } = await resolveWritableVersion(formId, req.user!.workspaceId, req.user!.userId);
+        const qid = questionIdMap.get(req.params.qid as string) ?? (req.params.qid as string);
+
+        const existing = await prisma.form_version_questions.findFirst({
+            where: { id: qid, form_version_id: versionId },
+        });
+        if (!existing) return res.status(404).json({ error: 'Question not found' });
+
+        if (!isMetricConvertibleType(existing.type)) {
+            return res.status(400).json({ error: `Questions of type "${existing.type}" cannot be tracked as a metric` });
+        }
+
+        const metric = await prisma.metrics.findFirst({
+            where: { id: metric_id, workspace_id: req.user!.workspaceId, deleted_at: null },
+        });
+        if (!metric) return res.status(400).json({ error: 'Metric not found' });
+
+        const duplicate = await prisma.form_version_questions.findFirst({
+            where: { form_version_id: versionId, metric_id, id: { not: qid } },
+        });
+        if (duplicate) return res.status(409).json({ error: 'This metric is already tracked by another question in this form' });
+
+        const { updatedQuestion, backfilledCount } = await prisma.$transaction(async (tx) => {
+            const updated = await tx.form_version_questions.update({
+                where: { id: qid },
+                data:  { metric_id },
+            });
+            // Cross-version backfill — every past answer in this question's
+            // lineage (across every fork it's survived) that isn't already
+            // linked to a metric. See origin_question_id's doc comment on
+            // the schema for why this can't be scoped to just this version's id.
+            const backfill = await tx.form_responses.updateMany({
+                where: {
+                    metric_id: null,
+                    form_version_questions: { origin_question_id: existing.origin_question_id },
+                },
+                data: { metric_id },
+            });
+            return { updatedQuestion: updated, backfilledCount: backfill.count };
+        });
+
+        await prisma.forms.updateMany({ where: { id: formId }, data: { updated_at: new Date() } });
+
+        res.json({ question: updatedQuestion, backfilledCount, versionChanged: isNewVersion });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function createRequests(req: Request, res: Response, next: NextFunction) {
     const { form_ids, client_id, mode, scheduled_at } = req.body as Record<string, unknown>;
     const requestMode = mode === 'schedule' ? 'schedule' : 'now';
@@ -467,6 +785,34 @@ export async function createRequests(req: Request, res: Response, next: NextFunc
 }
 
 type RequestRow = Record<string, unknown>;
+type ResponseRow = { question_id: string | null; answer: string | null };
+
+// Coach Portal answer viewer (Phase 3) — the viewer used to guess whether an
+// answer was an image by regex-sniffing the URL string, which mis-renders
+// any non-image attachment whose URL happens to look like one and silently
+// falls back to plain text for anything that doesn't. Rendering must be
+// decided by the question's type, never the answer's content, so every
+// response returned to the coach carries its question's `type` and (for
+// metric-typed questions) the linked metric's `type` ("number" | "image").
+async function enrichResponsesWithQuestionInfo<T extends ResponseRow>(responses: T[]) {
+    const questions = await prisma.form_version_questions.findMany({
+        where:  { id: { in: responses.map((r) => r.question_id).filter((id): id is string => id !== null) } },
+        select: { id: true, label_en: true, label_ar: true, type: true, order_index: true, metric_id: true },
+    });
+    const metricIds = questions.map((q) => q.metric_id).filter((id): id is string => id !== null);
+    const metrics = metricIds.length > 0
+        ? await prisma.metrics.findMany({ where: { id: { in: metricIds } }, select: { id: true, type: true } })
+        : [];
+    const metricTypeMap = new Map(metrics.map((m) => [m.id, m.type]));
+    const questionMap = new Map(questions.map((q) => [
+        q.id,
+        { ...q, metric_type: q.metric_id ? (metricTypeMap.get(q.metric_id) ?? null) : null },
+    ]));
+
+    return responses
+        .map((r) => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
+        .sort((a, b) => ((a as { order_index?: number }).order_index ?? 0) - ((b as { order_index?: number }).order_index ?? 0));
+}
 
 export async function getRequestsByClient(req: Request, res: Response, next: NextFunction) {
     try {
@@ -502,16 +848,10 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
             // the immutable snapshot each response actually belongs to, so a
             // historical answer always renders under the label/type it was
             // originally asked with, regardless of later form edits.
-            const questionsForResponse = await prisma.form_version_questions.findMany({
-                where:   { id: { in: responses.map(r => r.question_id).filter((id): id is string => id !== null) } },
-                select:  { id: true, label_en: true, label_ar: true, type: true, order_index: true },
-            });
-            const questionMap = new Map(questionsForResponse.map(q => [q.id, q]));
             return {
                 ...row,
                 post_action: row.post_action || row.form_post_action || 'nothing',
-                responses: responses.map(r => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
-                    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+                responses: await enrichResponsesWithQuestionInfo(responses),
             };
         }));
 
@@ -565,11 +905,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
             });
             // Forms Versioning Phase 3 — see the identical note in
             // getRequestsByClient above.
-            const questions = await prisma.form_version_questions.findMany({
-                where:   { id: { in: responses.map(r => r.question_id).filter((id): id is string => id !== null) } },
-                select:  { id: true, label_en: true, label_ar: true, type: true, order_index: true },
-            });
-            const questionMap = new Map(questions.map(q => [q.id, q]));
+            const enrichedResponses = await enrichResponsesWithQuestionInfo(responses);
 
             const answers: Record<string, unknown> = {};
             for (const r of responses) { if (r.question_id) answers[r.question_id] = r.answer; }
@@ -587,8 +923,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 assignedTo: row.assigned_to ?? null,
                 assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
                 answers,
-                responses: responses.map(r => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
-                    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+                responses: enrichedResponses,
             };
         }));
 

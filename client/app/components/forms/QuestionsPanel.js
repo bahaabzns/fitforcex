@@ -5,17 +5,7 @@ import { Button } from "@heroui/react/button";
 import { Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import EmptyState from "@/app/components/EmptyState";
-
-const QUESTION_TYPE_VALUES = [
-    { value: "text",        labelKey: "typeShortText",   icon: "T" },
-    { value: "long_text",   labelKey: "typeLongText",    icon: "¶" },
-    { value: "number",      labelKey: "typeNumber",      icon: "#" },
-    { value: "scale",       labelKey: "typeScale",       icon: "↔" },
-    { value: "select",      labelKey: "typeSingleChoice",icon: "◉" },
-    { value: "multiselect", labelKey: "typeMultiChoice", icon: "☑" },
-    { value: "date",        labelKey: "typeDate",        icon: "📅" },
-    { value: "metric",      labelKey: "typeMetric",      icon: "📊" },
-];
+import { QUESTION_TYPE_VALUES } from "./questionTypes";
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -43,7 +33,7 @@ export default function QuestionsPanel({
     handleUpdateQuestion,
     handleDeleteQuestion,
     handleReorderQuestions,
-    handleUpdateForm,
+    handleEditForm,
 }) {
     const t = useTranslations('forms');
     const tCommon = useTranslations('common');
@@ -93,7 +83,7 @@ export default function QuestionsPanel({
             <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
                 <FormTitleInput
                     form={selectedForm}
-                    onUpdate={handleUpdateForm}
+                    onUpdate={handleEditForm}
                     pendingFocusFormId={pendingFocusFormId}
                     setPendingFocusFormId={setPendingFocusFormId}
                 />
@@ -115,7 +105,7 @@ export default function QuestionsPanel({
                 onBlur={(e) => {
                     const val = e.target.value.trim() || null;
                     if (val !== (selectedForm.description_en || null)) {
-                        handleUpdateForm(selectedForm.id, { description_en: val });
+                        handleEditForm(selectedForm.id, { description_en: val });
                     }
                 }}
                 className="w-full mb-3 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors shrink-0"
@@ -126,7 +116,7 @@ export default function QuestionsPanel({
                     <label className="block text-xs font-medium text-muted-foreground mb-1">{t('afterSubmissionAction')}</label>
                     <select
                         value={selectedForm.post_action || selectedForm.postAction || 'nothing'}
-                        onChange={(e) => handleUpdateForm(selectedForm.id, { postAction: e.target.value })}
+                        onChange={(e) => handleEditForm(selectedForm.id, { postAction: e.target.value })}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
                     >
                         <option value="nothing">{t('actionNothing')}</option>
@@ -138,7 +128,7 @@ export default function QuestionsPanel({
                     <label className="block text-xs font-medium text-muted-foreground mb-1">{t('formType')}</label>
                     <select
                         value={selectedForm.form_type || selectedForm.formType || 'check-in'}
-                        onChange={(e) => handleUpdateForm(selectedForm.id, { formType: e.target.value })}
+                        onChange={(e) => handleEditForm(selectedForm.id, { formType: e.target.value })}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
                     >
                         <option value="check-in">{t('formTypeCheckin')}</option>
@@ -261,12 +251,12 @@ export default function QuestionsPanel({
                                             <button
                                                 title={t('deleteQuestion')}
                                                 className="cursor-pointer shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
-                                                onClick={async (e) => {
+                                                onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // A question with recorded answers can't be deleted (it would
-                                                    // cascade-erase client history) — see forms.controller.ts.
-                                                    const result = await handleDeleteQuestion(q.id);
-                                                    if (result?.blocked) window.alert(t('deleteQuestionBlocked', { count: result.answerCount }));
+                                                    // Removed locally now; if it has recorded answers, the
+                                                    // save will reject the batch and restore it — see
+                                                    // useFormBuilder.js's handleSaveDraft.
+                                                    handleDeleteQuestion(q.id);
                                                 }}
                                             >
                                                 <TrashIcon />

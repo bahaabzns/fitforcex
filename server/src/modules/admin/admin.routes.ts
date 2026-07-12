@@ -447,5 +447,6 @@ router.post('/forms-templates/:id/questions',           adminAuthMiddleware, tem
 router.put('/forms-templates/:id/questions/reorder',    adminAuthMiddleware, templateController.reorderTemplateQuestions);
 router.put('/forms-templates/:id/questions/:qid',       adminAuthMiddleware, templateController.updateTemplateQuestion);
 router.delete('/forms-templates/:id/questions/:qid',    adminAuthMiddleware, templateController.deleteTemplateQuestion);
+router.post('/forms-templates/:id/save-draft',          adminAuthMiddleware, templateController.saveTemplateDraft);
 
 export default router;

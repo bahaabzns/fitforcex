@@ -415,3 +415,12 @@ Format:
 **Effort:** Small — one-line filter change (`status: { in: ['submitted', 'reviewed'] } }`)
 **Priority:** High
 ✅ RESOLVED 2026-07-07 — fixed in the same commit as the Forms Versioning Release-Readiness Review pass.
+
+---
+
+## 2026-07-12 — Metric Management UI (deferred Phase 6 of Question→Metric/Attachment/Save-Workflow work)
+**Type:** Shortcut (deliberately deferred, not a bug)
+**What:** "Track as Metric" (server/src/modules/forms/forms.controller.ts's `trackQuestionAsMetric`) has no corresponding "untrack" action — once a question is linked to a metric and its history backfilled, reversing it requires a manual DB update. There's also no UI for renaming/archiving a metric or jumping from a metric back to its originating question, even though the underlying CRUD (`metrics.controller.ts`'s `updateMetric`/`deleteMetric`) and the reverse FK (`form_version_questions.metric_id`) already support it.
+**Why it matters:** A coach who tracks the wrong question as a metric can't cleanly undo it from the UI. Low risk in practice — the preview-count confirmation step is the safety gate before tracking — but worth closing before "Track as Metric" sees heavy use.
+**Effort:** Medium — one new `untrackMetric` endpoint (clear `metric_id`, decide whether to leave backfilled `form_responses.metric_id` in place or revert it) + a small `GET /metrics/:id/questions` endpoint + a metrics-management UI section.
+**Priority:** Low

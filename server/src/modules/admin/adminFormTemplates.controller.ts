@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { normalizePostAction, normalizeFormType } from '../forms/forms.controller';
+import { isValidQuestionType } from '../forms/questionTypes';
 
 // Super-admin CRUD for the global Master Form Templates (master_forms /
 // master_form_questions). Mirrors the coach form-builder controller
@@ -195,6 +196,108 @@ export async function reorderTemplateQuestions(req: Request, res: Response, next
         );
         await prisma.master_forms.updateMany({ where: { id: req.params.id as string }, data: { updated_at: new Date() } });
         res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+}
+
+type DraftQuestionInput = {
+    id?: string | null;
+    label_en?: string;
+    label_ar?: string | null;
+    type?: string;
+    required?: boolean;
+    placeholder_en?: string | null;
+    placeholder_ar?: string | null;
+    options?: unknown;
+    options_ar?: unknown;
+    min_value?: number | null;
+    max_value?: number | null;
+};
+
+// Builder Save Workflow — mirrors forms.controller.ts's saveDraft. Master
+// templates have no versioning/forking, so this is a plain diff-and-replace
+// (delete removed, update existing, create new) inside one transaction —
+// simpler than the workspace-forms version, but the same request/response
+// shape so the shared useFormBuilder.js hook drives both with basePath alone.
+export async function saveTemplateDraft(req: Request, res: Response, next: NextFunction) {
+    const { form, questions, deletedIds } = req.body as {
+        form?: Record<string, unknown>;
+        questions?: DraftQuestionInput[];
+        deletedIds?: string[];
+    };
+    const templateId = req.params.id as string;
+    const incomingQuestions = questions || [];
+
+    for (const q of incomingQuestions) {
+        const qType = q.type || 'text';
+        if (!isValidQuestionType(qType)) {
+            return res.status(400).json({ error: `Unknown question type: ${qType}` });
+        }
+    }
+
+    try {
+        const template = await prisma.master_forms.findFirst({ where: { id: templateId }, select: { id: true } });
+        if (!template) return res.status(404).json({ error: 'Template not found' });
+
+        await prisma.$transaction(async (tx) => {
+            if (deletedIds && deletedIds.length > 0) {
+                await tx.master_form_questions.deleteMany({
+                    where: { id: { in: deletedIds }, master_form_id: templateId },
+                });
+            }
+
+            let orderIndex = 0;
+            for (const q of incomingQuestions) {
+                const qType = q.type || 'text';
+                const dataFields = {
+                    label_en:       q.label_en || 'Question',
+                    label_ar:       q.label_ar ?? null,
+                    type:           qType,
+                    required:       Boolean(q.required),
+                    order_index:    orderIndex++,
+                    placeholder_en: q.placeholder_en ?? null,
+                    placeholder_ar: q.placeholder_ar ?? null,
+                    options:        q.options    != null ? (q.options    as Prisma.InputJsonValue) : Prisma.DbNull,
+                    options_ar:     q.options_ar != null ? (q.options_ar as Prisma.InputJsonValue) : Prisma.DbNull,
+                    min_value:      qType === 'scale' ? (q.min_value ?? 1)  : (q.min_value ?? null),
+                    max_value:      qType === 'scale' ? (q.max_value ?? 10) : (q.max_value ?? null),
+                };
+
+                if (q.id) {
+                    await tx.master_form_questions.update({ where: { id: q.id }, data: dataFields });
+                } else {
+                    await tx.master_form_questions.create({
+                        data: { id: createId(), master_form_id: templateId, ...dataFields },
+                    });
+                }
+            }
+
+            if (form) {
+                await tx.master_forms.updateMany({
+                    where: { id: templateId },
+                    data: {
+                        title_en:       (form.title_en       as string | undefined) ?? undefined,
+                        title_ar:       (form.title_ar       as string | undefined) ?? undefined,
+                        description_en: (form.description_en as string | undefined) ?? undefined,
+                        description_ar: (form.description_ar as string | undefined) ?? undefined,
+                        post_action:    form.postAction !== undefined ? normalizePostAction(form.postAction) : undefined,
+                        form_type:      form.formType   !== undefined ? normalizeFormType(form.formType)    : undefined,
+                        updated_at:     new Date(),
+                    },
+                });
+            } else {
+                await tx.master_forms.updateMany({ where: { id: templateId }, data: { updated_at: new Date() } });
+            }
+        });
+
+        const freshQuestions = await prisma.master_form_questions.findMany({
+            where:   { master_form_id: templateId },
+            orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+        });
+        const formRow = await prisma.master_forms.findFirst({ where: { id: templateId } });
+
+        res.json({ form: formRow, questions: freshQuestions, versionChanged: false });
     } catch (err) {
         next(err);
     }

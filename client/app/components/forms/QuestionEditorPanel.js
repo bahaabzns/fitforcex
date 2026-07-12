@@ -9,17 +9,8 @@ import { Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import EmptyState from "@/app/components/EmptyState";
 import api from "@/lib/axios";
-
-const QUESTION_TYPE_VALUES = [
-    { value: "text",        labelKey: "typeShortText",   icon: "T" },
-    { value: "long_text",   labelKey: "typeLongText",    icon: "¶" },
-    { value: "number",      labelKey: "typeNumber",      icon: "#" },
-    { value: "scale",       labelKey: "typeScale",       icon: "↔" },
-    { value: "select",      labelKey: "typeSingleChoice",icon: "◉" },
-    { value: "multiselect", labelKey: "typeMultiChoice", icon: "☑" },
-    { value: "date",        labelKey: "typeDate",        icon: "📅" },
-    { value: "metric",      labelKey: "typeMetric",      icon: "📊" },
-];
+import { QUESTION_TYPE_VALUES, METRIC_CONVERTIBLE_TYPES, ATTACHMENT_CATEGORIES } from "./questionTypes";
+import AppModal, { ModalFooter } from "@/app/components/Modal";
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -32,6 +23,9 @@ export default function QuestionEditorPanel({
     selectedQuestion, setSelectedQuestion,
     pendingFocusQuestionId, setPendingFocusQuestionId,
     handleUpdateQuestion,
+    isDirty,
+    handleGetMetricPreview,
+    handleTrackAsMetric,
 }) {
     const t = useTranslations('forms');
     const tCommon = useTranslations('common');
@@ -39,6 +33,7 @@ export default function QuestionEditorPanel({
     const labelRef = useRef(null);
     const [newOption, setNewOption] = useState("");
     const [metrics, setMetrics] = useState([]);
+    const [trackModalOpen, setTrackModalOpen] = useState(false);
 
     useEffect(() => {
         if (pendingFocusQuestionId && selectedQuestion?.id === pendingFocusQuestionId) {
@@ -68,14 +63,27 @@ export default function QuestionEditorPanel({
     }
 
     const q = selectedQuestion;
-    const isMetricType   = q.type === 'metric';
-    const hasOptions     = q.type === 'select' || q.type === 'multiselect';
-    const hasPlaceholder = ['text', 'long_text', 'number'].includes(q.type);
-    const hasScale       = q.type === 'scale';
+    const isMetricType     = q.type === 'metric';
+    const isAttachmentType = q.type === 'attachment';
+    const hasOptions       = q.type === 'select' || q.type === 'multiselect';
+    const hasPlaceholder   = ['text', 'long_text', 'number'].includes(q.type);
+    const hasScale         = q.type === 'scale';
+    const allowedCategory  = q.options?.allowedCategory || 'any';
 
     const numberMetrics = metrics.filter(m => m.type === 'number');
     const imageMetrics  = metrics.filter(m => m.type === 'image');
     const linkedMetric  = q.metric_id ? metrics.find(m => m.id === q.metric_id) : null;
+
+    // "Track as Metric" (Phase 4) — only offered for a saved (non-temp)
+    // question of a numeric-answer type that isn't already metric-linked,
+    // and only while the builder has no unsaved changes: this action forks
+    // a version immediately (see forms.controller.ts's trackQuestionAsMetric),
+    // which would silently invalidate any local unsaved edit still holding
+    // the pre-fork ids.
+    const isTrackable = !isMetricType
+        && METRIC_CONVERTIBLE_TYPES.includes(q.type)
+        && !String(q.id).startsWith('tmp-q-')
+        && Boolean(handleGetMetricPreview && handleTrackAsMetric); // absent on the Master Templates builder — no workspace, no metrics
 
     function save(updates) {
         handleUpdateQuestion(q.id, updates);
@@ -194,6 +202,23 @@ export default function QuestionEditorPanel({
                     </Field>
                 )}
 
+                {/* Attachment category — a server-enforced upload constraint
+                    (forms.controller.ts/formAttachments.ts), not just a client hint. */}
+                {isAttachmentType && (
+                    <Field label="Allowed Files">
+                        <select
+                            key={`category-${q.id}`}
+                            defaultValue={allowedCategory}
+                            onChange={(e) => save({ options: { allowedCategory: e.target.value } })}
+                            className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                        >
+                            {ATTACHMENT_CATEGORIES.map(({ value, label }) => (
+                                <option key={value} value={value}>{label}</option>
+                            ))}
+                        </select>
+                    </Field>
+                )}
+
                 {/* Required */}
                 {!isMetricType && (
                     <div className="flex items-center justify-between gap-3 shrink-0">
@@ -206,6 +231,23 @@ export default function QuestionEditorPanel({
                                 <Switch.Thumb />
                             </Switch.Control>
                         </Switch>
+                    </div>
+                )}
+
+                {/* Track as Metric */}
+                {isTrackable && (
+                    <div className="shrink-0">
+                        <Button
+                            variant="outline"
+                            isDisabled={isDirty}
+                            onClick={() => setTrackModalOpen(true)}
+                            className="w-full"
+                        >
+                            📊 Track as Metric
+                        </Button>
+                        {isDirty && (
+                            <p className="text-xs text-muted-foreground mt-1.5">Save your changes first to track this question as a metric.</p>
+                        )}
                     </div>
                 )}
 
@@ -315,7 +357,113 @@ export default function QuestionEditorPanel({
 
                 </div>
             </ScrollShadow>
+
+            {trackModalOpen && (
+                <TrackAsMetricModal
+                    question={q}
+                    numberMetrics={numberMetrics}
+                    onClose={() => setTrackModalOpen(false)}
+                    handleGetMetricPreview={handleGetMetricPreview}
+                    handleTrackAsMetric={handleTrackAsMetric}
+                />
+            )}
         </Surface>
+    );
+}
+
+// "Track as Metric" (Phase 4) — the coach picks a metric, sees exactly how
+// many historical answers will be backfilled (across the question's full
+// version-fork lineage — see the metric-preview endpoint), and confirms.
+// Backfill is automatic on confirm, not a separate opt-in step: the coach's
+// intent in choosing a metric here is already unambiguous.
+function TrackAsMetricModal({ question, numberMetrics, onClose, handleGetMetricPreview, handleTrackAsMetric }) {
+    const [selectedMetricId, setSelectedMetricId] = useState("");
+    const [preview, setPreview] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [result, setResult] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        handleGetMetricPreview(question.id).then((data) => {
+            if (!cancelled) setPreview(data);
+        });
+        return () => { cancelled = true; };
+    }, [question.id, handleGetMetricPreview]);
+
+    async function handleConfirm() {
+        if (!selectedMetricId) return;
+        setSubmitting(true);
+        const res = await handleTrackAsMetric(question.id, selectedMetricId);
+        setSubmitting(false);
+        if (res.success) {
+            setResult(res);
+        } else {
+            window.alert(res.error || 'Could not track this question as a metric — check your connection and retry.');
+        }
+    }
+
+    const selectedMetric = numberMetrics.find(m => m.id === selectedMetricId);
+
+    return (
+        <AppModal open onClose={onClose} title="Track as Metric">
+            {result ? (
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-foreground">
+                        Done — <strong>{selectedMetric?.name}</strong> is now tracked.
+                        {result.backfilledCount > 0
+                            ? ` ${result.backfilledCount} historical response(s) became historical ${selectedMetric?.name} metrics.`
+                            : ' There was no prior history to backfill.'}
+                    </p>
+                    <ModalFooter>
+                        <Button variant="primary" onClick={onClose}>{`Done`}</Button>
+                    </ModalFooter>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-muted-foreground">
+                        The question itself doesn&apos;t change — it will simply become a tracked metric throughout the app,
+                        including on the client&apos;s progress charts.
+                    </p>
+
+                    <Field label="Metric">
+                        {numberMetrics.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2">No number metrics found. Add one from Forms Metrics first.</p>
+                        ) : (
+                            <select
+                                value={selectedMetricId}
+                                onChange={(e) => setSelectedMetricId(e.target.value)}
+                                className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                            >
+                                <option value="">Select a metric</option>
+                                {numberMetrics.map(m => (
+                                    <option key={m.id} value={m.id}>{m.icon} {m.name}{m.unit ? ` (${m.unit})` : ''}</option>
+                                ))}
+                            </select>
+                        )}
+                    </Field>
+
+                    {preview === null ? (
+                        <p className="text-xs text-muted-foreground">Checking history…</p>
+                    ) : preview.count > 0 ? (
+                        <p className="text-xs text-foreground bg-secondary border border-border rounded-lg px-3 py-2">
+                            This question has <strong>{preview.count}</strong> historical response{preview.count === 1 ? '' : 's'}.
+                            {selectedMetric
+                                ? ` They will automatically become historical ${selectedMetric.name} metrics after tracking.`
+                                : ' They will automatically become historical metrics after tracking.'}
+                        </p>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">This question has no historical responses yet — nothing to backfill.</p>
+                    )}
+
+                    <ModalFooter>
+                        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                        <Button variant="primary" isDisabled={!selectedMetricId || submitting} onClick={handleConfirm}>
+                            {submitting ? 'Tracking…' : 'Track'}
+                        </Button>
+                    </ModalFooter>
+                </div>
+            )}
+        </AppModal>
     );
 }
 
@@ -390,6 +538,15 @@ function QuestionPreview({ question: q, linkedMetric }) {
                             <span className="text-sm text-foreground">{opt}</span>
                         </label>
                     ))}
+                </div>
+            );
+        }
+        case 'attachment': {
+            const categoryLabel = ATTACHMENT_CATEGORIES.find(c => c.value === (q.options?.allowedCategory || 'any'))?.label || 'Any file';
+            return (
+                <div className="w-full h-24 rounded-lg border-2 border-dashed border-border bg-background flex flex-col items-center justify-center gap-1 opacity-60">
+                    <span className="text-2xl">📎</span>
+                    <span className="text-xs text-muted-foreground">Upload — {categoryLabel}</span>
                 </div>
             );
         }

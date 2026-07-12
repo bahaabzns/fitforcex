@@ -1,10 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useFormBuilder } from '@/hooks/useFormBuilder';
 import FormsPanel from '@/app/components/forms/FormsPanel';
 import QuestionsPanel from '@/app/components/forms/QuestionsPanel';
 import QuestionEditorPanel from '@/app/components/forms/QuestionEditorPanel';
+import SaveStatusIndicator from '@/app/components/SaveStatusIndicator';
+import { Button } from '@heroui/react/button';
 
 // Super Admin "Default Templates" — the exact same 3-panel form builder coaches use,
 // pointed at the global Master Form Templates instead of a workspace. No separate
@@ -48,24 +50,69 @@ export default function DefaultTemplatesPage() {
         loading,
         pendingFocusFormId, setPendingFocusFormId,
         pendingFocusQuestionId, setPendingFocusQuestionId,
+        isDirty, isSaving, saveStatus,
         handleSelectForm,
         handleCreateForm,
-        handleUpdateForm,
+        handleEditForm,
         handleDeleteForm,
         handleDuplicateForm,
         handleCreateQuestion,
         handleUpdateQuestion,
         handleDeleteQuestion,
         handleReorderQuestions,
+        handleSaveDraft,
     } = useFormBuilder({ basePath: '/api/admin/forms-templates' });
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (!isDirty) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty]);
+
+    useEffect(() => {
+        function handleClick(e) {
+            if (!isDirty) return;
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            if (link.href === window.location.href) return;
+            const proceed = window.confirm('You have unsaved changes on this template. Leave without saving?');
+            if (!proceed) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+        document.addEventListener('click', handleClick, true);
+        return () => document.removeEventListener('click', handleClick, true);
+    }, [isDirty]);
 
     return (
         <div className="flex flex-col h-screen">
-            <div className="px-6 py-4 border-b border-border shrink-0">
-                <h1 className="text-lg font-bold text-foreground">Default Templates</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                    Assessment &amp; Check-In forms cloned into every new coach workspace.
-                </p>
+            <div className="px-6 py-4 border-b border-border shrink-0 flex items-center justify-between gap-3">
+                <div>
+                    <h1 className="text-lg font-bold text-foreground">Default Templates</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Assessment &amp; Check-In forms cloned into every new coach workspace.
+                    </p>
+                </div>
+                {selectedForm && (
+                    <div className="flex items-center gap-3 shrink-0">
+                        <SaveStatusIndicator isDirty={isDirty} saveStatus={saveStatus} />
+                        <Button
+                            variant="primary"
+                            isDisabled={!isDirty || isSaving}
+                            onClick={async () => {
+                                const result = await handleSaveDraft();
+                                if (result?.blocked) window.alert(result.error);
+                            }}
+                        >
+                            {isSaving || saveStatus === 'saving' ? 'Saving…' : 'Save'}
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {loading ? (
@@ -90,7 +137,7 @@ export default function DefaultTemplatesPage() {
                             setPendingFocusFormId={setPendingFocusFormId}
                             handleSelectForm={handleSelectForm}
                             handleCreateForm={handleCreateForm}
-                            handleUpdateForm={handleUpdateForm}
+                            handleEditForm={handleEditForm}
                             handleDeleteForm={handleDeleteForm}
                             handleDuplicateForm={handleDuplicateForm}
                         />
@@ -120,7 +167,7 @@ export default function DefaultTemplatesPage() {
                             handleUpdateQuestion={handleUpdateQuestion}
                             handleDeleteQuestion={handleDeleteQuestion}
                             handleReorderQuestions={handleReorderQuestions}
-                            handleUpdateForm={handleUpdateForm}
+                            handleEditForm={handleEditForm}
                         />
                     </div>
 
