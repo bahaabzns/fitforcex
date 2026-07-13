@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
-import { Search, Plus, Pencil, Trash2, Upload, ChevronLeft, ChevronRight, Dumbbell, Apple } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Upload, ChevronLeft, ChevronRight, Dumbbell, Apple, Building2 } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { AlertDialog } from '@heroui/react/alert-dialog';
@@ -226,6 +226,115 @@ function ImportModal({ resource, onClose, onImported }) {
     );
 }
 
+function SeedWorkspaceModal({ resource, onClose }) {
+    const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search);
+    const [results, setResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [selected, setSelected] = useState(null);
+    const [seeding, setSeeding] = useState(false);
+    const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
+
+    useEffect(() => {
+        if (!debouncedSearch.trim()) { setResults([]); return; }
+        setSearching(true);
+        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, limit: 10 } })
+            .then((res) => setResults(res.data.workspaces))
+            .catch(() => setResults([]))
+            .finally(() => setSearching(false));
+    }, [debouncedSearch]);
+
+    async function handleSeed() {
+        setSeeding(true);
+        setError('');
+        try {
+            const res = await api.post(`/api/admin/libraries/${resource.key}/seed-workspace`, { workspace_id: selected.id });
+            setResult(res.data);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to seed workspace');
+        } finally {
+            setSeeding(false);
+        }
+    }
+
+    return (
+        <AppModal open onClose={onClose} title={`Seed ${resource.label} Into Workspace`} wide>
+            <div className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                    Clones the current master {resource.label.toLowerCase()} into one coach workspace. Records already
+                    present in that workspace (matched by English name) are skipped, so this is safe to re-run.
+                </p>
+
+                {!selected ? (
+                    <>
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                autoFocus
+                                className={`${INPUT_CLS} pl-8`}
+                                placeholder="Search workspaces by name or slug…"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                        <div className="max-h-64 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+                            {searching ? (
+                                <p className="p-3 text-sm text-muted-foreground">Searching…</p>
+                            ) : results.length === 0 ? (
+                                <p className="p-3 text-sm text-muted-foreground">
+                                    {debouncedSearch.trim() ? 'No workspaces found.' : 'Start typing to find a workspace.'}
+                                </p>
+                            ) : (
+                                results.map((ws) => (
+                                    <button
+                                        key={ws.id}
+                                        onClick={() => setSelected(ws)}
+                                        className="w-full text-left px-3 py-2.5 hover:bg-secondary/50 transition-colors flex flex-col"
+                                    >
+                                        <span className="text-sm font-medium text-foreground">{ws.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            {ws.slug} · owner {ws.owner_fname} {ws.owner_lname}
+                                        </span>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <div className="rounded-lg border border-border p-3 flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{selected.name}</span>
+                            <span className="text-xs text-muted-foreground">{selected.slug}</span>
+                        </div>
+                        {!result && (
+                            <Button variant="ghost" size="sm" onClick={() => { setSelected(null); setResult(null); setError(''); }}>
+                                Change
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {result && (
+                    <div className="text-sm rounded-lg bg-secondary/40 border border-border p-3">
+                        <p className="text-foreground font-medium">Seeded {result.seeded}, skipped {result.skipped} (already present).</p>
+                    </div>
+                )}
+
+                <FieldErrorText msg={error} />
+                <ModalFooter>
+                    <Button variant="ghost" onClick={onClose}>{result ? 'Close' : 'Cancel'}</Button>
+                    {selected && !result && (
+                        <Button variant="primary" isDisabled={seeding} onClick={handleSeed}>
+                            {seeding ? 'Seeding…' : `Seed Into ${selected.name}`}
+                        </Button>
+                    )}
+                </ModalFooter>
+            </div>
+        </AppModal>
+    );
+}
+
 function DeleteModal({ resource, record, onClose, onDeleted }) {
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState('');
@@ -289,6 +398,7 @@ export default function AdminLibrariesPage() {
     const [editTarget, setEditTarget] = useState(null);   // record | 'new' | null
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [importing, setImporting] = useState(false);
+    const [seedingWorkspace, setSeedingWorkspace] = useState(false);
 
     const debouncedSearch = useDebounce(search);
     const limit = 20;
@@ -350,6 +460,9 @@ export default function AdminLibrariesPage() {
                     />
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setSeedingWorkspace(true)}>
+                        <Building2 size={15} className="mr-1.5" /> Seed Workspace
+                    </Button>
                     <Button variant="outline" onClick={() => setImporting(true)}>
                         <Upload size={15} className="mr-1.5" /> Import
                     </Button>
@@ -420,6 +533,9 @@ export default function AdminLibrariesPage() {
             )}
             {importing && (
                 <ImportModal resource={resource} onClose={() => setImporting(false)} onImported={fetchRecords} />
+            )}
+            {seedingWorkspace && (
+                <SeedWorkspaceModal resource={resource} onClose={() => setSeedingWorkspace(false)} />
             )}
             {deleteTarget && (
                 <DeleteModal resource={resource} record={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={fetchRecords} />

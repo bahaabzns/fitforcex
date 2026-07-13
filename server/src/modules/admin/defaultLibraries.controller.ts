@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../../lib/prisma';
+import { seedWorkspaceLibrary, WorkspaceNotFoundError, LibraryResourceKey } from '../../lib/libraryClone';
 
 // Super-admin CRUD + bulk import + search for the global Default Libraries.
 // One config-driven handler set serves all five master_* resources so every
@@ -185,4 +186,24 @@ export async function importRecords(req: Request, res: Response, next: NextFunct
         }
         res.json({ imported, skipped: incoming.length - imported, errors });
     } catch (err) { next(err); }
+}
+
+// Clone this resource's master rows into a coach workspace the super admin picks —
+// e.g. re-seeding Exercises for a workspace after new master rows were added.
+// Dedupes by name_en so repeated clicks against the same workspace are a no-op,
+// not a pile of duplicate rows (see seedWorkspaceLibrary for why that check is
+// needed at the app level rather than relying on a DB constraint).
+export async function seedWorkspace(req: Request, res: Response, next: NextFunction) {
+    const cfg = resolve(req, res);
+    if (!cfg) return;
+    try {
+        const workspaceId = str((req.body as Row).workspace_id);
+        if (!workspaceId) return res.status(400).json({ message: 'workspace_id is required' });
+
+        const result = await seedWorkspaceLibrary(workspaceId, req.params.resource as LibraryResourceKey);
+        res.json(result);
+    } catch (err) {
+        if (err instanceof WorkspaceNotFoundError) return res.status(404).json({ message: err.message });
+        next(err);
+    }
 }

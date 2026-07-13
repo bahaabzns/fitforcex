@@ -317,6 +317,27 @@ router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.
  *     responses:
  *       200: { description: "imported, skipped and errors summary" }
  *
+ * /admin/libraries/{resource}/seed-workspace:
+ *   post:
+ *     summary: "Clone this resource's master rows into a chosen workspace (dedupes by name_en)"
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [workspace_id]
+ *             properties:
+ *               workspace_id: { type: string }
+ *     responses:
+ *       200: { description: "seeded and skipped counts" }
+ *       404: { description: Workspace not found }
+ *
  * /admin/libraries/{resource}/{id}:
  *   put:
  *     summary: Update a Default Library record
@@ -339,12 +360,13 @@ router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.
  *     responses:
  *       204: { description: Record deleted }
  */
-// Specific (/import) before parameterized (/:id) so it is not shadowed.
-router.get('/libraries/:resource',             adminAuthMiddleware, libraryController.listRecords);
-router.post('/libraries/:resource',            adminAuthMiddleware, libraryController.createRecord);
-router.post('/libraries/:resource/import',     adminAuthMiddleware, libraryController.importRecords);
-router.put('/libraries/:resource/:id',         adminAuthMiddleware, libraryController.updateRecord);
-router.delete('/libraries/:resource/:id',      adminAuthMiddleware, libraryController.deleteRecord);
+// Specific (/import, /seed-workspace) before parameterized (/:id) so they are not shadowed.
+router.get('/libraries/:resource',                  adminAuthMiddleware, libraryController.listRecords);
+router.post('/libraries/:resource',                 adminAuthMiddleware, libraryController.createRecord);
+router.post('/libraries/:resource/import',          adminAuthMiddleware, libraryController.importRecords);
+router.post('/libraries/:resource/seed-workspace',  adminAuthMiddleware, libraryController.seedWorkspace);
+router.put('/libraries/:resource/:id',              adminAuthMiddleware, libraryController.updateRecord);
+router.delete('/libraries/:resource/:id',           adminAuthMiddleware, libraryController.deleteRecord);
 
 /**
  * @openapi
