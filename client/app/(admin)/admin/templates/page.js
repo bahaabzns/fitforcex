@@ -55,6 +55,7 @@ export default function DefaultTemplatesPage() {
         handleCreateForm,
         handleEditForm,
         handleDeleteForm,
+        handleArchiveForm,
         handleActivateForm,
         handleDuplicateForm,
         handleCreateQuestion,
@@ -139,6 +140,7 @@ export default function DefaultTemplatesPage() {
                             handleSelectForm={handleSelectForm}
                             handleCreateForm={handleCreateForm}
                             handleDeleteForm={handleDeleteForm}
+                            handleArchiveForm={handleArchiveForm}
                             handleActivateForm={handleActivateForm}
                             handleDuplicateForm={handleDuplicateForm}
                         />

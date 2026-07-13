@@ -97,6 +97,7 @@ export async function createForm(req: Request, res: Response, next: NextFunction
                     title_ar:       (title_ar as string | undefined) || null,
                     description_en: (description_en as string | undefined) || null,
                     description_ar: (description_ar as string | undefined) || null,
+                    status:         'active',
                     post_action:    safePostAction,
                     form_type:      safeFormType,
                 },
