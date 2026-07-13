@@ -31,9 +31,9 @@ export default function FormsPanel({
     pendingFocusFormId, setPendingFocusFormId,
     handleSelectForm,
     handleCreateForm,
-    handleEditForm,
     handleDeleteForm,
     handleArchiveForm,
+    handleActivateForm,
     handleDuplicateForm,
 }) {
     const tNutrition = useTranslations('nutrition');
@@ -136,7 +136,7 @@ export default function FormsPanel({
                                                         pendingFocusFormId={pendingFocusFormId}
                                                         setPendingFocusFormId={setPendingFocusFormId}
                                                         onSelect={() => handleSelectForm(form)}
-                                                        onUpdate={(updates) => handleEditForm(form.id, updates)}
+                                                        onActivate={() => handleActivateForm(form.id)}
                                                         onDelete={() => handleDeleteOrArchive(form)}
                                                         onArchive={() => archiveWithWarning(form)}
                                                         onDuplicate={() => handleDuplicateForm(form.id)}
@@ -156,7 +156,7 @@ export default function FormsPanel({
     );
 }
 
-function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onArchive, onDuplicate }) {
+function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onActivate, onDelete, onArchive, onDuplicate }) {
     const tForms = useTranslations('forms');
     const tCommon = useTranslations('common');
 
@@ -211,7 +211,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                     ...(form.status !== 'active' ? [{
                         key: 'activate',
                         label: tForms('setToActive'),
-                        onSelect: () => onUpdate({ status: 'active' }),
+                        onSelect: onActivate,
                     }] : []),
                     { key: 'duplicate', label: tForms('duplicateForm'), icon: <DuplicateIcon />, onSelect: onDuplicate },
                     ...(form.status !== 'archived' ? [{

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
-import { Eye, EyeOff, Copy, Check, Trash2, Archive, RotateCcw, AlertTriangle, History, TrendingUp, NotebookText, Plus } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Trash2, Archive, RotateCcw, AlertTriangle, History, TrendingUp, NotebookText, Plus, Camera } from 'lucide-react';
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
@@ -181,7 +181,7 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
         <Card>
             <Card.Header>
                 <div className="flex items-center gap-2 w-full">
-                    <span className="text-lg">{metric.icon || "📷"}</span>
+                    <Camera size={18} className="shrink-0 text-muted-foreground" />
                     <p className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">{metric.name}</p>
                     <Chip size="sm" variant="soft">
                         <Chip.Label>{photos.length} photo{photos.length !== 1 ? "s" : ""}</Chip.Label>

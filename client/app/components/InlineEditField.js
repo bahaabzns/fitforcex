@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 
@@ -13,15 +13,28 @@ import { Input } from "@heroui/react/input";
 // different entity is selected. The forwarded ref points at the DOM input so
 // callers can focus()/select() it programmatically.
 //
+// Callers that key by list *position* rather than entity id (e.g. a row in a
+// reorderable/removable list) can still end up with the same mounted instance
+// representing a different item after the list shifts — the effect below
+// resyncs `draft` from `value` whenever it changes externally while the field
+// isn't focused, so a stale draft can't be re-committed onto the wrong item.
+//
 //  value          — current committed value
 //  onCommit(next) — called with the trimmed string when it changes
 //  fallback       — substituted when the trimmed draft is empty (titles)
 //  selectOnFocus  — select-all on focus (amount fields)
+//  placeholder    — shown when empty and no fallback (optional secondary-language titles)
+//  dir            — text direction, e.g. "rtl" for Arabic fields
 const InlineEditField = forwardRef(function InlineEditField(
-    { value, onCommit, fallback, type = "text", selectOnFocus, ariaLabel, className = "", inputClassName = "", variant = "primary" },
+    { value, onCommit, fallback, type = "text", selectOnFocus, ariaLabel, className = "", inputClassName = "", variant = "primary", placeholder, dir },
     ref
 ) {
     const [draft, setDraft] = useState(value ?? "");
+    const isFocusedRef = useRef(false);
+
+    useEffect(() => {
+        if (!isFocusedRef.current) setDraft(value ?? "");
+    }, [value]);
 
     function commit() {
         const trimmed = String(draft).trim();
@@ -42,8 +55,16 @@ const InlineEditField = forwardRef(function InlineEditField(
                 type={type}
                 variant={variant}
                 className={inputClassName}
-                onFocus={selectOnFocus ? (e) => e.target.select() : undefined}
-                onBlur={commit}
+                placeholder={placeholder}
+                dir={dir}
+                onFocus={(e) => {
+                    isFocusedRef.current = true;
+                    if (selectOnFocus) e.target.select();
+                }}
+                onBlur={() => {
+                    isFocusedRef.current = false;
+                    commit();
+                }}
                 onKeyDown={(e) => {
                     if (e.key === "Enter") e.currentTarget.blur();
                     if (e.key === "Escape") { setDraft(value ?? ""); e.currentTarget.blur(); }

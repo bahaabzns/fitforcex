@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2, BarChart2 } from "lucide-react";
+import { Pencil, Trash2, BarChart2, Ruler, Camera } from "lucide-react";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
@@ -10,8 +10,6 @@ import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Modal } from "@heroui/react/modal";
-
-const EMOJI_SUGGESTIONS = ["⚖️", "📏", "📊", "💪", "📷", "🏃", "🔥", "❤️", "🩺", "💧"];
 
 export default function MetricsPage() {
     const tCommon = useTranslations("common");
@@ -23,7 +21,7 @@ export default function MetricsPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
-    const [form, setForm] = useState({ name: "", type: "number", unit: "", icon: "", description: "" });
+    const [form, setForm] = useState({ name: "", type: "number", unit: "", description: "" });
 
     async function load() {
         try {
@@ -39,7 +37,7 @@ export default function MetricsPage() {
     useEffect(() => { load(); }, []);
 
     function openCreate() {
-        setForm({ name: "", type: "number", unit: "", icon: "", description: "" });
+        setForm({ name: "", type: "number", unit: "", description: "" });
         setError("");
         setShowCreate(true);
     }
@@ -49,7 +47,6 @@ export default function MetricsPage() {
             name: metric.name,
             type: metric.type,
             unit: metric.unit ?? "",
-            icon: metric.icon ?? "",
             description: metric.description ?? "",
         });
         setError("");
@@ -66,7 +63,6 @@ export default function MetricsPage() {
                 name: form.name.trim(),
                 type: form.type,
                 unit: form.type === "number" ? (form.unit.trim() || null) : null,
-                icon: form.icon.trim() || null,
                 description: form.description.trim() || null,
             });
             setMetrics(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -88,7 +84,6 @@ export default function MetricsPage() {
             const res = await api.put(`/api/metrics/${editing.id}`, {
                 name: form.name.trim(),
                 unit: editing.type === "number" ? (form.unit.trim() || null) : null,
-                icon: form.icon.trim() || null,
                 description: form.description.trim() || null,
             });
             setMetrics(prev => prev.map(m => m.id === editing.id ? res.data : m).sort((a, b) => a.name.localeCompare(b.name)));
@@ -131,7 +126,9 @@ export default function MetricsPage() {
             sortable: true,
             render: (row) => (
                 <div className="flex items-center gap-3">
-                    <span className="text-xl shrink-0 w-7 text-center">{row.icon || "📊"}</span>
+                    <span className="shrink-0 w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
+                        {row.type === "image" ? <Camera size={15} /> : <Ruler size={15} />}
+                    </span>
                     <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{row.name}</p>
                         {row.description && <p className="text-xs text-muted-foreground truncate">{row.description}</p>}
@@ -299,8 +296,8 @@ function MetricModal({ isOpen, title, form, setForm, onClose, onSubmit, saving, 
                                         disabled={!typeEditable}
                                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
-                                        <option value="number">📊 Number — collect a measurement value</option>
-                                        <option value="image">📷 Photo — collect a progress photo</option>
+                                        <option value="number">Number — collect a measurement value</option>
+                                        <option value="image">Photo — collect a progress photo</option>
                                     </select>
                                     {!typeEditable && (
                                         <p className="text-xs text-muted-foreground mt-1">Type cannot be changed after creation</p>
@@ -320,32 +317,6 @@ function MetricModal({ isOpen, title, form, setForm, onClose, onSubmit, saving, 
                                         />
                                     </div>
                                 )}
-
-                                {/* Icon */}
-                                <div>
-                                    <label className="block text-sm font-medium text-foreground mb-1.5">Icon</label>
-                                    <div className="flex gap-2 flex-wrap mb-2">
-                                        {EMOJI_SUGGESTIONS.map(e => (
-                                            <button
-                                                key={e}
-                                                type="button"
-                                                onClick={() => setForm(f => ({ ...f, icon: e }))}
-                                                className={`w-8 h-8 rounded-lg border text-lg flex items-center justify-center transition-colors cursor-pointer ${
-                                                    form.icon === e ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                                                }`}
-                                            >
-                                                {e}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={form.icon}
-                                        onChange={e => setForm(f => ({ ...f, icon: e.target.value }))}
-                                        placeholder="Or paste any emoji"
-                                        className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 focus:border-primary transition-colors"
-                                    />
-                                </div>
 
                                 {/* Description */}
                                 <div>

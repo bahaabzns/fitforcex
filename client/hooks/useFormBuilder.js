@@ -181,6 +181,22 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         }
     };
 
+    // Status changes (activate/archive) hit the server immediately rather
+    // than going through handleEditForm's local-edit buffer — status isn't
+    // part of handleSaveDraft's payload, so buffering it would show an
+    // optimistic badge that reverts the moment the coach actually saves.
+    const handleActivateForm = async (id) => {
+        try {
+            const res = await api.put(`${basePath}/${id}`, { status: 'active' });
+            setForms(prev => prev.map(f => f.id === id ? { ...f, ...res.data } : f));
+            if (selectedForm?.id === id) setSelectedForm(prev => ({ ...prev, ...res.data }));
+            return { ok: true };
+        } catch (err) {
+            console.error('Error activating form:', err);
+            return { ok: false };
+        }
+    };
+
     const handleDuplicateForm = async (id) => {
         try {
             // Get source form questions then create new form + questions
@@ -425,6 +441,7 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         handleEditForm,
         handleDeleteForm,
         handleArchiveForm,
+        handleActivateForm,
         handleDuplicateForm,
         handleCreateQuestion,
         handleUpdateQuestion,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, ChevronDown, ChevronUp, Camera } from "lucide-react";
 import api from "@/lib/axios";
 import AreaChart from "@/app/components/charts/AreaChart";
 import { DateRangePicker } from "@heroui/react/date-range-picker";
@@ -188,7 +188,7 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
     return (
         <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{metric.icon || "📷"}</span>
+                <Camera size={18} className="shrink-0 text-muted-foreground" />
                 <p className="text-sm font-semibold text-foreground">{metric.name}</p>
                 <span className="text-xs text-muted-foreground">{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
                 <div className="ml-auto flex items-center gap-2">

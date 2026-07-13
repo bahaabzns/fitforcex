@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useLocale } from "next-intl";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Camera } from "lucide-react";
 import api from "@/lib/axios";
 import AreaChart from "@/app/components/charts/AreaChart";
 import { usePageHeaderActions } from "@/app/contexts/pageHeaderActions";
@@ -205,7 +205,7 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
         <Card>
             <Card.Header>
                 <div className="flex items-center gap-2 w-full">
-                    <span className="text-lg">{metric.icon || "📷"}</span>
+                    <Camera size={18} className="shrink-0 text-muted-foreground" />
                     <p className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">{metric.name}</p>
                     <Chip size="sm" variant="soft">
                         <Chip.Label>{photos.length} photo{photos.length !== 1 ? "s" : ""}</Chip.Label>

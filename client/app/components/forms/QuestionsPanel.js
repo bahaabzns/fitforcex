@@ -1,9 +1,17 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
 import { ClipboardList, ListTodo } from "lucide-react";
 import { Button } from "@heroui/react/button";
+import { Menu } from "@heroui/react/menu";
 import { Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { TextField } from "@heroui/react/textfield";
+import { TextArea } from "@heroui/react/textarea";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { MenuTrigger, Popover as AriaPopover } from "react-aria-components";
+import InlineEditField from "@/app/components/InlineEditField";
 import EmptyState from "@/app/components/EmptyState";
 import { QUESTION_TYPE_VALUES } from "./questionTypes";
 
@@ -37,23 +45,11 @@ export default function QuestionsPanel({
 }) {
     const t = useTranslations('forms');
     const tCommon = useTranslations('common');
+    const { resolvedTheme } = useTheme();
     const QUESTION_TYPES = QUESTION_TYPE_VALUES.map(q => ({ ...q, label: t(q.labelKey) }));
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [questionsCollapsed, setQuestionsCollapsed] = useState(false);
-    const [showTypePicker, setShowTypePicker] = useState(false);
-    const typePickerRef = useRef(null);
-
-    useEffect(() => {
-        if (!showTypePicker) return;
-        function handler(e) {
-            if (typePickerRef.current && !typePickerRef.current.contains(e.target)) {
-                setShowTypePicker(false);
-            }
-        }
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [showTypePicker]);
 
     const previewQuestions = (() => {
         if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return questions;
@@ -79,61 +75,134 @@ export default function QuestionsPanel({
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
 
-            {/* Form Title inline edit + close */}
-            <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
-                <FormTitleInput
-                    form={selectedForm}
-                    onUpdate={handleEditForm}
-                    pendingFocusFormId={pendingFocusFormId}
-                    setPendingFocusFormId={setPendingFocusFormId}
+            {/* Form Title (EN + Arabic) inline edit + close */}
+            <div className="mb-3 shrink-0">
+                <div className="flex justify-between items-center gap-4">
+                    <FormTitleInput
+                        form={selectedForm}
+                        onUpdate={handleEditForm}
+                        pendingFocusFormId={pendingFocusFormId}
+                        setPendingFocusFormId={setPendingFocusFormId}
+                    />
+                    <button
+                        title={tCommon('close')}
+                        className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
+                        onClick={() => setSelectedForm(null)}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <InlineEditField
+                    key={`title-ar-${selectedForm.id}`}
+                    value={selectedForm.title_ar || ""}
+                    onCommit={(text) => handleEditForm(selectedForm.id, { title_ar: text || null })}
+                    ariaLabel={t('titleArLabel')}
+                    variant="primary"
+                    dir="rtl"
+                    placeholder={t('titleArHint')}
+                    className="w-full mt-1.5"
+                    inputClassName="text-sm text-muted-foreground"
                 />
-                <button
-                    title={tCommon('close')}
-                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
-                    onClick={() => setSelectedForm(null)}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
             </div>
 
             {/* Description inline edit */}
-            <textarea
-                key={`desc-${selectedForm.id}`}
-                rows={2}
-                defaultValue={selectedForm.description_en || ''}
-                placeholder={t('descriptionHint')}
-                onBlur={(e) => {
-                    const val = e.target.value.trim() || null;
-                    if (val !== (selectedForm.description_en || null)) {
-                        handleEditForm(selectedForm.id, { description_en: val });
-                    }
-                }}
-                className="w-full mb-3 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors shrink-0"
-            />
+            <TextField key={`desc-${selectedForm.id}`} variant="secondary" fullWidth className="mb-2 shrink-0">
+                <TextArea
+                    rows={2}
+                    defaultValue={selectedForm.description_en || ''}
+                    placeholder={t('descriptionHint')}
+                    onBlur={(e) => {
+                        const val = e.target.value.trim() || null;
+                        if (val !== (selectedForm.description_en || null)) {
+                            handleEditForm(selectedForm.id, { description_en: val });
+                        }
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Escape') { e.target.value = selectedForm.description_en || ''; e.target.blur(); }
+                    }}
+                    className="resize-none text-sm"
+                />
+            </TextField>
+            <div className="mb-3 shrink-0">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">{t('descriptionArLabel')}</label>
+                <TextField key={`desc-ar-${selectedForm.id}`} variant="secondary" fullWidth>
+                    <TextArea
+                        rows={2}
+                        dir="rtl"
+                        defaultValue={selectedForm.description_ar || ''}
+                        placeholder={t('descriptionArHint')}
+                        onBlur={(e) => {
+                            const val = e.target.value.trim() || null;
+                            if (val !== (selectedForm.description_ar || null)) {
+                                handleEditForm(selectedForm.id, { description_ar: val });
+                            }
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') { e.target.value = selectedForm.description_ar || ''; e.target.blur(); }
+                        }}
+                        className="resize-none text-sm"
+                    />
+                </TextField>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 shrink-0">
                 <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">{t('afterSubmissionAction')}</label>
-                    <select
+                    <Select
+                        variant="secondary"
+                        fullWidth
+                        aria-label={t('afterSubmissionAction')}
                         value={selectedForm.postAction || selectedForm.post_action || 'nothing'}
-                        onChange={(e) => handleEditForm(selectedForm.id, { postAction: e.target.value })}
-                        className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                        onChange={(key) => handleEditForm(selectedForm.id, { postAction: key })}
                     >
-                        <option value="nothing">{t('actionNothing')}</option>
-                        <option value="nutrition-plan">{t('actionNutrition')}</option>
-                        <option value="workout-plan">{t('actionWorkout')}</option>
-                    </select>
+                        <Select.Trigger>
+                            <Select.Value />
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item id="nothing" textValue={t('actionNothing')}>
+                                    {t('actionNothing')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                <ListBox.Item id="nutrition-plan" textValue={t('actionNutrition')}>
+                                    {t('actionNutrition')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                <ListBox.Item id="workout-plan" textValue={t('actionWorkout')}>
+                                    {t('actionWorkout')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">{t('formType')}</label>
-                    <select
+                    <Select
+                        variant="secondary"
+                        fullWidth
+                        aria-label={t('formType')}
                         value={selectedForm.formType || selectedForm.form_type || 'check-in'}
-                        onChange={(e) => handleEditForm(selectedForm.id, { formType: e.target.value })}
-                        className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                        onChange={(key) => handleEditForm(selectedForm.id, { formType: key })}
                     >
-                        <option value="check-in">{t('formTypeCheckin')}</option>
-                        <option value="assessment">{t('formTypeAssessment')}</option>
-                    </select>
+                        <Select.Trigger>
+                            <Select.Value />
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item id="check-in" textValue={t('formTypeCheckin')}>
+                                    {t('formTypeCheckin')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                <ListBox.Item id="assessment" textValue={t('formTypeAssessment')}>
+                                    {t('formTypeAssessment')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
                 </div>
             </div>
 
@@ -157,28 +226,25 @@ export default function QuestionsPanel({
                         <span className="ml-2 text-xs font-normal text-muted-foreground">{questions.length}</span>
                     </h3>
                     {!questionsCollapsed && (
-                        <div className="relative" ref={typePickerRef}>
-                            <Button variant="primary" onClick={() => setShowTypePicker(v => !v)}>
+                        <MenuTrigger>
+                            <Button variant="primary">
                                 {t('newQuestion')}
                             </Button>
-                            {showTypePicker && (
-                                <div className="absolute right-0 top-9 z-30 bg-card border border-border rounded-xl shadow-lg py-1.5 min-w-45">
-                                    {QUESTION_TYPES.map(({ value, label, icon }) => (
-                                        <button
-                                            key={value}
-                                            className="cursor-pointer flex items-center gap-3 w-full px-4 py-2 text-sm text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                                            onClick={() => {
-                                                handleCreateQuestion(value);
-                                                setShowTypePicker(false);
-                                            }}
-                                        >
-                                            <span className="w-5 text-center text-base font-mono opacity-70">{icon}</span>
+                            <AriaPopover className={`${resolvedTheme === "dark" ? "dark" : ""} popover min-w-45 rounded-2xl! outline-none`} placement="bottom end" offset={6}>
+                                <Menu
+                                    className="p-2! gap-0.5! outline-none focus:outline-none focus-visible:outline-none"
+                                    aria-label={t('newQuestion')}
+                                    onAction={(key) => handleCreateQuestion(key)}
+                                >
+                                    {QUESTION_TYPES.map(({ value, label, icon: Icon }) => (
+                                        <Menu.Item key={value} id={value} className="rounded-2xl! px-3! py-2! gap-3!">
+                                            <Icon size={16} className="shrink-0 opacity-70" />
                                             {label}
-                                        </button>
+                                        </Menu.Item>
                                     ))}
-                                </div>
-                            )}
-                        </div>
+                                </Menu>
+                            </AriaPopover>
+                        </MenuTrigger>
                     )}
                 </div>
 
@@ -229,12 +295,12 @@ export default function QuestionsPanel({
                                             </span>
 
                                             {/* Type badge */}
-                                            <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium ${
+                                            <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${
                                                 isSelected
                                                     ? "bg-primary/10 text-primary border-primary/30"
                                                     : "bg-secondary text-muted-foreground border-border"
                                             }`}>
-                                                {typeMeta?.icon}
+                                                {typeMeta?.icon && <typeMeta.icon size={12} />}
                                             </span>
 
                                             {/* Tracked metric dot */}
@@ -285,21 +351,16 @@ function FormTitleInput({ form, onUpdate, pendingFocusFormId, setPendingFocusFor
     }, [pendingFocusFormId, form.id, setPendingFocusFormId]);
 
     return (
-        <input
+        <InlineEditField
             ref={ref}
             key={form.id}
-            type="text"
-            defaultValue={form.title_en}
-            onBlur={(e) => {
-                const trimmed = e.target.value.trim() || "Untitled Form";
-                e.target.value = trimmed;
-                if (trimmed !== form.title_en) onUpdate(form.id, { title_en: trimmed });
-            }}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') e.target.blur();
-                if (e.key === 'Escape') { e.target.value = form.title_en; e.target.blur(); }
-            }}
-            className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
+            value={form.title_en}
+            fallback="Untitled Form"
+            onCommit={(name) => onUpdate(form.id, { title_en: name })}
+            ariaLabel="Form title"
+            variant="primary"
+            className="flex-1 min-w-0"
+            inputClassName="text-base font-semibold truncate"
         />
     );
 }

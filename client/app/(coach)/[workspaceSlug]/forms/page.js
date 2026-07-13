@@ -53,6 +53,7 @@ export default function FormsPage() {
         handleEditForm,
         handleDeleteForm,
         handleArchiveForm,
+        handleActivateForm,
         handleDuplicateForm,
         handleCreateQuestion,
         handleUpdateQuestion,
@@ -144,9 +145,9 @@ export default function FormsPage() {
                         setPendingFocusFormId={setPendingFocusFormId}
                         handleSelectForm={handleSelectForm}
                         handleCreateForm={handleCreateForm}
-                        handleEditForm={handleEditForm}
                         handleDeleteForm={handleDeleteForm}
                         handleArchiveForm={handleArchiveForm}
+                        handleActivateForm={handleActivateForm}
                         handleDuplicateForm={handleDuplicateForm}
                     />
                 </div>
