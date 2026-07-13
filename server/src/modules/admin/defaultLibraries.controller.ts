@@ -60,6 +60,7 @@ const RESOURCES: Record<string, ResourceConfig> = {
             muscle_group:    str(b.muscle_group),
             equipment:       str(b.equipment),
             youtube_url:     str(b.youtube_url),
+            thumbnail_path:  str(b.thumbnail_path),
             instructions_en: str(b.instructions_en),
             instructions_ar: str(b.instructions_ar),
         }),

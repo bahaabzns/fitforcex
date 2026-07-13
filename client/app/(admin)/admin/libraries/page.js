@@ -22,6 +22,7 @@ const RESOURCES = [
             { name: 'muscle_group', label: 'Muscle Group' },
             { name: 'equipment', label: 'Equipment' },
             { name: 'youtube_url', label: 'YouTube URL' },
+            { name: 'thumbnail_path', label: 'Thumbnail (GIF URL)' },
             { name: 'instructions_en', label: 'Instructions (English)', textarea: true },
             { name: 'instructions_ar', label: 'Instructions (Arabic)', textarea: true },
         ],
