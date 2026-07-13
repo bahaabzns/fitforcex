@@ -891,6 +891,60 @@
     "enterResetCode": "Enter Reset Code",
     "phoneRequired": "Phone number is required"
   },
+  "privacyPolicy": {
+    "backToHome": "Back to Home",
+    "title": "Privacy Policy",
+    "effectiveDate": "Effective Date: 14 Dec, 2025",
+    "intro": "Your privacy matters. This Privacy Policy explains how FitForce collects, uses, and protects your data.",
+    "sections": {
+      "informationWeCollect": {
+        "heading": "Information We Collect",
+        "intro": "We may collect:",
+        "items": [
+          "Personal information (name, email, phone number)",
+          "Account and subscription details",
+          "Client data entered by coaches (managed securely)",
+          "Usage data to improve platform performance"
+        ]
+      },
+      "howWeUseYourInformation": {
+        "heading": "How We Use Your Information",
+        "intro": "Your data is used to:",
+        "items": [
+          "Operate and improve FitForce services",
+          "Manage accounts and subscriptions",
+          "Provide technical support",
+          "Communicate important updates"
+        ]
+      },
+      "dataProtection": {
+        "heading": "Data Protection",
+        "items": [
+          "We apply industry-standard security measures",
+          "Client data belongs to the coach — FitForce does not sell or share it",
+          "Access to data is restricted and monitored"
+        ]
+      },
+      "thirdPartyServices": {
+        "heading": "Third-Party Services",
+        "body": "FitForce may use trusted third-party services (payment gateways, analytics tools) strictly to operate the platform."
+      },
+      "yourRights": {
+        "heading": "Your Rights",
+        "intro": "You have the right to:",
+        "items": [
+          "Request access to your data",
+          "Request correction or deletion of your data",
+          "Cancel your account at any time"
+        ]
+      },
+      "contactUs": {
+        "heading": "Contact Us",
+        "body": "For privacy-related questions, contact us at:",
+        "email": "support@fitforce.app"
+      }
+    }
+  },
   "settings": {
     "pageTitle": "Settings",
     "pageDescription": "Manage your account, workspace and subscription.",

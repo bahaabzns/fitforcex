@@ -25,7 +25,7 @@ class AttachmentUploadRepository {
 
   Future<PlatformFile?> pick(String category) async {
     final extensions = _extensionsByCategory[category];
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: extensions != null ? FileType.custom : FileType.any,
       allowedExtensions: extensions,
       withData: false,

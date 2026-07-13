@@ -18,7 +18,7 @@ if (hasReleaseSigning) {
 }
 
 android {
-    namespace = "com.fitforcex.fitforce_x"
+    namespace = "com.fitforce.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.fitforcex.fitforce_x"
+        applicationId = "com.fitforce.mobile"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

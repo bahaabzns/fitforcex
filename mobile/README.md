@@ -39,7 +39,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000 --dart-define=FLAVOR
 
 ## Configuration
 
-All build-time config comes through `--dart-define` (see [`.env.example`](.env.example)), read in one place: `lib/core/config/app_config.dart`. No `process.env`-style reads anywhere else.
+All build-time config comes through `--dart-define` (dev: see [`.env.example`](.env.example)) or `--dart-define-from-file` (release: [`env.prod.json`](env.prod.json)), read in one place: `lib/core/config/app_config.dart`. No `process.env`-style reads anywhere else.
 
 | Key | Meaning |
 |---|---|
@@ -82,12 +82,14 @@ keytool -genkey -v -keystore upload-keystore.jks -storetype JKS \
 # 2. Copy the template and fill in passwords + absolute storeFile path
 cp android/key.properties.example android/key.properties
 
-# 3. Build a signed release
-flutter build appbundle --release \
-  --dart-define=API_BASE_URL=https://api.your-domain.com --dart-define=FLAVOR=prod
+# 3. Build a signed release — always via env.prod.json, never bare --dart-define
+# flags typed by hand. A release build with no FLAVOR/API_BASE_URL set falls
+# back to the dev/emulator config and refuses to launch (see AppConfig.fromEnvironment).
+flutter build appbundle --release --dart-define-from-file=env.prod.json
 ```
 
-Never commit `key.properties` or the `.jks` — both are gitignored.
+Never commit `key.properties` or the `.jks` — both are gitignored. `env.prod.json`
+holds no secrets (just the public API origin + flavor), so it **is** committed.
 
 ## Native flavors (follow-up)
 

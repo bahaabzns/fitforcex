@@ -197,7 +197,7 @@ export default function HomePage() {
                         </p>
                         <nav className="flex flex-col gap-3">
                             {[
-                                { label: "Privacy Policy", href: "#" },
+                                { label: "Privacy Policy", href: "/privacy" },
                                 { label: "Terms of Service", href: "#" },
                                 { label: "Cookie Policy", href: "#" },
                             ].map(({ label, href }) => (
