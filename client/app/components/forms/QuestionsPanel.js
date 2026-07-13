@@ -115,7 +115,7 @@ export default function QuestionsPanel({
                 <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">{t('afterSubmissionAction')}</label>
                     <select
-                        value={selectedForm.post_action || selectedForm.postAction || 'nothing'}
+                        value={selectedForm.postAction || selectedForm.post_action || 'nothing'}
                         onChange={(e) => handleEditForm(selectedForm.id, { postAction: e.target.value })}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
                     >
@@ -127,7 +127,7 @@ export default function QuestionsPanel({
                 <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">{t('formType')}</label>
                     <select
-                        value={selectedForm.form_type || selectedForm.formType || 'check-in'}
+                        value={selectedForm.formType || selectedForm.form_type || 'check-in'}
                         onChange={(e) => handleEditForm(selectedForm.id, { formType: e.target.value })}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
                     >

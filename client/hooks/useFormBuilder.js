@@ -348,8 +348,8 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
                     title_ar: selectedForm.title_ar,
                     description_en: selectedForm.description_en,
                     description_ar: selectedForm.description_ar,
-                    postAction: selectedForm.post_action || selectedForm.postAction,
-                    formType: selectedForm.form_type || selectedForm.formType,
+                    postAction: selectedForm.postAction || selectedForm.post_action,
+                    formType: selectedForm.formType || selectedForm.form_type,
                 },
                 questions: questions.map(q => ({
                     id: String(q.id).startsWith('tmp-q-') ? null : q.id,
