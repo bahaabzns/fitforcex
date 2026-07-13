@@ -252,7 +252,8 @@
       "Bash(curl -sf -o /dev/null -w \"%{http_code}\\\\n\" http://my.lvh.me:3000/)",
       "Bash(curl -s -c 'C:\\\\Users\\\\HP/cookies_test2.txt' -X POST http://lvh.me:4000/api/auth/register -H 'Content-Type: application/json' -d '{\"fname\":\"IA\",\"lname\":\"Verify\",\"email\":\"ia-verify-heroui@example.com\",\"password\":\"Password123!\",\"phone\":\"+201009988772\"}' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n')",
       "Skill(run)",
-      "Skill(run:*)"
+      "Skill(run:*)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/en.json','utf8'\\)\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/ar.json','utf8'\\)\\); console.log\\('valid json'\\)\")"
     ],
     "additionalDirectories": [
       "D:\\fitforce-x\\client\\app\\(coach)\\[workspaceSlug]\\nutrition\\food-items",

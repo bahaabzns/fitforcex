@@ -945,6 +945,40 @@
       }
     }
   },
+  "deleteAccount": {
+    "backToHome": "Back to Home",
+    "title": "Delete Your Account",
+    "intro": "You can request deletion of your FitForce account and all associated data at any time.",
+    "sections": {
+      "howToRequest": {
+        "heading": "How to Request Deletion",
+        "body": "Send an email to support@fitforce.app from your registered email address with the subject \"Account Deletion Request\", including your full name and the email associated with your account."
+      },
+      "whatGetsDeleted": {
+        "heading": "What Gets Deleted",
+        "intro": "Once your request is processed, we will delete:",
+        "items": [
+          "Your profile information (name, email, phone number)",
+          "Your account credentials",
+          "Training and nutrition plans, and check-in forms",
+          "Messages and attachments exchanged with your coach"
+        ]
+      },
+      "whatIsRetained": {
+        "heading": "What Is Retained",
+        "body": "Billing and transaction records are retained as required for legal, tax, and accounting purposes, even after your account is deleted."
+      },
+      "timeframe": {
+        "heading": "Processing Time",
+        "body": "Deletion requests are processed within 30 days of receipt."
+      },
+      "contactUs": {
+        "heading": "Contact",
+        "body": "For questions about this process, contact us at:",
+        "email": "support@fitforce.app"
+      }
+    }
+  },
   "settings": {
     "pageTitle": "Settings",
     "pageDescription": "Manage your account, workspace and subscription.",

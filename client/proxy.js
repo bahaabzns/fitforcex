@@ -27,7 +27,7 @@ export function proxy(request) {
         const PUBLIC_ROOT_SEGMENTS = new Set([
             '', 'login', 'register', 'forgot-password', 'reset-password',
             'check-mail', 'verify-email-required', 'portal', 'admin', 'api',
-            'privacy',
+            'privacy', 'delete-account',
         ]);
         if (firstSegment && !PUBLIC_ROOT_SEGMENTS.has(firstSegment)) {
             const url = request.nextUrl.clone();
