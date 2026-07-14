@@ -76,8 +76,12 @@ export async function createSignedUrl(key: string, expiresIn = 3600): Promise<st
 }
 
 // Converts an S3 key to a public URL. In dev (no S3), returns a local /uploads path.
+// Some fields (e.g. exercise thumbnail_path) can also hold an already-absolute URL —
+// imported/seeded data, not something a coach uploaded — so pass those through as-is
+// rather than prefixing them into a broken /uploads/https://... path.
 export function toPublicUrl(key: string | null | undefined): string | null {
     if (!key) return null;
+    if (/^https?:\/\//.test(key)) return key;
     if (!s3Configured) return `/uploads/${key}`;
     const base = (env.S3_PUBLIC_URL || `${env.S3_ENDPOINT}/${env.S3_BUCKET}`).replace(/\/$/, '');
     return `${base}/${key}`;
