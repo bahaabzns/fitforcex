@@ -263,7 +263,7 @@ function SeedWorkspaceModal({ resource, onClose }) {
             <div className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground">
                     Clones the current master {resource.label.toLowerCase()} into one coach workspace. Records already
-                    present in that workspace (matched by English name) are skipped, so this is safe to re-run.
+                    present in that workspace (matched by English name) are left as-is{resource.key === 'exercises' && ' — except a missing thumbnail, which gets filled in'}, so this is safe to re-run.
                 </p>
 
                 {!selected ? (
@@ -317,7 +317,9 @@ function SeedWorkspaceModal({ resource, onClose }) {
 
                 {result && (
                     <div className="text-sm rounded-lg bg-secondary/40 border border-border p-3">
-                        <p className="text-foreground font-medium">Seeded {result.seeded}, skipped {result.skipped} (already present).</p>
+                        <p className="text-foreground font-medium">
+                            Seeded {result.seeded} new{result.backfilled > 0 && <>, backfilled {result.backfilled}</>}, skipped {result.skipped} (already up to date).
+                        </p>
                     </div>
                 )}
 

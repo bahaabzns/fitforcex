@@ -127,6 +127,11 @@ const RESOURCE_CLONE: Record<LibraryResourceKey, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delegate: any;
     mapRow: (row: MasterRow, workspaceId: string) => Record<string, unknown>;
+    // Column to patch on an already-existing workspace row (matched by name_en)
+    // when the master has a value and the workspace row doesn't. Only used by
+    // seedWorkspaceLibrary; never overwrites a non-empty value or touches any
+    // other field, so it can't clobber a coach's own edits.
+    backfillField?: string;
 }> = {
     'muscle-groups': {
         findMaster: () => prisma.master_exercise_muscle_groups.findMany(),
@@ -141,6 +146,7 @@ const RESOURCE_CLONE: Record<LibraryResourceKey, {
     'exercises': {
         findMaster: () => prisma.master_exercise_library.findMany(),
         delegate: prisma.exercise_library,
+        backfillField: 'thumbnail_path',
         mapRow: (ex, workspaceId) => ({
             id: createId(), workspace_id: workspaceId,
             name_en: ex.name_en, name_ar: ex.name_ar,
@@ -184,22 +190,39 @@ export class WorkspaceNotFoundError extends Error {
  * constraint, so we dedupe by name_en against the workspace's existing rows
  * before inserting.
  */
-export async function seedWorkspaceLibrary(workspaceId: string, resource: LibraryResourceKey): Promise<{ seeded: number; skipped: number }> {
+export async function seedWorkspaceLibrary(workspaceId: string, resource: LibraryResourceKey): Promise<{ seeded: number; backfilled: number; skipped: number }> {
     const ws = await prisma.workspaces.findUnique({ where: { id: workspaceId }, select: { id: true } });
     if (!ws) throw new WorkspaceNotFoundError(workspaceId);
 
     const cfg = RESOURCE_CLONE[resource];
+    const backfillField = cfg.backfillField;
     const [masterRows, existingRows] = await Promise.all([
         cfg.findMaster(),
-        cfg.delegate.findMany({ where: { workspace_id: workspaceId }, select: { name_en: true } }) as Promise<{ name_en: string }[]>,
+        cfg.delegate.findMany({
+            where:  { workspace_id: workspaceId },
+            select: { id: true, name_en: true, ...(backfillField ? { [backfillField]: true } : {}) },
+        }) as Promise<({ id: string; name_en: string } & Record<string, unknown>)[]>,
     ]);
 
-    const existingNames = new Set(existingRows.map((r) => r.name_en));
-    const toInsert = masterRows.filter((r) => !existingNames.has(r.name_en));
+    const existingByName = new Map(existingRows.map((r) => [r.name_en, r]));
+    const toInsert = masterRows.filter((r) => !existingByName.has(r.name_en));
+
+    let backfilled = 0;
+    if (backfillField) {
+        for (const master of masterRows) {
+            const existing = existingByName.get(master.name_en);
+            if (!existing) continue;
+            const masterValue = master[backfillField];
+            if (masterValue && !existing[backfillField]) {
+                await cfg.delegate.update({ where: { id: existing.id }, data: { [backfillField]: masterValue } });
+                backfilled++;
+            }
+        }
+    }
 
     await cloneInBatches(toInsert, (r) => cfg.mapRow(r, workspaceId), (data) => cfg.delegate.createMany({ data, skipDuplicates: true }));
 
-    return { seeded: toInsert.length, skipped: masterRows.length - toInsert.length };
+    return { seeded: toInsert.length, backfilled, skipped: masterRows.length - toInsert.length - backfilled };
 }
 
 /**
