@@ -43,18 +43,18 @@ step "Initializing schema (first deploy only)..."
 # this block is skipped entirely.
 #
 # DATABASE_URL carries Prisma-only query params (connection_limit, pool_timeout)
-# that libpq's URI parser rejects outright. Rather than hand psql a URI at all,
-# parse it into discrete connection args so the query string is never touched.
-if [[ "$DATABASE_URL" =~ ^postgres(ql)?://([^:@/]+):([^@]*)@([^:/]+):([0-9]+)/([^?]+) ]]; then
-    PSQL_ARGS=(-h "${BASH_REMATCH[4]}" -p "${BASH_REMATCH[5]}" -U "${BASH_REMATCH[2]}" -d "${BASH_REMATCH[6]}")
-    export PGPASSWORD="${BASH_REMATCH[3]}"
-else
-    fail "Could not parse DATABASE_URL"
-fi
+# that libpq's URI parser rejects outright. Use Node's URL parser (already on this
+# box) to drop just those params — a hand-rolled regex can't safely extract
+# user/password since it won't percent-decode them the way libpq does.
+PSQL_URL=$(DATABASE_URL="$DATABASE_URL" node -e '
+    const u = new URL(process.env.DATABASE_URL);
+    ["connection_limit", "pool_timeout", "pgbouncer", "schema"].forEach((p) => u.searchParams.delete(p));
+    process.stdout.write(u.toString());
+') || fail "Could not parse DATABASE_URL"
 
-TABLE_COUNT=$(psql "${PSQL_ARGS[@]}" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'") || fail "Could not query database — check DATABASE_URL"
+TABLE_COUNT=$(psql "$PSQL_URL" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'") || fail "Could not query database — check DATABASE_URL"
 if [ "$TABLE_COUNT" -eq "0" ]; then
-    psql "${PSQL_ARGS[@]}" < "$APP_DIR/server/schema.sql" || fail "Schema init failed"
+    psql "$PSQL_URL" < "$APP_DIR/server/schema.sql" || fail "Schema init failed"
     ok "Schema initialized from schema.sql"
 else
     ok "Schema already exists — skipping init"
