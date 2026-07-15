@@ -24,6 +24,16 @@ const nextConfig = {
                 permanent: true,
             },
             {
+                source: '/client-portal',
+                destination: '/portal',
+                permanent: true,
+            },
+            {
+                source: '/client-portal/:path*',
+                destination: '/portal/:path*',
+                permanent: true,
+            },
+            {
                 source: '/portal/transformation',
                 destination: '/portal/home',
                 permanent: true,
