@@ -22,6 +22,11 @@
  * since past scripts only ever set submitted_at when old status was exactly 'submitted'.
  * And backfills action_taken_at for reviewed rows the same way.
  *
+ * Finally, corrects status to 'scheduled' for any request whose scheduled_at is still
+ * in the future — the old system never had a distinct "scheduled" status value, only
+ * a scheduleAt timestamp alongside status='pending', so the mapping above alone would
+ * leave a genuinely future-dated request looking identical to a plain pending one.
+ *
  * Additive only, idempotent, safe to re-run.
  *
  * Usage (from server/):
@@ -131,6 +136,25 @@ async function main() {
       }
     } finally {
       client.release();
+    }
+
+    // Old status never distinguished "scheduled for a future date" from plain
+    // pending — the old system just left status='pending' and relied on scheduleAt
+    // alone. Any request whose scheduled_at is still in the future needs status
+    // corrected to 'scheduled' so the queue's Scheduled bucket reflects it; the
+    // app's own activateDueScheduledRequests() will flip it back to pending once
+    // that date arrives, same as it does for requests created directly in-app.
+    const { rows: futureScheduled } = await newDb.query<{ id: string }>(`
+      SELECT id FROM form_requests
+      WHERE status = 'pending' AND scheduled_at IS NOT NULL AND scheduled_at > NOW()
+    `);
+    log(`future-scheduled: ${futureScheduled.length} row(s) need status = 'scheduled'`);
+    if (futureScheduled.length > 0 && !DRY_RUN) {
+      const result = await newDb.query(`
+        UPDATE form_requests SET status = 'scheduled'
+        WHERE status = 'pending' AND scheduled_at IS NOT NULL AND scheduled_at > NOW()
+      `);
+      log(`future-scheduled: corrected ${result.rowCount} row(s)`);
     }
 
     log(DRY_RUN ? 'Dry run complete — no data was written.' : 'Backfill complete.');
