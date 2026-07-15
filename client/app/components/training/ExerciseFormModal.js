@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
@@ -58,17 +58,16 @@ export default function ExerciseFormModal({
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Reset form whenever the modal opens
-    const handleOpenChange = (nextOpen) => {
-        if (nextOpen) {
+    // Reset form whenever the modal opens (the modal instance stays mounted between opens,
+    // so this can't rely on a fresh useState initializer picking up exerciseToEdit)
+    useEffect(() => {
+        if (open) {
             setForm({ ...emptyForm, ...(exerciseToEdit ?? initialValues ?? {}) });
             setVideoFile(null);
             setThumbnailFile(null);
         }
-    };
-
-    // Keep form in sync when exerciseToEdit / initialValues changes from outside
-    // (handled by callers re-mounting or passing new open=true)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, exerciseToEdit]);
 
     const setField = (name) => (val) =>
         setForm((prev) => ({ ...prev, [name]: val }));
@@ -108,7 +107,6 @@ export default function ExerciseFormModal({
             open={open}
             onClose={onClose}
             title={isEditing ? t("editTitle") : t("addTitle")}
-            onOpenChange={handleOpenChange}
         >
             <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
                 <div className="flex gap-2">
