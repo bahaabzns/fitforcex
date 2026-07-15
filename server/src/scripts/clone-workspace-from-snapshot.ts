@@ -387,20 +387,33 @@ async function cloneMessages() {
   const { rows: clients } = await newDb.query<{ id: string }>(`SELECT id FROM clients WHERE workspace_id = $1`, [WORKSPACE_ID]);
   const validClients = new Set(clients.map(c => c.id));
 
+  // The old system allowed multiple non-deleted threads per client; the new schema
+  // enforces one thread per (workspace_id, client_id). Consolidate: pick the earliest
+  // thread per client as canonical, and remap every duplicate thread's messages onto it.
   const { rows: threads } = await old.query<{ id: string; clientId: string; status: string; createdAt: string }>(`
     SELECT id, "clientId", status, "createdAt" AT TIME ZONE 'Africa/Cairo' AS "createdAt"
     FROM public."Thread" WHERE "workspaceId" = $1 AND "deletedAt" IS NULL AND "clientId" IS NOT NULL
+    ORDER BY "createdAt" ASC
   `, [WORKSPACE_ID]);
 
-  let threadCount = 0, msgCount = 0;
+  const threadsByClient = new Map<string, typeof threads>();
   for (const t of threads) {
     if (!validClients.has(t.clientId)) continue;
+    const list = threadsByClient.get(t.clientId) ?? [];
+    list.push(t);
+    threadsByClient.set(t.clientId, list);
+  }
+
+  let threadCount = 0, msgCount = 0;
+  for (const [clientId, clientThreads] of threadsByClient) {
+    const canonical = clientThreads[0];
     await newDb.query(`
       INSERT INTO threads (id, workspace_id, client_id, status, created_at, updated_at)
       VALUES ($1,$2,$3,$4,$5,$5) ON CONFLICT (id) DO NOTHING
-    `, [t.id, WORKSPACE_ID, t.clientId, t.status, t.createdAt]);
+    `, [canonical.id, WORKSPACE_ID, clientId, canonical.status, canonical.createdAt]);
     threadCount++;
 
+    for (const t of clientThreads) {
     const { rows: msgs } = await old.query<{
       id: string; senderType: string; senderUserId: string | null; senderClientId: string | null;
       body: string; readByTeamAt: string | null; readByClientAt: string | null; createdAt: string;
@@ -415,8 +428,9 @@ async function cloneMessages() {
       await newDb.query(`
         INSERT INTO messages (id, thread_id, sender_type, sender_id, body, read_by_team_at, read_by_client_at, created_at)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING
-      `, [m.id, t.id, m.senderType, m.senderUserId ?? m.senderClientId ?? 'unknown', m.body, m.readByTeamAt, m.readByClientAt, m.createdAt]);
+      `, [m.id, canonical.id, m.senderType, m.senderUserId ?? m.senderClientId ?? 'unknown', m.body, m.readByTeamAt, m.readByClientAt, m.createdAt]);
       msgCount++;
+    }
     }
   }
   log(`threads: ${threadCount} cloned, messages: ${msgCount} cloned`);
