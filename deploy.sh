@@ -43,15 +43,23 @@ step "Initializing schema (first deploy only)..."
 # this block is skipped entirely.
 #
 # DATABASE_URL carries Prisma-only query params (connection_limit, pool_timeout)
-# that libpq's URI parser rejects outright, so strip the query string for psql.
-PSQL_URL="${DATABASE_URL%%\?*}"
-TABLE_COUNT=$(psql "$PSQL_URL" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'") || fail "Could not query database — check DATABASE_URL"
+# that libpq's URI parser rejects outright. Rather than hand psql a URI at all,
+# parse it into discrete connection args so the query string is never touched.
+if [[ "$DATABASE_URL" =~ ^postgres(ql)?://([^:@/]+):([^@]*)@([^:/]+):([0-9]+)/([^?]+) ]]; then
+    PSQL_ARGS=(-h "${BASH_REMATCH[4]}" -p "${BASH_REMATCH[5]}" -U "${BASH_REMATCH[2]}" -d "${BASH_REMATCH[6]}")
+    export PGPASSWORD="${BASH_REMATCH[3]}"
+else
+    fail "Could not parse DATABASE_URL"
+fi
+
+TABLE_COUNT=$(psql "${PSQL_ARGS[@]}" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'") || fail "Could not query database — check DATABASE_URL"
 if [ "$TABLE_COUNT" -eq "0" ]; then
-    psql "$PSQL_URL" < "$APP_DIR/server/schema.sql" || fail "Schema init failed"
+    psql "${PSQL_ARGS[@]}" < "$APP_DIR/server/schema.sql" || fail "Schema init failed"
     ok "Schema initialized from schema.sql"
 else
     ok "Schema already exists — skipping init"
 fi
+unset PGPASSWORD
 
 step "Running migrations..."
 npm run migrate
