@@ -11,6 +11,7 @@ import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, NumberField, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import MacroStat from "./MacroStat";
+import { SortableList, SortableItem } from "@/app/components/SortableList";
 
 export default function RightPanel({
     selectedMeal,
@@ -32,10 +33,6 @@ export default function RightPanel({
 }) {
     const [insightsItem, setInsightsItem] = useState(null);
     const t = useTranslations('nutrition');
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
-    const dragRef = useRef(null);
-    const hoverRef = useRef(null);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
     const [expandedItemIds, setExpandedItemIds] = useState(new Set());
 
@@ -80,13 +77,6 @@ export default function RightPanel({
     };
 
     const currentItems = selectedMeal.items;
-    const previewItems = (() => {
-        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentItems;
-        const arr = [...currentItems];
-        const [moved] = arr.splice(dragIndex, 1);
-        arr.splice(hoverIndex, 0, moved);
-        return arr;
-    })();
 
     return (
         <>
@@ -150,21 +140,19 @@ export default function RightPanel({
                     {expandedKeys.has("items") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedItemIds} onExpandedChange={handleItemExpandedChange} className="flex flex-col gap-2 px-1 py-1">
-                                    {previewItems.map((item) => {
-                                        const originalIndex = currentItems.findIndex(i => i.id === item.id);
-                                        const isDragging = dragIndex !== null && currentItems[dragIndex]?.id === item.id;
+                                    <SortableList items={currentItems} onReorder={handleReorderFoodItems}>
+                                    {(item, originalIndex) => {
                                         const alternatives = item.alternatives ?? [];
                                         const itemMacros = calcItem(item);
                                         return (
-                                            <Disclosure key={item.id} id={String(item.id)} className={`group/disc rounded-xl overflow-hidden bg-app-surface-card shadow-surface transition-all duration-150 select-none ${isDragging ? "opacity-30 scale-95" : ""}`}>
+                                            <SortableItem key={item.id} id={item.id}>
+                                            {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                                            <Disclosure ref={setNodeRef} style={style} id={String(item.id)} className={`group/disc rounded-xl overflow-hidden bg-app-surface-card shadow-surface transition-all duration-150 select-none ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}>
                                                 <Disclosure.Heading>
                                                     <div
-                                                        draggable
-                                                        onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
-                                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
-                                                        onDrop={() => { handleReorderFoodItems(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                        className="group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
+                                                        {...attributes}
+                                                        {...listeners}
+                                                        className="group flex items-center gap-3 px-3 py-2 cursor-pointer touch-none transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
                                                         onClick={() => {
                                                             if (alternatives.length === 0) return;
                                                             const key = String(item.id);
@@ -318,8 +306,11 @@ export default function RightPanel({
                                                 </Disclosure.Content>
                                                 )}
                                             </Disclosure>
+                                            )}
+                                            </SortableItem>
                                         );
-                                    })}
+                                    }}
+                                    </SortableList>
                                 </DisclosureGroup>
                     </ScrollShadow>
                     )}

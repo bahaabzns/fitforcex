@@ -13,6 +13,7 @@ import { ListBox } from "@heroui/react/list-box";
 import { MenuTrigger, Popover as AriaPopover } from "react-aria-components";
 import InlineEditField from "@/app/components/InlineEditField";
 import EmptyState from "@/app/components/EmptyState";
+import { SortableList, SortableItem } from "@/app/components/SortableList";
 import { QUESTION_TYPE_VALUES } from "./questionTypes";
 
 const TrashIcon = () => (
@@ -47,17 +48,7 @@ export default function QuestionsPanel({
     const tCommon = useTranslations('common');
     const { resolvedTheme } = useTheme();
     const QUESTION_TYPES = QUESTION_TYPE_VALUES.map(q => ({ ...q, label: t(q.labelKey) }));
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
     const [questionsCollapsed, setQuestionsCollapsed] = useState(false);
-
-    const previewQuestions = (() => {
-        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return questions;
-        const arr = [...questions];
-        const [moved] = arr.splice(dragIndex, 1);
-        arr.splice(hoverIndex, 0, moved);
-        return arr;
-    })();
 
     if (!selectedForm) {
         return (
@@ -259,22 +250,21 @@ export default function QuestionsPanel({
                             />
                         ) : (
                             <div className="flex flex-col gap-2 px-1 py-1">
-                                {previewQuestions.map((q, i) => {
-                                    const originalIndex = questions.findIndex(orig => orig.id === q.id);
-                                    const isDragging = dragIndex !== null && questions[dragIndex]?.id === q.id;
+                                <SortableList items={questions} onReorder={handleReorderQuestions}>
+                                {(q, i) => {
                                     const isSelected = selectedQuestion?.id === q.id;
                                     const typeMeta = QUESTION_TYPES.find(qt => qt.value === q.type);
                                     return (
+                                        <SortableItem key={q.id} id={q.id}>
+                                        {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                         <div
-                                            key={q.id}
-                                            draggable
-                                            onDragStart={() => setDragIndex(originalIndex)}
-                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                            onDrop={() => { handleReorderQuestions(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                            onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
+                                            ref={setNodeRef}
+                                            style={style}
+                                            {...attributes}
+                                            {...listeners}
                                             onClick={() => setSelectedQuestion(q)}
-                                            className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer shadow-surface transition-all duration-150 select-none ${
-                                                isDragging ? "opacity-30 scale-95" : ""
+                                            className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer touch-none shadow-surface transition-all duration-150 select-none ${
+                                                isDragging ? "opacity-30 scale-95 z-10" : ""
                                             } ${
                                                 isSelected
                                                     ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
@@ -328,8 +318,11 @@ export default function QuestionsPanel({
                                                 <TrashIcon />
                                             </button>
                                         </div>
+                                        )}
+                                        </SortableItem>
                                     );
-                                })}
+                                }}
+                                </SortableList>
                             </div>
                         )}
                     </ScrollShadow>

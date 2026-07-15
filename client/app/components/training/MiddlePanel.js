@@ -8,6 +8,7 @@ import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import InlineEditField from "@/app/components/InlineEditField";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
+import { SortableList, SortableItem } from "@/app/components/SortableList";
 
 const StatusDot = () => (
     <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
@@ -42,10 +43,6 @@ export default function MiddlePanel({
     const t = useTranslations('training');
     const tCommon = useTranslations('common');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["days", "notes"]));
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
-    const dragRef = useRef(null);
-    const hoverRef = useRef(null);
     const planNameRef = useRef(null);
     const dayInputRefs = useRef({});
 
@@ -65,13 +62,6 @@ export default function MiddlePanel({
         : (selectedPlan.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan.days?.[0] ?? null);
 
     const currentDays = selectedPlan.days ?? [];
-    const previewDays = (() => {
-        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentDays;
-        const arr = [...currentDays];
-        const [moved] = arr.splice(dragIndex, 1);
-        arr.splice(hoverIndex, 0, moved);
-        return arr;
-    })();
 
     return (
         <>
@@ -141,22 +131,21 @@ export default function MiddlePanel({
                 </Disclosure>
                 {expandedKeys.has("days") && (
                 <ScrollShadow className="flex flex-col gap-2 px-1 py-1 flex-1 min-h-0" hideScrollBar>
-                            {previewDays.map((day) => {
-                                const originalIndex = currentDays.findIndex((d) => d.id === day.id);
-                                const isDragging = dragIndex !== null && currentDays[dragIndex]?.id === day.id;
+                            <SortableList items={currentDays} onReorder={handleReorderDays}>
+                            {(day, originalIndex) => {
                                 const isActive = String(day.id) === String(selectedDay?.id);
                                 const setCount = (day.exercises ?? []).reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0);
                                 return (
+                                    <SortableItem key={day.id} id={day.id}>
+                                    {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                     <div
-                                        key={day.id}
-                                        draggable
-                                        onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
-                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
-                                        onDrop={() => { handleReorderDays(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
+                                        ref={setNodeRef}
+                                        style={style}
+                                        {...attributes}
+                                        {...listeners}
                                         onClick={() => handleSelectDay(day.id)}
-                                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
-                                            isDragging ? "opacity-30 scale-95" : ""
+                                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none touch-none shadow-surface transition-all duration-150 ${
+                                            isDragging ? "opacity-30 scale-95 z-10" : ""
                                         } ${
                                             isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                         }`}
@@ -193,8 +182,11 @@ export default function MiddlePanel({
                                             ]}
                                         />
                                     </div>
+                                    )}
+                                    </SortableItem>
                                 );
-                            })}
+                            }}
+                            </SortableList>
                             {currentDays.length === 0 && (
                                 <Surface variant="default" className="rounded-lg p-6 flex items-center justify-center mx-2 my-2">
                                     <p className="text-sm text-muted-foreground">{t('noDaysYet')}</p>

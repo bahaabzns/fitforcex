@@ -13,6 +13,7 @@ import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
+import { SortableList, SortableItem } from "@/app/components/SortableList";
 
 const SET_INPUT_CLASS = "h-6 px-1.5 py-0 text-sm font-semibold text-center shadow-none w-full !rounded";
 
@@ -98,8 +99,6 @@ export default function RightPanel({
     const locale = useLocale();
     const [showPicker, setShowPicker] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises", "notes"]));
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
     const [videoModalId, setVideoModalId] = useState(null);
     const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
     const [insightsExercise, setInsightsExercise] = useState(null);
@@ -208,30 +207,23 @@ export default function RightPanel({
                                 <div className="space-y-1.5 px-1 py-2">
                                     {(() => {
                                         const exercises = selectedDay.exercises ?? [];
-                                        const preview = (() => {
-                                            if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return exercises;
-                                            const arr = [...exercises];
-                                            const [moved] = arr.splice(dragIndex, 1);
-                                            arr.splice(hoverIndex, 0, moved);
-                                            return arr;
-                                        })();
-                                        return preview.map((exercise) => {
-                                        const originalIndex = exercises.findIndex((e) => e.id === exercise.id);
-                                        const isDragging = dragIndex !== null && exercises[dragIndex]?.id === exercise.id;
+                                        return (
+                                        <SortableList items={exercises} onReorder={(from, to) => handleReorderExercises(selectedDay.id, from, to)}>
+                                        {(exercise, originalIndex) => {
                                         const exerciseName = getLocalizedField(exercise, "library_name", locale) || exercise.name || "";
                                         const setCount = exercise.sets?.length ?? 0;
                                         const expandKey = exercise.exercise_library_id ?? exercise.id;
                                         const isExpanded = expandedExerciseIds.has(expandKey);
                                         const hasVideo = exercise.youtube_url || exercise.video_path;
                                         return (
+                                        <SortableItem key={exercise.id} id={exercise.id}>
+                                        {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                         <div
-                                            key={exercise.id}
-                                            draggable
-                                            onDragStart={() => setDragIndex(originalIndex)}
-                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                            onDrop={() => { handleReorderExercises(selectedDay.id, dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                            onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                            className={`group select-none transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                            ref={setNodeRef}
+                                            style={style}
+                                            {...attributes}
+                                            {...listeners}
+                                            className={`group select-none touch-none transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}
                                         >
                                             {/* Exercise row */}
                                             <div onClick={() => toggleExercise(exercise)} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${isExpanded ? "bg-app-surface-selected hover:bg-app-surface-selected/80" : "hover:bg-app-surface-hover"}`}>
@@ -397,8 +389,12 @@ export default function RightPanel({
                                             </div>
                                             )}
                                         </div>
+                                        )}
+                                        </SortableItem>
                                         );
-                                        });
+                                        }}
+                                        </SortableList>
+                                        );
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
