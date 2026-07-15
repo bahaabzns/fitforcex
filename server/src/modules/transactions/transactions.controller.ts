@@ -155,9 +155,13 @@ async function resolvePackageVariation(packageVariationId: string | undefined, w
     if (!packageVariationId) return null;
     const variation = await prisma.package_variations.findFirst({
         where: { id: packageVariationId, packages: { workspace_id: workspaceId } },
-        select: { id: true, name: true, price: true, currency: true, duration: true },
+        select: { id: true, name: true, price: true, currency: true, duration: true, packages: { select: { name: true } } },
     });
-    return variation;
+    if (!variation) return null;
+    // The stored label is always "Package — Variation" (e.g. "Silver — 2 Months"),
+    // never the bare variation name alone — matches the composed format the
+    // package picker/filter and backfill-package-variation-ids.ts both expect.
+    return { ...variation, name: `${variation.packages.name} — ${variation.name}` };
 }
 
 export async function getProof(req: Request, res: Response, next: NextFunction) {
