@@ -71,14 +71,21 @@ export async function buildToken(userId: string) {
         }
     }
 
-    const fallback = await prisma.workspaces.findFirst({
+    const ownedFallback = await prisma.workspaces.findFirst({
         where:   { owner_id: userId, archived_at: null },
         orderBy: { created_at: 'asc' },
         select:  { id: true },
     });
-    if (!fallback) throw new Error('No accessible workspace found');
+    if (ownedFallback) return await buildTokenForWorkspace(userId, ownedFallback.id);
 
-    return await buildTokenForWorkspace(userId, fallback.id);
+    const membershipFallback = await prisma.workspace_members.findFirst({
+        where:   { user_id: userId, is_active: true, workspaces: { archived_at: null } },
+        orderBy: { joined_at: 'asc' },
+        select:  { workspace_id: true },
+    });
+    if (!membershipFallback) throw { status: 403, message: 'No accessible workspace found' };
+
+    return await buildTokenForWorkspace(userId, membershipFallback.workspace_id);
 }
 
 export async function fetchUserWorkspaces(userId: string): Promise<WorkspaceListRow[]> {

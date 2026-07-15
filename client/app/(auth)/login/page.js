@@ -49,7 +49,7 @@ function LoginContent() {
             if (!slug) { router.push('/login'); return; }
             redirectToDashboard(slug);
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid email or password.');
+            setError(err.response?.data?.message || err.response?.data?.error || 'Invalid email or password.');
         } finally {
             setLoading(false);
         }
