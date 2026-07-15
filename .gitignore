@@ -1,8 +1,11 @@
 node_modules/
 .env
+.env.*
+!.env.example
 *.log
 dist/
 build/
+.claude/settings.local.json
 
 # Local database backups / dumps — never commit (large, sensitive)
 docs/old_db/

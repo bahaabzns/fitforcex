@@ -72,7 +72,6 @@ On your local machine (Windows Terminal / PowerShell / macOS Terminal):
 ```bash
 ssh root@YOUR_VPS_IP
 ```
-ssh root@76.13.145.228
 When prompted, type the root password Hostinger gave you. You are now inside the server.
 
 ### Update the System
@@ -206,7 +205,7 @@ sudo -u postgres psql
 You are now inside the PostgreSQL shell (`postgres=#`). Run these commands one by one — replace the password with something strong:
 
 ```sql
-CREATE USER fitforce_user WITH PASSWORD 'Canyouseeme@441199';
+CREATE USER fitforce_user WITH PASSWORD 'REPLACE_WITH_STRONG_PASSWORD';
 CREATE DATABASE fitforce_db OWNER fitforce_user;
 GRANT ALL PRIVILEGES ON DATABASE fitforce_db TO fitforce_user;
 \q
@@ -326,7 +325,7 @@ Paste and fill in every value:
 
 ```env
 # ── Database ──────────────────────────────────────────────────────
-DATABASE_URL=postgresql://fitforce_user:Canyouseeme@441199@localhost:5432/fitforce_db
+DATABASE_URL=postgresql://fitforce_user:REPLACE_WITH_DB_PASSWORD@localhost:5432/fitforce_db
 
 # ── Server ────────────────────────────────────────────────────────
 PORT=4000
@@ -335,21 +334,23 @@ ALLOWED_ORIGINS=srv1663411.hstgr.cloud
 
 # ── Auth ──────────────────────────────────────────────────────────
 
-JWT_SECRET=8cb339f69868223aac5e0a6adac932ccbc82dc99def2cf939d7bb6675a6153677871abdccebb555c6f896dd99aabf4ba8a0acfebadc5822a240380aa557ff2be
-ADMIN_JWT_SECRET=b56bf2b1e1cec2f2c57808b435d7a97c448c617f3d53eaed3216c05f3e1d947844658eb64bef6187d5aaa78cd0bad94046e001f0d4667de35f3714fc7adbf3c0
+JWT_SECRET=REPLACE_WITH_GENERATED_SECRET
+ADMIN_JWT_SECRET=REPLACE_WITH_GENERATED_SECRET
 
 # ── Cloudflare R2 File Storage ────────────────────────────────────
 S3_REGION=auto
-S3_ENDPOINT=https://518046ac9f663ed7542381e0a5217123.r2.cloudflarestorage.com
+S3_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
 S3_BUCKET=fitforce-uploads
-S3_ACCESS_KEY=4261b0c9b2d85412e989606cacfcddf6
-S3_SECRET_KEY=75c0b072ec0c4275ca44e719398401b188385248b8e1aa148164a40e4823de1e
-S3_PUBLIC_URL=https://pub-e20e5151777b4a8cb598133a75ab85de.r2.dev
+S3_ACCESS_KEY=REPLACE_WITH_R2_ACCESS_KEY
+S3_SECRET_KEY=REPLACE_WITH_R2_SECRET_KEY
+S3_PUBLIC_URL=https://<your-r2-public-bucket-url>.r2.dev
 
 # ── Observability ─────────────────────────────────────────────────
-SENTRY_DSN=https://46dd7ccb635fc58983d408472123d32e@o4511345433968640.ingest.de.sentry.io/4511345440653392
+SENTRY_DSN=REPLACE_WITH_SENTRY_DSN
 LOG_LEVEL=info
 ```
+
+> ⚠️ Never commit real values here. Fill in `.env` on the server directly, not this doc.
 
 **Generate secrets right now:**
 
