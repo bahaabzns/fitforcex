@@ -41,9 +41,13 @@ step "Initializing schema (first deploy only)..."
 # On a brand-new empty database, restore the full schema from schema.sql before
 # running node-pg-migrate. On subsequent deploys the pgmigrations table exists and
 # this block is skipped entirely.
-TABLE_COUNT=$(psql "$DATABASE_URL" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "0")
+#
+# DATABASE_URL carries Prisma-only query params (connection_limit, pool_timeout)
+# that libpq's URI parser rejects outright, so strip the query string for psql.
+PSQL_URL="${DATABASE_URL%%\?*}"
+TABLE_COUNT=$(psql "$PSQL_URL" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'") || fail "Could not query database — check DATABASE_URL"
 if [ "$TABLE_COUNT" -eq "0" ]; then
-    psql "$DATABASE_URL" < "$APP_DIR/server/schema.sql" || fail "Schema init failed"
+    psql "$PSQL_URL" < "$APP_DIR/server/schema.sql" || fail "Schema init failed"
     ok "Schema initialized from schema.sql"
 else
     ok "Schema already exists — skipping init"
