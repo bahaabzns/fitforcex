@@ -14,14 +14,6 @@ fail() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 
 cd "$APP_DIR" || fail "Could not cd to $APP_DIR"
 
-# Load server env vars (DATABASE_URL etc.) so deploy steps can use them
-if [ -f "$APP_DIR/server/.env" ]; then
-    set -a
-    # shellcheck source=server/.env
-    source "$APP_DIR/server/.env"
-    set +a
-fi
-
 step "Pulling latest code..."
 git fetch origin
 git reset --hard origin/main
@@ -42,10 +34,16 @@ step "Initializing schema (first deploy only)..."
 # running node-pg-migrate. On subsequent deploys the pgmigrations table exists and
 # this block is skipped entirely.
 #
-# DATABASE_URL carries Prisma-only query params (connection_limit, pool_timeout)
-# that libpq's URI parser rejects outright. Use Node's URL parser (already on this
-# box) to drop just those params — a hand-rolled regex can't safely extract
-# user/password since it won't percent-decode them the way libpq does.
+# Load DATABASE_URL via Node's dotenv (not bash `source` — a raw connection string
+# has &, %, $ etc. that bash's shell-script parser mangles, e.g. truncating the
+# value at an unquoted `&` or expanding a `$` in the password as a variable).
+DATABASE_URL=$(node -e "require('dotenv').config({ path: '$APP_DIR/server/.env', quiet: true }); process.stdout.write(process.env.DATABASE_URL || '');")
+[ -n "$DATABASE_URL" ] || fail "DATABASE_URL not set in server/.env"
+
+# DATABASE_URL also carries Prisma-only query params (connection_limit, pool_timeout)
+# that libpq's URI parser rejects outright. Use Node's URL parser to drop just those
+# params — a hand-rolled regex can't safely extract user/password since it won't
+# percent-decode them the way libpq does.
 PSQL_URL=$(DATABASE_URL="$DATABASE_URL" node -e '
     const u = new URL(process.env.DATABASE_URL);
     ["connection_limit", "pool_timeout", "pgbouncer", "schema"].forEach((p) => u.searchParams.delete(p));
@@ -59,7 +57,6 @@ if [ "$TABLE_COUNT" -eq "0" ]; then
 else
     ok "Schema already exists — skipping init"
 fi
-unset PGPASSWORD
 
 step "Running migrations..."
 npm run migrate
