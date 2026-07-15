@@ -443,3 +443,12 @@ Format:
 **Why it matters:** A coach using the mobile app has no way to review a client's check-in/assessment answers, attachments included — they must switch to the web app.
 **Effort:** Large — a new mobile page/feature, not a small addition.
 **Priority:** Low (matches the existing product gap; not a regression introduced by this work)
+
+---
+
+## 2026-07-15 — Recurring class of bug: schema.prisma edited without a committed migration
+**Type:** Process gap (root cause behind three separate incidents: 043/044, 045, and 046)
+**What:** At least three times now, a column got added to `schema.prisma` and the app code started writing to it, without a `server/migrations/*.js` file ever being committed for it. Locally the bug is invisible because dev databases pick the column up via an out-of-band `prisma db push`/`db pull`; production only runs committed migrations (`npm run migrate`), so it 500s on the first write to the missing column. Migration 046 (`form_responses.metric_id`) is the latest instance — client-portal form submission was 500ing in production with `The column metric_id does not exist in the current database` until this migration shipped.
+**Why it matters:** This is silent until a real user hits the write path in production — nothing in CI or local dev catches it, because `schema.prisma` and the DB agree locally even when the migration history doesn't.
+**Effort:** Small — a CI/pre-deploy check that runs `prisma migrate diff --from-migrations server/migrations --to-schema-datamodel server/prisma/schema.prisma` (or applies all committed migrations to a scratch DB and diffs against `schema.prisma`) and fails the build on drift.
+**Priority:** High — cheap to add, and each incidence so far has meant a real production outage on a live write path before anyone noticed.
