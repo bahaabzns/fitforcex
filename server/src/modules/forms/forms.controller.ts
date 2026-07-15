@@ -839,7 +839,7 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
 
         // Batched, not per-row — see the identical note in getQueue above.
         const answerableIds = rows
-            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled')
+            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled' && row.status !== 'sent')
             .map((row) => row.id as string);
 
         const allResponses = answerableIds.length > 0
@@ -900,7 +900,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
         // but it exhausted the connection pool once historical data pushed the
         // queue past a few dozen rows (a production incident, not hypothetical).
         const answerableIds = rows
-            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled')
+            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled' && row.status !== 'sent')
             .map((row) => row.id as string);
 
         const allResponses = answerableIds.length > 0
@@ -923,7 +923,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
         }
 
         const queueItems = rows.map((row) => {
-            if (row.status === 'pending' || row.status === 'scheduled') {
+            if (row.status === 'pending' || row.status === 'scheduled' || row.status === 'sent') {
                 return {
                     id: row.id, clientId: row.client_id, clientCode: row.client_code,
                     clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email,
@@ -932,6 +932,9 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     formType: row.form_type || 'check-in',
                     postAction: normalizePostAction(row.post_action || row.form_post_action),
                     requestedAt: row.requested_at, scheduledAt: row.scheduled_at, submittedAt: null, actionTakenAt: null,
+                    // 'sent' means the scheduler dispatched it to the client but nothing has
+                    // come back yet — same "awaiting" bucket as pending, not a distinct status
+                    // the frontend needs to know about.
                     status: row.status === 'scheduled' ? 'scheduled' : 'awaiting',
                     assignedTo: row.assigned_to ?? null,
                     assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
