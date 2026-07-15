@@ -1,17 +1,23 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { useRouter, useParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { Users, ClipboardList, TrendingUp, AlertCircle } from 'lucide-react';
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
+import { Tabs } from "@heroui/react";
+import { DateRangePicker } from "@heroui/react/date-range-picker";
+import { RangeCalendar } from "@heroui/react/range-calendar";
+import { DateField } from "@heroui/react/date-field";
+import AreaChart from "@/app/components/charts/AreaChart";
 import WelcomeOnboarding from "@/app/components/WelcomeOnboarding";
+import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -24,11 +30,14 @@ const STATUS_CHIP = {
 
 export default function DashboardPage() {
     const { formatDate } = useDateFormatter();
+    const locale = useLocale();
     const [data, setData] = useState(null);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     const t = useTranslations('dashboard');
     const [showWelcome, setShowWelcome] = useState(false);
+    const [dateRange, setDateRange] = useState(rangeForDays(90));
+    const [activePreset, setActivePreset] = useState("90d");
 
     useEffect(() => {
         api.get('/api/dashboard')
@@ -52,6 +61,29 @@ export default function DashboardPage() {
             .then(res => { if (res.data.status !== 'ready') setShowWelcome(true); })
             .catch(() => {});
     }, [workspaceSlug]);
+
+    const startDate = useMemo(() => dateRange ? toStartOfDay(dateRange.start) : null, [dateRange]);
+    const endDate   = useMemo(() => dateRange ? toEndOfDay(dateRange.end) : null, [dateRange]);
+
+    function applyPreset(preset) {
+        setActivePreset(preset.label);
+        setDateRange(preset.days === null ? null : rangeForDays(preset.days));
+    }
+
+    function handlePickerChange(range) {
+        setDateRange(range);
+        setActivePreset(null);
+    }
+
+    const filteredGrowth = useMemo(
+        () => filterByRange(data?.clientGrowth ?? [], startDate, endDate),
+        [data, startDate, endDate]
+    );
+    const growthChartData = useMemo(() => filteredGrowth.map(h => ({
+        label: new Date(h.date).toLocaleDateString(locale, { day: "numeric", month: "short" }),
+        value: h.value,
+    })), [filteredGrowth, locale]);
+    const growthInfo = deltaInfo(filteredGrowth);
 
     if (!data) {
         return (
@@ -112,6 +144,85 @@ export default function DashboardPage() {
                     </Card>
                 ))}
             </div>
+
+            {/* Metrics */}
+            <section className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-foreground">{t('metrics')}</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <DateRangePicker value={dateRange} onChange={handlePickerChange}>
+                            <DateField.Group>
+                                <DateField.Input slot="start">
+                                    {(segment) => <DateField.Segment segment={segment} />}
+                                </DateField.Input>
+                                <DateRangePicker.RangeSeparator />
+                                <DateField.Input slot="end">
+                                    {(segment) => <DateField.Segment segment={segment} />}
+                                </DateField.Input>
+                                <DateField.Suffix>
+                                    <DateRangePicker.Trigger>
+                                        <DateRangePicker.TriggerIndicator />
+                                    </DateRangePicker.Trigger>
+                                </DateField.Suffix>
+                            </DateField.Group>
+                            <DateRangePicker.Popover>
+                                <RangeCalendar aria-label="Date range">
+                                    <RangeCalendar.Header>
+                                        <RangeCalendar.YearPickerTrigger>
+                                            <RangeCalendar.YearPickerTriggerHeading />
+                                            <RangeCalendar.YearPickerTriggerIndicator />
+                                        </RangeCalendar.YearPickerTrigger>
+                                        <RangeCalendar.NavButton slot="previous" />
+                                        <RangeCalendar.NavButton slot="next" />
+                                    </RangeCalendar.Header>
+                                    <RangeCalendar.Grid>
+                                        <RangeCalendar.GridHeader>
+                                            {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                                        </RangeCalendar.GridHeader>
+                                        <RangeCalendar.GridBody>
+                                            {(date) => <RangeCalendar.Cell date={date} />}
+                                        </RangeCalendar.GridBody>
+                                    </RangeCalendar.Grid>
+                                    <RangeCalendar.YearPickerGrid>
+                                        <RangeCalendar.YearPickerGridBody>
+                                            {({ year }) => <RangeCalendar.YearPickerCell year={year} />}
+                                        </RangeCalendar.YearPickerGridBody>
+                                    </RangeCalendar.YearPickerGrid>
+                                </RangeCalendar>
+                            </DateRangePicker.Popover>
+                        </DateRangePicker>
+                        <Tabs
+                            selectedKey={activePreset}
+                            onSelectionChange={(key) => applyPreset(PRESETS.find(p => p.label === key))}
+                        >
+                            <Tabs.ListContainer>
+                                <Tabs.List
+                                    aria-label="Timeframe"
+                                    className="w-fit *:h-6 *:w-fit *:px-3 *:text-sm *:font-normal *:data-[selected=true]:text-accent-foreground"
+                                >
+                                    {PRESETS.map(p => (
+                                        <Tabs.Tab key={p.label} id={p.label}>
+                                            {p.label}
+                                            <Tabs.Indicator className="bg-accent" />
+                                        </Tabs.Tab>
+                                    ))}
+                                </Tabs.List>
+                            </Tabs.ListContainer>
+                        </Tabs>
+                    </div>
+                </div>
+                <AreaChart
+                    data={growthChartData}
+                    height={220}
+                    formatValue={v => Math.round(v).toString()}
+                    label={t('clientGrowth')}
+                    title={t('clientGrowth')}
+                    currentValue={filteredGrowth.length > 0 ? filteredGrowth[filteredGrowth.length - 1].value : null}
+                    startValue={filteredGrowth.length > 1 ? filteredGrowth[0].value : null}
+                    readingsCount={filteredGrowth.length}
+                    delta={growthInfo?.delta ?? null}
+                />
+            </section>
 
             {/* Recent clients */}
             <div>

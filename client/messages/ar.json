@@ -82,7 +82,9 @@
     "recentClients": "العملاء الأخيرون",
     "viewAll": "عرض الكل",
     "noClients": "لا يوجد عملاء بعد",
-    "addFirstClient": "أضف أول عميل لك"
+    "addFirstClient": "أضف أول عميل لك",
+    "metrics": "المقاييس",
+    "clientGrowth": "نمو العملاء"
   },
   "clients": {
     "addClient": "إضافة عميل",

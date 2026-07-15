@@ -10,46 +10,7 @@ import { RangeCalendar } from "@heroui/react/range-calendar";
 import { DateField } from "@heroui/react/date-field";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tabs } from "@heroui/react";
-import { today, getLocalTimeZone } from "@internationalized/date";
-
-const tz = getLocalTimeZone();
-
-function toStartOfDay(calDate) {
-    return calDate.toDate(tz);
-}
-
-function toEndOfDay(calDate) {
-    const d = calDate.toDate(tz);
-    d.setHours(23, 59, 59, 999);
-    return d;
-}
-
-function filterByRange(history, startDate, endDate) {
-    return history.filter(h => {
-        const t = new Date(h.date).getTime();
-        if (startDate && t < startDate.getTime()) return false;
-        if (endDate && t > endDate.getTime()) return false;
-        return true;
-    });
-}
-
-function rangeForDays(days) {
-    const end = today(tz);
-    return { start: end.subtract({ days }), end };
-}
-
-const PRESETS = [
-    { label: "30d", days: 30 },
-    { label: "90d", days: 90 },
-    { label: "6m",  days: 180 },
-    { label: "All", days: null },
-];
-
-function deltaInfo(history) {
-    const nums = history.map(h => parseFloat(h.value)).filter(v => !isNaN(v));
-    if (nums.length < 2) return null;
-    return { delta: nums[nums.length - 1] - nums[0] };
-}
+import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 
 function MetricChart({ metric, locale, startDate, endDate }) {
     const filtered  = useMemo(() => filterByRange(metric.history, startDate, endDate), [metric.history, startDate, endDate]);

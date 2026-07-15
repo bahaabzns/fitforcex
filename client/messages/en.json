@@ -82,7 +82,9 @@
     "recentClients": "Recent Clients",
     "viewAll": "View all",
     "noClients": "No clients yet",
-    "addFirstClient": "Add your first client"
+    "addFirstClient": "Add your first client",
+    "metrics": "Metrics",
+    "clientGrowth": "Client Growth"
   },
   "clients": {
     "addClient": "Add Client",

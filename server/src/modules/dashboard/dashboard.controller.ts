@@ -5,7 +5,7 @@ export async function getDashboard(req: Request, res: Response, next: NextFuncti
     const wsId = req.user!.workspaceId;
     const userId = req.user!.userId;
     try {
-        const [user, totalClients, activeClients, expiredClients, pendingForms, recentClients] = await Promise.all([
+        const [user, totalClients, activeClients, expiredClients, pendingForms, recentClients, clientDates] = await Promise.all([
             prisma.users.findUnique({
                 where: { id: userId },
                 select: { fname: true, lname: true, email: true },
@@ -20,7 +20,20 @@ export async function getDashboard(req: Request, res: Response, next: NextFuncti
                 orderBy: { created_at: 'desc' },
                 take: 5,
             }),
+            prisma.clients.findMany({
+                where: { workspace_id: wsId, created_at: { not: null } },
+                select: { created_at: true },
+                orderBy: { created_at: 'asc' },
+            }),
         ]);
+
+        // Running total of clients signed up, one point per signup — mirrors the
+        // {date, value} reading shape the AreaChart component already expects.
+        let runningTotal = 0;
+        const clientGrowth = clientDates.map(({ created_at }) => ({
+            date: created_at,
+            value: ++runningTotal,
+        }));
 
         res.json({
             fname: user?.fname,
@@ -28,6 +41,7 @@ export async function getDashboard(req: Request, res: Response, next: NextFuncti
             email: user?.email,
             stats: { totalClients, activeClients, expiredClients, pendingForms },
             recentClients,
+            clientGrowth,
         });
     } catch (err) {
         next(err);
