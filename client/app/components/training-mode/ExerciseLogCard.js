@@ -48,6 +48,7 @@ export default function ExerciseLogCard({ exercise, previous, onChangeSet, onTog
                 thumbnailPath={exercise.thumbnail_path}
                 name={exercise.name}
                 watchLabel={t("watchVideo")}
+                watchOnYoutubeLabel={t("watchOnYoutube")}
             />
 
             {/* Header */}
