@@ -837,23 +837,34 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
             ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC
         `;
 
-        const requests = await Promise.all(rows.map(async (row) => {
-            if (row.status === 'pending' || row.status === 'scheduled') {
-                return { ...row, post_action: row.post_action || row.form_post_action || 'nothing', responses: [] };
-            }
-            const responses = await prisma.form_responses.findMany({
-                where:   { request_id: row.id as string },
-                select:  { answer: true, question_id: true },
-            });
-            // Forms Versioning Phase 3 — join against form_version_questions,
-            // the immutable snapshot each response actually belongs to, so a
-            // historical answer always renders under the label/type it was
-            // originally asked with, regardless of later form edits.
-            return {
-                ...row,
-                post_action: row.post_action || row.form_post_action || 'nothing',
-                responses: await enrichResponsesWithQuestionInfo(responses),
-            };
+        // Batched, not per-row — see the identical note in getQueue above.
+        const answerableIds = rows
+            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled')
+            .map((row) => row.id as string);
+
+        const allResponses = answerableIds.length > 0
+            ? await prisma.form_responses.findMany({
+                where:  { request_id: { in: answerableIds } },
+                select: { request_id: true, answer: true, question_id: true },
+            })
+            : [];
+        // Forms Versioning Phase 3 — join against form_version_questions,
+        // the immutable snapshot each response actually belongs to, so a
+        // historical answer always renders under the label/type it was
+        // originally asked with, regardless of later form edits.
+        const enrichedResponses = await enrichResponsesWithQuestionInfo(allResponses);
+
+        const responsesByRequestId = new Map<string, typeof enrichedResponses>();
+        for (const r of enrichedResponses) {
+            const list = responsesByRequestId.get(r.request_id as string) ?? [];
+            list.push(r);
+            responsesByRequestId.set(r.request_id as string, list);
+        }
+
+        const requests = rows.map((row) => ({
+            ...row,
+            post_action: row.post_action || row.form_post_action || 'nothing',
+            responses: responsesByRequestId.get(row.id as string) ?? [],
         }));
 
         res.json(requests);
@@ -883,7 +894,35 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
             ORDER BY fr.requested_at DESC
         `;
 
-        const queueItems = await Promise.all(rows.map(async (row) => {
+        // Batched, not per-row: firing one findMany() per queue row (the old
+        // approach) meant a workspace with N submitted/reviewed requests opened
+        // N+ concurrent Prisma queries on every page load — fine at small scale,
+        // but it exhausted the connection pool once historical data pushed the
+        // queue past a few dozen rows (a production incident, not hypothetical).
+        const answerableIds = rows
+            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled')
+            .map((row) => row.id as string);
+
+        const allResponses = answerableIds.length > 0
+            ? await prisma.form_responses.findMany({
+                where:  { request_id: { in: answerableIds } },
+                select: { request_id: true, question_id: true, answer: true },
+            })
+            : [];
+        // Forms Versioning Phase 3 — join against form_version_questions, the
+        // immutable snapshot each response actually belongs to, so a historical
+        // answer always renders under the label/type it was originally asked with,
+        // regardless of later form edits.
+        const enrichedResponses = await enrichResponsesWithQuestionInfo(allResponses);
+
+        const responsesByRequestId = new Map<string, typeof enrichedResponses>();
+        for (const r of enrichedResponses) {
+            const list = responsesByRequestId.get(r.request_id as string) ?? [];
+            list.push(r);
+            responsesByRequestId.set(r.request_id as string, list);
+        }
+
+        const queueItems = rows.map((row) => {
             if (row.status === 'pending' || row.status === 'scheduled') {
                 return {
                     id: row.id, clientId: row.client_id, clientCode: row.client_code,
@@ -900,16 +939,9 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 };
             }
 
-            const responses = await prisma.form_responses.findMany({
-                where:  { request_id: row.id as string },
-                select: { question_id: true, answer: true },
-            });
-            // Forms Versioning Phase 3 — see the identical note in
-            // getRequestsByClient above.
-            const enrichedResponses = await enrichResponsesWithQuestionInfo(responses);
-
+            const requestResponses = responsesByRequestId.get(row.id as string) ?? [];
             const answers: Record<string, unknown> = {};
-            for (const r of responses) { if (r.question_id) answers[r.question_id] = r.answer; }
+            for (const r of requestResponses) { if (r.question_id) answers[r.question_id] = r.answer; }
 
             return {
                 id: row.id, clientId: row.client_id, clientCode: row.client_code,
@@ -924,9 +956,9 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 assignedTo: row.assigned_to ?? null,
                 assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
                 answers,
-                responses: enrichedResponses,
+                responses: requestResponses,
             };
-        }));
+        });
 
         res.json(queueItems);
     } catch (err) {

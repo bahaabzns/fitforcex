@@ -325,7 +325,12 @@ Paste and fill in every value:
 
 ```env
 # ── Database ──────────────────────────────────────────────────────
-DATABASE_URL=postgresql://fitforce_user:REPLACE_WITH_DB_PASSWORD@localhost:5432/fitforce_db
+# connection_limit/pool_timeout are explicit — Prisma's auto default
+# (num_cpus * 2 + 1) can come out as low as 3 on a constrained VPS, which
+# times out ("Timed out fetching a new connection from the connection pool")
+# under any real concurrent traffic. Keep connection_limit comfortably below
+# Postgres's max_connections (check with `SHOW max_connections;`).
+DATABASE_URL=postgresql://fitforce_user:REPLACE_WITH_DB_PASSWORD@localhost:5432/fitforce_db?connection_limit=15&pool_timeout=20
 
 # ── Server ────────────────────────────────────────────────────────
 PORT=4000
@@ -993,6 +998,20 @@ ss -tlnp | grep 3000
 
 # Restart if needed
 pm2 restart all
+```
+
+### "Timed out fetching a new connection from the connection pool" (Prisma)
+
+This is a client-side Prisma pool exhaustion, not Postgres refusing connections — it means Prisma's own `connection_limit` (check the error message) is too small for current concurrent traffic, usually because `DATABASE_URL` never set `connection_limit` explicitly and Prisma's auto default (`num_cpus * 2 + 1`) came out low on this VPS.
+
+```bash
+# Check current setting and Postgres's ceiling
+grep DATABASE_URL /home/fitforce/app/server/.env
+sudo -u postgres psql -c "SHOW max_connections;"
+
+# Add ?connection_limit=15&pool_timeout=20 to DATABASE_URL in .env
+# (keep it comfortably below max_connections), then:
+pm2 restart fitforce-api
 ```
 
 ### Database Connection Error on Startup

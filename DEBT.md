@@ -357,6 +357,7 @@ Format:
 **Why it matters:** All new feature code in `src/` (auth refactor, session validation, RBAC, schedulers, Prisma controllers) is unreachable on staging and production. The old JavaScript server continues to serve all requests.
 **Effort:** Small (add `npm install --include=dev && npm run build && npm prune --omit=dev` to deploy.sh; update PM2 ecosystem to point at `dist/server.js`)
 **Priority:** High
+✅ RESOLVED (confirmed 2026-07-15) — `deploy.sh` now builds the server (`npm run build`) before restarting PM2, and `pm2 describe fitforce-api` on the VPS confirms `script path: /home/fitforce/app/server/dist/server.js`. The compiled TypeScript server is what's actually live. Not clear exactly when this was fixed; left unmarked until verified during this session's Pre-Deploy check.
 
 ---
 
@@ -424,6 +425,15 @@ Format:
 **Why it matters:** A coach who tracks the wrong question as a metric can't cleanly undo it from the UI. Low risk in practice — the preview-count confirmation step is the safety gate before tracking — but worth closing before "Track as Metric" sees heavy use.
 **Effort:** Medium — one new `untrackMetric` endpoint (clear `metric_id`, decide whether to leave backfilled `form_responses.metric_id` in place or revert it) + a small `GET /metrics/:id/questions` endpoint + a metrics-management UI section.
 **Priority:** Low
+
+---
+
+## 2026-07-15 — client/lib/coachSlug.js (buildPortalUrlFromParts)
+**Type:** Knowledge — failing test, pre-existing, not caused by any change in this session
+**What:** `buildPortalUrlFromParts` returns `https://pola.fitforce.io` but its test (`lib/coachSlug.test.js`) expects `https://pola.fitforce.io/portal`. Either the function is missing a `/portal` suffix it should produce, or the test's expectation is stale from a routing change. Last touched by commit `75032ac` (fitforce.app domain parity work), predates this session's secret-rotation/Pre-Deploy work.
+**Why it matters:** `npm test` in `client/` fails (2/25 tests), blocking a clean "tests green" gate on every deploy until resolved. Unclear whether portal links built by `buildPortalUrl`/`buildPortalUrlFromParts` are missing a required `/portal` path segment in production — worth confirming this isn't a live link-building bug, not just a stale test.
+**Effort:** S
+**Priority:** M — not blocking this deploy (unrelated to what's shipping), but should be resolved soon since it currently masks the Pre-Deploy tests-green gate.
 
 ---
 
