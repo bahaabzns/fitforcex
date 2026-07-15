@@ -313,7 +313,16 @@ export async function createTransaction(req: Request, res: Response, next: NextF
                 freezeRows as unknown as Parameters<typeof computeSubscriptionStatus>[1],
                 planActivation
             );
-            if (currentStatus === 'Active') startMode = 'queued';
+            if (currentStatus === 'Active') {
+                startMode = 'queued';
+            } else if (currentStatus === 'Expired') {
+                // A renewal recorded after the previous period already ended must start
+                // from this payment's own date, not silently chain onto wherever the old
+                // (already-lapsed) period left off — otherwise the new period gets
+                // backdated into a gap where the client had no real access at all.
+                startMode = 'custom';
+                finalSubStartDate = date ? new Date(date) : new Date();
+            }
         }
 
         const newData = {
