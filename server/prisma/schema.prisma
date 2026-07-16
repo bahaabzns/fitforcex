@@ -1091,6 +1091,7 @@ model workspaces {
   clone_status                                 String                         @default("ready")
   clone_error                                  String?
   client_deletion_strategy                     String                         @default("anonymize")
+  renewal_link                                 String?
   client_observations                          client_observations[]
   clients                                      clients[]
   exercise_equipments                          exercise_equipments[]

@@ -74,7 +74,7 @@ type WsDetailRow = Record<string, unknown>;
 export async function getWorkspace(req: Request, res: Response, next: NextFunction) {
     try {
         const rows = await prisma.$queryRaw<WsDetailRow[]>`
-            SELECT w.id, w.slug, w.name, w.owner_id, w.slug_customized, w.created_at,
+            SELECT w.id, w.slug, w.name, w.owner_id, w.slug_customized, w.created_at, w.renewal_link,
                    p.name AS plan_name, p.display_name AS plan_display_name,
                    p.max_team_seats, p.max_workspaces,
                    u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
@@ -110,6 +110,26 @@ export async function renameWorkspace(req: Request, res: Response, next: NextFun
                 actor_user_id: req.user!.userId, action: 'workspace_renamed',
                 target_type: 'workspace', target_id: req.user!.workspaceId,
             },
+        });
+
+        res.json(updated);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateRenewalLink(req: Request, res: Response, next: NextFunction) {
+    const { renewalLink } = req.body as { renewalLink?: string | null };
+    const trimmed = renewalLink?.trim() || null;
+    if (trimmed && !/^https?:\/\/.+/i.test(trimmed)) {
+        return res.status(400).json({ message: 'Renewal link must be a valid http(s) URL' });
+    }
+
+    try {
+        const updated = await prisma.workspaces.update({
+            where:  { id: req.user!.workspaceId },
+            data:   { renewal_link: trimmed },
+            select: { id: true, renewal_link: true },
         });
 
         res.json(updated);

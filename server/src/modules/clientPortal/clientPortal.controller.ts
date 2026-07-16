@@ -278,18 +278,23 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
     try {
         const client = await prisma.clients.findFirst({
             where:  { id: req.client!.clientId },
-            select: { id: true, fname: true, lname: true, email: true, phone: true, client_code: true, workspace_id: true },
+            select: {
+                id: true, fname: true, lname: true, email: true, phone: true, client_code: true, workspace_id: true,
+                workspaces: { select: { renewal_link: true } },
+            },
         });
         if (!client) return res.status(404).json({ message: 'Client not found' });
 
         // Effective subscription access is computed once by loadClientAccess; surface
         // it here so the portal can gate UI without an extra round trip.
         const effective = req.clientAccess;
+        const { workspaces, ...clientFields } = client;
         res.json({
-            ...client,
+            ...clientFields,
             status:      effective?.status ?? null,
             withinGrace: effective?.withinGrace ?? false,
             access:      effective?.access ?? null,
+            renewalLink: workspaces?.renewal_link ?? null,
         });
     } catch (err) {
         next(err);

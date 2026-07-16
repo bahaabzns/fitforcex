@@ -10,7 +10,7 @@ const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/po
 
 // Renders inside the provider so it can read the loaded access state.
 function PortalShell({ children }) {
-    const { loading, access, status } = useClientPortal();
+    const { loading, access, status, me } = useClientPortal();
 
     if (loading) {
         return (
@@ -24,7 +24,10 @@ function PortalShell({ children }) {
     if (access && access.keep_portal_access === false) {
         return (
             <div className="min-h-screen bg-background text-foreground">
-                <ClientPortalStatusCard variant={status === "Frozen" ? "frozen" : "expired"} />
+                <ClientPortalStatusCard
+                    variant={status === "Frozen" ? "frozen" : "expired"}
+                    renewalLink={me?.renewalLink ?? null}
+                />
             </div>
         );
     }

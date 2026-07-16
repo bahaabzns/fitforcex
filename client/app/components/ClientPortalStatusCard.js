@@ -1,22 +1,31 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Lock, PauseCircle } from "lucide-react";
+import { Lock, LogOut, PauseCircle } from "lucide-react";
 import { Button } from "@heroui/react/button";
+import api from "@/lib/axios";
 
 /**
  * Full-screen subscription status card shown when a client's portal access is
- * restricted. `variant` is "expired" or "frozen". `onContact` / renew handler
- * is optional; falls back to the messages page for "Contact Coach".
+ * restricted. `variant` is "expired" or "frozen". `renewalLink` is the coach's
+ * configured URL (Settings → Workspace → Client Portal) that the "expired" CTA
+ * opens; the button stays disabled if the coach hasn't set one yet.
  */
-export default function ClientPortalStatusCard({ variant = "expired", compact = false }) {
+export default function ClientPortalStatusCard({ variant = "expired", renewalLink = null, compact = false }) {
     const t = useTranslations("portal.status");
+    const router = useRouter();
     const isFrozen = variant === "frozen";
 
     const Icon = isFrozen ? PauseCircle : Lock;
     const title = isFrozen ? t("frozenTitle") : t("expiredTitle");
     const body = isFrozen ? t("frozenBody") : t("expiredBody");
     const cta = isFrozen ? t("frozenCta") : t("expiredCta");
+
+    async function handleLogout() {
+        await api.post("/api/client-portal/logout").catch(() => {});
+        router.push("/portal");
+    }
 
     const card = (
         <div className="w-full max-w-md rounded-2xl border border-border bg-background p-8 flex flex-col items-center text-center gap-4">
@@ -28,9 +37,17 @@ export default function ClientPortalStatusCard({ variant = "expired", compact = 
             <Button
                 variant="primary"
                 className="mt-2 w-full"
-                onClick={() => { if (isFrozen) window.location.href = "/portal/messages"; }}
+                isDisabled={!isFrozen && !renewalLink}
+                onClick={() => {
+                    if (isFrozen) window.location.href = "/portal/messages";
+                    else if (renewalLink) window.open(renewalLink, "_blank", "noopener,noreferrer");
+                }}
             >
                 {cta}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={handleLogout}>
+                <LogOut size={16} className="shrink-0" />
+                {t("logout")}
             </Button>
         </div>
     );

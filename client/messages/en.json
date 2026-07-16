@@ -1126,6 +1126,10 @@
     "slugUpdateSuccess": "Slug updated. Share the new portal URL with your clients.",
     "slugUpdateFailed": "Failed to update slug.",
     "slugCustomized": "Your portal slug has been customized and cannot be changed again.",
+    "renewalLinkLabel": "Renewal Link",
+    "renewalLinkHint": "Where the \"Renew Subscription\" button sends clients whose subscription has expired — a payment link, booking page, or WhatsApp chat.",
+    "renewalLinkSaveSuccess": "Renewal link saved.",
+    "renewalLinkSaveFailed": "Failed to save renewal link.",
     "dangerZone": "Danger Zone",
     "transferTitle": "Transfer Ownership",
     "transferDesc": "Transfer this workspace to another active member. You will become a Manager.",
@@ -1704,7 +1708,8 @@
       "restrictedTitle": "Not available",
       "restrictedBody": "This section isn't available on your current subscription.",
       "bannerExpired": "Your subscription has expired — some features are limited.",
-      "bannerFrozen": "Your subscription is paused — some features are limited."
+      "bannerFrozen": "Your subscription is paused — some features are limited.",
+      "logout": "Log Out"
     }
   },
   "error": {
