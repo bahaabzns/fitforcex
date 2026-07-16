@@ -96,6 +96,7 @@ async function main() {
       // plans would lose if reconciled against .io's current live day set.
       const safePlanIds = affected.filter(p => liveOldPlanIds.has(p.plan_id)).map(p => p.plan_id);
       let staleDayCount = 0;
+      const staleDayIds: string[] = [];
       for (const planId of safePlanIds) {
         const { rows: liveDays } = await old.query<{ id: string }>(`
           SELECT id FROM public."WorkoutPlanDay" WHERE "planId" = $1 AND "deletedAt" IS NULL
@@ -106,9 +107,18 @@ async function main() {
           SELECT id FROM training_days WHERE plan_id = $1
         `, [planId]);
 
-        staleDayCount += prodDays.filter(d => !liveDayIds.has(d.id)).length;
+        const stale = prodDays.filter(d => !liveDayIds.has(d.id)).map(d => d.id);
+        staleDayCount += stale.length;
+        staleDayIds.push(...stale);
       }
       log(`stale training_days rows in "safe" plans (would be deleted on reconciliation): ${staleDayCount}`);
+
+      if (staleDayIds.length > 0) {
+        const { rows: loggedAgainstStale } = await db.query<{ count: string }>(`
+          SELECT COUNT(*) AS count FROM workout_logs WHERE day_id = ANY($1::text[])
+        `, [staleDayIds]);
+        log(`workout_logs referencing a stale day (would have day_id set to NULL, log itself untouched): ${loggedAgainstStale[0].count}`);
+      }
     }
   } catch (err) {
     console.error('[analyze-duplicate-training-days] FAILED:', err);
