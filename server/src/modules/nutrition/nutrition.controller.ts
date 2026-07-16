@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
-import { PoolClient } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import {
     toIsoDateOrNull,
     serializePlanRow,
@@ -20,6 +20,41 @@ import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
 
 type Row = Record<string, unknown>;
+type DbHandle = Pool | PoolClient;
+
+// Every plan-content mutation below stamps who touched it and when, via one
+// of these, instead of a bare `updated_at = NOW()` — so the plan card's
+// "edited X ago · by <name>" stays accurate no matter which specific action
+// (reorder, delete an item, duplicate a cycle, ...) a coach used.
+async function touchPlan(db: DbHandle, planId: string, userId: string): Promise<void> {
+    await db.query('UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = $1', [planId, userId]);
+}
+
+async function touchPlanByCycle(db: DbHandle, cycleId: string, userId: string): Promise<void> {
+    await db.query(
+        'UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
+        [cycleId, userId]
+    );
+}
+
+async function touchPlanByMeal(db: DbHandle, mealId: string, userId: string): Promise<void> {
+    await db.query(
+        `UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = (
+            SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1
+        )`, [mealId, userId]
+    );
+}
+
+async function touchPlanByMealItem(db: DbHandle, mealItemId: string, userId: string): Promise<void> {
+    await db.query(
+        `UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = (
+            SELECT nc.plan_id FROM nutrition_meal_items nmi
+            JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+            JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+            WHERE nmi.id = $1
+        )`, [mealItemId, userId]
+    );
+}
 
 // ── Food Items ────────────────────────────────────────────────────────────────
 
@@ -179,8 +214,10 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
 export async function getPlans(req: Request, res: Response, next: NextFunction) {
     try {
         const result = await pool.query(
-            `SELECT np.*, (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
+            `SELECT np.*, (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count,
+                    TRIM(CONCAT(u.fname, ' ', u.lname)) AS last_edited_by_name
              FROM nutrition_plans np
+             LEFT JOIN users u ON u.id = np.last_edited_by
              WHERE np.workspace_id = $1 AND np.client_id = $2
              ORDER BY np.created_at DESC`,
             [req.user!.workspaceId, req.query.clientId as string]
@@ -192,7 +229,10 @@ export async function getPlans(req: Request, res: Response, next: NextFunction) 
 export async function getPlan(req: Request, res: Response, next: NextFunction) {
     try {
         const planResult = await pool.query(
-            'SELECT * FROM nutrition_plans WHERE id = $1 AND workspace_id = $2',
+            `SELECT np.*, TRIM(CONCAT(u.fname, ' ', u.lname)) AS last_edited_by_name
+             FROM nutrition_plans np
+             LEFT JOIN users u ON u.id = np.last_edited_by
+             WHERE np.id = $1 AND np.workspace_id = $2`,
             [req.params.id, req.user!.workspaceId]
         );
         if (!planResult.rows.length) return res.status(404).json({ error: 'Nutrition plan not found' });
@@ -260,8 +300,8 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
     const { name, client_id } = req.body as { name?: string; client_id?: string };
     try {
         const planResult = await pool.query(
-            'INSERT INTO nutrition_plans (name, client_id, workspace_id, id) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, client_id, req.user!.workspaceId, createId()]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, id, created_by, last_edited_by) VALUES ($1, $2, $3, $4, $5, $5) RETURNING *',
+            [name, client_id, req.user!.workspaceId, createId(), req.user!.userId]
         );
         await pool.query(
             'INSERT INTO nutrition_cycles (plan_id, name, id) VALUES ($1, $2, $3) RETURNING *',
@@ -330,8 +370,8 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                     const priorDates = existingPlanDates.get(plan.id as string);
 
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at, last_edited_by)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
                         [
                             (plan.name as string) || `Plan ${pIndex + 1}`,
                             clientId, req.user!.workspaceId,
@@ -343,6 +383,7 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                             priorDates?.cycle_days ?? null,
                             priorDates?.cycle_end_at ?? null,
                             priorDates?.review_notified_at ?? null,
+                            req.user!.userId,
                         ]
                     );
 
@@ -481,14 +522,15 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }: { dbClient: PoolClient; plan: Row; clientId: string; coachId: string; createdAt: string; updatedAt: string }) => {
                 const createdBy    = existingCreatedBy ?? req.user!.userId;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at, last_edited_by)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
                     [
                         (incomingPlan.name as string) || 'Untitled Plan',
                         cId, coachId,
                         incomingPlan.status === 'active' ? 'active' : 'inactive',
                         createdAt, updatedAt, createdBy, createId(),
                         existingActivatedAt, existingCycleDays, existingCycleEndAt, existingReviewNotifiedAt,
+                        req.user!.userId,
                     ]
                 );
 
@@ -633,8 +675,8 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
     const { name, status } = req.body as { name?: string; status?: string };
     try {
         const result = await pool.query(
-            'UPDATE nutrition_plans SET name = $1, status = $2, updated_at = NOW() WHERE id = $3 AND workspace_id = $4 RETURNING *',
-            [name, status, req.params.id, req.user!.workspaceId]
+            'UPDATE nutrition_plans SET name = $1, status = $2, updated_at = NOW(), last_edited_by = $5 WHERE id = $3 AND workspace_id = $4 RETURNING *',
+            [name, status, req.params.id, req.user!.workspaceId, req.user!.userId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Plan not found or you do not have permission to update it' });
         res.json(result.rows[0]);
@@ -781,8 +823,8 @@ export async function duplicatePlan(req: Request, res: Response, next: NextFunct
         const plan = originalPlan.rows[0] as Row;
 
         const newPlan = await dbClient.query(
-            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [`Copy of ${plan.name}`, plan.client_id, req.user!.workspaceId, plan.status, createId()]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status, id, created_by, last_edited_by) VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING *',
+            [`Copy of ${plan.name}`, plan.client_id, req.user!.workspaceId, plan.status, createId(), req.user!.userId]
         );
         const newPlanId = (newPlan.rows[0] as Row).id as string;
 
@@ -898,7 +940,7 @@ export async function duplicateCycle(req: Request, res: Response, next: NextFunc
             }
         }
 
-        await dbClient.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [cycle.plan_id]);
+        await touchPlan(dbClient, cycle.plan_id as string, req.user!.userId);
         await dbClient.query('COMMIT');
 
         const fullMeals = await pool.query(
@@ -951,7 +993,7 @@ export async function createCycle(req: Request, res: Response, next: NextFunctio
             'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
             [planId, name, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
-        await pool.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [planId]);
+        await touchPlan(pool, planId as string, req.user!.userId);
         res.status(201).json(cycleResult.rows[0]);
     } catch (err) { next(err); }
 }
@@ -968,7 +1010,7 @@ export async function updateCycle(req: Request, res: Response, next: NextFunctio
             [name, req.params.id, note ?? null, goal_calories ?? null, goal_protein ?? null, goal_carbs ?? null, goal_fats ?? null]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Cycle not found' });
-        await pool.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [(result.rows[0] as Row).plan_id]);
+        await touchPlan(pool, (result.rows[0] as Row).plan_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -977,7 +1019,7 @@ export async function deleteCycle(req: Request, res: Response, next: NextFunctio
     try {
         const result = await pool.query('DELETE FROM nutrition_cycles WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Cycle not found' });
-        await pool.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [(result.rows[0] as Row).plan_id]);
+        await touchPlan(pool, (result.rows[0] as Row).plan_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1024,10 +1066,7 @@ export async function duplicateMeal(req: Request, res: Response, next: NextFunct
             }
         }
 
-        await dbClient.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
-            [meal.cycle_id]
-        );
+        await touchPlanByCycle(dbClient, meal.cycle_id as string, req.user!.userId);
         await dbClient.query('COMMIT');
 
         const itemsRes = await pool.query(
@@ -1072,9 +1111,7 @@ export async function createMeal(req: Request, res: Response, next: NextFunction
             'INSERT INTO nutrition_meals (cycle_id, name, meal_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
             [cycleId, name, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)', [cycleId]
-        );
+        await touchPlanByCycle(pool, cycleId as string, req.user!.userId);
         res.status(201).json(mealResult.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1087,10 +1124,7 @@ export async function updateMeal(req: Request, res: Response, next: NextFunction
             [name, req.params.id, note ?? null]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Meal not found' });
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
-            [(result.rows[0] as Row).cycle_id]
-        );
+        await touchPlanByCycle(pool, (result.rows[0] as Row).cycle_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1099,10 +1133,7 @@ export async function deleteMeal(req: Request, res: Response, next: NextFunction
     try {
         const result = await pool.query('DELETE FROM nutrition_meals WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Meal not found' });
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
-            [(result.rows[0] as Row).cycle_id]
-        );
+        await touchPlanByCycle(pool, (result.rows[0] as Row).cycle_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1119,10 +1150,7 @@ export async function createMealItem(req: Request, res: Response, next: NextFunc
             'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
             [mealId, foodItemId, amount, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
-            [mealId]
-        );
+        await touchPlanByMeal(pool, mealId as string, req.user!.userId);
         const itemDetailsResult = await pool.query(
             `SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order,
                     fi.serving_unit, fi.name_en AS name, fi.name_ar, fi.calories_per_serving,
@@ -1145,14 +1173,7 @@ export async function reorderMealItems(req: Request, res: Response, next: NextFu
             )
         );
         if (items && items.length > 0) {
-            await pool.query(
-                `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
-                    SELECT nc.plan_id FROM nutrition_meal_items nmi
-                    JOIN nutrition_meals nm ON nm.id = nmi.meal_id
-                    JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
-                    WHERE nmi.id = $1
-                )`, [items[0].id]
-            );
+            await touchPlanByMealItem(pool, items[0].id, req.user!.userId);
         }
         res.json({ success: true });
     } catch (err) { next(err); }
@@ -1174,10 +1195,7 @@ export async function updateMealItem(req: Request, res: Response, next: NextFunc
              WHERE nmi.id = $1`,
             [(result.rows[0] as Row).id]
         );
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
-            [(result.rows[0] as Row).meal_id]
-        );
+        await touchPlanByMeal(pool, (result.rows[0] as Row).meal_id as string, req.user!.userId);
         res.json(itemDetailsResult.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1186,10 +1204,7 @@ export async function deleteMealItem(req: Request, res: Response, next: NextFunc
     try {
         const result = await pool.query('DELETE FROM nutrition_meal_items WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Meal item not found' });
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
-            [(result.rows[0] as Row).meal_id]
-        );
+        await touchPlanByMeal(pool, (result.rows[0] as Row).meal_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1223,14 +1238,7 @@ export async function createMealItemAlternative(req: Request, res: Response, nex
             [mealItemId, foodItemId, amount, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
 
-        await pool.query(
-            `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
-                SELECT nc.plan_id FROM nutrition_meal_items nmi
-                JOIN nutrition_meals nm ON nm.id = nmi.meal_id
-                JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
-                WHERE nmi.id = $1
-            )`, [mealItemId]
-        );
+        await touchPlanByMealItem(pool, mealItemId, req.user!.userId);
 
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
@@ -1252,14 +1260,7 @@ export async function updateMealItemAlternative(req: Request, res: Response, nex
             'UPDATE nutrition_meal_item_alternatives SET amount = $1 WHERE id = $2 RETURNING *', [amount, req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
-        await pool.query(
-            `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
-                SELECT nc.plan_id FROM nutrition_meal_items nmi
-                JOIN nutrition_meals nm ON nm.id = nmi.meal_id
-                JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
-                WHERE nmi.id = $1
-            )`, [(result.rows[0] as Row).meal_item_id]
-        );
+        await touchPlanByMealItem(pool, (result.rows[0] as Row).meal_item_id as string, req.user!.userId);
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
@@ -1279,14 +1280,7 @@ export async function deleteMealItemAlternative(req: Request, res: Response, nex
             'DELETE FROM nutrition_meal_item_alternatives WHERE id = $1 RETURNING *', [req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
-        await pool.query(
-            `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
-                SELECT nc.plan_id FROM nutrition_meal_items nmi
-                JOIN nutrition_meals nm ON nm.id = nmi.meal_id
-                JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
-                WHERE nmi.id = $1
-            )`, [(result.rows[0] as Row).meal_item_id]
-        );
+        await touchPlanByMealItem(pool, (result.rows[0] as Row).meal_item_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }

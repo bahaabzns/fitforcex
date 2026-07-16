@@ -625,6 +625,7 @@
     "active": "Active",
     "unsaved": "Unsaved",
     "edited": "edited",
+    "editedBy": "by {name}",
     "saveAll": "Save All",
     "saving": "Saving...",
     "saved": "Saved",

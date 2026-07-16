@@ -225,6 +225,7 @@ export default function LeftPanel({
                                                                 {plan.cycle_count} {t('cycles')}
                                                                 {" · "}
                                                                 {t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
+                                                                {plan.last_edited_by_name && ` · ${t('editedBy', { name: plan.last_edited_by_name })}`}
                                                             </p>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">

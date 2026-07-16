@@ -625,6 +625,7 @@
     "active": "نشط",
     "unsaved": "غير محفوظ",
     "edited": "تم التعديل",
+    "editedBy": "بواسطة {name}",
     "saveAll": "حفظ الكل",
     "saving": "جارٍ الحفظ...",
     "saved": "تم الحفظ",
