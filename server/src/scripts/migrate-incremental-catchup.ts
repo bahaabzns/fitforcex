@@ -692,6 +692,36 @@ async function migrateMissingTrainingPlans() {
     });
   }
 
+  // Reconcile: .io regenerates WorkoutPlanDay ids whenever a coach re-saves a
+  // plan there (delete-and-recreate), so an already-caught-up plan can show
+  // up here again under entirely new day ids. Without this, the previous,
+  // now-superseded copy of the day tree just sits alongside the new one,
+  // doubling the visible day count -- see backfill-duplicate-training-days.ts
+  // for the one-time historical cleanup this preventive fix complements.
+  // Only plans that already existed before this run are checked (a plan
+  // inserted moments ago in this same run can't have a stale prior copy).
+  // training_exercises/training_sets/training_exercise_alternatives cascade;
+  // workout_logs.day_id is ON DELETE SET NULL (the log itself is preserved).
+  const liveDayIdsByPlan = new Map<string, Set<string>>();
+  for (const d of days) {
+    if (!liveDayIdsByPlan.has(d.planId)) liveDayIdsByPlan.set(d.planId, new Set());
+    liveDayIdsByPlan.get(d.planId)!.add(d.id);
+  }
+  const plansToReconcile = plans.filter(p => existingPlans.has(p.id));
+  if (plansToReconcile.length > 0) {
+    const prodDays = await prisma.training_days.findMany({
+      where: { plan_id: { in: plansToReconcile.map(p => p.id) } },
+      select: { id: true, plan_id: true },
+    });
+    const staleDayIds = prodDays
+      .filter(d => !liveDayIdsByPlan.get(d.plan_id)?.has(d.id))
+      .map(d => d.id);
+    log(`training_days: ${staleDayIds.length} stale row(s) superseded by a later .io re-save${DRY_RUN ? ' (dry run)' : ''}`);
+    if (!DRY_RUN && staleDayIds.length > 0) {
+      await prisma.training_days.deleteMany({ where: { id: { in: staleDayIds } } });
+    }
+  }
+
   const existingExercises = await existingIds('training_exercises');
   const validDayIds = new Set([...existingDays, ...validDays.map(d => d.id)]);
   const validExerciseLibrary = await existingIds('exercise_library');
