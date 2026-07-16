@@ -10,6 +10,7 @@ import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
+import { Eye, EyeOff } from "lucide-react";
 
 // The slug comes from the subdomain, which only exists in the browser. useSyncExternalStore
 // reads it safely: null during SSR, the real slug after hydration — no hydration mismatch.
@@ -21,6 +22,7 @@ export default function PortalLoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [checkingSession, setCheckingSession] = useState(true);
+    const [showPassword, setShowPassword] = useState(false);
     const coachSlug = useSyncExternalStore(subscribeNoop, getCoachSlug, () => null);
     const router = useRouter();
 
@@ -60,13 +62,27 @@ export default function PortalLoginPage() {
                     <p className="text-sm text-muted-foreground -mt-2 mb-2">Portal: {coachSlug}</p>
                 )}
                 <form className="auth-form" onSubmit={handleSubmit}>
-                    <TextField value={email} onChange={setEmail} isRequired>
+                    <TextField value={email} onChange={setEmail} isRequired variant="secondary">
                         <Label>Email</Label>
                         <Input type="email" autoComplete="email" />
                     </TextField>
-                    <TextField value={password} onChange={setPassword} isRequired>
+                    <TextField value={password} onChange={setPassword} isRequired variant="secondary">
                         <Label>Password</Label>
-                        <Input type="password" autoComplete="current-password" />
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                autoComplete="current-password"
+                                className="ltr:pr-10 rtl:pl-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((v) => !v)}
+                                className="absolute top-1/2 -translate-y-1/2 ltr:right-3 rtl:left-3 text-muted-foreground hover:text-foreground"
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
                     </TextField>
                     {error && (
                         <Alert>
