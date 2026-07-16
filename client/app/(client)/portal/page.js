@@ -72,12 +72,12 @@ export default function PortalLoginPage() {
                             <Input
                                 type={showPassword ? "text" : "password"}
                                 autoComplete="current-password"
-                                className="ltr:pr-10 rtl:pl-10"
+                                className="w-full ltr:pr-10 rtl:pl-10"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword((v) => !v)}
-                                className="absolute top-1/2 -translate-y-1/2 ltr:right-3 rtl:left-3 text-muted-foreground hover:text-foreground"
+                                className="absolute top-1/2 -translate-y-1/2 ltr:right-3 rtl:left-3 flex items-center justify-center border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground"
                                 aria-label={showPassword ? "Hide password" : "Show password"}
                             >
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
