@@ -968,6 +968,7 @@ export async function updateCycle(req: Request, res: Response, next: NextFunctio
             [name, req.params.id, note ?? null, goal_calories ?? null, goal_protein ?? null, goal_carbs ?? null, goal_fats ?? null]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Cycle not found' });
+        await pool.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [(result.rows[0] as Row).plan_id]);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1143,6 +1144,16 @@ export async function reorderMealItems(req: Request, res: Response, next: NextFu
                 pool.query('UPDATE nutrition_meal_items SET meal_item_order = $1 WHERE id = $2', [item.order, item.id])
             )
         );
+        if (items && items.length > 0) {
+            await pool.query(
+                `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
+                    SELECT nc.plan_id FROM nutrition_meal_items nmi
+                    JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+                    JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+                    WHERE nmi.id = $1
+                )`, [items[0].id]
+            );
+        }
         res.json({ success: true });
     } catch (err) { next(err); }
 }
@@ -1175,6 +1186,10 @@ export async function deleteMealItem(req: Request, res: Response, next: NextFunc
     try {
         const result = await pool.query('DELETE FROM nutrition_meal_items WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Meal item not found' });
+        await pool.query(
+            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
+            [(result.rows[0] as Row).meal_id]
+        );
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1208,6 +1223,15 @@ export async function createMealItemAlternative(req: Request, res: Response, nex
             [mealItemId, foodItemId, amount, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
 
+        await pool.query(
+            `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
+                SELECT nc.plan_id FROM nutrition_meal_items nmi
+                JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+                JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+                WHERE nmi.id = $1
+            )`, [mealItemId]
+        );
+
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
@@ -1228,6 +1252,14 @@ export async function updateMealItemAlternative(req: Request, res: Response, nex
             'UPDATE nutrition_meal_item_alternatives SET amount = $1 WHERE id = $2 RETURNING *', [amount, req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
+        await pool.query(
+            `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
+                SELECT nc.plan_id FROM nutrition_meal_items nmi
+                JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+                JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+                WHERE nmi.id = $1
+            )`, [(result.rows[0] as Row).meal_item_id]
+        );
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
@@ -1247,6 +1279,14 @@ export async function deleteMealItemAlternative(req: Request, res: Response, nex
             'DELETE FROM nutrition_meal_item_alternatives WHERE id = $1 RETURNING *', [req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
+        await pool.query(
+            `UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (
+                SELECT nc.plan_id FROM nutrition_meal_items nmi
+                JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+                JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+                WHERE nmi.id = $1
+            )`, [(result.rows[0] as Row).meal_item_id]
+        );
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
