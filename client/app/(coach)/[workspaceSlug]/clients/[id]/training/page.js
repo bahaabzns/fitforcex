@@ -21,7 +21,12 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const tCommon = useTranslations('common');
     const router = useRouter();
     const searchParams = useSearchParams();
-    const submissionId = searchParams.get("submissionId") || null;
+    // Captured once at mount, not re-read on every render: this page is kept
+    // mounted (client/[id]/layout.js's tab keep-alive) while the coach clicks
+    // between tabs, and tab links don't preserve the query string — re-reading
+    // searchParams here would silently drop the queue linkage on tab-away/back,
+    // even though the in-progress plan-building session survives untouched.
+    const [submissionId] = useState(() => searchParams.get("submissionId") || null);
 
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
