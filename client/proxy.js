@@ -31,7 +31,13 @@ export function proxy(request) {
         ]);
         if (firstSegment && !PUBLIC_ROOT_SEGMENTS.has(firstSegment)) {
             const url = request.nextUrl.clone();
-            url.host = `my.${ROOT_DOMAIN}`;
+            // Use hostname + port setters, not `url.host = ...`: the WHATWG
+            // host setter only overwrites the port if the new value contains
+            // an explicit ":port", so it would silently keep whatever port
+            // was on the incoming request (e.g. an internal 3000 behind the
+            // reverse proxy) and leak it into the production redirect.
+            url.hostname = `my.${ROOT_DOMAIN}`;
+            url.port = ROOT_DOMAIN === 'localhost' ? url.port : '';
             return NextResponse.redirect(url);
         }
         return NextResponse.next();
@@ -40,7 +46,8 @@ export function proxy(request) {
     // Block /admin on non-admin subdomains → redirect to admin.ROOT_DOMAIN
     if (pathname.startsWith('/admin') && subdomain !== 'admin') {
         const url = request.nextUrl.clone();
-        url.host = `admin.${ROOT_DOMAIN}`;
+        url.hostname = `admin.${ROOT_DOMAIN}`;
+        url.port = ROOT_DOMAIN === 'localhost' ? url.port : '';
         return NextResponse.redirect(url);
     }
 
