@@ -9,7 +9,7 @@ import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, NumberField, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import MacroStat from "./MacroStat";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useLocale } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { Modal } from "@heroui/react/modal";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import LineChart from "@/app/components/charts/LineChart";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Modal } from "@heroui/react/modal";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Chip } from "@heroui/react/chip";
 import { Spinner } from "@heroui/react/spinner";
 import LineChart from "@/app/components/charts/LineChart";

@@ -4,7 +4,7 @@ import { ClipboardList } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import EmptyState from "@/app/components/EmptyState";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 

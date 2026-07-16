@@ -5,7 +5,7 @@ import { ClipboardList, ListTodo } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Menu } from "@heroui/react/menu";
 import { Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { TextField } from "@heroui/react/textfield";
 import { TextArea } from "@heroui/react/textarea";
 import { Select } from "@heroui/react/select";

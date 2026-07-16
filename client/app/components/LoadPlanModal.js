@@ -6,7 +6,7 @@ import AppModal, { ModalFooter } from '@/app/components/Modal';
 import { FieldLabel } from '@/app/components/Field';
 import { Button } from '@heroui/react/button';
 import { Skeleton } from '@heroui/react/skeleton';
-import { ScrollShadow } from '@heroui/react/scroll-shadow';
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { TextField } from '@heroui/react/textfield';
 import { Input } from '@heroui/react/input';
 import { Select } from '@heroui/react/select';

@@ -8,7 +8,7 @@ import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import MacroStat from "./MacroStat";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "../CardActionsMenu";
 import { SortableList, SortableItem, rectSortingStrategy } from "@/app/components/SortableList";

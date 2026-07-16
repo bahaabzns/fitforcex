@@ -5,7 +5,7 @@ import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import InlineEditField from "@/app/components/InlineEditField";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 import { SortableList, SortableItem } from "@/app/components/SortableList";

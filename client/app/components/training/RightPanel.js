@@ -10,7 +10,7 @@ import { Input } from "@heroui/react/input";
 import { TextArea } from "@heroui/react/textarea";
 import { Table } from "@heroui/react/table";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
 import { SortableList, SortableItem } from "@/app/components/SortableList";

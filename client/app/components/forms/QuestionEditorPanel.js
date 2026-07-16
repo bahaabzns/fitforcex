@@ -6,7 +6,7 @@ import { PenLine, Ruler, Camera } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Switch } from "@heroui/react/switch";
 import { Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { Select } from "@heroui/react/select";

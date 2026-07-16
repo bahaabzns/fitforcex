@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/axios";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
 import { Send } from "lucide-react";

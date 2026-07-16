@@ -7,7 +7,7 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { ProgressBar } from "@heroui/react/progress-bar";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
