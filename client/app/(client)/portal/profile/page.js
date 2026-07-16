@@ -27,7 +27,7 @@ export default function ClientProfilePage() {
 
     const handleLogout = async () => {
         await api.post("/api/client-portal/logout").catch(() => {});
-        router.push("/portal/login");
+        router.push("/portal");
     };
 
     const getInitials = (c) => {
