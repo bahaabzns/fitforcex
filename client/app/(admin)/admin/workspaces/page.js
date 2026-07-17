@@ -55,7 +55,7 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
                                 <label className="text-xs font-medium text-muted-foreground">Plan</label>
                                 <select
                                     value={planId}
-                                    onChange={e => setPlanId(parseInt(e.target.value))}
+                                    onChange={e => setPlanId(e.target.value)}
                                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
                                 >
                                     {plans.map(p => (
