@@ -41,6 +41,144 @@ import EmptyState from "./EmptyState";
 // header and their buttons sit flush-right, revealed on row hover.
 const isActionsColumn = (key) => key === "_actions" || key === "actions";
 
+// The text/multi/dateRange filter body for one column, shared between the
+// "Other Filters" dropdown's per-column flyout and each pinned filter button
+// below — same controls, just a different value/onChange wiring per caller.
+function renderFilterFields(col, value, onChange) {
+    if (col.filterType === "text") {
+        return (
+            <SearchField
+                autoFocus
+                value={value ?? ""}
+                onChange={onChange}
+                aria-label={`Search ${col.label}`}
+                fullWidth
+            >
+                <SearchField.Group>
+                    <SearchField.SearchIcon />
+                    <SearchField.Input placeholder={`Search ${col.label.toLowerCase()}...`} />
+                    <SearchField.ClearButton />
+                </SearchField.Group>
+            </SearchField>
+        );
+    }
+
+    if (col.filterType === "multi") {
+        return (
+            <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                {col.options.map(option => (
+                    <label
+                        key={option ?? "__null__"}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none"
+                    >
+                        <input
+                            type="checkbox"
+                            checked={(value ?? []).includes(option)}
+                            onChange={e => {
+                                const next = e.target.checked
+                                    ? [...(value ?? []), option]
+                                    : (value ?? []).filter(v => v !== option);
+                                onChange(next);
+                            }}
+                            className="rounded"
+                        />
+                        {col.optionLabel ? col.optionLabel(option) : option}
+                    </label>
+                ))}
+            </div>
+        );
+    }
+
+    if (col.filterType === "dateRange") {
+        return (
+            <DateRangePicker
+                value={
+                    (value?.from && value?.to)
+                        ? { start: parseDate(value.from), end: parseDate(value.to) }
+                        : null
+                }
+                onChange={(range) => {
+                    onChange({ from: range?.start?.toString() ?? "", to: range?.end?.toString() ?? "" });
+                }}
+            >
+                <DateField.Group fullWidth>
+                    <DateField.Input slot="start">
+                        {(segment) => <DateField.Segment segment={segment} />}
+                    </DateField.Input>
+                    <DateRangePicker.RangeSeparator />
+                    <DateField.Input slot="end">
+                        {(segment) => <DateField.Segment segment={segment} />}
+                    </DateField.Input>
+                    <DateField.Suffix>
+                        <DateRangePicker.Trigger>
+                            <DateRangePicker.TriggerIndicator />
+                        </DateRangePicker.Trigger>
+                    </DateField.Suffix>
+                </DateField.Group>
+                <DateRangePicker.Popover>
+                    <RangeCalendar aria-label={col.label}>
+                        <RangeCalendar.Header>
+                            <RangeCalendar.YearPickerTrigger>
+                                <RangeCalendar.YearPickerTriggerHeading />
+                                <RangeCalendar.YearPickerTriggerIndicator />
+                            </RangeCalendar.YearPickerTrigger>
+                            <RangeCalendar.NavButton slot="previous" />
+                            <RangeCalendar.NavButton slot="next" />
+                        </RangeCalendar.Header>
+                        <RangeCalendar.Grid>
+                            <RangeCalendar.GridHeader>
+                                {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                            </RangeCalendar.GridHeader>
+                            <RangeCalendar.GridBody>
+                                {(date) => <RangeCalendar.Cell date={date} />}
+                            </RangeCalendar.GridBody>
+                        </RangeCalendar.Grid>
+                        <RangeCalendar.YearPickerGrid>
+                            <RangeCalendar.YearPickerGridBody>
+                                {({ year }) => <RangeCalendar.YearPickerCell year={year} />}
+                            </RangeCalendar.YearPickerGridBody>
+                        </RangeCalendar.YearPickerGrid>
+                    </RangeCalendar>
+                </DateRangePicker.Popover>
+            </DateRangePicker>
+        );
+    }
+
+    return null;
+}
+
+// A single-column filter, pinned into the toolbar next to "Other Filters" so
+// it's reachable in one click instead of two. Reads/writes straight from the
+// shared filterRules (via upsertFilter) — no local draft state needed since,
+// unlike the general dropdown, each instance is permanently scoped to one column.
+function PinnedFilterButton({ col, filterRules, upsertFilter }) {
+    const [open, setOpen] = useState(false);
+    const existingRule = filterRules.find(r => r.colKey === col.key);
+    const defaultValue = col.filterType === "multi" ? [] : col.filterType === "dateRange" ? { from: "", to: "" } : "";
+    const value = existingRule?.value ?? defaultValue;
+    const Icon = col.icon;
+
+    return (
+        <div className="relative">
+            {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />}
+            <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setOpen(v => !v)}
+                className={existingRule ? "ring-1 ring-primary/50 text-primary" : ""}
+            >
+                {Icon && <Icon size={14} />}
+                {col.label}
+            </Button>
+            {open && (
+                <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                    {renderFilterFields(col, value, (next) => upsertFilter(col.key, next))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function DataTable({
     columns,
     data,
@@ -59,6 +197,20 @@ export default function DataTable({
     toolbarEnd,
     rowClassName,
     emptyState,
+    // Opt-in: when set, search/filter/sort/page-size are snapshotted to
+    // sessionStorage under this key and restored on mount, so navigating away
+    // and back (e.g. a full remount) doesn't reset the coach's view. Scoped to
+    // the tab (not localStorage) since a stale filter shouldn't outlive it.
+    persistKey,
+    // Opt-in: a rowKey value to auto-jump to (paging-wise) once it's present
+    // in the filtered/sorted data — used to surface a row that was just acted
+    // on from elsewhere (e.g. "mark as done") without fighting the coach's
+    // current filters.
+    highlightKey,
+    // Optional override for the general filter button's label — defaults to the
+    // shared "Filter" translation. Callers that pin some columns out of it (see
+    // `pinned` on a column) typically rename it to something like "Other Filters".
+    filterButtonLabel,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -66,8 +218,21 @@ export default function DataTable({
     // RTL mode swaps which corners are rounded; this must match HeroUI's own table radius or the border visually misaligns
     const CORNER_RADIUS = 'var(--radius-2xl)';
 
+    // ── Persisted view state (opt-in via persistKey) ────────────
+    // Read once via useState's lazy initializer (not a ref read during
+    // render) — sessionStorage is a sync API and this only needs to seed the
+    // useState values below.
+    const [persisted] = useState(() => {
+        if (!persistKey || typeof window === "undefined") return null;
+        try {
+            return JSON.parse(sessionStorage.getItem(`datatable:${persistKey}`)) ?? null;
+        } catch {
+            return null;
+        }
+    });
+
     // ── Quick search ──────────────────────────────────────────
-    const [quickSearchValue, setQuickSearchValue] = useState("");
+    const [quickSearchValue, setQuickSearchValue] = useState(() => persisted?.quickSearchValue ?? "");
     const [searchFocused, setSearchFocused] = useState(false);
     const searchContainerRef = useRef(null);
 
@@ -85,7 +250,7 @@ export default function DataTable({
 
     // ── Filters ──────────────────────────────────────────────
     // Each rule: { id: string, colKey: string, value: any }
-    const [filterRules, setFilterRules]     = useState([]);
+    const [filterRules, setFilterRules]     = useState(() => persisted?.filterRules ?? []);
     const [addFilterOpen, setAddFilterOpen] = useState(false);
     const [pendingColKey, setPendingColKey] = useState(null);
     const [pendingValue, setPendingValue]   = useState(null);
@@ -132,8 +297,8 @@ export default function DataTable({
     }
 
     // ── Sort ──────────────────────────────────────────────────
-    const [sortKey, setSortKey]             = useState(defaultSort ?? null);
-    const [sortDirection, setSortDirection] = useState(defaultSortDirection ?? "asc");
+    const [sortKey, setSortKey]             = useState(() => persisted?.sortKey ?? defaultSort ?? null);
+    const [sortDirection, setSortDirection] = useState(() => persisted?.sortDirection ?? defaultSortDirection ?? "asc");
 
     const sortDescriptor = sortKey
         ? { column: sortKey, direction: sortDirection === "asc" ? "ascending" : "descending" }
@@ -190,10 +355,14 @@ export default function DataTable({
         return true;
     });
 
+    // Opt-in per column: sort by a derived value (e.g. an assignee's display
+    // name) instead of the raw cell value (e.g. their id), when the two differ.
+    const sortCol = sortKey ? columns.find(c => c.key === sortKey) : null;
+
     const sortedData = sortKey
         ? [...filteredData].sort((a, b) => {
-            const valA = a[sortKey];
-            const valB = b[sortKey];
+            const valA = sortCol?.sortValue ? sortCol.sortValue(a) : a[sortKey];
+            const valB = sortCol?.sortValue ? sortCol.sortValue(b) : b[sortKey];
             if (valA == null && valB == null) return 0;
             if (valA == null) return 1;
             if (valB == null) return -1;
@@ -214,8 +383,8 @@ export default function DataTable({
 
     // ── Pagination ────────────────────────────────────────────
     const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-    const [pageSize, setPageSize]       = useState(10);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize]       = useState(() => persisted?.pageSize ?? 10);
+    const [currentPage, setCurrentPage] = useState(() => persisted?.currentPage ?? 1);
     const [prevFilterId, setPrevFilterId]   = useState(filteredIds);
     const [prevPageSize, setPrevPageSize]   = useState(pageSize);
     if (filteredIds !== prevFilterId || pageSize !== prevPageSize) {
@@ -227,6 +396,32 @@ export default function DataTable({
     const totalPages   = Math.max(1, Math.ceil(sortedData.length / pageSize));
     const safePage     = Math.min(currentPage, totalPages);
     const paginatedData = sortedData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    useEffect(() => {
+        if (!persistKey || typeof window === "undefined") return;
+        sessionStorage.setItem(`datatable:${persistKey}`, JSON.stringify({
+            quickSearchValue, filterRules, sortKey, sortDirection, pageSize, currentPage: safePage,
+        }));
+    }, [persistKey, quickSearchValue, filterRules, sortKey, sortDirection, pageSize, safePage]);
+
+    // ── Highlight / scroll-to (opt-in via highlightKey) ─────────
+    // Auto-jump to whichever page currently contains the row, so a row
+    // surfaced from elsewhere (e.g. "just marked done") is visible without
+    // the coach having to hunt for it — but only if it survives their current
+    // filters; we deliberately don't clear filters to force it into view.
+    // Adjusted during render (not an effect) to match the pageReset pattern
+    // above — avoids an extra commit for a value derived from props/state.
+    // Seeded with a sentinel (not highlightKey itself) so the very first
+    // render — where highlightKey typically already has its target value —
+    // still counts as a "change" and triggers the jump.
+    const [prevHighlightKey, setPrevHighlightKey] = useState(() => Symbol("unset"));
+    if (highlightKey !== prevHighlightKey) {
+        if (highlightKey != null) {
+            const idx = sortedData.findIndex(row => row[rowKey] === highlightKey);
+            if (idx !== -1) setCurrentPage(Math.floor(idx / pageSize) + 1);
+        }
+        setPrevHighlightKey(highlightKey);
+    }
 
     function buildPageList() {
         const pages = [];
@@ -266,8 +461,13 @@ export default function DataTable({
         });
     }
 
-    const primaryCols   = columns.filter((col, i) => col.cardPriority === "primary"   || (!col.cardPriority && i < 3));
-    const secondaryCols = columns.filter((col, i) => col.cardPriority === "secondary" || (!col.cardPriority && i >= 3)).filter(col => col.cardPriority !== "hidden");
+    // Columns marked `hidden` still participate in filtering (the Filter menu
+    // reads from the full `columns` list) but are excluded from the actual
+    // table/card rendering below — a "filter-only" column with no visible cell.
+    const visibleColumns = columns.filter(c => !c.hidden);
+
+    const primaryCols   = visibleColumns.filter((col, i) => col.cardPriority === "primary"   || (!col.cardPriority && i < 3));
+    const secondaryCols = visibleColumns.filter((col, i) => col.cardPriority === "secondary" || (!col.cardPriority && i >= 3)).filter(col => col.cardPriority !== "hidden");
 
     // ── Render ────────────────────────────────────────────────
     return (
@@ -314,8 +514,14 @@ export default function DataTable({
                     </div>
                 )}
 
-                {/* Filter */}
-                {columns.some(c => c.filterType) && (
+                {/* Pinned filters — opt-in per column (col.pinned), reachable in one
+                    click instead of living inside the general dropdown below. */}
+                {columns.filter(c => c.filterType && c.pinned).map(col => (
+                    <PinnedFilterButton key={col.key} col={col} filterRules={filterRules} upsertFilter={upsertFilter} />
+                ))}
+
+                {/* Filter — every remaining (non-pinned) filterable column */}
+                {columns.some(c => c.filterType && !c.pinned) && (
                     <div className="relative">
                         {addFilterOpen && (
                             <div className="fixed inset-0 z-10" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
@@ -326,11 +532,11 @@ export default function DataTable({
                             onClick={() => setAddFilterOpen(v => !v)}
                         >
                             <ListFilter size={14} />
-                            {t('filterButton')}
+                            {filterButtonLabel ?? t('filterButton')}
                         </Button>
                         {addFilterOpen && (
                             <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
-                                {columns.filter(c => c.filterType).map(col => (
+                                {columns.filter(c => c.filterType && !c.pinned).map(col => (
                                     <div key={col.key} className="relative">
                                         <button
                                             className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
@@ -342,102 +548,7 @@ export default function DataTable({
 
                                         {pendingColKey === col.key && pendingValue !== null && (
                                             <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
-                                                {col.filterType === "text" && (
-                                                    <SearchField
-                                                        autoFocus
-                                                        value={pendingValue ?? ""}
-                                                        onChange={v => { setPendingValue(v); upsertFilter(col.key, v); }}
-                                                        aria-label={`Search ${col.label}`}
-                                                        fullWidth
-                                                    >
-                                                        <SearchField.Group>
-                                                            <SearchField.SearchIcon />
-                                                            <SearchField.Input placeholder={`Search ${col.label.toLowerCase()}...`} />
-                                                            <SearchField.ClearButton />
-                                                        </SearchField.Group>
-                                                    </SearchField>
-                                                )}
-
-                                                {col.filterType === "multi" && (
-                                                    <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                                                        {col.options.map(option => (
-                                                            <label
-                                                                key={option}
-                                                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none"
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={(pendingValue ?? []).includes(option)}
-                                                                    onChange={e => {
-                                                                        const next = e.target.checked
-                                                                            ? [...(pendingValue ?? []), option]
-                                                                            : (pendingValue ?? []).filter(v => v !== option);
-                                                                        setPendingValue(next);
-                                                                        upsertFilter(col.key, next);
-                                                                    }}
-                                                                    className="rounded"
-                                                                />
-                                                                {col.optionLabel ? col.optionLabel(option) : option}
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {col.filterType === "dateRange" && (
-                                                    <DateRangePicker
-                                                        value={
-                                                            (pendingValue?.from && pendingValue?.to)
-                                                                ? { start: parseDate(pendingValue.from), end: parseDate(pendingValue.to) }
-                                                                : null
-                                                        }
-                                                        onChange={(range) => {
-                                                            const next = { from: range?.start?.toString() ?? "", to: range?.end?.toString() ?? "" };
-                                                            setPendingValue(next);
-                                                            upsertFilter(col.key, next);
-                                                        }}
-                                                    >
-                                                        <DateField.Group fullWidth>
-                                                            <DateField.Input slot="start">
-                                                                {(segment) => <DateField.Segment segment={segment} />}
-                                                            </DateField.Input>
-                                                            <DateRangePicker.RangeSeparator />
-                                                            <DateField.Input slot="end">
-                                                                {(segment) => <DateField.Segment segment={segment} />}
-                                                            </DateField.Input>
-                                                            <DateField.Suffix>
-                                                                <DateRangePicker.Trigger>
-                                                                    <DateRangePicker.TriggerIndicator />
-                                                                </DateRangePicker.Trigger>
-                                                            </DateField.Suffix>
-                                                        </DateField.Group>
-                                                        <DateRangePicker.Popover>
-                                                            <RangeCalendar aria-label={col.label}>
-                                                                <RangeCalendar.Header>
-                                                                    <RangeCalendar.YearPickerTrigger>
-                                                                        <RangeCalendar.YearPickerTriggerHeading />
-                                                                        <RangeCalendar.YearPickerTriggerIndicator />
-                                                                    </RangeCalendar.YearPickerTrigger>
-                                                                    <RangeCalendar.NavButton slot="previous" />
-                                                                    <RangeCalendar.NavButton slot="next" />
-                                                                </RangeCalendar.Header>
-                                                                <RangeCalendar.Grid>
-                                                                    <RangeCalendar.GridHeader>
-                                                                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                                                                    </RangeCalendar.GridHeader>
-                                                                    <RangeCalendar.GridBody>
-                                                                        {(date) => <RangeCalendar.Cell date={date} />}
-                                                                    </RangeCalendar.GridBody>
-                                                                </RangeCalendar.Grid>
-                                                                <RangeCalendar.YearPickerGrid>
-                                                                    <RangeCalendar.YearPickerGridBody>
-                                                                        {({year}) => <RangeCalendar.YearPickerCell year={year} />}
-                                                                    </RangeCalendar.YearPickerGridBody>
-                                                                </RangeCalendar.YearPickerGrid>
-                                                            </RangeCalendar>
-                                                        </DateRangePicker.Popover>
-                                                    </DateRangePicker>
-                                                )}
-
+                                                {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
                                             </div>
                                         )}
                                     </div>
@@ -496,17 +607,29 @@ export default function DataTable({
                                         </Checkbox>
                                     </Table.Column>
                                 )}
-                                {columns.map((col, i) => (
+                                {visibleColumns.map((col, i) => (
                                     <Table.Column
                                         key={col.key}
                                         id={col.key}
                                         allowsSorting={!!col.sortable}
                                         isRowHeader={i === 0}
                                         style={col.width ? { width: col.width, minWidth: col.width } : undefined}
-                                        className={isActionsColumn(col.key) ? "text-end" : ""}
+                                        // Unlike the body cell below, .table__column has no background of its
+                                        // own — only the shared .table__header container does — so a sticky
+                                        // header cell truly needs its own bg to stay opaque over what scrolls
+                                        // underneath it. bg-surface-secondary matches .table__header exactly
+                                        // (table.css); no hover state exists on header cells to conflict with.
+                                        // A pinned actions column reads left-aligned, like every other column
+                                        // header — the flush-right treatment is only for the (non-pinned) body
+                                        // buttons, via a plain "actions" column elsewhere in the app.
+                                        // isolate: sticky cells nested inside .table-root's grid+overflow-clip
+                                        // ancestor can fail to get their own compositing layer, letting scrolled
+                                        // content bleed through a fully opaque declared background — isolate
+                                        // forces the browser to paint this cell as its own layer.
+                                        className={`${isActionsColumn(col.key) && !col.stickyEnd ? "text-end" : ""} ${col.stickyEnd ? "sticky isolate ltr:right-0 rtl:left-0 z-20 bg-surface-secondary ltr:border-l rtl:border-r border-separator" : ""}`}
                                     >
                                         {isActionsColumn(col.key)
-                                            ? <span className="sr-only">{col.label}</span>
+                                            ? col.label
                                             : col.sortable
                                                 ? ({ sortDirection: sd }) => (
                                                     <span className="flex items-center justify-between gap-1">
@@ -528,7 +651,10 @@ export default function DataTable({
                                     const isLastRow  = rowIdx === paginatedData.length - 1;
                                     return (
                                         <React.Fragment key={row[rowKey]}>
-                                            <Table.Row id={row[rowKey]} className={`group ${rowClassName ? rowClassName(row) : ""}`}>
+                                            <Table.Row
+                                                id={row[rowKey]}
+                                                className={`group ${rowClassName ? rowClassName(row) : ""}`}
+                                            >
                                                 {selectable && (() => {
                                                     const s = {};
                                                     if (isRtl) {
@@ -549,9 +675,9 @@ export default function DataTable({
                                                         </Table.Cell>
                                                     );
                                                 })()}
-                                                {columns.map((col, colIdx) => {
+                                                {visibleColumns.map((col, colIdx) => {
                                                     const isFirstCol = !selectable && colIdx === 0;
-                                                    const isLastCol  = colIdx === columns.length - 1;
+                                                    const isLastCol  = colIdx === visibleColumns.length - 1;
                                                     const isActionsCol = isActionsColumn(col.key);
                                                     const baseStyle  = col.width ? { width: col.width, minWidth: col.width } : {};
                                                     const extra = {};
@@ -561,21 +687,55 @@ export default function DataTable({
                                                         if (isLastRow  && isFirstCol) { extra.borderBottomLeftRadius = 0; extra.borderBottomRightRadius = CORNER_RADIUS; }
                                                         if (isLastRow  && isLastCol)  { extra.borderBottomRightRadius = 0; extra.borderBottomLeftRadius = CORNER_RADIUS; }
                                                     }
-                                                    const cellStyle = Object.keys(extra).length
-                                                        ? { ...baseStyle, ...extra }
-                                                        : (Object.keys(baseStyle).length ? baseStyle : undefined);
+                                                    // The sticky cell's rest/hover/selected backgrounds are plain CSS
+                                                    // (see [data-sticky-end] rules in globals.css), not JS state —
+                                                    // an earlier version tracked hover in React state and computed
+                                                    // this inline, which meant the sticky cell's background could
+                                                    // only update on the next React commit. Measured with a Playwright
+                                                    // long-task trace: a single row's re-render (its HeroUI <Select>,
+                                                    // its Tooltips) blocked the main thread for ~850ms after
+                                                    // mouseenter, so the JS-driven cell visibly lagged ~850ms behind
+                                                    // the native cells, whose bg-surface/40 hover tint is applied by
+                                                    // the browser's :hover engine and never touches JS at all. Using
+                                                    // real :hover/[data-selected] CSS for the sticky cell too removes
+                                                    // that dependency entirely — both now update on the same paint,
+                                                    // regardless of how long React takes to re-render anything else.
+                                                    const cellStyle = { ...baseStyle, ...extra };
                                                     return (
                                                         <Table.Cell
                                                             key={col.key}
-                                                            style={cellStyle}
-                                                            className={isActionsCol ? "text-end" : ""}
+                                                            style={Object.keys(cellStyle).length ? cellStyle : undefined}
+                                                            data-sticky-end={col.stickyEnd ? "true" : undefined}
+                                                            // z-20 (not z-10): a focused/hovered control in a neighboring
+                                                            // cell (e.g. the Assigned select) can get its own elevated
+                                                            // stacking context, which was winning over a lower z-index
+                                                            // here and bleeding through the pinned column on hover.
+                                                            // isolate: forces this cell onto its own compositing layer —
+                                                            // .table-root's grid+overflow-clip ancestor can otherwise
+                                                            // let scrolled content bleed through a sticky cell's fully
+                                                            // opaque declared background (a real browser quirk, not a
+                                                            // color mismatch — verified --surface has no alpha channel).
+                                                            // border-separator-tertiary/50 (not border-separator): every
+                                                            // other border in the table body — .table__cell's own
+                                                            // border-b — uses --color-separator-tertiary, a color-mix of
+                                                            // --surface/--surface-foreground at 50% alpha, NOT a
+                                                            // translucent version of the unrelated --separator token.
+                                                            // border-separator is a distinct, unrelated hue (see
+                                                            // theme.css) at full opacity — using it here read as a
+                                                            // harder, differently-colored line next to the table's soft
+                                                            // separator-tertiary grid. (The header sticky divider below
+                                                            // keeps plain border-separator: .table__column::after, its
+                                                            // native divider, uses that same full-opacity token, so it
+                                                            // already matches its own context.)
+                                                            className={`${isActionsCol ? "text-end" : ""} ${col.stickyEnd ? "sticky isolate ltr:right-0 rtl:left-0 z-20 ltr:border-l rtl:border-r border-separator-tertiary/50" : ""}`}
                                                             onPointerDown={(e) => e.stopPropagation()}
                                                         >
                                                             {isActionsCol
-                                                                // Buttons sit flush-right and fade in on row hover; only
-                                                                // the buttons fade (not the cell bg) so the row's hover
-                                                                // highlight shows through behind them.
-                                                                ? <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">{col.render ? col.render(row) : row[col.key]}</div>
+                                                                // Buttons sit flush-right and, by default, fade in on row
+                                                                // hover (only the buttons fade, not the cell bg, so the
+                                                                // row's hover highlight shows through behind them) —
+                                                                // opt out per column with `alwaysVisibleActions: true`.
+                                                                ? <div className={`flex justify-end ${col.alwaysVisibleActions ? "" : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"}`}>{col.render ? col.render(row) : row[col.key]}</div>
                                                                 : (col.render ? col.render(row) : row[col.key])}
                                                         </Table.Cell>
                                                     );

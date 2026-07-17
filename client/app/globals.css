@@ -157,6 +157,37 @@
 
 /* ── Shared component helpers ── */
 @layer components {
+  /* Sticky/pinned DataTable columns (see DataTable.js's [data-sticky-end]
+     cells) need an opaque background at rest — HeroUI's own .table__cell
+     rule is bg-surface, but its hover/selected rules (bg-surface/40,
+     bg-surface/10) are translucent, which is correct for a normal cell
+     (solid content already sits behind it) but lets scrolled-under content
+     bleed through a sticky one. These reproduce the same tint as an opaque
+     color-mix, keyed off the exact same :hover / [data-hovered] /
+     [data-selected] triggers table.css uses — same layer(components) as
+     that file (see @heroui/styles/dist/index.css's layer order) so this
+     wins on specificity alone, no !important needed. Deliberately NOT
+     driven by React state: an earlier version tracked row hover in JS and
+     set this via inline style, which meant the sticky cell's background
+     only updated on the next React commit — measured at up to ~850ms
+     behind the native cells whenever that row's render was heavy (a
+     <Select>, several Tooltips). Real CSS triggers can't lag like that;
+     both update on the same paint no matter how slow React is elsewhere. */
+  .table__cell[data-sticky-end] {
+    background-color: var(--surface);
+  }
+  @media (hover: hover) {
+    .table__row:hover .table__cell[data-sticky-end],
+    .table__row[data-hovered="true"] .table__cell[data-sticky-end] {
+      background-color: color-mix(in oklab, var(--surface) 40%, var(--surface-secondary) 60%);
+    }
+  }
+  /* Declared after the hover rule (same specificity) so selected wins over
+     hovered when both apply — matches table.css's own rule order. */
+  .table__row[data-selected="true"] .table__cell[data-sticky-end] {
+    background-color: color-mix(in oklab, var(--surface) 90%, var(--surface-secondary) 10%);
+  }
+
   /* Auth pages */
   .auth-wrapper {
     @apply min-h-screen flex items-center justify-center bg-background;
