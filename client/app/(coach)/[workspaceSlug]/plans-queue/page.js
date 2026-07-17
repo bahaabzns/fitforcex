@@ -1,17 +1,59 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useTranslations } from "next-intl";
+import { History, ListTodo } from "lucide-react";
+import { Button } from "@heroui/react/button";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
+import ArchivedSubmissionsTable from "@/app/components/plansQueue/ArchivedSubmissionsTable";
 
 export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
+    const searchParams = useSearchParams();
+    const { workspaceSlug } = useParams();
     const [queueItems, setQueueItems] = useState([]);
     const [forms, setForms] = useState([]);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [showHistory, setShowHistory] = useState(false);
+    const [archivedItems, setArchivedItems] = useState([]);
+    const [archivedLoading, setArchivedLoading] = useState(false);
+    // Bumped after a restore to re-run the queue-loading effect below, so a
+    // restored submission reappears in the active queue without a full page reload.
+    const [queueReloadToken, setQueueReloadToken] = useState(0);
+
+    // ── Scroll position (survives navigating away to a builder and back) ──
+    // This page fully unmounts when the coach clicks into a builder, so an
+    // in-memory scroll offset can't survive the round trip — sessionStorage
+    // does. Scoped per view (main vs. history), like persistKey above, since
+    // they render completely different content at completely different
+    // heights. Saved continuously on scroll; restored exactly once, after
+    // the first successful load — restoring earlier would set scrollTop
+    // against a container that hasn't laid out its rows yet.
+    const scrollContainerRef = useRef(null);
+    const scrollRestoredRef  = useRef(false);
+    const scrollStorageKey   = workspaceSlug
+        ? `plans-queue-scroll-${showHistory ? "history" : "main"}-${workspaceSlug}`
+        : null;
+
+    function handleQueueScroll() {
+        if (!scrollStorageKey) return;
+        sessionStorage.setItem(scrollStorageKey, String(scrollContainerRef.current?.scrollTop ?? 0));
+    }
+
+    useEffect(() => {
+        if (loading || scrollRestoredRef.current || !scrollStorageKey) return;
+        scrollRestoredRef.current = true;
+        const saved = Number(sessionStorage.getItem(scrollStorageKey));
+        if (!saved) return;
+        // Wait a frame so the just-rendered table has real row heights to scroll against.
+        requestAnimationFrame(() => {
+            if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = saved;
+        });
+    }, [loading, scrollStorageKey]);
 
     useEffect(() => {
         async function loadMembers() {
@@ -83,6 +125,25 @@ export default function PlansQueuePage() {
 
                 setQueueItems(normalizedQueue);
                 setForms(formsWithQuestions);
+
+                // A submission just closed out via a builder (nutrition/training
+                // page.js's handleActivateAndMark, ?justActioned=<id>) has already
+                // moved out of "needs action" into action-done by the time we're
+                // back here. PlansQueueTable's highlight effect captures
+                // ?justActioned once on ITS OWN first mount and immediately strips
+                // it from the URL — regardless of whether the row is actually in
+                // the data it was given. The main view only ever receives
+                // needActionItems, so if it mounted first it would consume the
+                // param, find nothing, and the coach would land back on a queue
+                // with no visible trace of what they just did. Deciding the view
+                // here — before either PlansQueueTable variant ever mounts — makes
+                // sure the ONE instance that mounts is the one whose data (and,
+                // for a completed item, whose Status column) can actually show it.
+                const justActionedId = searchParams.get("justActioned");
+                if (justActionedId) {
+                    const actionedItem = normalizedQueue.find((item) => item.id === justActionedId);
+                    if (actionedItem && actionedItem.status !== "need-action") setShowHistory(true);
+                }
             } catch (err) {
                 setError(err.response?.data?.error || "Failed to load plans queue");
             } finally {
@@ -91,8 +152,35 @@ export default function PlansQueuePage() {
         }
 
         loadQueue();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams read once per load, deliberately not a re-fetch trigger
+    }, [queueReloadToken]);
 
+    useEffect(() => {
+        if (!showHistory) return;
+
+        async function loadArchived() {
+            setArchivedLoading(true);
+            try {
+                const res = await api.get("/api/forms/queue", { params: { archived: "true" } });
+                setArchivedItems(res.data || []);
+            } catch {
+                // archived section is secondary — leave empty on failure
+            }
+            setArchivedLoading(false);
+        }
+
+        loadArchived();
+    }, [showHistory]);
+
+    // Restoring moves an item back into the active queue — refresh both lists so it
+    // reappears there without requiring a manual page reload.
+    function handleRestored(ids) {
+        setArchivedItems((prev) => prev.filter((item) => !ids.includes(item.id)));
+        setQueueReloadToken((n) => n + 1);
+    }
+
+    // Full, unfiltered buckets — used by the Submission History view, which shows
+    // every status alongside archived items.
     const awaiting = useMemo(
         () => queueItems.filter((item) => item.status === "awaiting" || item.status === "scheduled"),
         [queueItems]
@@ -100,6 +188,12 @@ export default function PlansQueuePage() {
 
     const submissions = useMemo(
         () => queueItems.filter((item) => item.status !== "awaiting" && item.status !== "scheduled"),
+        [queueItems]
+    );
+
+    // The main page is scoped to just what the coach needs to act on today.
+    const needActionItems = useMemo(
+        () => queueItems.filter((item) => item.status === "need-action"),
         [queueItems]
     );
 
@@ -121,14 +215,54 @@ export default function PlansQueuePage() {
         );
     }
 
+    const historyToggle = (
+        <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowHistory((prev) => !prev)}
+        >
+            {showHistory ? <ListTodo className="w-4 h-4" /> : <History className="w-4 h-4" />}
+            <span>{showHistory ? t('backToQueue') : t('submissionHistory')}</span>
+        </Button>
+    );
+
     return (
-        <div className="p-8 overflow-auto h-full">
-            <PlansQueueTable
-                initialSubmissions={submissions}
-                awaiting={awaiting}
-                forms={forms}
-                members={members}
-            />
+        <div className="p-8 overflow-auto h-full" ref={scrollContainerRef} onScroll={handleQueueScroll}>
+            {showHistory ? (
+                <div className="flex flex-col gap-10">
+                    <PlansQueueTable
+                        initialSubmissions={submissions}
+                        awaiting={awaiting}
+                        forms={forms}
+                        members={members}
+                        title={t('historyTitle')}
+                        description={t('historyDescription')}
+                        headerAction={historyToggle}
+                    />
+
+                    <div>
+                        <h2 className="text-xl font-bold">{t('archivedSectionTitle')}</h2>
+                        <p className="text-muted-foreground text-sm mt-1">{t('archivedSectionDesc')}</p>
+                        {archivedLoading ? (
+                            <p className="text-sm text-muted-foreground mt-4">{t('loadingQueue')}</p>
+                        ) : (
+                            <div className="mt-4">
+                                <ArchivedSubmissionsTable items={archivedItems} onRestored={handleRestored} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <PlansQueueTable
+                    initialSubmissions={needActionItems}
+                    awaiting={[]}
+                    forms={forms}
+                    members={members}
+                    hideStatusColumn
+                    hideActionTakenColumn
+                    headerAction={historyToggle}
+                />
+            )}
         </div>
     );
 }

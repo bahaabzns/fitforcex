@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Eye, EyeOff, Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
@@ -22,38 +22,112 @@ function titleCaseType(type) {
     return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-// Compact icon button with an accessible tooltip — used for the row actions.
-function IconAction({ label, onClick, disabled, className = "", children }) {
+// Deliberately disjoint from the purple/amber/accent/emerald/zinc already used
+// for Type and Action chips in this table, so a package chip never reads as
+// one of those. Cycles (reused) once distinct package count exceeds this —
+// there's no way to guarantee uniqueness past a finite palette.
+const PACKAGE_CHIP_COLORS = [
+    "bg-pink-500/20 text-pink-400",
+    "bg-cyan-500/20 text-cyan-400",
+    "bg-orange-500/20 text-orange-400",
+    "bg-teal-500/20 text-teal-400",
+    "bg-indigo-500/20 text-indigo-400",
+    "bg-rose-500/20 text-rose-400",
+    "bg-lime-500/20 text-lime-400",
+    "bg-sky-500/20 text-sky-400",
+    "bg-fuchsia-500/20 text-fuchsia-400",
+    "bg-violet-500/20 text-violet-400",
+];
+
+// Always-visible row action, fully rounded (same radius as the toolbar's
+// filter buttons). `className` supplies the per-action filled tone (bg +
+// text). Compact icon-only circle by default (label shown as a tooltip);
+// `showLabel` renders the primary actions (make a plan, mark reviewed) as a
+// pill with the label text visible; `padded` is a slightly bigger icon-only
+// circle (e.g. Archive) — equal padding on every side so it stays a true
+// circle rather than stretching into an oval.
+function IconAction({ label, onClick, disabled, className = "", children, showLabel = false, padded = false }) {
+    const sizeClasses = showLabel ? "px-2.5 py-1.5" : padded ? "p-2" : "p-1.5";
+    const button = (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={label}
+            className={`flex items-center gap-1.5 rounded-full transition-colors disabled:opacity-50 cursor-pointer ${sizeClasses} ${showLabel ? "text-sm font-medium whitespace-nowrap" : ""} ${className}`}
+        >
+            {children}
+            {showLabel && <span>{label}</span>}
+        </button>
+    );
+
+    if (showLabel) return button;
+
     return (
         <Tooltip>
-            <button
-                type="button"
-                onClick={onClick}
-                disabled={disabled}
-                aria-label={label}
-                className={`p-1.5 rounded hover:bg-default transition-colors disabled:opacity-50 ${className}`}
-            >
-                {children}
-            </button>
+            {button}
             <Tooltip.Content>{label}</Tooltip.Content>
         </Tooltip>
     );
 }
 
-export default function PlansQueueTable({ initialSubmissions, awaiting, forms, members = [] }) {
+export default function PlansQueueTable({ initialSubmissions, awaiting, forms, members = [], hideStatusColumn = false, hideActionTakenColumn = false, title, description, headerAction }) {
     const t = useTranslations('plansQueue');
     const locale = useLocale();
     const { formatDateTime } = useDateFormatter();
     const [submissions, setSubmissions] = useState(initialSubmissions);
-    const [expandedId, setExpandedId] = useState(null);
     const [marking, setMarking] = useState(false);
     // Per-row assignee overrides applied on top of the server data (id → { assignedTo, assignedToName }).
     const [assignMap, setAssignMap] = useState({});
-    // Card quick-filters: click a stat card to filter the table by status / action.
-    const [cardStatus, setCardStatus] = useState(null);
-    const [cardAction, setCardAction] = useState(null);
     const router = useRouter();
     const { workspaceSlug } = useParams();
+    const searchParams = useSearchParams();
+
+    // Row to flash-highlight after the coach is routed back here from the plan
+    // builder (?justActioned=<id> — see training/nutrition page.js). Captured
+    // once, like submissionId in the builder pages, then the query param is
+    // stripped so a refresh doesn't re-trigger it; the highlight itself fades
+    // after a few seconds via the timeout below.
+    //
+    // The setTimeout(fn, 0) deferral below isn't stylistic — without it this
+    // breaks under React 18 Strict Mode's dev-mode double-invoke-effects.
+    // Strict Mode mounts this component, runs the effect, tears it down
+    // (cleanup), and mounts it again — all synchronously, before any timer
+    // fires. An earlier version did the router.replace/setHighlightId work
+    // directly in the effect body: instance #1 ran it (stripping the URL,
+    // setting state), its cleanup only cleared the fade timer, and instance
+    // #2 then re-read the ALREADY-stripped URL and found nothing — so the
+    // highlight either flashed for ~150ms then vanished, or (once state was
+    // seeded from a sessionStorage-writing useState initializer instead —
+    // also wrong, since that write is impure and Strict Mode double-invokes
+    // initializers as a *separate* purity check) never appeared at all.
+    // Deferring the real work by one macrotask means Strict Mode's
+    // mount→cleanup→mount finishes entirely first: instance #1's cleanup
+    // cancels its own pending timer before it can ever fire, so only
+    // instance #2 — the one that actually survives — ever runs the claim,
+    // the URL strip, and the state update, exactly once.
+    const [highlightId, setHighlightId] = useState(null);
+    const fadeTimerRef = useRef(null);
+    useEffect(() => {
+        const id = searchParams.get("justActioned");
+        if (!id) return;
+        let cancelled = false;
+        const claimTimer = setTimeout(() => {
+            if (cancelled) return;
+            const claimKey = `plans-queue-justActioned-claimed:${id}`;
+            if (sessionStorage.getItem(claimKey)) return; // defense in depth — a genuine duplicate mount, not Strict Mode's
+            sessionStorage.setItem(claimKey, "1");
+            setHighlightId(id);
+            router.replace(`/${workspaceSlug}/plans-queue`, { scroll: false });
+            fadeTimerRef.current = setTimeout(() => setHighlightId(null), 4000);
+        }, 0);
+        return () => {
+            cancelled = true;
+            clearTimeout(claimTimer);
+            clearTimeout(fadeTimerRef.current);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once for the id captured at mount
+    }, []);
 
     // Bulk selection (mirrors the Clients datatable's selection + Action Bar pattern).
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -62,8 +136,12 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     // Ids cancelled via the bulk "Cancel Request" action — filtered out client-side
     // until the next load, since `awaiting` (unlike `submissions`) isn't local state.
     const [removedIds, setRemovedIds] = useState(new Set());
+    // Ids archived via the row/bulk "Archive" action — same client-side hide-until-reload
+    // strategy as removedIds, kept separate so the two actions stay easy to reason about.
+    const [archivedIds, setArchivedIds] = useState(new Set());
     const [bulkAssigning, setBulkAssigning] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    const [archiving, setArchiving] = useState(false);
 
     async function assignTo(rowId, userId) {
         const member = members.find((m) => m.id === userId);
@@ -89,11 +167,6 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
         return form?.type || "check-in";
     }
 
-    function getFormQuestions(formId) {
-        const form = forms.find((f) => f.id === formId);
-        return form?.questions || [];
-    }
-
     const withDerived = (item) => {
         const override = assignMap[item.id];
         return {
@@ -108,13 +181,13 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     const mergedSubmissions = submissions.map(withDerived);
     const mergedAwaiting = awaiting.map(withDerived);
 
-    const allItems = [...mergedAwaiting, ...mergedSubmissions].filter((r) => !removedIds.has(r.id));
+    const allItems = [...mergedAwaiting, ...mergedSubmissions].filter((r) => !removedIds.has(r.id) && !archivedIds.has(r.id));
 
-    // Card quick-filters narrow the rows handed to the table; the table's own
-    // column filters then apply on top.
-    const displayItems = allItems.filter((r) =>
-        (!cardStatus || r.status === cardStatus) &&
-        (!cardAction || r.postAction === cardAction)
+    // Sorted (not insertion order) so a given package name always lands on the
+    // same color regardless of which row it first appears in.
+    const packageNames = [...new Set(allItems.map((r) => r.clientPackage).filter(Boolean))].sort();
+    const packageColors = Object.fromEntries(
+        packageNames.map((name, i) => [name, PACKAGE_CHIP_COLORS[i % PACKAGE_CHIP_COLORS.length]])
     );
 
     async function markReviewed(ids, action = "review") {
@@ -167,6 +240,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     const eligibleReviewIds = selectedItems.filter((r) => r.status === "need-action" && r.postAction === "nothing").map((r) => r.id);
     const eligibleUndoIds = selectedItems.filter((r) => r.status === "action-done").map((r) => r.id);
     const eligibleCancelIds = selectedItems.filter((r) => r.status === "awaiting" || r.status === "scheduled").map((r) => r.id);
+    const eligibleArchiveIds = selectedItems.filter((r) => r.status === "need-action" || r.status === "action-done").map((r) => r.id);
 
     async function bulkMarkReviewed() {
         if (eligibleReviewIds.length === 0) return;
@@ -197,24 +271,20 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
         setCancelling(false);
     }
 
-    function formatAnswer(value) {
-        if (Array.isArray(value)) return value.join(", ");
-        if (typeof value === "number") return String(value);
-        if (value === "") return "-";
-        if (value == null) return "-";
-        return String(value);
+    // Archives submitted/reviewed submissions out of the active queue — reversible
+    // (via the Archived view's Restore action), unlike bulkCancelRequests' hard delete.
+    async function archiveSubmissions(ids) {
+        if (ids.length === 0) return;
+        setArchiving(true);
+        try {
+            await api.patch("/api/forms/queue/archive", { ids, action: "archive" });
+            setArchivedIds((prev) => new Set([...prev, ...ids]));
+            setSelectedIds(new Set());
+        } catch {
+            // silent
+        }
+        setArchiving(false);
     }
-
-    // Stat cards show full totals (independent of the active card filter) so the
-    // numbers stay stable as you toggle filters.
-    const scheduledCount = allItems.filter((r) => r.status === "scheduled").length;
-    const awaitingCount = allItems.filter((r) => r.status === "awaiting").length;
-    const needActionCount = allItems.filter((r) => r.status === "need-action").length;
-    const actionDoneCount = allItems.filter((r) => r.status === "action-done").length;
-
-    const nutritionPlanCount = allItems.filter((r) => r.postAction === "nutrition-plan").length;
-    const workoutPlanCount = allItems.filter((r) => r.postAction === "workout-plan").length;
-    const noActionCount = allItems.filter((r) => r.postAction === "nothing").length;
 
     function parseQueueDate(dateStr) {
         if (!dateStr) return new Date(0);
@@ -228,6 +298,12 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
         const formatted = formatDateTime(dateStr);
         if (!formatted) return <span className="text-muted-foreground/60 text-xs">{dateStr}</span>;
         return <span className="text-muted-foreground text-xs whitespace-nowrap">{formatted}</span>;
+    }
+
+    function actionTypeLabel(postAction) {
+        if (postAction === "nutrition-plan") return t('nutrition');
+        if (postAction === "workout-plan") return t('workout');
+        return t('noAction');
     }
 
     function statusBadge(status) {
@@ -275,32 +351,62 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
             ),
         },
         {
+            key: "clientPackage",
+            label: t('colPackage'),
+            filterType: "multi",
+            options: packageNames,
+            pinned: true,
+            icon: Package,
+            sortable: true,
+            width: "150px",
+            cardPriority: "secondary",
+            render: (row) => row.clientPackage
+                ? <Chip size="sm" className={`whitespace-nowrap ${packageColors[row.clientPackage]}`}>{row.clientPackage}</Chip>
+                : <span className="text-muted-foreground text-sm">-</span>,
+        },
+        {
             key: "formTitle_en",
             label: t('form'),
             filterType: "multi",
             options: [...new Set(allItems.map((s) => getLocalizedField(s, 'formTitle', locale)).filter(Boolean))],
+            pinned: true,
+            icon: ClipboardList,
             sortable: true,
-            width: "180px",
+            width: "220px",
             cardPriority: "primary",
-            render: (row) => <span className="text-foreground text-sm">{getLocalizedField(row, 'formTitle', locale)}</span>,
+            render: (row) => (
+                <div className="min-w-0">
+                    <p className="text-foreground text-sm font-medium truncate">{getLocalizedField(row, 'formTitle', locale)}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                        <Chip size="sm" className={`whitespace-nowrap ${
+                            row.formType === "assessment"
+                                ? "bg-purple-500/20 text-purple-400"
+                                : "bg-accent/15 text-accent"
+                        }`}>
+                            {titleCaseType(row.formType)}
+                        </Chip>
+                        <Chip size="sm" className={`whitespace-nowrap ${
+                            row.postAction === "nutrition-plan" ? "bg-amber-500/20 text-amber-400"
+                                : row.postAction === "workout-plan" ? "bg-accent/15 text-accent"
+                                : "bg-zinc-500/20 text-zinc-400"
+                        }`}>
+                            {actionTypeLabel(row.postAction)}
+                        </Chip>
+                    </div>
+                </div>
+            ),
         },
+        // Filter-only — its value is already shown as a chip inside the Form
+        // column above, so it doesn't need its own visible table column too.
         {
             key: "formType",
             label: t('type'),
             filterType: "multi",
             options: ["assessment", "check-in"],
             optionLabel: (v) => titleCaseType(v),
-            width: "100px",
-            cardPriority: "secondary",
-            render: (row) => (
-                <Chip size="sm" className={`whitespace-nowrap ${
-                    row.formType === "assessment"
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "bg-accent/15 text-accent"
-                }`}>
-                    {titleCaseType(row.formType)}
-                </Chip>
-            ),
+            pinned: true,
+            icon: FileText,
+            hidden: true,
         },
         {
             key: "requestedAt",
@@ -329,7 +435,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
             cardPriority: "primary",
             render: (row) => shortDate(row.submittedAt),
         },
-        {
+        ...(hideActionTakenColumn ? [] : [{
             key: "actionTakenAt",
             label: t('actionTaken'),
             sortable: true,
@@ -337,22 +443,38 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
             width: "150px",
             cardPriority: "secondary",
             render: (row) => shortDate(row.actionTakenAt),
-        },
-        {
+        }]),
+        ...(hideStatusColumn ? [] : [{
             key: "status",
             label: t('status'),
             filterType: "multi",
             options: ["scheduled", "awaiting", "need-action", "action-done"],
+            optionLabel: (v) => ({
+                scheduled: t('scheduled'),
+                awaiting: t('awaiting'),
+                "need-action": t('needAction'),
+                "action-done": t('actionDone'),
+            }[v] ?? v),
+            pinned: true,
+            icon: Activity,
             width: "130px",
             cardPriority: "primary",
             render: (row) => statusBadge(row.status),
-        },
+        }]),
         {
             key: "assignedTo",
             label: t('assigned'),
             filterType: "multi",
-            options: members.map((m) => m.id),
-            optionLabel: (id) => members.find((m) => m.id === id)?.name || id,
+            options: [null, ...members.map((m) => m.id)],
+            optionLabel: (id) => id === null ? t('unassigned') : (members.find((m) => m.id === id)?.name || id),
+            filterValue: (row) => row.assignedTo ?? null,
+            sortable: true,
+            // Sort by the assignee's display name, not the raw id — unassigned
+            // rows sort last regardless of direction (empty string always wins
+            // localeCompare against a real name).
+            sortValue: (row) => row.assignedToName || null,
+            pinned: true,
+            icon: Users,
             width: "170px",
             cardPriority: "secondary",
             render: (row) => (
@@ -389,8 +511,13 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
             label: t('action'),
             filterType: "multi",
             options: ["nothing", "nutrition-plan", "workout-plan"],
+            optionLabel: (v) => actionTypeLabel(v),
             filterValue: (row) => row.postAction,
-            width: "220px",
+            pinned: true,
+            icon: Target,
+            alwaysVisibleActions: true,
+            stickyEnd: true,
+            width: "260px",
             cardPriority: "primary",
             render: (row) => {
                 const typeBadge = row.postAction === "nutrition-plan"
@@ -418,39 +545,35 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                 }
 
                 return (
-                    <div className="flex items-center gap-0.5">
-                        <IconAction
-                            label={expandedId === row.id ? t('hide') : t('view')}
-                            onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === row.id ? null : row.id); }}
-                            className="text-muted-foreground hover:text-foreground"
-                        >
-                            {expandedId === row.id ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </IconAction>
+                    <div className="flex items-center gap-2">
                         {row.status === "need-action" && (
                             row.postAction === "nutrition-plan" ? (
                                 <IconAction
+                                    showLabel
                                     label={t('openNutrition')}
                                     onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/nutrition?submissionId=${row.id}`); }}
-                                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/15"
+                                    className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
                                 >
-                                    <Salad size={15} />
+                                    <Salad size={16} />
                                 </IconAction>
                             ) : row.postAction === "workout-plan" ? (
                                 <IconAction
+                                    showLabel
                                     label={t('openWorkout')}
                                     onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/training?submissionId=${row.id}`); }}
-                                    className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                                    className="bg-accent/15 text-accent hover:bg-accent/25"
                                 >
-                                    <Dumbbell size={15} />
+                                    <Dumbbell size={16} />
                                 </IconAction>
                             ) : (
                                 <IconAction
+                                    showLabel
                                     label={t('markReviewed')}
                                     onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "review"); }}
                                     disabled={marking}
-                                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/15"
+                                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
                                 >
-                                    <Check size={15} />
+                                    <Check size={16} />
                                 </IconAction>
                             )
                         )}
@@ -459,9 +582,20 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                                 label={t('undo')}
                                 onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "undo"); }}
                                 disabled={marking}
-                                className="text-muted-foreground hover:text-foreground"
+                                className="bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30"
                             >
                                 <Undo2 size={15} />
+                            </IconAction>
+                        )}
+                        {(row.status === "need-action" || row.status === "action-done") && (
+                            <IconAction
+                                padded
+                                label={t('archive')}
+                                onClick={(e) => { e.stopPropagation(); archiveSubmissions([row.id]); }}
+                                disabled={archiving}
+                                className="bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30"
+                            >
+                                <Archive size={15} />
                             </IconAction>
                         )}
                     </div>
@@ -470,125 +604,24 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
         },
     ];
 
-    function renderAnswers(row) {
-        const questions = getFormQuestions(row.formId);
-        if (questions.length > 0) {
-            return questions.map((q) => (
-                <div key={q.id} className="flex flex-col gap-0.5">
-                    <span className="text-muted-foreground text-xs">{getLocalizedField(q, 'label', locale)}</span>
-                    <span className="text-foreground text-sm">{formatAnswer(row.answers?.[q.id])}</span>
-                </div>
-            ));
-        }
-
-        return (row.responses || []).map((r, index) => (
-            <div key={`${row.id}-${index}`} className="flex flex-col gap-0.5">
-                <span className="text-muted-foreground text-xs">{getLocalizedField(r, 'label', locale) || `Question ${index + 1}`}</span>
-                <span className="text-foreground text-sm">{formatAnswer(r.answer)}</span>
-            </div>
-        ));
-    }
-
-    function renderExpandedRow(row) {
-        if (expandedId !== row.id || row.status === "awaiting" || row.status === "scheduled") return null;
-
-        return (
-            <tr key={`expanded-${row.id}`}>
-                <td colSpan={columns.length + 1} className="px-4 py-0">
-                    <div className="bg-secondary rounded-lg p-4 my-2 border border-border">
-                        <h4 className="text-foreground text-sm font-semibold mb-3">
-                            {t('submissionAnswers')} - {getLocalizedField(row, 'formTitle', locale)}
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {renderAnswers(row)}
-                        </div>
-                    </div>
-                </td>
-            </tr>
-        );
-    }
-
-    function renderMobileExpanded(row) {
-        if (expandedId !== row.id || row.status === "awaiting" || row.status === "scheduled") return null;
-
-        return (
-            <div className="mt-3 bg-secondary rounded-lg p-4 border border-border">
-                <h4 className="text-foreground text-sm font-semibold mb-3">{t('submissionAnswers')}</h4>
-                <div className="flex flex-col gap-3">{renderAnswers(row)}</div>
-            </div>
-        );
-    }
-
     return (
-        <>
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        // A real element, not a Fragment — this component is sometimes rendered
+        // inside a parent flex container (Submission History's gap-10 wrapper);
+        // a Fragment here would leak its children as that container's direct
+        // flex items, doubling up spacing that this component already controls
+        // internally (via DataTable's own margins below).
+        <div>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-3xl font-bold">{t('title')}</h1>
-                    <p className="text-muted-foreground text-sm mt-1">{t('description')}</p>
+                    <h1 className="text-3xl font-bold">{title ?? t('title')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">{description ?? t('description')}</p>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                        type="button"
-                        onClick={() => setCardStatus((s) => (s === "scheduled" ? null : "scheduled"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 cursor-pointer transition-shadow ${cardStatus === "scheduled" ? "ring-2 ring-primary/50" : "hover:ring-1 hover:ring-primary/30"}`}
-                    >
-                        <div className="w-2 h-2 rounded-full bg-accent" />
-                        <span className="text-primary text-sm font-medium">{scheduledCount} {t('scheduled')}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setCardStatus((s) => (s === "awaiting" ? null : "awaiting"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary cursor-pointer transition-shadow ${cardStatus === "awaiting" ? "ring-2 ring-muted-foreground/40" : "hover:ring-1 hover:ring-muted-foreground/30"}`}
-                    >
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
-                        <span className="text-muted-foreground text-sm font-medium">{awaitingCount} {t('awaiting')}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setCardStatus((s) => (s === "need-action" ? null : "need-action"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 cursor-pointer transition-shadow ${cardStatus === "need-action" ? "ring-2 ring-amber-400/60" : "hover:ring-1 hover:ring-amber-400/40"}`}
-                    >
-                        <div className="w-2 h-2 rounded-full bg-amber-400" />
-                        <span className="text-amber-500 text-sm font-medium">{needActionCount} {t('needAction')}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setCardStatus((s) => (s === "action-done" ? null : "action-done"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 cursor-pointer transition-shadow ${cardStatus === "action-done" ? "ring-2 ring-emerald-500/60" : "hover:ring-1 hover:ring-emerald-500/40"}`}
-                    >
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-emerald-600 text-sm font-medium">{actionDoneCount} {t('actionDone')}</span>
-                    </button>
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-muted-foreground text-xs">{t('actionType')}</span>
-                    <button
-                        type="button"
-                        onClick={() => setCardAction((a) => (a === "nutrition-plan" ? null : "nutrition-plan"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 cursor-pointer transition-shadow ${cardAction === "nutrition-plan" ? "ring-2 ring-amber-400/60" : "hover:ring-1 hover:ring-amber-400/40"}`}
-                    >
-                        <span className="text-amber-500 text-sm font-medium">{nutritionPlanCount} {t('nutrition')}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setCardAction((a) => (a === "workout-plan" ? null : "workout-plan"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 cursor-pointer transition-shadow ${cardAction === "workout-plan" ? "ring-2 ring-primary/50" : "hover:ring-1 hover:ring-primary/30"}`}
-                    >
-                        <span className="text-primary text-sm font-medium">{workoutPlanCount} {t('workout')}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setCardAction((a) => (a === "nothing" ? null : "nothing"))}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary cursor-pointer transition-shadow ${cardAction === "nothing" ? "ring-2 ring-muted-foreground/40" : "hover:ring-1 hover:ring-muted-foreground/30"}`}
-                    >
-                        <span className="text-muted-foreground text-sm font-medium">{noActionCount} {t('noAction')}</span>
-                    </button>
-                </div>
+                {headerAction}
             </div>
 
             <DataTable
                 columns={columns}
-                data={displayItems}
+                data={allItems}
                 rowKey="id"
                 scrollable
                 dateParser={parseQueueDate}
@@ -596,12 +629,19 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                     fields: ["clientName", "clientEmail", "clientCode", "formTitle_en", "formTitle_ar"],
                     placeholder: t('searchPlaceholder'),
                 }}
-                renderExpandedRow={renderExpandedRow}
-                renderMobileExpanded={renderMobileExpanded}
                 selectable
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
                 onFilteredDataChange={setFilteredItems}
+                // Scoped per view (hideStatusColumn is 1:1 with main vs. history —
+                // see page.js's two call sites): Main and History render different
+                // columns over different datasets, so sharing one key meant a
+                // filter/sort saved in one view would silently misapply (or just
+                // do nothing) when restored into the other's incompatible columns.
+                persistKey={`plans-queue-${hideStatusColumn ? "main" : "history"}-${workspaceSlug}`}
+                highlightKey={highlightId}
+                filterButtonLabel={t('otherFilters')}
+                rowClassName={(row) => row.id === highlightId ? "bg-emerald-500/10 outline outline-2 -outline-offset-1 outline-emerald-500/40 transition-colors duration-1000" : ""}
             />
 
             {/* Floating bulk action bar — same component/pattern as the Clients datatable. */}
@@ -670,6 +710,13 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                             <span className="action-bar__label">{cancelling ? t('cancelling') : t('cancelRequestBulk', { count: eligibleCancelIds.length })}</span>
                         </Button>
                     )}
+
+                    {eligibleArchiveIds.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => archiveSubmissions(eligibleArchiveIds)} isDisabled={archiving}>
+                            <Archive className="w-4 h-4" />
+                            <span className="action-bar__label">{archiving ? t('archiving') : t('archiveBulk', { count: eligibleArchiveIds.length })}</span>
+                        </Button>
+                    )}
                 </ActionBar.Content>
                 <Separator orientation="vertical" className="h-6" />
                 <ActionBar.Suffix>
@@ -687,6 +734,6 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                     </Tooltip>
                 </ActionBar.Suffix>
             </ActionBar>
-        </>
+        </div>
     );
 }

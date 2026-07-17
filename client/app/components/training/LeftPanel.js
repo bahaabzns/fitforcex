@@ -104,7 +104,7 @@ export default function LeftPanel({
 
     const dirtyPlanCount = dirtyPlanIds?.length ?? 0;
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
-    const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
+    const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled' && !r.is_archived);
 
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">

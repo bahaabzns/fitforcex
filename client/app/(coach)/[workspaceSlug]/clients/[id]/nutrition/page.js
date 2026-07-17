@@ -166,7 +166,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         try {
             await handleActivatePlan(selectedPlan.id, pendingActivationOptions ?? {});
             await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue`);
+            if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue?justActioned=${submissionId}`);
         } catch {} finally {
             setActivating(false);
             setActivateModal(false);

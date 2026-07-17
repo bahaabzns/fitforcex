@@ -9,7 +9,7 @@ import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
-import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp, Archive, ArchiveRestore } from 'lucide-react';
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -127,6 +127,7 @@ export default function ClientFormsPage() {
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
     const [sortOrder, setSortOrder] = useState("newest");
+    const [archiveActionPending, setArchiveActionPending] = useState(false);
 
     // Request Form modal state
     const [requestModal, setRequestModal] = useState(false);
@@ -275,6 +276,23 @@ export default function ClientFormsPage() {
         }
     };
 
+    // Archive/restore a submitted or reviewed request — reversible, unlike
+    // handleCancel's hard delete, which is only valid for pending/scheduled
+    // requests. Shares the same queue endpoint the Plans Queue archive uses.
+    const handleArchiveToggle = async (requestId, archive) => {
+        setArchiveActionPending(true);
+        try {
+            await api.patch('/api/forms/queue/archive', { ids: [requestId], action: archive ? 'archive' : 'restore' });
+            const archivedAt = archive ? new Date().toISOString() : null;
+            setRequests(prev => prev.map(r => r.id === requestId ? { ...r, is_archived: archive, archived_at: archivedAt } : r));
+            setSelected(prev => prev && prev.id === requestId ? { ...prev, is_archived: archive, archived_at: archivedAt } : prev);
+        } catch (e) {
+            alert(e.response?.data?.error || `Failed to ${archive ? 'archive' : 'restore'} request`);
+        } finally {
+            setArchiveActionPending(false);
+        }
+    };
+
     const sortedRequests = [...requests].sort((a, b) => {
         if (sortOrder === "oldest") return new Date(a.requested_at) - new Date(b.requested_at);
         if (sortOrder === "lastSubmitted") {
@@ -377,6 +395,8 @@ export default function ClientFormsPage() {
                                             key={req.id}
                                             onClick={() => { setSelected(req); setExpandedKeys(new Set()); }}
                                             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 select-none ${
+                                                req.is_archived ? "opacity-50" : ""
+                                            } ${
                                                 isActive
                                                     ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
                                                     : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
@@ -399,7 +419,13 @@ export default function ClientFormsPage() {
                                                         : `${t('requested')} ${formatRelativeTime(req.requested_at, tCommon)}`}
                                                 </p>
                                             </div>
-                                            <div className="shrink-0">
+                                            <div className="shrink-0 flex items-center gap-1.5">
+                                                {req.is_archived && (
+                                                    <Chip size="sm" color="default" variant="soft">
+                                                        <Archive size={11} />
+                                                        <Chip.Label>{t('archived')}</Chip.Label>
+                                                    </Chip>
+                                                )}
                                                 {req.status === 'submitted' ? (
                                                     <Chip size="sm" color="success" variant="soft">
                                                         <Chip.Label>{t('submitted')}</Chip.Label>
@@ -453,6 +479,12 @@ export default function ClientFormsPage() {
                                     {getLocalizedField(selected, 'form_title', locale)}
                                 </h3>
                                 <div className="flex items-center gap-2 shrink-0">
+                                    {selected.is_archived && (
+                                        <Chip size="sm" color="default" variant="soft">
+                                            <Archive size={11} />
+                                            <Chip.Label>{t('archived')}</Chip.Label>
+                                        </Chip>
+                                    )}
                                     {selected.status === 'submitted' ? (
                                         <Chip size="sm" color="success" variant="soft">
                                             <CheckCircle size={11} />
@@ -476,6 +508,25 @@ export default function ClientFormsPage() {
                                         >
                                             <Trash2 size={12} /> {t('cancelRequest')}
                                         </button>
+                                    )}
+                                    {(selected.status === 'submitted' || selected.status === 'reviewed') && (
+                                        selected.is_archived ? (
+                                            <button
+                                                onClick={() => handleArchiveToggle(selected.id, false)}
+                                                disabled={archiveActionPending}
+                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <ArchiveRestore size={12} /> {t('restoreRequest')}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleArchiveToggle(selected.id, true)}
+                                                disabled={archiveActionPending}
+                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <Archive size={12} /> {t('archiveRequest')}
+                                            </button>
+                                        )
                                     )}
                                 </div>
                             </div>
