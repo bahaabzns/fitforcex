@@ -787,8 +787,11 @@ export async function buildTransformationPayload(clientId: string, workspaceId: 
     // so it must stay in progress charts/metric history exactly as it did
     // before review. Pre-existing gap, not introduced by Forms Versioning —
     // this function's JOIN target changed in Phase 3, this filter didn't.
+    // Archived requests (archived_at set) are excluded: archiving is meant to
+    // pull a submission's readings/photos out of the charts, same as it pulls
+    // the submission out of the Plans Queue — status alone doesn't capture that.
     const requests = await prisma.form_requests.findMany({
-        where:  { client_id: clientId, workspace_id: workspaceId, status: { in: ['submitted', 'reviewed'] } },
+        where:  { client_id: clientId, workspace_id: workspaceId, status: { in: ['submitted', 'reviewed'] }, archived_at: null },
         select: { id: true, submitted_at: true, form_id: true },
     });
     if (requests.length === 0) return { metrics: [], timeline: [] };

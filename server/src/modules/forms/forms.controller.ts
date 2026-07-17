@@ -33,6 +33,9 @@ export async function ensureFormsQueueSchema(): Promise<void> {
             await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS post_action TEXT NOT NULL DEFAULT 'nothing'`);
             await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
             await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS action_taken_at TIMESTAMPTZ`);
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS archived_by TEXT`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_form_requests_ws_archived ON form_requests (workspace_id, archived_at)`);
         })();
     }
     await schemaReadyPromise;
@@ -827,6 +830,7 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
 
         const rows = await prisma.$queryRaw<RequestRow[]>`
             SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
+                   fr.archived_at,
                    f.id AS form_id,
                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
                    f.description_en AS form_description_en, f.description_ar AS form_description_ar,
@@ -865,6 +869,7 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
             ...row,
             post_action: row.post_action || row.form_post_action || 'nothing',
             responses: responsesByRequestId.get(row.id as string) ?? [],
+            is_archived: !!row.archived_at,
         }));
 
         res.json(requests);
@@ -877,20 +882,29 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
     try {
         await activateDueScheduledRequests(req.user!.workspaceId);
 
+        // Archived submissions are hidden from the active queue by default;
+        // ?archived=true flips to the archived view (see archiveQueue below).
+        const wantsArchived = req.query.archived === 'true';
+        const archivedFilter = wantsArchived
+            ? Prisma.sql`fr.archived_at IS NOT NULL`
+            : Prisma.sql`fr.archived_at IS NULL`;
+
         const rows = await prisma.$queryRaw<RequestRow[]>`
             SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
                    fr.scheduled_at, fr.post_action, fr.action_taken_at, fr.assigned_to,
+                   fr.archived_at,
                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
                    f.form_type, f.post_action AS form_post_action,
                    c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
                    au.fname AS assignee_fname, au.lname AS assignee_lname,
-                   NULL::text AS client_package,
+                   c.current_package AS client_package,
                    NULL::text AS subscription_status
             FROM form_requests fr
             JOIN forms f ON f.id = fr.form_id
             JOIN clients c ON c.id = fr.client_id
             LEFT JOIN users au ON au.id = fr.assigned_to
             WHERE fr.workspace_id = ${req.user!.workspaceId}
+              AND ${archivedFilter}
             ORDER BY fr.requested_at DESC
         `;
 
@@ -939,6 +953,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     assignedTo: row.assigned_to ?? null,
                     assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
                     answers: {}, responses: [],
+                    isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
                 };
             }
 
@@ -960,6 +975,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
                 answers,
                 responses: requestResponses,
+                isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
             };
         });
 
@@ -1092,6 +1108,45 @@ export async function cancelQueue(req: Request, res: Response, next: NextFunctio
             },
         });
         res.json({ deletedCount: deleted.count });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Archives (or restores) submitted/reviewed requests — the reversible counterpart to
+// cancelQueue's hard delete, which only ever applies to pending/scheduled requests that
+// were never submitted. Archiving just hides a completed submission from the active
+// queue; every response row is preserved.
+export async function archiveQueue(req: Request, res: Response, next: NextFunction) {
+    const { ids, action } = req.body as { ids?: unknown[]; action?: string };
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'ids array is required' });
+    }
+
+    const actionType = action === 'restore' ? 'restore' : 'archive';
+
+    try {
+        if (actionType === 'restore') {
+            await prisma.form_requests.updateMany({
+                where: { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) }, archived_at: { not: null } },
+                data:  { archived_at: null, archived_by: null },
+            });
+        } else {
+            await prisma.form_requests.updateMany({
+                where: {
+                    workspace_id: req.user!.workspaceId,
+                    id:           { in: ids.map(String) },
+                    status:       { in: ['submitted', 'reviewed'] },
+                },
+                data: { archived_at: new Date(), archived_by: req.user!.userId },
+            });
+        }
+
+        const updated = await prisma.form_requests.findMany({
+            where:  { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) } },
+            select: { id: true },
+        });
+        res.json({ updatedIds: updated.map(r => r.id) });
     } catch (err) {
         next(err);
     }

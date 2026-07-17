@@ -371,6 +371,8 @@ model form_requests {
   action_taken_at     DateTime?             @db.Timestamptz(6)
   assigned_to         String? // user id of the team member this request is assigned to
   form_version_id     String? // Forms Versioning — the version pinned at creation time; never changes after
+  archived_at         DateTime?             @db.Timestamptz(6)
+  archived_by         String?
   workspaces          workspaces            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
   clients             clients?              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   forms               forms?                @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -382,6 +384,7 @@ model form_requests {
   @@index([assigned_to])
   @@index([form_id])
   @@index([form_version_id])
+  @@index([workspace_id, archived_at], map: "idx_form_requests_ws_archived")
 }
 
 model form_responses {
