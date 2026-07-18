@@ -33,6 +33,11 @@ export const env = {
     // Dev default is 'localhost' so *.localhost subdomains pass CORS; production sets fitforce.app.
     ROOT_DOMAIN:          process.env.ROOT_DOMAIN ?? 'localhost',
 
+    // Additional root domain(s) still allowed to call the API during a domain migration
+    // (comma-separated, e.g. 'fitforce.io'). Empty by default. Drop once the old domain
+    // is confirmed to have no live traffic.
+    LEGACY_ROOT_DOMAINS:  (process.env.LEGACY_ROOT_DOMAINS ?? '').split(',').filter(Boolean),
+
     // Cookie domain — set to '.fitforce.app' in production so the auth cookie is shared
     // across my., admin., and all slug. subdomains. Empty string = host-only (dev default).
     COOKIE_DOMAIN:        process.env.COOKIE_DOMAIN ?? '',
