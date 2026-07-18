@@ -9,9 +9,11 @@ import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ForgotPasswordPage() {
     const t = useTranslations('auth');
+    usePageTitle(t('forgotPasswordTitle'));
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);

@@ -10,9 +10,12 @@ import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Modal } from "@heroui/react/modal";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function MetricsPage() {
     const tCommon = useTranslations("common");
+    const tNav = useTranslations("nav");
+    usePageTitle(tNav('metrics'));
     const [metrics, setMetrics] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);

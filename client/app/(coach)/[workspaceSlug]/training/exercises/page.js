@@ -10,9 +10,11 @@ import ExerciseFormModal from "@/app/components/training/ExerciseFormModal";
 import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ExerciseLibraryPage() {
     const t = useTranslations("exercises");
+    usePageTitle(t('pageTitle'));
     const [items, setItems] = useState([]);
     const [muscleGroups, setMuscleGroups] = useState([]);
     const [equipments, setEquipments] = useState([]);

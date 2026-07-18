@@ -24,6 +24,7 @@ import MessageComposer from "@/app/components/MessageComposer";
 import MessageRow from "@/app/components/MessageRow";
 import ObservationCard from "@/app/components/ObservationCard";
 import ObservationModal from "@/app/components/ObservationModal";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -111,6 +112,7 @@ export default function MessengerPage() {
     const router = useRouter();
     const t = useTranslations('messenger');
     const tFilter = useTranslations('filter');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const isRtl = locale === 'ar';
     const { formatDate } = useDateFormatter();

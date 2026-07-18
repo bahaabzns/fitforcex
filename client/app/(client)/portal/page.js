@@ -11,12 +11,14 @@ import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
 import { Eye, EyeOff } from "lucide-react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // The slug comes from the subdomain, which only exists in the browser. useSyncExternalStore
 // reads it safely: null during SSR, the real slug after hydration — no hydration mismatch.
 const subscribeNoop = () => () => {};
 
 export default function PortalLoginPage() {
+    usePageTitle("Client Portal");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");

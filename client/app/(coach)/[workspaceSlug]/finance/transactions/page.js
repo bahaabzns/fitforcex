@@ -13,6 +13,7 @@ import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
@@ -269,6 +270,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
 export default function TransactionsPage() {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
+    usePageTitle(t('title'));
     const locale = useLocale();
 
     const [transactions, setTransactions]     = useState([]);

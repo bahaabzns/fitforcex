@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import MessageComposer from "@/app/components/MessageComposer";
 import MessageRow from "@/app/components/MessageRow";
 import EmptyState from "@/app/components/EmptyState";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -79,6 +80,7 @@ function bubbleRadius(isOwn, pos) {
 
 export default function ClientMessagesPage() {
     const t = useTranslations('portal.messages');
+    usePageTitle(t('title'));
     const [messages, setMessages] = useState([]);
     const [coachName, setCoachName] = useState('');
     const [editingMessage, setEditingMessage] = useState(null);

@@ -11,10 +11,12 @@ import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function MuscleGroupsPage() {
     const t = useTranslations("muscleGroups");
     const tCommon = useTranslations("common");
+    usePageTitle(t('pageTitle'));
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);

@@ -18,6 +18,7 @@ import { DateField } from "@heroui/react/date-field";
 import AreaChart from "@/app/components/charts/AreaChart";
 import WelcomeOnboarding from "@/app/components/WelcomeOnboarding";
 import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -35,6 +36,8 @@ export default function DashboardPage() {
     const router = useRouter();
     const { workspaceSlug } = useParams();
     const t = useTranslations('dashboard');
+    const tNav = useTranslations('nav');
+    usePageTitle(tNav('dashboard'));
     const [showWelcome, setShowWelcome] = useState(false);
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");

@@ -55,7 +55,8 @@
     "clientExperience": "تجربة العميل",
     "portalPolicies": "سياسات البوابة",
     "advanced": "متقدم",
-    "dangerZone": "منطقة الخطر"
+    "dangerZone": "منطقة الخطر",
+    "transformation": "التحول"
   },
   "sidebar": {
     "logout": "تسجيل الخروج",
@@ -289,7 +290,8 @@
     "metricWeight": "أثقل وزن",
     "metricOneRm": "أقصى تكرار تقديري",
     "metricVolume": "الحجم الكلي",
-    "noLogsForExercise": "لا توجد بيانات مسجلة لهذا التمرين بعد"
+    "noLogsForExercise": "لا توجد بيانات مسجلة لهذا التمرين بعد",
+    "pageTitle": "سجلات التمرين"
   },
   "clientTransactions": {
     "title": "المعاملات",
@@ -917,7 +919,8 @@
     "checkMailBody": "أرسلنا رمزاً مكوناً من 6 أرقام إلى <b>{email}</b>. أدخله في صفحة إعادة تعيين كلمة المرور.",
     "yourEmail": "بريدك الإلكتروني",
     "enterResetCode": "إدخال رمز إعادة التعيين",
-    "phoneRequired": "رقم الهاتف مطلوب"
+    "phoneRequired": "رقم الهاتف مطلوب",
+    "verifyEmailTitle": "تحقق من بريدك الإلكتروني"
   },
   "privacyPolicy": {
     "backToHome": "العودة إلى الرئيسية",
@@ -1538,6 +1541,7 @@
       "messages": "الرسائل"
     },
     "messages": {
+      "title": "الرسائل",
       "coachFallback": "مدربك",
       "subtitle": "تحدث مع مدربك",
       "emptyTitle": "لا توجد رسائل بعد",
@@ -1623,6 +1627,8 @@
       "activePlan": "خطة التدريب النشطة",
       "active": "نشط",
       "coachNote": "ملاحظة المدرب",
+      "coachInstructions": "تعليمات المدرب",
+      "noCoachNote": "لا توجد ملاحظة تدريبية متاحة لهذا التمرين.",
       "dayNote": "ملاحظة اليوم",
       "noExercises": "لا توجد تمارين لهذا اليوم.",
       "set": "مجموعة",

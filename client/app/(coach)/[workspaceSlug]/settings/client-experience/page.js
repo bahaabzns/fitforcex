@@ -11,6 +11,7 @@ import { defaultPolicy } from "@/app/components/SubscriptionPolicyFields";
 import { diffPolicies } from "@/app/components/subscriptionPolicyPresets";
 import SubscriptionPolicyEditor from "@/app/components/SubscriptionPolicyEditor";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function StatusAlert({ status, children }) {
     if (!children) return null;
@@ -28,6 +29,7 @@ export default function ClientExperiencePage() {
     const tNav = useTranslations("nav");
     const tPolicy = useTranslations("subscriptionPolicies");
     const tCommon = useTranslations("common");
+    usePageTitle(tNav("clientExperience"));
     const [me, setMe] = useState(null);
 
     const [expiredPolicy, setExpiredPolicy] = useState(defaultPolicy("expired"));

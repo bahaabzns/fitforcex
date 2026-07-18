@@ -21,6 +21,7 @@ import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { ComboBox } from "@heroui/react/combo-box";
 import { ListBox } from "@heroui/react/list-box";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // --- CURRENCY LIST ---
 const CURRENCIES = [
@@ -168,6 +169,7 @@ export default function PackagesPage() {
     const t = useTranslations('packages');
     const tCommon = useTranslations('common');
     const tFilter = useTranslations('filter');
+    usePageTitle(t('title'));
     const locale = useLocale();
 
     const [packages, setPackages] = useState([]);

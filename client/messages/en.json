@@ -55,7 +55,8 @@
     "clientExperience": "Client Experience",
     "portalPolicies": "Portal Policies",
     "advanced": "Advanced",
-    "dangerZone": "Danger Zone"
+    "dangerZone": "Danger Zone",
+    "transformation": "Transformation"
   },
   "sidebar": {
     "logout": "Logout",
@@ -289,7 +290,8 @@
     "metricWeight": "Heaviest weight",
     "metricOneRm": "Est. 1RM",
     "metricVolume": "Total volume",
-    "noLogsForExercise": "No logged data for this exercise yet"
+    "noLogsForExercise": "No logged data for this exercise yet",
+    "pageTitle": "Workout Logs"
   },
   "clientTransactions": {
     "title": "Transactions",
@@ -917,7 +919,8 @@
     "checkMailBody": "We sent a 6-digit code to <b>{email}</b>. Enter it on the reset password page.",
     "yourEmail": "your email",
     "enterResetCode": "Enter Reset Code",
-    "phoneRequired": "Phone number is required"
+    "phoneRequired": "Phone number is required",
+    "verifyEmailTitle": "Verify your email"
   },
   "privacyPolicy": {
     "backToHome": "Back to Home",
@@ -1538,6 +1541,7 @@
       "messages": "Messages"
     },
     "messages": {
+      "title": "Messages",
       "coachFallback": "Your Coach",
       "subtitle": "Chat with your coach",
       "emptyTitle": "No messages yet",
@@ -1623,6 +1627,8 @@
       "activePlan": "Active Training Plan",
       "active": "Active",
       "coachNote": "Coach Note",
+      "coachInstructions": "Coach Instructions",
+      "noCoachNote": "No coaching note available for this exercise.",
       "dayNote": "Day Note",
       "noExercises": "No exercises for this day.",
       "set": "Set",

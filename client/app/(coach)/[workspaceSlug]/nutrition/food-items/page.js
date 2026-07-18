@@ -9,6 +9,7 @@ import FoodForm from "@/app/components/nutrition/FoodForm";
 import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const emptyForm = {
     name_en: '',
@@ -24,6 +25,7 @@ const emptyForm = {
 
 export default function FoodItemsPage() {
     const t = useTranslations("foodItems");
+    usePageTitle(t('pageTitle'));
     const [foodItems, setFoodItems] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);

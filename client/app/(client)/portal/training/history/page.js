@@ -10,9 +10,11 @@ import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
 import { useDateFormatter } from "@/utils/useDateFormatter";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function TrainingHistoryPage() {
     const t = useTranslations("portal.training");
+    usePageTitle(t('workoutHistoryTitle'));
     const { formatDate } = useDateFormatter();
     const router = useRouter();
 

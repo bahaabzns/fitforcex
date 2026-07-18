@@ -18,6 +18,7 @@ import {
     Users2, UserPlus, Mail,
     Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
 } from 'lucide-react';
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const ROLES = ["manager", "trainer", "assistant"];
 
@@ -814,6 +815,7 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
 
 export default function TeamPage() {
     const t = useTranslations("team");
+    usePageTitle(t('pageTitle'));
     const searchParams = useSearchParams();
     const router = useRouter();
     const { workspaceSlug } = useParams();

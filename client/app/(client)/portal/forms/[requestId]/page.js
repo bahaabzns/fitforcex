@@ -11,9 +11,11 @@ import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ClientFillFormPage() {
     const t = useTranslations('portal.forms');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const { requestId } = useParams();
     const router = useRouter();

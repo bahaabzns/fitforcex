@@ -8,6 +8,7 @@ import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileTe
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { Avatar } from '@heroui/react/avatar';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 const NAV = [
     { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -26,6 +27,8 @@ export default function AdminLayout({ children }) {
     const [loading, setLoading] = useState(true);
 
     const isLoginPage = pathname === '/login';
+    const activeNavItem = NAV.find(({ href, exact }) => (exact ? pathname === href : pathname.startsWith(href)));
+    usePageTitle(isLoginPage ? 'Admin Login' : `Admin · ${activeNavItem?.label ?? 'Dashboard'}`);
 
     useEffect(() => {
         if (isLoginPage) { setLoading(false); return; }

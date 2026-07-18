@@ -16,6 +16,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { ListBox } from "@heroui/react/list-box";
 import { useFilter } from "@heroui/react/rac";
 import { ChevronsUpDown } from 'lucide-react';
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const COUNTRY_CODES = [
     { code: "+93", name: "Afghanistan" }, { code: "+355", name: "Albania" }, { code: "+213", name: "Algeria" },
@@ -54,6 +55,7 @@ const COUNTRY_CODES = [
 export default function RegisterPage() {
     const t = useTranslations('auth');
     const tCommon = useTranslations('common');
+    usePageTitle(t('createAccount'));
     const searchParams = useSearchParams();
     const planSlug = searchParams.get('plan');
     const periodKey = searchParams.get('period');

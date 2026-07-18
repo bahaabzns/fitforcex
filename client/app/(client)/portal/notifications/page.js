@@ -13,6 +13,7 @@ import EmptyState from "@/app/components/EmptyState";
 import { sortByPriority, priorityAccentClass, groupNotifications, FILTER_KEYS, filterItems } from "@/utils/notifications";
 import { getDateLabel } from "@/utils/date";
 import api from "@/lib/axios";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const LIST_LIMIT = 30;
 
@@ -151,6 +152,7 @@ function ctaLabel(notification, t) {
 export default function ClientNotificationsPage() {
     const t = useTranslations('portal.notifications');
     const tTypes = useTranslations('notifications.types');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const router = useRouter();
 

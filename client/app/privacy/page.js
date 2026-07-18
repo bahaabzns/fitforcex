@@ -1,7 +1,7 @@
 import PrivacyPolicyContent from './PrivacyPolicyContent';
 
 export const metadata = {
-    title: 'Privacy Policy — FitForce',
+    title: 'Privacy Policy · FitForce',
     description: 'How FitForce collects, uses, and protects your data.',
 };
 

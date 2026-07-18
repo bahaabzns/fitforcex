@@ -11,6 +11,7 @@ import { Download } from "lucide-react";
 import LandingPricing from "@/app/components/LandingPricing";
 import DataTable from "@/app/components/DataTable";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const STATUS_CHIP = {
     paid:     "bg-green-500/15 text-green-600",
@@ -34,6 +35,7 @@ export default function SubscriptionPage() {
     const tNav = useTranslations("nav");
     const tPlans = useTranslations("subscriptionPlans");
     const tHistory = useTranslations("paymentHistory");
+    usePageTitle(tNav("subscription"));
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [paying, setPaying] = useState(false);

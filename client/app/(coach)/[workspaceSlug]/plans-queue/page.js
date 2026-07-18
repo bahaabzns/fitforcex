@@ -8,6 +8,7 @@ import { History, ListTodo } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
 import ArchivedSubmissionsTable from "@/app/components/plansQueue/ArchivedSubmissionsTable";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
@@ -19,6 +20,7 @@ export default function PlansQueuePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [showHistory, setShowHistory] = useState(false);
+    usePageTitle(showHistory ? t('historyTitle') : t('title'));
     const [archivedItems, setArchivedItems] = useState([]);
     const [archivedLoading, setArchivedLoading] = useState(false);
     // Bumped after a restore to re-run the queue-loading effect below, so a

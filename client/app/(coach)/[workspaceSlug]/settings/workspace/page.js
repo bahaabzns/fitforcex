@@ -14,6 +14,7 @@ import { Label } from "@heroui/react/label";
 import { Tooltip } from "@heroui/react/tooltip";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import SettingsPlaceholderRow from "../_components/SettingsPlaceholderRow";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function StatusAlert({ status, children }) {
     if (!children) return null;
@@ -33,6 +34,7 @@ export default function WorkspacePage() {
     const tGeneral = useTranslations("workspaceGeneral");
     const tPortal = useTranslations("clientPortalSettings");
     const tCommon = useTranslations("common");
+    usePageTitle(tNav("workspace"));
     const [me, setMe] = useState(null);
     const [workspace, setWorkspace] = useState(null);
 

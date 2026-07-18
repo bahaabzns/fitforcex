@@ -11,9 +11,11 @@ import { Avatar } from "@heroui/react/avatar";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Modal } from "@heroui/react/modal";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ClientProfilePage() {
     const t = useTranslations('portal.profile');
+    usePageTitle(t('title'));
     const [client, setClient] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);

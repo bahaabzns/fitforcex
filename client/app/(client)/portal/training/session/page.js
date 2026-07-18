@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import { ChevronLeft, Flag, Trash2 } from "lucide-react";
-import { Skeleton } from "@heroui/react/skeleton";
+import { Flag, Trash2 } from "lucide-react";
+import { Spinner } from "@heroui/react/spinner";
 import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Modal } from "@heroui/react/modal";
 import ExerciseLogCard from "@/app/components/training-mode/ExerciseLogCard";
 import RestTimerBar from "@/app/components/training-mode/RestTimerBar";
 import { formatDuration, totalVolume, completedSetCount } from "@/utils/workout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const STORAGE_KEY  = "ff_training_session";
 const DEFAULT_REST = 90;
@@ -44,6 +45,8 @@ function buildSession(plan, day, dayIndex) {
                 video_path:          ex.video_path ?? null,
                 muscle_group:        ex.muscle_group ?? null,
                 equipment:           ex.equipment ?? null,
+                instructions_en:     ex.instructions_en ?? null,
+                instructions_ar:     ex.instructions_ar ?? null,
                 prescribed:          prescribed.map(s => ({ reps: s.reps, rest_seconds: s.rest_seconds, rir: s.rir, tempo: s.tempo })),
                 note:                "",
                 sets: Array.from({ length: setCount }, (_, i) => ({
@@ -60,6 +63,7 @@ export default function TrainingSessionPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const dayIndex = parseInt(searchParams.get("day"), 10) || 0;
+    usePageTitle(t('workout'));
 
     const [session, setSession]   = useState(null);
     const [previous, setPrevious] = useState({});
@@ -70,7 +74,9 @@ export default function TrainingSessionPage() {
     const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
     const [finishEmptyOpen, setFinishEmptyOpen]       = useState(false);
 
-    const lastCompletionRef = useRef(null);
+    // State, not a ref: focusSetIndexFor reads it during render to drive
+    // auto-focus, and refs can't be read while rendering (react-hooks/refs).
+    const [lastCompletion, setLastCompletion] = useState(null);
 
     // Load plan + previous values; resume a saved session for the same day if present.
     useEffect(() => {
@@ -151,23 +157,22 @@ export default function TrainingSessionPage() {
         const wasCompleted = session?.exercises[exIdx]?.sets[setIdx]?.completed;
         if (wasCompleted) {
             // Un-checking: stop any rest tied to this set.
-            if (lastCompletionRef.current?.exIdx === exIdx && lastCompletionRef.current?.setIdx === setIdx) {
-                lastCompletionRef.current = null;
+            if (lastCompletion?.exIdx === exIdx && lastCompletion?.setIdx === setIdx) {
+                setLastCompletion(null);
                 setRest(null);
             }
             return;
         }
 
         // Completing: measure the rest taken since the previous set of this exercise.
-        const prevCompletion = lastCompletionRef.current;
-        if (prevCompletion && prevCompletion.exIdx === exIdx && prevCompletion.setIdx === setIdx - 1) {
-            const measured = Math.round((nowMs - prevCompletion.at) / 1000);
+        if (lastCompletion && lastCompletion.exIdx === exIdx && lastCompletion.setIdx === setIdx - 1) {
+            const measured = Math.round((nowMs - lastCompletion.at) / 1000);
             updateExercise(exIdx, ex => ({
                 ...ex,
                 sets: ex.sets.map((s, j) => (j === setIdx - 1 ? { ...s, rest_seconds: measured } : s)),
             }));
         }
-        lastCompletionRef.current = { exIdx, setIdx, at: nowMs };
+        setLastCompletion({ exIdx, setIdx, at: nowMs });
 
         const target = Number(session?.exercises[exIdx]?.prescribed?.[setIdx]?.rest_seconds) || DEFAULT_REST;
         setRest({ startedAt: nowMs, target });
@@ -233,10 +238,8 @@ export default function TrainingSessionPage() {
 
     if (loading) {
         return (
-            <div className="max-w-4xl mx-auto p-6 flex flex-col gap-4">
-                <Skeleton className="h-10 rounded-xl" />
-                <Skeleton className="h-40 rounded-xl" />
-                <Skeleton className="h-40 rounded-xl" />
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <Spinner size="lg" />
             </div>
         );
     }
@@ -244,6 +247,13 @@ export default function TrainingSessionPage() {
 
     const elapsedSeconds = Math.floor((now - new Date(session.started_at).getTime()) / 1000);
     const restRemaining  = rest ? Math.ceil(rest.target - (now - rest.startedAt) / 1000) : null;
+
+    // Once a set completes, focus follows to the next set's weight field —
+    // but only while its rest countdown is still showing, mirroring the
+    // mobile app's "keep typing without reaching for the mouse" flow.
+    function focusSetIndexFor(exIdx) {
+        return restRemaining != null && lastCompletion?.exIdx === exIdx ? lastCompletion.setIdx + 1 : null;
+    }
 
     return (
         <div className="max-w-4xl mx-auto flex flex-col">
@@ -264,21 +274,20 @@ export default function TrainingSessionPage() {
                 </Button>
             </div>
 
-            <div className="px-6 pt-4 pb-28 flex flex-col gap-3">
+            <div className="px-6 pt-3 pb-28 flex flex-col">
                 {session.exercises.map((exercise, exIdx) => (
-                    <ExerciseLogCard
-                        key={exercise.exercise_id}
-                        exercise={exercise}
-                        previous={previous[exercise.exercise_id]}
-                        onChangeSet={(setIdx, field, value) => changeSet(exIdx, setIdx, field, value)}
-                        onToggleSet={(setIdx) => toggleSet(exIdx, setIdx)}
-                        onChangeNote={(value) => changeNote(exIdx, value)}
-                    />
+                    <div key={exercise.exercise_id}>
+                        {exIdx > 0 && <div className="my-4 border-t border-border/50" />}
+                        <ExerciseLogCard
+                            exercise={exercise}
+                            previous={previous[exercise.exercise_id]}
+                            focusSetIndex={focusSetIndexFor(exIdx)}
+                            onChangeSet={(setIdx, field, value) => changeSet(exIdx, setIdx, field, value)}
+                            onToggleSet={(setIdx) => toggleSet(exIdx, setIdx)}
+                            onChangeNote={(value) => changeNote(exIdx, value)}
+                        />
+                    </div>
                 ))}
-
-                <Button variant="ghost" size="sm" onClick={discard} className="self-center mt-2 text-muted-foreground hover:text-danger">
-                    <ChevronLeft className="w-4 h-4" /> {t("discard")}
-                </Button>
             </div>
 
             {rest && (

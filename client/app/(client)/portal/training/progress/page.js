@@ -9,6 +9,7 @@ import { ChevronLeft } from "lucide-react";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import LineChart from "@/app/components/charts/LineChart";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const METRICS = [
     { key: "top_weight",   labelKey: "metricWeight",  unitKey: "volumeUnit" },
@@ -18,6 +19,7 @@ const METRICS = [
 
 export default function TrainingProgressPage() {
     const t = useTranslations("portal.training");
+    usePageTitle(t('progress'));
     const locale = useLocale();
     const router = useRouter();
 

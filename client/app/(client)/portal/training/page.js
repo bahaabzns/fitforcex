@@ -11,9 +11,11 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { getYoutubeEmbedUrl } from "@/utils/video";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ClientTrainingPage() {
     const t      = useTranslations('portal.training');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const isRTL  = locale === 'ar';
 

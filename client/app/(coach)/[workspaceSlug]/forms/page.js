@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useFormBuilder } from "@/hooks/useFormBuilder";
 import FormsPanel from "@/app/components/forms/FormsPanel";
 import QuestionsPanel from "@/app/components/forms/QuestionsPanel";
@@ -8,8 +9,11 @@ import QuestionEditorPanel from "@/app/components/forms/QuestionEditorPanel";
 import SaveStatusIndicator from "@/app/components/SaveStatusIndicator";
 import VersionBadge from "@/app/components/forms/VersionBadge";
 import { Button } from "@heroui/react/button";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function FormsPage() {
+    const tNav = useTranslations("nav");
+    usePageTitle(tNav('forms'));
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
 

@@ -11,6 +11,7 @@ import { DateField } from "@heroui/react/date-field";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tabs } from "@heroui/react";
 import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function MetricChart({ metric, locale, startDate, endDate }) {
     const filtered  = useMemo(() => filterByRange(metric.history, startDate, endDate), [metric.history, startDate, endDate]);
@@ -426,6 +427,7 @@ function ProgressSection({ locale }) {
 export default function ClientHomePage() {
     const t = useTranslations('portal.home');
     const locale = useLocale();
+    usePageTitle(t('title'));
 
     return (
         <div className="max-w-lg mx-auto px-4 pt-5 pb-20 flex flex-col gap-6">

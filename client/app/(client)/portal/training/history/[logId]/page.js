@@ -10,6 +10,7 @@ import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
 import { useDateFormatter } from "@/utils/useDateFormatter";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function WorkoutLogDetailPage() {
     const t = useTranslations("portal.training");
@@ -18,6 +19,7 @@ export default function WorkoutLogDetailPage() {
     const { logId } = useParams();
 
     const [log, setLog]         = useState(null);
+    usePageTitle(log?.day_name || t('workout'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

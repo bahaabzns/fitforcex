@@ -2,9 +2,11 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function BillingFailurePage() {
     const { workspaceSlug } = useParams();
+    usePageTitle("Payment Cancelled");
 
     return (
         <div className="min-h-[60vh] flex items-center justify-center p-8">

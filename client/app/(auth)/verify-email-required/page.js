@@ -8,8 +8,12 @@ import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
+import { useTranslations } from "next-intl";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function VerifyEmailRequiredPage() {
+    const t = useTranslations('auth');
+    usePageTitle(t('verifyEmailTitle'));
     const router = useRouter();
     const [code, setCode] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);

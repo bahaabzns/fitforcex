@@ -4,9 +4,11 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { buttonVariants } from "@heroui/react/button";
 import { Suspense } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function CheckMailContent() {
     const t = useTranslations('auth');
+    usePageTitle(t('checkMailTitle'));
     const searchParams = useSearchParams();
     const email = searchParams.get('email') || t('yourEmail');
 

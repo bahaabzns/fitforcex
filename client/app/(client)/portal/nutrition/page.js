@@ -10,10 +10,12 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import ShoppingListDrawer from "@/app/components/ShoppingListDrawer";
 import MacrosDonut from "@/app/components/nutrition/MacrosDonut";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ClientDashboardPage() {
     const t         = useTranslations('portal.dashboard');
     const tShopping = useTranslations('portal.shoppingList');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const isRTL  = locale === 'ar';
 

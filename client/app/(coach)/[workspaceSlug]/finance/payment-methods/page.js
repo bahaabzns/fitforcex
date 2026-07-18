@@ -15,6 +15,7 @@ import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 
@@ -26,6 +27,7 @@ export default function PaymentMethodsPage() {
     const t = useTranslations('paymentMethods');
     const tCommon = useTranslations('common');
     const tFilter = useTranslations('filter');
+    usePageTitle(t('title'));
 
     const TYPE_LABELS = {
         cash:          t('typeCash'),

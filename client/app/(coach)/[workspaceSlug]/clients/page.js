@@ -32,6 +32,7 @@ import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Link as UILink } from "@heroui/react/link";
 import { today, getLocalTimeZone } from "@internationalized/date";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // --- HELPERS ---
 function statusChipColor(status) {
@@ -133,6 +134,7 @@ function ReviewRow({ label, value, mono }) {
 export default function ClientsPage() {
     const t = useTranslations('clients');
     const tCommon = useTranslations('common');
+    usePageTitle(t('pageTitle'));
     const locale = useLocale();
     const { formatDate } = useDateFormatter();
     const { workspaceSlug } = useParams();

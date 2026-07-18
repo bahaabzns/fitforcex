@@ -10,9 +10,11 @@ import { Clock, CheckCircle, ClipboardList, CalendarClock } from 'lucide-react';
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ClientFormsListPage() {
     const t = useTranslations('portal.forms');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const { formatDate, formatDateTime } = useDateFormatter();
     const [requests, setRequests] = useState([]);
