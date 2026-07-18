@@ -132,7 +132,7 @@ export default function ClientPortalNav() {
 
             {/* Fixed bottom tab bar */}
             <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-background/95 backdrop-blur-sm border-t border-border">
-                <div className="flex items-center justify-around h-full max-w-lg mx-auto px-4">
+                <div className="flex items-center h-full max-w-lg mx-auto px-1">
                     {navItems.map(({ href, label, icon: Icon }) => {
                         const active = EXACT_MATCH_ROUTES.has(href)
                             ? pathname === href
@@ -141,14 +141,14 @@ export default function ClientPortalNav() {
                             <Link
                                 key={href}
                                 href={href}
-                                className={`flex flex-col items-center gap-0.5 px-5 py-2 rounded-2xl transition-colors duration-150 ${
+                                className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 px-1 py-2 rounded-2xl transition-colors duration-150 ${
                                     active
                                         ? "text-primary"
                                         : "text-muted-foreground hover:text-foreground"
                                 }`}
                             >
                                 <Icon size={22} className="shrink-0" />
-                                <span className="text-[11px] font-medium leading-none">{label}</span>
+                                <span className="w-full text-center text-[11px] font-medium leading-none truncate">{label}</span>
                             </Link>
                         );
                     })}
