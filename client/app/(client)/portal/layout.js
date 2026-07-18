@@ -35,7 +35,7 @@ function PortalShell({ children }) {
     return (
         <div className="min-h-screen bg-background text-foreground">
             <ClientPortalNav />
-            <main className="pb-16">
+            <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
                 {children}
             </main>
         </div>

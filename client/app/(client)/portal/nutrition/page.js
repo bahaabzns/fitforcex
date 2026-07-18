@@ -11,6 +11,7 @@ import { Card } from "@heroui/react/card";
 import ShoppingListDrawer from "@/app/components/ShoppingListDrawer";
 import MacrosDonut from "@/app/components/nutrition/MacrosDonut";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { planKey, setSeenPlanKey } from "@/lib/lastSeenStore";
 
 export default function ClientDashboardPage() {
     const t         = useTranslations('portal.dashboard');
@@ -64,6 +65,9 @@ export default function ClientDashboardPage() {
                     setNoPlan(true);
                 } else {
                     setPlan(planRes.data);
+                    // Clears the bottom-nav Nutrition dot — a plan is "seen" once
+                    // this page has loaded it, same as the mobile app.
+                    setSeenPlanKey('nutrition', planKey(planRes.data.id, planRes.data.activated_at));
                 }
             } catch {
                 const slug = localStorage.getItem('portal_slug');

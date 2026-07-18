@@ -1538,7 +1538,8 @@
       "nutritionPlan": "Nutrition",
       "trainingPlan": "Training",
       "forms": "Forms",
-      "messages": "Messages"
+      "messages": "Messages",
+      "unreadTooltip": "{label}, new updates"
     },
     "messages": {
       "title": "Messages",

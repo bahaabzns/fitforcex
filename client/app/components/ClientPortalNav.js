@@ -8,6 +8,7 @@ import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare } from 'lucid
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 import { useClientPortal } from "@/app/components/ClientPortalProvider";
+import { useNavBadges } from "@/hooks/useNavBadges";
 import api from "@/lib/axios";
 
 const UNREAD_POLL_MS = 15000;
@@ -17,6 +18,7 @@ export default function ClientPortalNav() {
     const tPortal = useTranslations('portal.sidebar');
     const tStatus = useTranslations('portal.status');
     const { me: client, access, status, withinGrace } = useClientPortal();
+    const badges = useNavBadges(access);
 
     const [unread, setUnread] = useState(0);
 
@@ -44,12 +46,17 @@ export default function ClientPortalNav() {
     const EXACT_MATCH_ROUTES = new Set(["/portal/home", "/portal/nutrition"]);
 
     const navItems = [
-        { href: "/portal/home",           label: tPortal('home'),          icon: Home,           show: true },
-        { href: "/portal/nutrition",      label: tPortal('nutritionPlan'), icon: Salad,          show: can('view_nutrition_plans') },
-        { href: "/portal/training",       label: tPortal('trainingPlan'),  icon: Dumbbell,       show: can('view_training_plans') || can('view_progress_history') },
-        { href: "/portal/forms",          label: tPortal('forms'),         icon: ClipboardList,  show: can('view_assessments') || can('view_checkins') },
-        { href: "/portal/messages",       label: tPortal('messages'),      icon: MessageSquare,  show: can('allow_messaging') },
+        { href: "/portal/home",           label: tPortal('home'),          icon: Home,           show: true,                                              hasUnread: false },
+        { href: "/portal/nutrition",      label: tPortal('nutritionPlan'), icon: Salad,          show: can('view_nutrition_plans'),                       hasUnread: badges.nutrition },
+        { href: "/portal/training",       label: tPortal('trainingPlan'),  icon: Dumbbell,       show: can('view_training_plans') || can('view_progress_history'), hasUnread: badges.training },
+        { href: "/portal/forms",          label: tPortal('forms'),         icon: ClipboardList,  show: can('view_assessments') || can('view_checkins'),  hasUnread: badges.forms },
+        { href: "/portal/messages",       label: tPortal('messages'),      icon: MessageSquare,  show: can('allow_messaging'),                            hasUnread: badges.messages },
     ].filter(item => item.show);
+
+    // Mirrors the mobile app's NavigationBar, which requires >=2 destinations
+    // and hides itself entirely below that (a workspace can restrict a client
+    // down to just Home).
+    const showBottomNav = navItems.length >= 2;
 
     // Show a banner when the subscription is restricted (and not in its grace window).
     const showBanner = !!access && !withinGrace && (status === 'Expired' || status === 'Frozen');
@@ -130,30 +137,52 @@ export default function ClientPortalNav() {
                 </div>
             )}
 
-            {/* Fixed bottom tab bar */}
-            <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-background/95 backdrop-blur-sm border-t border-border">
-                <div className="flex items-center h-full max-w-lg mx-auto px-1">
-                    {navItems.map(({ href, label, icon: Icon }) => {
-                        const active = EXACT_MATCH_ROUTES.has(href)
-                            ? pathname === href
-                            : pathname.startsWith(href);
-                        return (
-                            <Link
-                                key={href}
-                                href={href}
-                                className={`flex-1 min-w-0 flex flex-col items-center gap-0.5 px-1 py-2 rounded-2xl transition-colors duration-150 ${
-                                    active
-                                        ? "text-primary"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                <Icon size={22} className="shrink-0" />
-                                <span className="w-full text-center text-[11px] font-medium leading-none truncate">{label}</span>
-                            </Link>
-                        );
-                    })}
-                </div>
-            </nav>
+            {/* Fixed bottom tab bar. The safe-area-inset-bottom padding below reserves
+                the iOS home-indicator / Android gesture-bar inset so the icons never
+                sit under it. */}
+            {showBottomNav && (
+                <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]">
+                    <div className="flex items-center h-16 max-w-lg mx-auto px-1">
+                        {navItems.map(({ href, label, icon: Icon, hasUnread }) => {
+                            const active = EXACT_MATCH_ROUTES.has(href)
+                                ? pathname === href
+                                : pathname.startsWith(href);
+                            return (
+                                <Link
+                                    key={href}
+                                    href={href}
+                                    title={hasUnread ? tPortal('unreadTooltip', { label }) : label}
+                                    className="flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 transition-transform duration-100 active:scale-95"
+                                >
+                                    {/* Rounded highlight behind the selected icon — the web
+                                        analog of the mobile NavigationBar's Material 3 pill
+                                        indicator. Lucide icons have no separate filled variant
+                                        the way Material icons do (Icons.home vs
+                                        Icons.home_outlined), so a bolder stroke stands in for
+                                        that weight change instead of swapping icon families. */}
+                                    <span className={`relative flex items-center justify-center w-11 h-7 rounded-full transition-colors duration-200 ${active ? "bg-primary/10" : ""}`}>
+                                        <Icon
+                                            size={22}
+                                            strokeWidth={active ? 2.4 : 1.9}
+                                            className={`shrink-0 transition-colors duration-150 ${active ? "text-primary" : "text-muted-foreground"}`}
+                                        />
+                                        {hasUnread && (
+                                            <span className="absolute top-0.5 inset-e-1.5 w-2 h-2 rounded-full bg-danger ring-2 ring-background" />
+                                        )}
+                                    </span>
+                                    <span
+                                        className={`w-full text-center text-[11px] font-medium leading-none overflow-hidden whitespace-nowrap transition-all duration-200 ${
+                                            active ? "max-h-4 opacity-100 mt-1 text-primary" : "max-h-0 opacity-0 mt-0 text-muted-foreground"
+                                        }`}
+                                    >
+                                        {label}
+                                    </span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </nav>
+            )}
         </>
     );
 }

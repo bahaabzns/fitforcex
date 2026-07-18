@@ -11,6 +11,11 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { setSeenIds } from "@/lib/lastSeenStore";
+
+// A request that still needs the client's attention — mirrors
+// formRequestNeedsAction in the mobile app (shared/models/form.dart).
+const ACTIONABLE_STATUSES = new Set(["pending", "scheduled"]);
 
 export default function ClientFormsListPage() {
     const t = useTranslations('portal.forms');
@@ -28,6 +33,18 @@ export default function ClientFormsListPage() {
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
+
+    // Clears the bottom-nav Forms dot — every currently-actionable request is
+    // "seen" once this page has loaded it, even if still unfilled (the dot
+    // means "new," not "incomplete"). Runs only after the fetch settles, so
+    // it never briefly wipes previously-seen ids with an empty set while
+    // `requests` still holds its initial []. Matches formRequestNeedsAction +
+    // formsSeenProvider.markSeen in the mobile app (forms_page.dart).
+    useEffect(() => {
+        if (loading) return;
+        const actionable = new Set(requests.filter(r => ACTIONABLE_STATUSES.has(r.status)).map(r => r.id));
+        setSeenIds('forms', actionable);
+    }, [loading, requests]);
 
     useEffect(() => {
         function handleScroll() { setIsPageScrolled(window.scrollY > 4); }

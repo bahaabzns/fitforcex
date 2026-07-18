@@ -12,6 +12,7 @@ import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { getYoutubeEmbedUrl } from "@/utils/video";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { planKey, setSeenPlanKey } from "@/lib/lastSeenStore";
 
 export default function ClientTrainingPage() {
     const t      = useTranslations('portal.training');
@@ -67,6 +68,12 @@ export default function ClientTrainingPage() {
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    // Clears the bottom-nav Training dot — a plan is "seen" once this page has
+    // loaded it, same as the mobile app (mobile/lib/features/training/training_page.dart).
+    useEffect(() => {
+        if (trainingPlan) setSeenPlanKey('training', planKey(trainingPlan.id, trainingPlan.activated_at));
+    }, [trainingPlan]);
 
     function switchDay(i) {
         setActiveDayIndex(i);

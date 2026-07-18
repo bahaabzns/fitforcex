@@ -1538,7 +1538,8 @@
       "nutritionPlan": "التغذية",
       "trainingPlan": "التدريب",
       "forms": "الاستمارات",
-      "messages": "الرسائل"
+      "messages": "الرسائل",
+      "unreadTooltip": "{label}، تحديثات جديدة"
     },
     "messages": {
       "title": "الرسائل",
