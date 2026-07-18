@@ -77,7 +77,7 @@ export default function ExerciseVideoPlayer({ youtubeUrl, videoPath, thumbnailPa
     if (!hasVideo && !thumbnailPath) return null;
 
     return (
-        <div className="relative w-full aspect-video bg-black overflow-hidden">
+        <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
             {playing && hasVideo ? (
                 videoId ? (
                     youtubeError ? (
