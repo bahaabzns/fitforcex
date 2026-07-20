@@ -722,9 +722,43 @@ async function migrateMissingTrainingPlans() {
     }
   }
 
+  // exercise_library is otherwise never touched by this script -- only read
+  // to link training_exercises.exercise_library_id. The table was populated
+  // once per workspace by migrate.ts's original bulk clone of the WHOLE
+  // library (preserving old Exercise.id as its own id); any exercise a coach
+  // adds in .io afterward was never inserted under any id, so it could never
+  // link -- whether or not it's used in a plan yet. See
+  // backfill-missing-exercise-library.ts for the one-time historical fix
+  // this complements. Matches migrate.ts's scope: the whole library per
+  // workspace, not just plan-referenced exercises.
+  const existingLibrary = await existingIds('exercise_library');
+  const { rows: libraryExercises } = await old.query<{
+    id: string; workspaceId: string; name: string; nameArabic: string | null;
+    muscleGroup: string; equipmentNeeded: string | null; videoUrl: string | null;
+    createdAt: string;
+  }>(`
+    SELECT id, "workspaceId", name, "nameArabic", "muscleGroup", "equipmentNeeded", "videoUrl", "createdAt"
+    FROM public."Exercise" WHERE "deletedAt" IS NULL
+  `);
+  const missingLibrary = libraryExercises.filter(e => !existingLibrary.has(e.id) && validWorkspaces.has(e.workspaceId));
+  log(`exercise_library: ${libraryExercises.length} total, ${missingLibrary.length} missing`);
+  if (!DRY_RUN && missingLibrary.length > 0) {
+    await inBatches(missingLibrary, async (batch) => {
+      await prisma.exercise_library.createMany({
+        data: batch.map(e => ({
+          id: e.id, workspace_id: e.workspaceId, name_en: e.name, name_ar: e.nameArabic ?? undefined,
+          muscle_group: e.muscleGroup, equipment: e.equipmentNeeded ?? undefined,
+          youtube_url: e.videoUrl ?? undefined,
+          created_at: new Date(e.createdAt), updated_at: new Date(e.createdAt),
+        })),
+        skipDuplicates: true,
+      });
+    });
+  }
+
   const existingExercises = await existingIds('training_exercises');
   const validDayIds = new Set([...existingDays, ...validDays.map(d => d.id)]);
-  const validExerciseLibrary = await existingIds('exercise_library');
+  const validExerciseLibrary = new Set([...existingLibrary, ...missingLibrary.map(e => e.id)]);
 
   const { rows: exercises } = await old.query<{
     id: string; dayId: string; exerciseId: string | null; exerciseName: string;
