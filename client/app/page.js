@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { Chip } from "@heroui/react/chip";
 import api from "@/lib/axios";
@@ -30,6 +31,7 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 export default function HomePage() {
     const [checking, setChecking] = useState(true);
     const [user, setUser] = useState(null);
+    const t = useTranslations("landing.hero");
 
     useEffect(() => {
         api.get('/api/auth/me')
@@ -77,19 +79,18 @@ export default function HomePage() {
 
                 {/* Badge */}
                 <Chip color="accent" size="md">
-                    Built for Fitness Coaches
+                    {t("badge")}
                 </Chip>
 
                 {/* Heading */}
                 <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] max-w-4xl text-white">
-                    One System to Run Your{" "}
-                    <span className="text-primary">Coaching Business</span>
+                    {t("titleLine1")}{" "}
+                    <span className="text-primary">{t("titleHighlight")}</span>
                 </h1>
 
                 {/* Subtitle */}
                 <p className="text-lg text-white/55 max-w-2xl leading-relaxed">
-                    Manage unlimited clients, deliver custom workout and nutrition plans,
-                    and grow your coaching business—all in one place.
+                    {t("subtitle")}
                 </p>
 
                 {/* CTA */}
@@ -101,14 +102,14 @@ export default function HomePage() {
                     ) : (
                         <>
                             <Link href="/register" className="button button--primary button--lg">
-                                Get Started – It&apos;s FREE!
+                                {t("cta")}
                             </Link>
-                            <p className="text-white/55 text-sm">✓ No credit card needed, cancel any time</p>
+                            <p className="text-white/55 text-sm">✓ {t("noCreditCard")}</p>
                         </>
                     )}
                 </div>
 
-                {/* Feature carousel */}
+                {/* Modules Slider */}
                 <LandingHeroCarousel />
             </section>
 
@@ -120,22 +121,22 @@ export default function HomePage() {
                 </p>
             </section>
 
-            {/* ── Features (Phase 3) ── */}
+            {/* ── Feature Cards ── */}
             <LandingFeatures />
 
-            {/* ── Testimonials (Phase 6) ── */}
+            {/* ── Trusted By (coach carousel) ── */}
             <LandingTestimonials />
 
-            {/* ── Pricing (Phase 4) ── */}
+            {/* ── Choose Your Plan ── */}
             <LandingPricing />
 
-            {/* ── Founder's Guarantee (Phase 7) ── */}
+            {/* ── Founder's Guarantee ── */}
             <LandingFounder />
 
-            {/* ── FAQ (Phase 5) ── */}
+            {/* ── FAQ ── */}
             <LandingFaq />
 
-            {/* ── Footer (Phase 9) ── */}
+            {/* ── Footer ── */}
             <LandingFooter dashboardUrl={dashboardUrl} />
 
             {/* ── Floating buttons ── */}

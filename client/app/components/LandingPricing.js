@@ -2,12 +2,19 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Tabs } from "@heroui/react";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
 import { Skeleton } from "@heroui/react/skeleton";
 import { CheckCircle2 } from 'lucide-react';
+
+// Plans with an "unlimited"-style feature get a highlighted row treatment,
+// matching the old design's emphasis on the "no caps" selling point.
+function isUnlimitedFeature(feature) {
+    return /∞|unlimited|غير محدود/i.test(feature);
+}
 
 function BillingPeriodToggle({ discounts, selected, onSelect }) {
     return (
@@ -79,6 +86,9 @@ function TeamMemberCounter({ value, onChange, min, max, pricePerSeat, currency }
 }
 
 export default function LandingPricing({ onCtaClick, currentPlanId, isInline = false }) {
+    const t = useTranslations("landing.pricing");
+    const tNav = useTranslations("landing.nav");
+    const tHero = useTranslations("landing.hero");
     const [plans, setPlans] = useState([]);
     const [discounts, setDiscounts] = useState([]);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
@@ -120,10 +130,10 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
 
                 {!isInline && (
                     <div className="text-center flex flex-col gap-4">
-                        <Chip color="accent" size="sm" className="mx-auto">Pricing</Chip>
-                        <h2 className="text-4xl sm:text-5xl font-bold text-white">Choose Your Plan</h2>
+                        <Chip color="accent" size="sm" className="mx-auto">{tNav("pricing")}</Chip>
+                        <h2 className="text-4xl sm:text-5xl font-bold text-white">{t("title")}</h2>
                         <p className="text-white/50 max-w-lg mx-auto leading-relaxed">
-                            Start free, scale as you grow. No hidden fees, cancel anytime.
+                            {t("subtitle")}
                         </p>
                     </div>
                 )}
@@ -142,7 +152,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
 
                 {!loading && error && (
                     <p className="text-center text-white/40 text-sm">
-                        Could not load pricing. Please refresh.
+                        {t("loadError")}
                     </p>
                 )}
 
@@ -195,9 +205,18 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                         : undefined
                                             }
                                         >
+                                            <div
+                                                aria-hidden="true"
+                                                className="h-1.5 w-full rounded-t-2xl"
+                                                style={{
+                                                    background: plan.is_popular
+                                                        ? "linear-gradient(90deg, var(--color-primary), color-mix(in oklch, var(--color-primary) 60%, white))"
+                                                        : "color-mix(in oklch, var(--color-primary) 25%, transparent)",
+                                                }}
+                                            />
                                             <Card.Header className="flex flex-col gap-3 pb-0">
                                                 {plan.is_popular && (
-                                                    <Chip color="accent" size="sm" className="self-start">Most Popular</Chip>
+                                                    <Chip color="accent" size="sm" className="self-start">{t("mostPopular")}</Chip>
                                                 )}
                                                 <div className="flex flex-col gap-1">
                                                     <h3 className="text-xl font-bold text-foreground">{plan.display_name}</h3>
@@ -259,12 +278,22 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                 )}
 
                                                 <ul className="flex flex-col gap-3">
-                                                    {features.map((f) => (
-                                                        <li key={f} className="flex items-start gap-2.5">
-                                                            <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                                                            <span className="text-sm text-foreground/65 leading-snug">{f}</span>
-                                                        </li>
-                                                    ))}
+                                                    {features.map((f) => {
+                                                        const highlighted = isUnlimitedFeature(f);
+                                                        return (
+                                                            <li
+                                                                key={f}
+                                                                className={`flex items-start gap-2.5 ${highlighted ? "-m-1 rounded-lg border p-2" : ""}`}
+                                                                style={highlighted ? {
+                                                                    background: "color-mix(in oklch, var(--color-primary) 10%, transparent)",
+                                                                    borderColor: "color-mix(in oklch, var(--color-primary) 30%, transparent)",
+                                                                } : undefined}
+                                                            >
+                                                                <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                                                                <span className={`text-sm leading-snug ${highlighted ? "font-semibold text-primary" : "text-foreground/65"}`}>{f}</span>
+                                                            </li>
+                                                        );
+                                                    })}
                                                 </ul>
                                             </Card.Content>
 
@@ -274,7 +303,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                         onClick={() => onCtaClick(plan.id, plan)}
                                                         className={`button button--${isCurrentPlan ? "secondary" : plan.cta_variant} button--md button--full-width`}
                                                     >
-                                                        {isCurrentPlan ? "✓ Current Plan" : plan.cta_text}
+                                                        {isCurrentPlan ? `✓ ${t("currentPlan")}` : plan.cta_text}
                                                     </button>
                                                 ) : (
                                                     <Link
@@ -286,7 +315,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                 )}
                                                 {priceDisplay && (
                                                     <p className="text-center text-xs text-foreground/40">
-                                                        ✓ No credit card needed, cancel any time
+                                                        ✓ {tHero("noCreditCard")}
                                                     </p>
                                                 )}
                                             </Card.Footer>

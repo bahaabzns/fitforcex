@@ -1,13 +1,13 @@
+'use client';
+
+import { useTranslations } from "next-intl";
 import { Chip } from "@heroui/react/chip";
 import { CheckCircle2 } from 'lucide-react';
 
-const guaranteeBullets = [
-    "No credit card required for your 7-day trial — start risk-free today",
-    "Cancel anytime with one click — no questions asked, no hidden fees",
-    "Unlimited clients from day one — grow without worrying about caps or extra charges",
-];
-
 export default function LandingFounder() {
+    const t = useTranslations("landing.founder");
+    const guaranteeBullets = t.raw("guarantees");
+
     return (
         <section id="founder" className="py-16 md:py-24 px-6">
             <div className="mx-auto max-w-6xl flex flex-col gap-12">
@@ -15,13 +15,13 @@ export default function LandingFounder() {
                 {/* ── Heading ── */}
                 <div className="text-center flex flex-col gap-4">
                     <Chip color="accent" size="sm" className="mx-auto">
-                        From the Founder
+                        {t("title")}
                     </Chip>
                     <h2 className="text-4xl sm:text-5xl font-bold text-white">
-                        Founder&apos;s Guarantee
+                        {t("title")}
                     </h2>
                     <p className="text-white/50 max-w-xl mx-auto leading-relaxed">
-                        Built by a coach who lived the problem — and refused to accept it.
+                        {t("subtitle")}
                     </p>
                 </div>
 
@@ -34,25 +34,24 @@ export default function LandingFounder() {
                             "0 0 0 1px rgba(255,255,255,0.04), 0 24px 60px rgba(0,0,0,0.4), 0 0 50px color-mix(in oklch, var(--color-primary) 6%, transparent)",
                     }}
                 >
-                    {/* ── Left: founder photo ── */}
+                    {/* ── Left: founder video ── */}
                     <div className="relative min-h-80 md:min-h-0 overflow-hidden">
-                        <img
-                            src="/image_placeholder.png"
-                            alt="Dr. Bahaa"
+                        <video
+                            src="/founder_video.mp4"
+                            poster="/founderbahaa.png"
+                            controls
+                            preload="metadata"
                             className="w-full h-full object-cover absolute inset-0"
                         />
 
                         {/* Bottom overlay with chip + name */}
-                        <div className="absolute bottom-0 left-0 right-0 z-10 p-6 flex flex-col gap-3 border-t border-white/8 bg-black/50 backdrop-blur-sm">
-                            <Chip color="accent" size="sm" className="self-start">
-                                الكوتشينج الذكي
-                            </Chip>
+                        <div className="absolute bottom-0 left-0 right-0 z-10 p-6 flex flex-col gap-3 border-t border-white/8 bg-black/50 backdrop-blur-sm pointer-events-none">
                             <div>
                                 <p className="font-bold text-white text-lg leading-tight">
-                                    Dr. Bahaa
+                                    {t("founderName")}
                                 </p>
                                 <p className="text-sm text-white/50 mt-0.5">
-                                    Founder & CEO, FitForce
+                                    {t("founderTitle")}
                                 </p>
                             </div>
                         </div>
@@ -72,10 +71,7 @@ export default function LandingFounder() {
                         {/* Quote body */}
                         <blockquote className="flex flex-col gap-6 -mt-6">
                             <p className="text-lg sm:text-xl text-white/75 leading-relaxed italic">
-                                I built FitForce because I believe every coach deserves tools that
-                                empower them, not limit them. If FitForce doesn&apos;t transform
-                                how you manage your coaching business within 7 days, I want to
-                                hear from you personally.
+                                {t("quote")}
                             </p>
 
                             <ul className="flex flex-col gap-3">
@@ -88,22 +84,27 @@ export default function LandingFounder() {
                             </ul>
                         </blockquote>
 
-                        {/* Divider + signature */}
-                        <div className="flex items-center gap-4 pt-2 border-t border-white/10">
-                            <div
-                                className="h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white"
-                                style={{
-                                    background:
-                                        "linear-gradient(135deg, color-mix(in oklch, var(--color-primary) 60%, transparent), color-mix(in oklch, var(--color-primary) 20%, transparent))",
-                                    border: "1px solid color-mix(in oklch, var(--color-primary) 40%, transparent)",
-                                }}
-                            >
-                                DB
+                        {/* Divider + signature + CTA */}
+                        <div className="flex flex-col gap-4 pt-4 border-t border-white/10">
+                            <div className="flex items-center gap-4">
+                                <div
+                                    className="h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                                    style={{
+                                        background:
+                                            "linear-gradient(135deg, color-mix(in oklch, var(--color-primary) 60%, transparent), color-mix(in oklch, var(--color-primary) 20%, transparent))",
+                                        border: "1px solid color-mix(in oklch, var(--color-primary) 40%, transparent)",
+                                    }}
+                                >
+                                    DB
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-white">{t("founderName")}</p>
+                                    <p className="text-xs text-white/40">{t("founderTitle")}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-semibold text-white">Dr. Bahaa</p>
-                                <p className="text-xs text-white/40">Founder & CEO · FitForce</p>
-                            </div>
+                            <a href="#pricing" className="button button--primary button--md w-fit">
+                                {t("cta")}
+                            </a>
                         </div>
                     </div>
                 </div>
