@@ -483,6 +483,10 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
         // transaction commits so a restart notification never fires for a
         // save that ultimately rolled back.
         let restartedClientId: string | null = null;
+        // Populated by activateSinglePlan inside activatePlanInTransaction --
+        // form_requests ids auto-reviewed as a side effect of this restart.
+        // See the identical note in activatePlan below.
+        const autoReviewedIds: string[] = [];
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
@@ -602,15 +606,17 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 // Activation modal (restartCycleDays !== undefined);
                 // otherwise it's left untouched exactly as before. See
                 // Business Logic §12.5 in the Package Lifecycle plan.
-                const restarted = await activateSinglePlan({
+                const { plan: restarted, autoReviewedRequestIds } = await activateSinglePlan({
                     db: dbClient,
                     tableName:      'nutrition_plans',
                     planId:         planId as string,
                     coachId,
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
+                    submissionPostAction: 'nutrition-plan',
                     ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
+                if (restarted) autoReviewedRequestIds.forEach((id) => autoReviewedIds.push(id));
                 if (restarted && durationChoice === 'restart') {
                     // Matched by client + plan type, not source_plan_id: this
                     // save path deletes-and-reinserts the plan row (a
@@ -667,6 +673,22 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             });
         }
 
+        // See the identical note in activatePlan below: a client's pending
+        // nutrition submission is satisfied the moment the plan goes active,
+        // restart included -- fired here (post-commit) rather than inside
+        // activatePlanInTransaction, same reasoning as restartedClientId above.
+        if (restartedClientId) {
+            await Promise.all(autoReviewedIds.map((id) => recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'checkin.auto_reviewed',
+                importance:  'info',
+                title:       'Your coach reviewed your check-in',
+                recipients:  [{ type: 'client', id: restartedClientId as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'form_request', id },
+            })));
+        }
+
         res.json(result);
     } catch (err) { next(err); }
 }
@@ -711,8 +733,8 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
         const planId  = req.params.id as string;
         const coachId = req.user!.workspaceId;
 
-        const updatedPlan = await withTransaction(pool, async (dbClient) => {
-            const plan = await activateSinglePlan({
+        const activation = await withTransaction(pool, async (dbClient) => {
+            const { plan, autoReviewedRequestIds } = await activateSinglePlan({
                 db: dbClient,
                 tableName:      'nutrition_plans',
                 planId,
@@ -721,6 +743,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 cycleDays:        cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
                 reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
+                submissionPostAction: 'nutrition-plan',
             });
             if (!plan) return null;
 
@@ -772,10 +795,11 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 }
             }
 
-            return plan;
+            return { plan, autoReviewedRequestIds };
         });
 
-        if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
+        if (!activation?.plan) return res.status(404).json({ error: 'Plan not found' });
+        const { plan: updatedPlan, autoReviewedRequestIds } = activation;
 
         // A restart is the same plan renewing its duration clock, not a new
         // assignment -- fire the distinct restart event instead so the
@@ -803,7 +827,24 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             });
         }
 
-        res.json(updatedPlan);
+        // A pending nutrition submission for this client is satisfied the
+        // moment this plan goes active -- see the guarded UPDATE inside
+        // activateSinglePlan (lib/planEngine.ts) for why this fires
+        // regardless of whether the coach arrived here via the Plans Queue
+        // (with a submissionId) or created/activated the plan directly from
+        // the client's own page. Distinct event type from 'checkin.reviewed'
+        // since this wasn't a deliberate queue-review click.
+        await Promise.all(autoReviewedRequestIds.map((id) => recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'checkin.auto_reviewed',
+            importance:  'info',
+            title:       'Your coach reviewed your check-in',
+            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'form_request', id },
+        })));
+
+        res.json({ ...updatedPlan, autoReviewedSubmissionIds: autoReviewedRequestIds });
     } catch (err) { next(err); }
 }
 

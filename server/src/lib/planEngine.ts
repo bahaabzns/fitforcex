@@ -103,6 +103,20 @@ interface ActivateSinglePlanParams {
      *  'extend' (default-safe): keep the existing activated_at/cycle_end_at.
      *  'restart': stamp a fresh activated_at and recompute cycle_end_at. */
     updateMode?: 'restart' | 'extend';
+    /** The form_requests.post_action this plan type satisfies once active
+     *  ('nutrition-plan' / 'workout-plan'). When set, every pending
+     *  (status='submitted') submission of this same client+workspace+type
+     *  gets auto-marked 'reviewed' -- see the doc comment above
+     *  activateSinglePlan for why. Omit/null to skip entirely. */
+    submissionPostAction?: 'nutrition-plan' | 'workout-plan' | null;
+}
+
+export interface ActivateSinglePlanResult {
+    plan: PlainRecord | null;
+    /** form_requests ids flipped to 'reviewed' as a side effect of this
+     *  activation (empty when submissionPostAction was omitted, the plan
+     *  wasn't found, or nothing matched). */
+    autoReviewedRequestIds: string[];
 }
 
 /**
@@ -124,7 +138,8 @@ export async function activateSinglePlan({
     cycleDays,
     reviewOffsetDays,
     updateMode,
-}: ActivateSinglePlanParams): Promise<PlainRecord | null> {
+    submissionPostAction,
+}: ActivateSinglePlanParams): Promise<ActivateSinglePlanResult> {
     assertSafeIdentifier(tableName, 'table');
     assertSafeIdentifier(clientIdColumn, 'client id column');
     assertSafeIdentifier(workspaceColumn, 'workspace column');
@@ -133,7 +148,7 @@ export async function activateSinglePlan({
         `SELECT * FROM ${tableName} WHERE id = $1 AND ${workspaceColumn} = $2`,
         [planId, coachId]
     );
-    if (planResult.rows.length === 0) return null;
+    if (planResult.rows.length === 0) return { plan: null, autoReviewedRequestIds: [] };
 
     const plan = planResult.rows[0] as PlainRecord;
 
@@ -173,7 +188,28 @@ export async function activateSinglePlan({
         [plan.id, activatedAt, resolvedCycleDays, cycleEndAt, resolvedReviewOffset]
     );
 
-    return serializePlanRow(updated.rows[0] as PlainRecord);
+    // A client's request for "a nutrition/workout plan" is satisfied the
+    // moment ANY plan of that type goes active for them -- mirrors the
+    // sibling-deactivation above (one active plan of a type per client), just
+    // applied to the requests that were asking for one. Every still-pending
+    // submission of this type gets closed out here, not just whichever one
+    // (if any) the coach happened to arrive from -- so this fires the same
+    // way whether the coach came from the Plans Queue or created/activated
+    // the plan directly from the client's own page.
+    let autoReviewedRequestIds: string[] = [];
+    const planClientId = plan[clientIdColumn];
+    if (submissionPostAction && planClientId != null) {
+        const reviewed = await db.query(
+            `UPDATE form_requests
+             SET status = 'reviewed', action_taken_at = NOW()
+             WHERE workspace_id = $1 AND client_id = $2 AND post_action = $3 AND status = 'submitted'
+             RETURNING id`,
+            [coachId, planClientId, submissionPostAction]
+        );
+        autoReviewedRequestIds = reviewed.rows.map((row) => (row as PlainRecord).id as string);
+    }
+
+    return { plan: serializePlanRow(updated.rows[0] as PlainRecord), autoReviewedRequestIds };
 }
 
 /**

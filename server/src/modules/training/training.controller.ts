@@ -471,6 +471,8 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
         let existingReviewNotifiedAt: Date | null = null;
         // See the identical note in nutrition.controller.ts's savePlanDraft.
         let restartedClientId: string | null = null;
+        // See the identical note in nutrition.controller.ts's savePlanDraft.
+        const autoReviewedIds: string[] = [];
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
@@ -574,15 +576,17 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 // Package Lifecycle Phase 3b, post-review refinement:
                 // consolidated onto the shared activateSinglePlan -- see the
                 // identical note in nutrition.controller.ts's savePlanDraft.
-                const restarted = await activateSinglePlan({
+                const { plan: restarted, autoReviewedRequestIds } = await activateSinglePlan({
                     db: dbClient,
                     tableName:      'training_plans',
                     planId:         planId as string,
                     coachId,
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
+                    submissionPostAction: 'workout-plan',
                     ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
+                if (restarted) autoReviewedRequestIds.forEach((id) => autoReviewedIds.push(id));
                 if (restarted && durationChoice === 'restart') {
                     // See the identical note in nutrition.controller.ts:
                     // matched by client + plan type, not source_plan_id,
@@ -628,6 +632,19 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             });
         }
 
+        // See the identical note in activatePlan below.
+        if (restartedClientId) {
+            await Promise.all(autoReviewedIds.map((id) => recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'checkin.auto_reviewed',
+                importance:  'info',
+                title:       'Your coach reviewed your check-in',
+                recipients:  [{ type: 'client', id: restartedClientId as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'form_request', id },
+            })));
+        }
+
         res.json(result);
     } catch (err) { next(err); }
 }
@@ -646,8 +663,8 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
         const planId  = req.params.id as string;
         const coachId = req.user!.workspaceId;
 
-        const updatedPlan = await withTransaction(pool, async (dbClient) => {
-            const plan = await activateSinglePlan({
+        const activation = await withTransaction(pool, async (dbClient) => {
+            const { plan, autoReviewedRequestIds } = await activateSinglePlan({
                 db: dbClient,
                 tableName:      'training_plans',
                 planId,
@@ -656,6 +673,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 cycleDays:        cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
                 reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
+                submissionPostAction: 'workout-plan',
             });
             if (!plan) return null;
 
@@ -699,10 +717,11 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 }
             }
 
-            return plan;
+            return { plan, autoReviewedRequestIds };
         });
 
-        if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
+        if (!activation?.plan) return res.status(404).json({ error: 'Plan not found' });
+        const { plan: updatedPlan, autoReviewedRequestIds } = activation;
 
         // See the identical note in nutrition.controller.ts's activatePlan.
         if (updateMode === 'restart') {
@@ -728,6 +747,19 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             });
         }
 
-        res.json(updatedPlan);
+        // See the identical note in nutrition.controller.ts's activatePlan:
+        // fires regardless of whether the coach arrived via the Plans Queue
+        // or activated the plan directly from the client's own page.
+        await Promise.all(autoReviewedRequestIds.map((id) => recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'checkin.auto_reviewed',
+            importance:  'info',
+            title:       'Your coach reviewed your check-in',
+            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'form_request', id },
+        })));
+
+        res.json({ ...updatedPlan, autoReviewedSubmissionIds: autoReviewedRequestIds });
     } catch (err) { next(err); }
 }
