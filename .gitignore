@@ -11,3 +11,7 @@ build/
 docs/old_db/
 *.sql
 *.sql.gz
+
+# Local-only reference project (old landing page kept for comparison) —
+# includes its own node_modules/.next build cache and dev TLS certs, never commit.
+/reference/
