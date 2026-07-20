@@ -29,6 +29,10 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     // searchParams here would silently drop the queue linkage on tab-away/back,
     // even though the in-progress plan-building session survives untouched.
     const [submissionId] = useState(() => searchParams.get("submissionId") || null);
+    // Round-tripped back to the queue on "return to queue" below, so the
+    // coach lands on whichever view (Main/Need Action vs. History) they
+    // actually left — same capture-once rationale as submissionId above.
+    const [returnTo] = useState(() => searchParams.get("returnTo") || "main");
 
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
@@ -166,7 +170,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         try {
             await handleActivatePlan(selectedPlan.id, pendingActivationOptions ?? {});
             await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue?justActioned=${submissionId}`);
+            if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue?justActioned=${submissionId}&returnTo=${returnTo}`);
         } catch {} finally {
             setActivating(false);
             setActivateModal(false);

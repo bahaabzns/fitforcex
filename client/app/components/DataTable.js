@@ -211,6 +211,15 @@ export default function DataTable({
     // shared "Filter" translation. Callers that pin some columns out of it (see
     // `pinned` on a column) typically rename it to something like "Other Filters".
     filterButtonLabel,
+    // Opt-in: { key, phase: "celebrate" | "exit" } | null — plays a one-row
+    // completion animation entirely via CSS (see the .row-celebrate /
+    // .row-exit rules in globals.css). "celebrate" is a one-shot success
+    // pulse; "exit" collapses the row's height/opacity to remove it from the
+    // list without the abrupt jump a plain data-filter would cause. Purely
+    // presentational — the caller (see plansQueue/PlansQueueTable.js) owns
+    // all timing/sequencing and is responsible for actually dropping the row
+    // from `data` once the exit transition has had time to finish.
+    rowTransition,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -649,11 +658,14 @@ export default function DataTable({
                                 {paginatedData.map((row, rowIdx) => {
                                     const isFirstRow = rowIdx === 0;
                                     const isLastRow  = rowIdx === paginatedData.length - 1;
+                                    const isTransitionRow = rowTransition?.key === row[rowKey];
+                                    const isExiting       = isTransitionRow && rowTransition.phase === "exit";
+                                    const isCelebrating   = isTransitionRow && rowTransition.phase === "celebrate";
                                     return (
                                         <React.Fragment key={row[rowKey]}>
                                             <Table.Row
                                                 id={row[rowKey]}
-                                                className={`group ${rowClassName ? rowClassName(row) : ""}`}
+                                                className={`group ${rowClassName ? rowClassName(row) : ""} ${isCelebrating ? "row-celebrate" : ""}`}
                                             >
                                                 {selectable && (() => {
                                                     const s = {};
@@ -661,17 +673,28 @@ export default function DataTable({
                                                         if (isFirstRow) { s.borderTopLeftRadius = 0; s.borderTopRightRadius = CORNER_RADIUS; }
                                                         if (isLastRow)  { s.borderBottomLeftRadius = 0; s.borderBottomRightRadius = CORNER_RADIUS; }
                                                     }
-                                                    return (
-                                                        <Table.Cell className="pe-0" style={Object.keys(s).length ? s : undefined}>
-                                                            <Checkbox
-                                                                aria-label={`Select row ${row[rowKey]}`}
-                                                                slot="selection"
-                                                                variant="secondary"
-                                                            >
-                                                                <Checkbox.Control>
-                                                                    <Checkbox.Indicator />
-                                                                </Checkbox.Control>
+                                                    // Every cell in an exiting row collapses in lockstep (see the
+                                                    // matching block below) so the whole row shrinks uniformly
+                                                    // instead of leaving the checkbox column standing taller than
+                                                    // the rest.
+                                                    const collapse = isTransitionRow
+                                                        ? { transition: "padding 320ms ease", overflow: "hidden", paddingTop: isExiting ? "0px" : undefined, paddingBottom: isExiting ? "0px" : undefined }
+                                                        : null;
+                                                    const checkboxContent = isTransitionRow
+                                                        ? <div style={{ transition: "max-height 320ms ease, opacity 200ms ease", overflow: "hidden", maxHeight: isExiting ? "0px" : "40px", opacity: isExiting ? 0 : 1 }}>
+                                                            <Checkbox aria-label={`Select row ${row[rowKey]}`} slot="selection" variant="secondary">
+                                                                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
                                                             </Checkbox>
+                                                        </div>
+                                                        : (
+                                                            <Checkbox aria-label={`Select row ${row[rowKey]}`} slot="selection" variant="secondary">
+                                                                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                                                            </Checkbox>
+                                                        );
+                                                    const cellStyle = { ...s, ...collapse };
+                                                    return (
+                                                        <Table.Cell className="pe-0" style={Object.keys(cellStyle).length ? cellStyle : undefined}>
+                                                            {checkboxContent}
                                                         </Table.Cell>
                                                     );
                                                 })()}
@@ -700,7 +723,22 @@ export default function DataTable({
                                                     // real :hover/[data-selected] CSS for the sticky cell too removes
                                                     // that dependency entirely — both now update on the same paint,
                                                     // regardless of how long React takes to re-render anything else.
-                                                    const cellStyle = { ...baseStyle, ...extra };
+                                                    // Exit collapse: every cell's own vertical padding transitions to
+                                                    // 0 together (not just an inner wrapper's max-height) — padding
+                                                    // is what actually contributes to row height here, so collapsing
+                                                    // only the content and leaving py-3 in place would shrink the
+                                                    // text to nothing while the row itself stayed full height.
+                                                    const collapse = isTransitionRow
+                                                        ? { transition: "padding 320ms ease", overflow: "hidden", paddingTop: isExiting ? "0px" : undefined, paddingBottom: isExiting ? "0px" : undefined }
+                                                        : null;
+                                                    const cellStyle = { ...baseStyle, ...extra, ...collapse };
+                                                    const cellContent = isActionsCol
+                                                        // Buttons sit flush-right and, by default, fade in on row
+                                                        // hover (only the buttons fade, not the cell bg, so the
+                                                        // row's hover highlight shows through behind them) —
+                                                        // opt out per column with `alwaysVisibleActions: true`.
+                                                        ? <div className={`flex justify-end ${col.alwaysVisibleActions ? "" : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"}`}>{col.render ? col.render(row) : row[col.key]}</div>
+                                                        : (col.render ? col.render(row) : row[col.key]);
                                                     return (
                                                         <Table.Cell
                                                             key={col.key}
@@ -730,13 +768,9 @@ export default function DataTable({
                                                             className={`${isActionsCol ? "text-end" : ""} ${col.stickyEnd ? "sticky isolate ltr:right-0 rtl:left-0 z-20 ltr:border-l rtl:border-r border-separator-tertiary/50" : ""}`}
                                                             onPointerDown={(e) => e.stopPropagation()}
                                                         >
-                                                            {isActionsCol
-                                                                // Buttons sit flush-right and, by default, fade in on row
-                                                                // hover (only the buttons fade, not the cell bg, so the
-                                                                // row's hover highlight shows through behind them) —
-                                                                // opt out per column with `alwaysVisibleActions: true`.
-                                                                ? <div className={`flex justify-end ${col.alwaysVisibleActions ? "" : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"}`}>{col.render ? col.render(row) : row[col.key]}</div>
-                                                                : (col.render ? col.render(row) : row[col.key])}
+                                                            {isTransitionRow
+                                                                ? <div style={{ transition: "max-height 320ms ease, opacity 200ms ease", overflow: "hidden", maxHeight: isExiting ? "0px" : "200px", opacity: isExiting ? 0 : 1 }}>{cellContent}</div>
+                                                                : cellContent}
                                                         </Table.Cell>
                                                     );
                                                 })}

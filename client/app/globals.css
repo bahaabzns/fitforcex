@@ -188,6 +188,26 @@
     background-color: color-mix(in oklab, var(--surface) 90%, var(--surface-secondary) 10%);
   }
 
+  /* "Completed" row flash — plans-queue's Main view (see DataTable.js's
+     rowTransition prop / PlansQueueTable.js's completion effect): a
+     just-actioned row plays this once, then collapses out of the list since
+     it no longer belongs in a "needs action" queue. A CSS animation (not a
+     transition) so it plays once on its own regardless of how the
+     background would otherwise be computed — animations take priority over
+     normal/layered background-color rules for their duration, then hand
+     back to whatever the row's real state (hover/selected/sticky) says,
+     with no manual cleanup needed. 800ms to match the celebrate phase's own
+     duration in PlansQueueTable, so the pulse settles right as the row
+     starts to collapse. */
+  @keyframes row-celebrate-pulse {
+    0%   { background-color: transparent; }
+    25%  { background-color: color-mix(in oklab, oklch(72% 0.19 149) 22%, transparent); }
+    100% { background-color: transparent; }
+  }
+  .row-celebrate .table__cell {
+    animation: row-celebrate-pulse 800ms ease-out;
+  }
+
   /* Auth pages */
   .auth-wrapper {
     @apply min-h-screen flex items-center justify-center bg-background;

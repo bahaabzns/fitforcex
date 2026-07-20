@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useTranslations } from "next-intl";
 import { History, ListTodo } from "lucide-react";
@@ -13,6 +13,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
     const searchParams = useSearchParams();
+    const router = useRouter();
     const { workspaceSlug } = useParams();
     const [queueItems, setQueueItems] = useState([]);
     const [forms, setForms] = useState([]);
@@ -26,6 +27,58 @@ export default function PlansQueuePage() {
     // Bumped after a restore to re-run the queue-loading effect below, so a
     // restored submission reappears in the active queue without a full page reload.
     const [queueReloadToken, setQueueReloadToken] = useState(0);
+
+    // ── Just-completed submission (?justActioned=<id>&returnTo=main|history) ──
+    // Set once by the builder's "return to queue" redirect (see
+    // nutrition/training page.js's handleActivateAndMark). Claimed here,
+    // once, rather than inside PlansQueueTable — this page also needs to know
+    // when it's safe to drop the item from the Main queue's data (see
+    // completingItem below), which PlansQueueTable alone can't decide.
+    //
+    // returnTo decides which view to land on — NOT the item's status. Main
+    // structurally excludes action-done items, so if the coach was on Main
+    // when they clicked into the builder, they stay on Main and watch the
+    // row play its completion animation and collapse out (PlansQueueTable +
+    // DataTable's rowTransition); if they were on History, they stay there
+    // and get the older, simpler fade-highlight (the item already belongs
+    // there permanently). Falls back to Main when returnTo is absent (e.g. a
+    // stale bookmarked URL from before this existed).
+    //
+    // The setTimeout(fn, 0) + sessionStorage claim mirror the pattern built
+    // for this same problem one level down in PlansQueueTable.js: React 18
+    // Strict Mode's dev-mode mount→cleanup→mount happens synchronously,
+    // before any timer fires, so deferring the real work by one macrotask
+    // means the discarded first instance's cleanup cancels its own pending
+    // timer before it can run — only the surviving instance ever claims the
+    // id, strips the URL, and sets state.
+    const [completingId, setCompletingId] = useState(null);
+    useEffect(() => {
+        const id = searchParams.get("justActioned");
+        if (!id) return;
+        const returnTo = searchParams.get("returnTo");
+        let cancelled = false;
+        const claimTimer = setTimeout(() => {
+            if (cancelled) return;
+            const claimKey = `plans-queue-justActioned-claimed:${id}`;
+            if (sessionStorage.getItem(claimKey)) return; // defense in depth — a genuine duplicate mount, not Strict Mode's
+            sessionStorage.setItem(claimKey, "1");
+            setCompletingId(id);
+            if (returnTo === "history") setShowHistory(true);
+            router.replace(`/${workspaceSlug}/plans-queue`, { scroll: false });
+        }, 0);
+        return () => {
+            cancelled = true;
+            clearTimeout(claimTimer);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once for the id captured at mount
+    }, []);
+    // PlansQueueTable calls this once the row's completion animation has
+    // fully finished (Main: after it's visually collapsed to nothing;
+    // History: right away, nothing to remove there) — only then is it safe
+    // to let completingItem drop back to null.
+    function handleCompletionDone(id) {
+        setCompletingId((prev) => (prev === id ? null : prev));
+    }
 
     // ── Scroll position (survives navigating away to a builder and back) ──
     // This page fully unmounts when the coach clicks into a builder, so an
@@ -127,25 +180,6 @@ export default function PlansQueuePage() {
 
                 setQueueItems(normalizedQueue);
                 setForms(formsWithQuestions);
-
-                // A submission just closed out via a builder (nutrition/training
-                // page.js's handleActivateAndMark, ?justActioned=<id>) has already
-                // moved out of "needs action" into action-done by the time we're
-                // back here. PlansQueueTable's highlight effect captures
-                // ?justActioned once on ITS OWN first mount and immediately strips
-                // it from the URL — regardless of whether the row is actually in
-                // the data it was given. The main view only ever receives
-                // needActionItems, so if it mounted first it would consume the
-                // param, find nothing, and the coach would land back on a queue
-                // with no visible trace of what they just did. Deciding the view
-                // here — before either PlansQueueTable variant ever mounts — makes
-                // sure the ONE instance that mounts is the one whose data (and,
-                // for a completed item, whose Status column) can actually show it.
-                const justActionedId = searchParams.get("justActioned");
-                if (justActionedId) {
-                    const actionedItem = normalizedQueue.find((item) => item.id === justActionedId);
-                    if (actionedItem && actionedItem.status !== "need-action") setShowHistory(true);
-                }
             } catch (err) {
                 setError(err.response?.data?.error || "Failed to load plans queue");
             } finally {
@@ -154,7 +188,6 @@ export default function PlansQueuePage() {
         }
 
         loadQueue();
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams read once per load, deliberately not a re-fetch trigger
     }, [queueReloadToken]);
 
     useEffect(() => {
@@ -199,6 +232,20 @@ export default function PlansQueuePage() {
         [queueItems]
     );
 
+    // Full row data for the just-completed item (its status has already
+    // flipped to action-done by the time we're back here, so it's no longer
+    // in needActionItems above). Passed down as a prop rather than folded
+    // into needActionItems/initialSubmissions — PlansQueueTable captures
+    // `initialSubmissions` into local state exactly once on mount
+    // (useState(initialSubmissions), never re-synced, so it can carry its
+    // own optimistic updates from markReviewed etc. without a parent refetch
+    // clobbering them) and would never pick up a later change to this array.
+    // PlansQueueTable injects this directly into what it renders instead.
+    const completingItem = useMemo(
+        () => (completingId ? queueItems.find((item) => item.id === completingId) ?? null : null),
+        [queueItems, completingId]
+    );
+
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
@@ -240,6 +287,8 @@ export default function PlansQueuePage() {
                         title={t('historyTitle')}
                         description={t('historyDescription')}
                         headerAction={historyToggle}
+                        completingId={completingId}
+                        onCompletionDone={handleCompletionDone}
                     />
 
                     <div>
@@ -263,6 +312,9 @@ export default function PlansQueuePage() {
                     hideStatusColumn
                     hideActionTakenColumn
                     headerAction={historyToggle}
+                    completingId={completingId}
+                    completingItem={completingItem}
+                    onCompletionDone={handleCompletionDone}
                 />
             )}
         </div>

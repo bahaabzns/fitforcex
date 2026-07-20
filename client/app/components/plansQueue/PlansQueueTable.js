@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
@@ -71,7 +71,25 @@ function IconAction({ label, onClick, disabled, className = "", children, showLa
     );
 }
 
-export default function PlansQueueTable({ initialSubmissions, awaiting, forms, members = [], hideStatusColumn = false, hideActionTakenColumn = false, title, description, headerAction }) {
+export default function PlansQueueTable({
+    initialSubmissions, awaiting, forms, members = [],
+    hideStatusColumn = false, hideActionTakenColumn = false,
+    title, description, headerAction,
+    // The just-completed submission id, already claimed once (Strict-Mode-safe,
+    // URL already stripped) by plans-queue/page.js — see that file for why the
+    // claim lives there now: it also owns the Main queue's temporary retention
+    // of this row, so it needs to know when the exit animation below has
+    // actually finished, not just when the row started reacting to it.
+    completingId = null,
+    // Full row data for completingId, only needed on Main: its status has
+    // already flipped to action-done by the time we're back here, so it's
+    // structurally excluded from `initialSubmissions` — spliced into
+    // `allItems` below (not merged into `submissions` state) so it can still
+    // be found and animated without needing a resync of state that's meant
+    // to stay a one-time snapshot (see `submissions` below).
+    completingItem = null,
+    onCompletionDone,
+}) {
     const t = useTranslations('plansQueue');
     const locale = useLocale();
     const { formatDateTime } = useDateFormatter();
@@ -81,58 +99,138 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     const [assignMap, setAssignMap] = useState({});
     const router = useRouter();
     const { workspaceSlug } = useParams();
-    const searchParams = useSearchParams();
+    // hideStatusColumn is 1:1 with which builder-return button was clicked
+    // (see the nutrition/workout IconAction onClick below) — round-tripped
+    // through the builder as ?returnTo= so the coach lands back on whichever
+    // view they actually left, instead of guessing from the item's status.
+    const returnToView = hideStatusColumn ? "main" : "history";
 
-    // Row to flash-highlight after the coach is routed back here from the plan
-    // builder (?justActioned=<id> — see training/nutrition page.js). Captured
-    // once, like submissionId in the builder pages, then the query param is
-    // stripped so a refresh doesn't re-trigger it; the highlight itself fades
-    // after a few seconds via the timeout below.
+    // The row the coach just finished acting on plays one of two treatments:
     //
-    // The setTimeout(fn, 0) deferral below isn't stylistic — without it this
-    // breaks under React 18 Strict Mode's dev-mode double-invoke-effects.
-    // Strict Mode mounts this component, runs the effect, tears it down
-    // (cleanup), and mounts it again — all synchronously, before any timer
-    // fires. An earlier version did the router.replace/setHighlightId work
-    // directly in the effect body: instance #1 ran it (stripping the URL,
-    // setting state), its cleanup only cleared the fade timer, and instance
-    // #2 then re-read the ALREADY-stripped URL and found nothing — so the
-    // highlight either flashed for ~150ms then vanished, or (once state was
-    // seeded from a sessionStorage-writing useState initializer instead —
-    // also wrong, since that write is impure and Strict Mode double-invokes
-    // initializers as a *separate* purity check) never appeared at all.
-    // Deferring the real work by one macrotask means Strict Mode's
-    // mount→cleanup→mount finishes entirely first: instance #1's cleanup
-    // cancels its own pending timer before it can ever fire, so only
-    // instance #2 — the one that actually survives — ever runs the claim,
-    // the URL strip, and the state update, exactly once.
-    const [highlightId, setHighlightId] = useState(null);
-    const fadeTimerRef = useRef(null);
+    // Main (hideStatusColumn) is a "what still needs doing" list — a
+    // completed item structurally doesn't belong there anymore, so it plays
+    // a brief success flash, then collapses out (rowTransition, below), then
+    // hands a short highlight to whatever's now next in line.
+    //
+    // History keeps every status forever, so a completed item legitimately
+    // stays — it gets the older, simpler highlight-then-fade (highlightId)
+    // with no removal.
+    //
+    // completingId only changes value once per real navigation (page.js
+    // claims it exactly once), so unlike the old claim logic that used to
+    // live here, Strict Mode double-invoking THIS effect is harmless: both
+    // invocations compute identical initial state from the same stable prop
+    // — no external mutation between them the way the URL used to be. Only
+    // the nested timer chain needs the cancel guard, so a discarded instance
+    // can't fire onCompletionDone or schedule the next-item highlight twice.
+    const [rowTransition, setRowTransition] = useState(null); // { key, phase: "celebrate" | "exit" } — Main only
+    const [highlightId, setHighlightId] = useState(null); // History's fade highlight, and Main's next-item cue
+    const filteredItemsRef = useRef([]);
+
+    // Adjusted during render (not an effect) the moment completingId changes —
+    // same pattern as DataTable.js's prevHighlightKey: React's own supported
+    // way to kick off state in response to a prop change without an effect,
+    // and unlike an effect, this is safe under Strict Mode's double-render by
+    // construction (render-phase code is expected to be pure/idempotent —
+    // recomputing the same celebrate/highlight state twice is a no-op). The
+    // rest of the sequence (still driven by the effect below) is pure timer
+    // scheduling, not a synchronous setState call, so it doesn't hit the
+    // same concern.
+    // On Main, wait for completingItem to actually match completingId before
+    // kicking anything off. completingId is claimed via a setTimeout(0) in
+    // page.js — fast — while completingItem depends on that page's queueItems
+    // fetch finishing — a real network request, almost always slower. If
+    // highlightId (below) fired first, DataTable's highlightKey page-jump
+    // effect (which only ever re-evaluates once per highlightKey value — see
+    // its prevHighlightKey guard in DataTable.js) would run while the row
+    // isn't in allItems yet, find nothing, and never get a second chance —
+    // the row would then render on whatever page happened to already be
+    // showing instead of the one it actually landed on, which is exactly
+    // how "the completed row silently doesn't fade out" looks in practice:
+    // it's sitting off-screen, animating right on schedule, just not where
+    // anyone's looking. activeCompletingId is the single value both the
+    // render-phase kickoff and the timer effect below key off, so they can
+    // never fall out of sync with each other while waiting.
+    const readyToStart = hideStatusColumn ? (!!completingId && completingItem?.id === completingId) : !!completingId;
+    const activeCompletingId = readyToStart ? completingId : null;
+
+    const [prevCompletingId, setPrevCompletingId] = useState(null);
+    if (activeCompletingId !== prevCompletingId) {
+        setPrevCompletingId(activeCompletingId);
+        if (activeCompletingId) {
+            // highlightId doubles as DataTable's highlightKey (below), which
+            // auto-jumps pagination to whichever page actually contains this
+            // row — set on Main too, not just History: completingItem gets
+            // appended to the END of allItems (see baseItems above), and
+            // with 10+ need-action rows this can easily land several pages
+            // past whatever page the coach is currently on. Without this,
+            // the row silently renders off-screen on a page nobody's
+            // looking at, and the celebrate/exit animation nobody sees
+            // reads as "it just doesn't fade out."
+            setHighlightId(activeCompletingId);
+            if (hideStatusColumn) setRowTransition({ key: activeCompletingId, phase: "celebrate" });
+        }
+    }
+
     useEffect(() => {
-        const id = searchParams.get("justActioned");
-        if (!id) return;
+        if (!activeCompletingId) return;
         let cancelled = false;
-        const claimTimer = setTimeout(() => {
-            if (cancelled) return;
-            const claimKey = `plans-queue-justActioned-claimed:${id}`;
-            if (sessionStorage.getItem(claimKey)) return; // defense in depth — a genuine duplicate mount, not Strict Mode's
-            sessionStorage.setItem(claimKey, "1");
-            setHighlightId(id);
-            router.replace(`/${workspaceSlug}/plans-queue`, { scroll: false });
-            fadeTimerRef.current = setTimeout(() => setHighlightId(null), 4000);
-        }, 0);
+        const timers = [];
+        const after = (fn, ms) => { timers.push(setTimeout(() => { if (!cancelled) fn(); }, ms)); };
+
+        if (!hideStatusColumn) {
+            onCompletionDone?.(activeCompletingId);
+        } else {
+            after(() => {
+                setRowTransition({ key: activeCompletingId, phase: "exit" });
+                after(() => {
+                    setRowTransition(null);
+                    const list = filteredItemsRef.current;
+                    const idx = list.findIndex((r) => r.id === activeCompletingId);
+                    const nextItem = (idx !== -1 ? list[idx + 1] : undefined) ?? list.find((r) => r.id !== activeCompletingId);
+                    // onCompletionDone (below) tells the parent it's safe to drop this
+                    // id from data, which flows back down as completingId={null} —
+                    // that's a dependency change for THIS effect, so React tears this
+                    // exact instance down right after, cancelling `timers` via the
+                    // cleanup below. setHighlightId(nextItem.id) itself still commits
+                    // fine (it already ran), but a fade timer scheduled here would be
+                    // cancelled before it ever fires — that's why the fade lives in
+                    // its own independent effect (below, keyed on highlightId) instead
+                    // of being scheduled from inside this one.
+                    if (nextItem) setHighlightId(nextItem.id);
+                    onCompletionDone?.(activeCompletingId);
+                }, 320);
+            }, 800);
+        }
+
         return () => {
             cancelled = true;
-            clearTimeout(claimTimer);
-            clearTimeout(fadeTimerRef.current);
+            timers.forEach(clearTimeout);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once for the id captured at mount
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per activeCompletingId; hideStatusColumn/onCompletionDone are stable per instance
+    }, [activeCompletingId]);
+
+    // highlightId's fade-out lives in its own effect, independent of
+    // completingId's — see the comment above for why: calling
+    // onCompletionDone from inside that effect changes completingId, which
+    // tears that effect down (by design, via its cleanup) right after, which
+    // would silently cancel any fade timer scheduled in the same closure.
+    // History's highlight and Main's next-item cue both flow through here.
+    useEffect(() => {
+        if (!highlightId) return;
+        const duration = hideStatusColumn ? 1500 : 4000;
+        const timer = setTimeout(() => setHighlightId(null), duration);
+        return () => clearTimeout(timer);
+    }, [highlightId, hideStatusColumn]);
 
     // Bulk selection (mirrors the Clients datatable's selection + Action Bar pattern).
     const [selectedIds, setSelectedIds] = useState(new Set());
     // Full filtered+sorted row set from the table (across all pages) — powers "select all filtered".
     const [filteredItems, setFilteredItems] = useState([]);
+    // Mirrored into a ref so the completion-transition effect's timeout
+    // closures (above) can read the current filtered order to find "the next
+    // item" without re-running that effect every time filters/sort change.
+    useEffect(() => { filteredItemsRef.current = filteredItems; }, [filteredItems]);
     // Ids cancelled via the bulk "Cancel Request" action — filtered out client-side
     // until the next load, since `awaiting` (unlike `submissions`) isn't local state.
     const [removedIds, setRemovedIds] = useState(new Set());
@@ -181,7 +279,16 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     const mergedSubmissions = submissions.map(withDerived);
     const mergedAwaiting = awaiting.map(withDerived);
 
-    const allItems = [...mergedAwaiting, ...mergedSubmissions].filter((r) => !removedIds.has(r.id) && !archivedIds.has(r.id));
+    const baseItems = [...mergedAwaiting, ...mergedSubmissions].filter((r) => !removedIds.has(r.id) && !archivedIds.has(r.id));
+    // Splice the just-completed row in for the duration of its animation
+    // (Main only — History already has it naturally, since it keeps every
+    // status). Appended, not merged into submissions/mergedSubmissions
+    // state, so it disappears cleanly the instant completingItem clears
+    // (handleCompletionDone in page.js) with no risk of it lingering behind
+    // a stale optimistic update the way folding it into local state could.
+    const allItems = completingItem && !baseItems.some((r) => r.id === completingItem.id)
+        ? [...baseItems, withDerived(completingItem)]
+        : baseItems;
 
     // Sorted (not insertion order) so a given package name always lands on the
     // same color regardless of which row it first appears in.
@@ -551,7 +658,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                                 <IconAction
                                     showLabel
                                     label={t('openNutrition')}
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/nutrition?submissionId=${row.id}`); }}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/nutrition?submissionId=${row.id}&returnTo=${returnToView}`); }}
                                     className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
                                 >
                                     <Salad size={16} />
@@ -560,7 +667,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                                 <IconAction
                                     showLabel
                                     label={t('openWorkout')}
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/training?submissionId=${row.id}`); }}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/training?submissionId=${row.id}&returnTo=${returnToView}`); }}
                                     className="bg-accent/15 text-accent hover:bg-accent/25"
                                 >
                                     <Dumbbell size={16} />
@@ -642,6 +749,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                 highlightKey={highlightId}
                 filterButtonLabel={t('otherFilters')}
                 rowClassName={(row) => row.id === highlightId ? "bg-emerald-500/10 outline outline-2 -outline-offset-1 outline-emerald-500/40 transition-colors duration-1000" : ""}
+                rowTransition={rowTransition}
             />
 
             {/* Floating bulk action bar — same component/pattern as the Clients datatable. */}
