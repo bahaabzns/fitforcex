@@ -153,6 +153,14 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Landing page only — IBM Plex Sans / IBM Plex Sans Arabic, see app/page.js */
+  .font-landing {
+    font-family: var(--font-landing-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+  html[dir="rtl"] .font-landing {
+    font-family: var(--font-landing-arabic), ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 /* ── Shared component helpers ── */
@@ -313,6 +321,32 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* ── Landing page: scroll-reveal ──
+   Attach `.animate-on-scroll` + a variant to any element, then toggle
+   `.visible` once via IntersectionObserver (see client/lib/useScrollReveal.js).
+   Fires once per element — no re-trigger on scroll back. */
+.animate-on-scroll {
+  opacity: 0;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.animate-on-scroll.fade-in-up    { transform: translate3d(0, 20px, 0); }
+.animate-on-scroll.fade-in-left  { transform: translate3d(-20px, 0, 0); }
+.animate-on-scroll.fade-in-right { transform: translate3d(20px, 0, 0); }
+.animate-on-scroll.visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* ── Landing page: WhatsApp floating button wiggle ── */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-3deg); }
+  75%      { transform: rotate(3deg); }
+}
+.animate-wiggle {
+  animation: wiggle 1s ease-in-out infinite;
 }
 
 /* ── RTL overrides ── */
