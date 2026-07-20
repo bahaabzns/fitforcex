@@ -11,11 +11,21 @@
  * Done" bucket in the Plans Queue has always read 0, platform-wide, even though the
  * old system has thousands of genuinely completed submissions (status = 'archived').
  *
- * Confirmed mapping (product-owner confirmed, not guessed):
+ * Confirmed mapping:
  *   archived  -> reviewed    (coach completed their review / built the plan)
- *   todo      -> submitted   (same "needs action" stage as 'submitted', different label)
+ *   todo      -> pending     (assigned to the client, NOT yet done by them)
  *   submitted -> submitted
  *   pending   -> pending
+ *
+ * The original mapping here (product-owner confirmed at the time, but wrong)
+ * had todo -> submitted, reasoning it was "the same needs-action stage as
+ * submitted, different label." Direct data proved otherwise: platform-wide,
+ * 'todo' rows have 0% real answers (identical to 'pending' at 0%), vs
+ * ~99.5-99.8% for 'submitted'/'archived'. 'todo' is a client-side to-do item,
+ * not a coach-side review queue item. The historical damage from the wrong
+ * mapping (form_requests shown as "submitted" with empty answers) is fixed
+ * separately and narrowly by backfill-form-status-mismap.ts; this fixes the
+ * mapping itself so newly-onboarded clients stop being affected going forward.
  *
  * Also backfills submitted_at (old updatedAt, Cairo-corrected) for any row that ends
  * up submitted/reviewed but has none — the same missing-data-not-just-wrong-status gap,
@@ -53,9 +63,8 @@ function log(msg: string) { console.log(`[backfill-status] ${msg}`); }
 
 function mapStatus(oldStatus: string): string {
   if (oldStatus === 'archived') return 'reviewed';
-  if (oldStatus === 'todo') return 'submitted';
   if (oldStatus === 'submitted') return 'submitted';
-  return 'pending';
+  return 'pending'; // 'todo' and 'pending' both mean "not yet done by the client"
 }
 
 async function main() {
@@ -90,17 +99,32 @@ async function main() {
         );
       }
 
+      // Never move a request BACKWARD through pending -> submitted -> reviewed:
+      // only a coach's own action (or a narrowly-scoped, explicitly-approved
+      // backfill) should downgrade a status the app already showed as further
+      // along. This guard exists because fixing mapStatus() below (todo used
+      // to wrongly map to 'submitted') would otherwise make a routine re-run
+      // of this "safe to re-run at any time" script try to snap thousands of
+      // already-'submitted'/'reviewed' rows back to 'pending' in one shot --
+      // including ones a coach has since genuinely reviewed. See
+      // backfill-form-status-mismap.ts for the narrow, explicitly-approved
+      // historical correction of the wrongly-mapped 'submitted' rows.
+      const NO_REGRESSION = `
+        NOT (fr.status IN ('submitted', 'reviewed') AND o.new_status = 'pending')
+        AND NOT (fr.status = 'reviewed' AND o.new_status = 'submitted')
+      `;
+
       const { rows: statusMismatches } = await client.query<{ id: string }>(`
         SELECT fr.id FROM form_requests fr
         JOIN backfill_status o ON o.id = fr.id
-        WHERE fr.status IS DISTINCT FROM o.new_status
+        WHERE fr.status IS DISTINCT FROM o.new_status AND ${NO_REGRESSION}
       `);
       log(`status: ${statusMismatches.length} row(s) need correction`);
       if (statusMismatches.length > 0 && !DRY_RUN) {
         const result = await client.query(`
           UPDATE form_requests fr SET status = o.new_status
           FROM backfill_status o
-          WHERE o.id = fr.id AND fr.status IS DISTINCT FROM o.new_status
+          WHERE o.id = fr.id AND fr.status IS DISTINCT FROM o.new_status AND ${NO_REGRESSION}
         `);
         log(`status: corrected ${result.rowCount} row(s)`);
       }
