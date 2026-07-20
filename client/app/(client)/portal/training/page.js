@@ -261,7 +261,11 @@ export default function ClientTrainingPage() {
                                 {(activeDay.exercises ?? []).length === 0 ? (
                                     <Card>
                                         <Card.Content className="p-6 flex flex-col items-center justify-center py-12 gap-2 text-center">
-                                            <p className="text-sm text-muted-foreground">{t('noExercises')}</p>
+                                            <svg className="w-8 h-8 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+                                            </svg>
+                                            <p className="text-base font-medium text-foreground">{activeDay.name}</p>
+                                            <p className="text-sm text-muted-foreground">{t('restDayHint')}</p>
                                         </Card.Content>
                                     </Card>
                                 ) : (

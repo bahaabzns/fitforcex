@@ -97,6 +97,7 @@
   "trainingNoActivePlan": "لا توجد خطة تدريب نشطة بعد",
   "trainingNoActivePlanHint": "لم يُفعّل مدربك خطة تدريب لك بعد.",
   "trainingNoExercises": "لا توجد تمارين لهذا اليوم.",
+  "trainingRestDayHint": "لا توجد تمارين مجدولة لهذا اليوم — خذ وقتك للراحة اليوم.",
   "trainingCoachNote": "ملاحظة المدرب",
   "trainingDayNote": "ملاحظة اليوم",
   "trainingExercises": "التمارين",

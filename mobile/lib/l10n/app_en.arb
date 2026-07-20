@@ -98,6 +98,7 @@
   "trainingNoActivePlan": "No active training plan yet",
   "trainingNoActivePlanHint": "Your coach hasn't activated a training plan for you yet.",
   "trainingNoExercises": "No exercises for this day.",
+  "trainingRestDayHint": "No exercises scheduled — take today to recover.",
   "trainingCoachNote": "Coach Note",
   "trainingDayNote": "Day Note",
   "trainingExercises": "Exercises",

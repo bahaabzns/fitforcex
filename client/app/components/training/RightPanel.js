@@ -398,8 +398,9 @@ export default function RightPanel({
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
-                                        <div className="py-8 flex items-center justify-center">
+                                        <div className="py-8 flex flex-col items-center justify-center gap-1 text-center">
                                             <p className="text-sm text-muted-foreground">{t('noExercises')}</p>
+                                            <p className="text-xs text-muted-foreground/70">{t('restDayHint')}</p>
                                         </div>
                                     )}
                                 </div>

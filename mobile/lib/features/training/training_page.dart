@@ -184,7 +184,7 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
         ],
 
         if (!hasExercises)
-          _InfoCard(text: l10n.trainingNoExercises)
+          _InfoCard(title: day.name, text: l10n.trainingRestDayHint)
         else ...[
           _SectionSeparator(label: l10n.trainingExercises),
           const SizedBox(height: 12),
@@ -614,7 +614,8 @@ class _SectionSeparator extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.text});
+  const _InfoCard({this.title, required this.text});
+  final String? title;
   final String text;
 
   @override
@@ -623,8 +624,22 @@ class _InfoCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
         child: Center(
-          child: Text(text,
-              style: TextStyle(color: context.appColors.mutedForeground)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title != null && title!.isNotEmpty) ...[
+                Text(title!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+              ],
+              Text(text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.appColors.mutedForeground)),
+            ],
+          ),
         ),
       ),
     );
