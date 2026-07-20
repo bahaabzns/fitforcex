@@ -1,24 +1,24 @@
 /**
- * Read-only investigation: migrate-incremental-catchup.ts never inserts into
- * exercise_library -- it only reads existing ids to link training_exercises
- * (see the `existingIds('exercise_library')` usage around its training_plans
- * chain). exercise_library is cloned per-workspace with fresh ids once (at
- * initial workspace migration / coach account creation), and never synced
- * again. Any exercise a coach adds in .io afterward is invisible in
- * production forever, with no error anywhere -- confirmed for Belghamdi
- * Coaching (6 exercises missing: Butterfly Machine, Cable Flat Press, Chair
- * Deadlift, Side Step Ups, Towel toe curls, Wall sit; created in .io between
- * 2026-05-14 and 2026-07-04, well after this workspace's library was first
- * cloned).
+ * Read-only investigation, revised: migrate-incremental-catchup.ts never
+ * inserts into exercise_library, only reads existing ids to link
+ * training_exercises.exercise_library_id (matching by exact id equality
+ * against old .io Exercise.id). exercise_library mixes two id conventions
+ * per workspace: UUID rows (a shared default library, cloned once) and cuid
+ * rows that preserve the exact old Exercise.id (the workspace's own custom
+ * exercises, from the one-time original clone). Any exercise a coach adds in
+ * .io AFTER that one-time clone is never inserted under any id, so it can
+ * never link -- confirmed for Belghamdi (6 exercises, added 2026-05-14
+ * through 2026-07-04, well after the workspace's library was first cloned).
  *
- * ids are NOT a valid matching key here (exercise_library uses fresh,
- * workspace-scoped ids by design, not preserved .io ids) -- this matches by
- * (workspace_id, lower(trim(name))), same uniqueness .io itself enforces via
- * Exercise_workspaceId_name_key.
- *
- * Scoped to workspaces that already have at least one exercise_library row
- * (i.e. already-migrated workspaces) -- a workspace with zero rows hasn't
- * been cloned yet at all, which is a different, unrelated situation.
+ * This checks, platform-wide:
+ *   1. How many exercise_library rows are genuinely missing (old Exercise.id
+ *      not present in production exercise_library, for exercises actually
+ *      referenced by at least one migrated WorkoutPlanDayItem).
+ *   2. Of the training_exercises rows with a NULL exercise_library_id, how
+ *      many would become linkable once those missing rows are inserted
+ *      (i.e. their original old exerciseId reference exists among the
+ *      missing set) vs how many are null for an unrelated, legitimate reason
+ *      (old exerciseId was itself null, or referenced a deleted Exercise).
  *
  * No writes. Platform-wide.
  *
@@ -38,43 +38,62 @@ const old = new Pool({ connectionString: OLD_URL });
 const db = new Pool({ connectionString: NEW_URL });
 
 function log(msg: string) { console.log(`[analyze-missing-exercise-library] ${msg}`); }
-function normalize(name: string): string { return name.trim().toLowerCase(); }
 
 async function main() {
   try {
-    const { rows: migratedWorkspaces } = await db.query<{ workspace_id: string; name: string }>(`
-      SELECT DISTINCT el.workspace_id, w.name
-      FROM exercise_library el
-      JOIN workspaces w ON w.id = el.workspace_id
+    // 1. Exercises actually referenced by a migrated WorkoutPlanDayItem, whose
+    // exercise_library.id (== old Exercise.id) is missing from production.
+    const { rows: referencedExercises } = await old.query<{
+      exercise_id: string; workspace_id: string; name: string;
+    }>(`
+      SELECT DISTINCT e.id AS exercise_id, e."workspaceId" AS workspace_id, e.name
+      FROM public."WorkoutPlanDayItem" di
+      JOIN public."Exercise" e ON e.id = di."exerciseId"
+      WHERE di."deletedAt" IS NULL AND e."deletedAt" IS NULL
     `);
-    log(`${migratedWorkspaces.length} workspace(s) with an already-cloned exercise library`);
+    log(`old .io exercises referenced by at least one plan item: ${referencedExercises.length}`);
 
-    let totalMissing = 0;
-    const perWorkspace: Array<{ name: string; missing: number }> = [];
+    const { rows: existingLib } = await db.query<{ id: string }>(`SELECT id FROM exercise_library`);
+    const existingLibIds = new Set(existingLib.map(r => r.id));
 
-    for (const ws of migratedWorkspaces) {
-      const { rows: oldEx } = await old.query<{ name: string }>(`
-        SELECT name FROM public."Exercise" WHERE "workspaceId" = $1 AND "deletedAt" IS NULL
-      `, [ws.workspace_id]);
-      if (oldEx.length === 0) continue;
+    const missingLib = referencedExercises.filter(e => !existingLibIds.has(e.exercise_id));
+    log(`referenced exercises missing from production exercise_library: ${missingLib.length}`);
 
-      const { rows: newEx } = await db.query<{ name_en: string }>(`
-        SELECT name_en FROM exercise_library WHERE workspace_id = $1
-      `, [ws.workspace_id]);
-      const newNames = new Set(newEx.map(r => normalize(r.name_en)));
-
-      const missing = oldEx.filter(r => !newNames.has(normalize(r.name)));
-      if (missing.length > 0) {
-        perWorkspace.push({ name: ws.name, missing: missing.length });
-        totalMissing += missing.length;
-      }
+    const byWorkspace = new Map<string, number>();
+    for (const e of missingLib) byWorkspace.set(e.workspace_id, (byWorkspace.get(e.workspace_id) ?? 0) + 1);
+    const { rows: wsNames } = await db.query<{ id: string; name: string }>(`
+      SELECT id, name FROM workspaces WHERE id = ANY($1::text[])
+    `, [[...byWorkspace.keys()]]);
+    const wsNameById = new Map(wsNames.map(w => [w.id, w.name]));
+    for (const [wsId, count] of [...byWorkspace.entries()].sort((a, b) => b[1] - a[1])) {
+      log(`  - ${wsNameById.get(wsId) ?? wsId}: ${count} missing`);
     }
 
-    log(`workspaces affected: ${perWorkspace.length}`);
-    for (const w of perWorkspace.sort((a, b) => b.missing - a.missing)) {
-      log(`  - ${w.name}: ${w.missing} missing`);
+    // 2. Of the currently-NULL training_exercises.exercise_library_id rows,
+    // how many would become linkable once the missing exercise_library rows
+    // above are inserted.
+    const { rows: nullRows } = await db.query<{ id: string }>(`
+      SELECT id FROM training_exercises WHERE exercise_library_id IS NULL
+    `);
+    log(`training_exercises with NULL exercise_library_id: ${nullRows.length}`);
+
+    const missingLibIds = new Set(missingLib.map(e => e.exercise_id));
+    // training_exercises.id == old WorkoutPlanDayItem.id (preserved), so look
+    // up each null row's original exerciseId directly.
+    const { rows: oldItems } = await old.query<{ id: string; exercise_id: string | null }>(`
+      SELECT id, "exerciseId" AS exercise_id FROM public."WorkoutPlanDayItem" WHERE "deletedAt" IS NULL
+    `);
+    const oldExerciseIdByItemId = new Map(oldItems.map(r => [r.id, r.exercise_id]));
+
+    let wouldBeFixed = 0;
+    let unrelated = 0;
+    for (const row of nullRows) {
+      const oldExerciseId = oldExerciseIdByItemId.get(row.id);
+      if (oldExerciseId && missingLibIds.has(oldExerciseId)) wouldBeFixed++;
+      else unrelated++;
     }
-    log(`total missing exercises platform-wide: ${totalMissing}`);
+    log(`of those, would become linkable once missing exercise_library rows are inserted: ${wouldBeFixed}`);
+    log(`unrelated (old reference was null/deleted, or row not from .io at all): ${unrelated}`);
   } catch (err) {
     console.error('[analyze-missing-exercise-library] FAILED:', err);
     process.exit(1);
