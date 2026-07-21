@@ -157,9 +157,18 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
             return { ok: true };
         } catch (err) {
             if (err?.response?.status === 409) {
-                // Form has client history — archiving (not deleting) is the
-                // sanctioned path. Let the caller show an archive prompt.
-                return { ok: false, blocked: true, submissionCount: err.response.data?.submissionCount ?? 0 };
+                // Form has client history, or is a package default (FK
+                // Restrict — see forms.controller.ts) — archiving (not
+                // deleting) is the sanctioned path either way. Let the
+                // caller show the matching archive prompt.
+                const data = err.response.data ?? {};
+                return {
+                    ok: false,
+                    blocked: true,
+                    reason: data.reason ?? 'submissions',
+                    submissionCount: data.submissionCount ?? 0,
+                    packageDefaultCount: data.packageDefaultCount ?? 0,
+                };
             }
             console.error('Error deleting form:', err);
             return { ok: false, blocked: false };

@@ -213,7 +213,20 @@ export async function deleteForm(req: Request, res: Response, next: NextFunction
         if (submissionCount > 0) {
             return res.status(409).json({
                 error: `This form has ${submissionCount} client submission(s)/assignment(s). Archive it instead of deleting.`,
+                reason: 'submissions',
                 submissionCount,
+            });
+        }
+
+        // package_default_forms.form_id is onDelete: Restrict (schema.prisma)
+        // — deleteMany below would otherwise throw a raw FK violation. Same
+        // "archive instead" offramp as the submissions case above.
+        const packageDefaultCount = await prisma.package_default_forms.count({ where: { form_id: form.id } });
+        if (packageDefaultCount > 0) {
+            return res.status(409).json({
+                error: `This form is a default on ${packageDefaultCount} package variation(s). Archive it instead of deleting, or remove it from those packages first.`,
+                reason: 'package_default',
+                packageDefaultCount,
             });
         }
 

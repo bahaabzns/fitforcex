@@ -62,9 +62,10 @@ export default function FormsPanel({
     async function handleDeleteOrArchive(form) {
         const result = await handleDeleteForm(form.id);
         if (result?.blocked) {
-            const shouldArchive = window.confirm(
-                tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount })
-            );
+            const confirmMessage = result.reason === 'package_default'
+                ? tForms('archiveInsteadOfDeletePackageDefaultConfirm', { count: result.packageDefaultCount })
+                : tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount });
+            const shouldArchive = window.confirm(confirmMessage);
             if (shouldArchive) await archiveWithWarning(form);
         } else if (result && !result.ok) {
             window.alert(tForms('deleteFormFailed'));

@@ -804,6 +804,7 @@
     "active": "Active",
     "archived": "Archived",
     "archiveInsteadOfDeleteConfirm": "This form has {count, plural, one {# submission} other {# submissions}} from clients and can't be deleted. Archive it instead? Archived forms are hidden from new assignments but keep all existing client history.",
+    "archiveInsteadOfDeletePackageDefaultConfirm": "This form is a default on {count, plural, one {# package variation} other {# package variations}} and can't be deleted. Archive it instead? New activations will keep offering it until you update those packages.",
     "deleteFormFailed": "Couldn't delete this form — check your connection and try again.",
     "archiveFormFailed": "Couldn't archive this form — check your connection and try again.",
     "deleteQuestionBlocked": "This question has {count, plural, one {# recorded answer} other {# recorded answers}} and can't be deleted without losing client history.",
