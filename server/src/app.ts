@@ -198,6 +198,11 @@ app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, r
     if (status >= 500) {
         logger.error({ err }, 'Unhandled server error');
         Sentry.captureException(err);
+        // Internal errors (DB driver messages, stack traces, etc.) are logged
+        // above but never sent to the client — only intentional, thrown
+        // errors (4xx, status already set) carry their message to the response.
+        res.status(status).json({ error: 'Internal server error' });
+        return;
     }
     res.status(status).json({ error: err.message ?? 'Internal server error' });
 });

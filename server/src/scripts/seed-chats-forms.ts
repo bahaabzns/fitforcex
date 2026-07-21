@@ -256,7 +256,7 @@ async function main() {
                     id:          formId,
                     workspace_id:wsId,
                     title_en:    tmpl.title,
-                    status:      'published',
+                    status:      'active',
                     form_type:   tmpl.type,
                     post_action: tmpl.post_action,
                 },

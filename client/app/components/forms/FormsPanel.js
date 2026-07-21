@@ -66,6 +66,8 @@ export default function FormsPanel({
                 tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount })
             );
             if (shouldArchive) await archiveWithWarning(form);
+        } else if (result && !result.ok) {
+            window.alert(tForms('deleteFormFailed'));
         }
     }
 
@@ -77,7 +79,11 @@ export default function FormsPanel({
     // action and the archive-instead-of-delete prompt above).
     async function archiveWithWarning(form) {
         const result = await handleArchiveForm(form.id);
-        if (result?.warning) window.alert(result.warning);
+        if (!result?.ok) {
+            window.alert(tForms('archiveFormFailed'));
+            return;
+        }
+        if (result.warning) window.alert(result.warning);
     }
 
     return (
