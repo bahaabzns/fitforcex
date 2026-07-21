@@ -232,6 +232,66 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         }
     };
 
+    // Google Forms Import — parses the pasted link server-side (read-only,
+    // nothing persisted there), creates the new form immediately (same call
+    // handleCreateForm makes), then drops the parsed questions straight into
+    // local `questions` state exactly like handleCreateQuestion does for a
+    // manually-added question. The coach reviews/edits them in the normal
+    // QuestionsPanel/QuestionEditorPanel and persists with the existing
+    // Save Draft button — importing never bypasses that review step.
+    //
+    // Accepts either { url } (server fetches the public page itself) or
+    // { html } — the fallback for forms Google sign-in-gates from an
+    // anonymous fetch (e.g. any form with a File Upload question): the coach
+    // views the page in their own signed-in browser, where the wall doesn't
+    // block them, and pastes the page source instead.
+    const handleImportGoogleForm = async ({ url, html } = {}) => {
+        if (selectedForm && dirtyFormIds.has(String(selectedForm.id))) {
+            const proceed = window.confirm('You have unsaved changes on this form. Discard them and import a new form?');
+            if (!proceed) return { ok: false };
+            clearFormDirty(selectedForm.id);
+        }
+        try {
+            const preview = await api.post(`${basePath}/import/google-forms-preview`, { url, html });
+            const { title_en, description_en, questions: parsedQuestions, skipped } = preview.data;
+
+            const res = await api.post(basePath, {
+                title_en: title_en || 'Imported Form',
+                description_en: description_en || null,
+            });
+            const newForm = { ...res.data, question_count: parsedQuestions.length };
+            setForms(prev => [newForm, ...prev]);
+            setSelectedForm(newForm);
+            resetQuestionDraftState();
+
+            const draftQuestions = parsedQuestions.map((q, idx) => ({
+                id: makeTempId(),
+                form_version_id: newForm.current_version_id,
+                label_en: q.label_en,
+                label_ar: null,
+                type: q.type,
+                required: q.required,
+                order_index: idx,
+                options: q.options ?? null,
+                options_ar: null,
+                placeholder_en: null,
+                placeholder_ar: null,
+                min_value: q.min_value ?? null,
+                max_value: q.max_value ?? null,
+                metric_id: null,
+            }));
+            setQuestions(draftQuestions);
+            setSelectedQuestion(null);
+            setPendingFocusFormId(newForm.id);
+            markFormDirty(newForm.id);
+
+            return { ok: true, skipped };
+        } catch (err) {
+            console.error('Error importing Google Form:', err);
+            return { ok: false, error: err?.response?.data?.error || 'Import failed' };
+        }
+    };
+
     // Used only by handleTrackAsMetric below (an immediate, non-buffered
     // action) to pick up fresh ids after a version fork.
     const refetchQuestions = async () => {
@@ -443,6 +503,7 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
         handleArchiveForm,
         handleActivateForm,
         handleDuplicateForm,
+        handleImportGoogleForm,
         handleCreateQuestion,
         handleUpdateQuestion,
         handleDeleteQuestion,

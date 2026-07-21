@@ -7,6 +7,20 @@ import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import EmptyState from "@/app/components/EmptyState";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
+import ImportGoogleFormDialog from "@/app/components/forms/ImportGoogleFormDialog";
+
+// Simplified Google Forms mark (purple clipboard + checkmark) so the import
+// button is recognizable at a glance, not just another generic upload icon.
+const GoogleFormsIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" className="shrink-0">
+        <rect x="6" y="4" width="30" height="40" rx="3" fill="#673AB7" />
+        <rect x="12" y="14" width="18" height="2.5" fill="#fff" />
+        <rect x="12" y="20" width="18" height="2.5" fill="#fff" />
+        <rect x="12" y="26" width="12" height="2.5" fill="#fff" />
+        <circle cx="33" cy="31" r="9" fill="#fff" />
+        <path d="M29 31l3 3 6-6.5" stroke="#673AB7" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
 
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -35,10 +49,12 @@ export default function FormsPanel({
     handleArchiveForm,
     handleActivateForm,
     handleDuplicateForm,
+    handleImportGoogleForm,
 }) {
     const tNutrition = useTranslations('nutrition');
     const tForms = useTranslations('forms');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["forms"]));
+    const [isImportOpen, setIsImportOpen] = useState(false);
 
     // A form with client history can't be deleted (see forms.controller.ts —
     // `form_requests` would be silently destroyed by the DB cascade). Offer
@@ -65,6 +81,7 @@ export default function FormsPanel({
     }
 
     return (
+        <>
         <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
@@ -85,9 +102,25 @@ export default function FormsPanel({
                                     <Disclosure.Indicator />
                                 </Button>
                                 {expandedKeys.has("forms") && (
-                                    <Button variant="primary" onClick={handleCreateForm} className="shrink-0">
-                                        {tNutrition('newForm')}
-                                    </Button>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {/* Only the coach workspace builder wires this up — the Super
+                                            Admin "Master Form Templates" builder (which reuses this same
+                                            panel against a separate /admin/forms-templates backend) has
+                                            no matching import endpoint, so this stays hidden there. */}
+                                        {handleImportGoogleForm && (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setIsImportOpen(true)}
+                                                className="gap-2"
+                                            >
+                                                <GoogleFormsIcon />
+                                                {tForms('importFromGoogleForms')}
+                                            </Button>
+                                        )}
+                                        <Button variant="primary" onClick={handleCreateForm}>
+                                            {tNutrition('newForm')}
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         </Disclosure.Heading>
@@ -153,6 +186,14 @@ export default function FormsPanel({
 
             </DisclosureGroup>
         </Surface>
+        {handleImportGoogleForm && (
+            <ImportGoogleFormDialog
+                open={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                handleImportGoogleForm={handleImportGoogleForm}
+            />
+        )}
+        </>
     );
 }
 

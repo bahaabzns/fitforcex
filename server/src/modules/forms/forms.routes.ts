@@ -71,6 +71,36 @@ router.delete('/:id',  formsController.deleteForm);
 
 /**
  * @openapi
+ * /forms/import/google-forms-preview:
+ *   post:
+ *     summary: Parse a Google Form into FitForce's question format (read-only preview, nothing is created)
+ *     description: >
+ *       Provide either `url` (server fetches the public page itself) or `html`
+ *       (fallback for forms Google sign-in-gates from an anonymous fetch —
+ *       e.g. any form with a File Upload question — where the coach pastes
+ *       the page source from their own signed-in browser instead).
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:  { type: string, description: "A docs.google.com/forms/... link" }
+ *               html: { type: string, description: "The form's page source, pasted (fallback when url fails with a sign-in wall)" }
+ *     responses:
+ *       200:
+ *         description: "{ title_en, description_en, questions[], skipped[] }"
+ *       400:
+ *         description: Invalid input, or the form couldn't be read (private, sign-in required, or malformed)
+ */
+router.post('/import/google-forms-preview', formsController.importGoogleFormPreview);
+
+/**
+ * @openapi
  * /forms/{id}/questions:
  *   get:
  *     summary: List questions for a form

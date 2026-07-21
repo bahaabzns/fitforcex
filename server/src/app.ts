@@ -104,6 +104,14 @@ app.use(cors({
 // Webhook registered BEFORE express.json() — needs raw body for HMAC verification
 app.use('/api/payments/webhook', paymentsWebhookRouter);
 
+// Google Forms Import's paste-page-source fallback: a full Google Forms page
+// source (especially the signed-in view, with extra account-switcher chrome)
+// routinely exceeds the global 100kb JSON limit below. Scoped bigger limit
+// for just this one authenticated route rather than raising the global
+// default everywhere — same register-before-the-global-parser pattern the
+// webhook above uses, since body-parser no-ops once a body is already parsed.
+app.use('/api/forms/import/google-forms-preview', express.json({ limit: '5mb' }));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(pinoHttp({ logger }));

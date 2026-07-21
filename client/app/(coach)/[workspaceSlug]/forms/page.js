@@ -59,6 +59,7 @@ export default function FormsPage() {
         handleArchiveForm,
         handleActivateForm,
         handleDuplicateForm,
+        handleImportGoogleForm,
         handleCreateQuestion,
         handleUpdateQuestion,
         handleDeleteQuestion,
@@ -153,6 +154,7 @@ export default function FormsPage() {
                         handleArchiveForm={handleArchiveForm}
                         handleActivateForm={handleActivateForm}
                         handleDuplicateForm={handleDuplicateForm}
+                        handleImportGoogleForm={handleImportGoogleForm}
                     />
                 </div>
 

@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
 import { resolveWritableVersion, sealVersionForAssignment } from './forms.service';
 import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions } from './questionTypes';
+import { fetchAndParseGoogleForm, parseGoogleFormHtml } from './googleFormsImport';
 
 let schemaReadyPromise: Promise<void> | undefined;
 
@@ -111,6 +112,32 @@ export async function createForm(req: Request, res: Response, next: NextFunction
             return tx.forms.update({ where: { id: formId }, data: { current_version_id: versionId } });
         });
         res.status(201).json({ ...form, question_count: 0 });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Google Forms Import — pure read/parse, no DB writes. Nothing is created
+// here; the client feeds the returned structure into the same local-draft
+// state a manually-built form uses, then persists it through the existing
+// createForm + save-draft endpoints, so tenant scoping happens there as usual.
+//
+// Accepts either `url` (the normal path — server fetches the public page
+// itself) or `html` (fallback for forms Google sign-in-gates from an
+// anonymous fetch, e.g. any form with a File Upload question — the coach
+// views the page themselves while signed into Google, where the wall
+// doesn't block them, and pastes the page source instead).
+export async function importGoogleFormPreview(req: Request, res: Response, next: NextFunction) {
+    const { url, html } = req.body as { url?: unknown; html?: unknown };
+    try {
+        if (typeof html === 'string' && html.trim()) {
+            return res.json(parseGoogleFormHtml(html));
+        }
+        if (typeof url === 'string' && url.trim()) {
+            const parsed = await fetchAndParseGoogleForm(url.trim());
+            return res.json(parsed);
+        }
+        return res.status(400).json({ error: 'A Google Form link or pasted page source is required' });
     } catch (err) {
         next(err);
     }
