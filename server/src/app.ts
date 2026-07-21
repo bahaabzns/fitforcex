@@ -26,6 +26,9 @@ import {
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
 process.on('SIGTERM', async () => { await prisma.$disconnect(); process.exit(0); });
 
+// Sentry.init() now lives in instrument.ts, imported first by server.ts —
+// see that file for why. Kept imported here only for captureException below.
+
 import authRouter        from './modules/auth/index';
 import dashboardRouter   from './modules/dashboard/index';
 import messengerRouter   from './modules/messenger/index';
@@ -46,14 +49,6 @@ import subscriptionPoliciesRouter from './modules/subscriptionPolicies/index';
 import notificationsRouter from './modules/notifications/index';
 import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 import metricsRouter from './modules/metrics/index';
-
-Sentry.init({
-    dsn:              env.SENTRY_DSN,
-    environment:      env.NODE_ENV,
-    release:          process.env.npm_package_version,
-    enabled:          !!env.SENTRY_DSN,
-    tracesSampleRate: env.NODE_ENV === 'production' ? 0.1 : 1.0,
-});
 
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
