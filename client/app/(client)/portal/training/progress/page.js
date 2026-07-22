@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import LineChart from "@/app/components/charts/LineChart";
@@ -21,6 +21,7 @@ export default function TrainingProgressPage() {
     const t = useTranslations("portal.training");
     usePageTitle(t('progress'));
     const locale = useLocale();
+    const isRTL = locale === 'ar';
     const router = useRouter();
 
     const [exercises, setExercises] = useState([]);   // unique plan exercises
@@ -77,7 +78,7 @@ export default function TrainingProgressPage() {
         <div className="max-w-4xl mx-auto px-6 pt-5 pb-6 flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <Link href="/portal/training/history" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronLeft className="w-4 h-4" /> {t("history")}
+                    {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />} {t("history")}
                 </Link>
             </div>
 

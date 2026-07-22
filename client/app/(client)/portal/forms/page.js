@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
-import { Clock, CheckCircle, ClipboardList, CalendarClock } from 'lucide-react';
+import { ClipboardList, CalendarClock, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { setSeenIds } from "@/lib/lastSeenStore";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 // A request that still needs the client's attention — mirrors
 // formRequestNeedsAction in the mobile app (shared/models/form.dart).
@@ -21,6 +23,8 @@ export default function ClientFormsListPage() {
     const t = useTranslations('portal.forms');
     usePageTitle(t('title'));
     const locale = useLocale();
+    const isRTL = locale === 'ar';
+    const router = useRouter();
     const { formatDate, formatDateTime } = useDateFormatter();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -108,6 +112,12 @@ export default function ClientFormsListPage() {
 
             {/* Scrollable content */}
             <div className="px-6 pt-4 pb-6 flex flex-col gap-4">
+                <TriggerInsightBanner
+                    triggerEvent="first_checkin_completed"
+                    checkUrl="/api/client-portal/prompts/for-trigger/first_checkin_completed"
+                    respondUrlPrefix="/api/client-portal/prompts"
+                    dismissUrlPrefix="/api/client-portal/prompts"
+                />
                 {filtered.length === 0 ? (
                     <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-center">
                         <ClipboardList size={52} className="text-muted-foreground/25" />
@@ -117,66 +127,55 @@ export default function ClientFormsListPage() {
                         <p className="text-sm text-muted-foreground/60 text-center max-w-xs">{t('emptyHint')}</p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-3">
-                        {filtered.map(req => (
-                            <Card key={req.id}>
-                                <Card.Content className="px-4 py-3 flex items-center gap-4">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-foreground">
-                                            {getLocalizedField(req, 'form_title', locale)}
-                                        </p>
-                                        {getLocalizedField(req, 'form_description', locale) && (
-                                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                                                {getLocalizedField(req, 'form_description', locale)}
-                                            </p>
-                                        )}
-                                        <p className="text-[11px] text-muted-foreground/60 mt-1">
-                                            {req.status === "scheduled" && req.scheduled_at
-                                                ? `${t('filterScheduled')} ${formatDateTime(req.scheduled_at)}`
-                                                : `${t('filterPending')} ${formatDate(req.requested_at)}`}
-                                            {req.submitted_at && ` · ${t('filterSubmitted')} ${formatDate(req.submitted_at)}`}
-                                        </p>
-                                    </div>
+                    <div className="flex flex-col gap-2">
+                        {filtered.map(req => {
+                            const isScheduled = req.status === "scheduled";
+                            const isSubmitted = req.status === "submitted" || req.status === "reviewed";
+                            const isPending   = req.status === "pending";
+                            const Icon = isSubmitted ? CheckCircle : isScheduled ? CalendarClock : ClipboardList;
+                            const iconClasses = isSubmitted
+                                ? "bg-green-500/15 text-green-700"
+                                : isScheduled
+                                    ? "bg-accent/15 text-accent"
+                                    : "bg-primary/10 text-primary";
+                            const subtitle = isSubmitted
+                                ? `${t('filterSubmitted')}${req.submitted_at ? ` · ${formatDate(req.submitted_at)}` : ""}`
+                                : isScheduled
+                                    ? `${t('notOpenYet')}${req.scheduled_at ? ` · ${formatDateTime(req.scheduled_at)}` : ""}`
+                                    : `${t('filterPending')} · ${formatDate(req.requested_at)}`;
 
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {req.status === "pending" ? (
-                                            <>
-                                                <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">
-                                                    <Clock size={11} className="mr-1" />{t('filterPending')}
-                                                </Chip>
-                                                <Link
-                                                    href={`/portal/forms/${req.id}`}
-                                                    className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer"
-                                                >
-                                                    {t('fillForm')}
-                                                </Link>
-                                            </>
-                                        ) : req.status === "scheduled" ? (
-                                            <>
-                                                <Chip size="sm" className="bg-accent/15 text-accent">
-                                                    <CalendarClock size={11} className="mr-1" />{t('filterScheduled')}
-                                                </Chip>
-                                                <span className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground">
-                                                    {t('notOpenYet')}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Chip size="sm" className="bg-green-500/15 text-green-700">
-                                                    <CheckCircle size={11} className="mr-1" />{t('filterSubmitted')}
-                                                </Chip>
-                                                <Link
-                                                    href={`/portal/forms/${req.id}`}
-                                                    className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-                                                >
-                                                    {t('viewAnswers')}
-                                                </Link>
-                                            </>
+                            return (
+                                <Card key={req.id} className="px-4 py-4 gap-0">
+                                    <Card.Content
+                                        className={`flex flex-row items-center gap-3 ${isSubmitted ? "cursor-pointer" : ""}`}
+                                        onClick={isSubmitted ? () => router.push(`/portal/forms/${req.id}`) : undefined}
+                                    >
+                                        <div className={`shrink-0 rounded-full p-2.5 ${iconClasses}`}>
+                                            <Icon size={18} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-foreground truncate">
+                                                {getLocalizedField(req, 'form_title', locale)}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>
+                                        </div>
+                                        {isPending && (
+                                            <Link
+                                                href={`/portal/forms/${req.id}`}
+                                                className="shrink-0 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer"
+                                            >
+                                                {t('fillNow')}
+                                            </Link>
                                         )}
-                                    </div>
-                                </Card.Content>
-                            </Card>
-                        ))}
+                                        {isSubmitted && (
+                                            isRTL
+                                                ? <ChevronLeft size={16} className="text-muted-foreground shrink-0" />
+                                                : <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                                        )}
+                                    </Card.Content>
+                                </Card>
+                            );
+                        })}
                     </div>
                 )}
             </div>

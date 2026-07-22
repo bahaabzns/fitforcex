@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { getCoachSlug } from "@/lib/coachSlug";
 import { normalizeEmail } from "@/lib/normalizeEmail";
@@ -18,7 +19,9 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 const subscribeNoop = () => () => {};
 
 export default function PortalLoginPage() {
-    usePageTitle("Client Portal");
+    const t = useTranslations('auth');
+    const tCommon = useTranslations('common');
+    usePageTitle(t('clientPortal'));
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -48,7 +51,7 @@ export default function PortalLoginPage() {
             await api.post("/api/client-portal/login", { email: normalizeEmail(email), password, coach_slug: coachSlug });
             router.push("/portal/home");
         } catch (err) {
-            setError(err.response?.data?.message || "Login failed");
+            setError(err.response?.data?.message || t("loginFailed"));
         } finally {
             setLoading(false);
         }
@@ -59,17 +62,17 @@ export default function PortalLoginPage() {
     return (
         <div className="auth-wrapper">
             <div className="auth-card">
-                <h1 className="auth-title">Client Portal</h1>
+                <h1 className="auth-title">{t('clientPortal')}</h1>
                 {coachSlug && (
-                    <p className="text-sm text-muted-foreground -mt-2 mb-2">Portal: {coachSlug}</p>
+                    <p className="text-sm text-muted-foreground -mt-2 mb-2">{t('portalSlugLabel', { slug: coachSlug })}</p>
                 )}
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <TextField value={email} onChange={setEmail} isRequired variant="secondary">
-                        <Label>Email</Label>
+                        <Label>{t('email')}</Label>
                         <Input type="email" autoComplete="email" />
                     </TextField>
                     <TextField value={password} onChange={setPassword} isRequired variant="secondary">
-                        <Label>Password</Label>
+                        <Label>{t('password')}</Label>
                         <div className="relative">
                             <Input
                                 type={showPassword ? "text" : "password"}
@@ -80,7 +83,7 @@ export default function PortalLoginPage() {
                                 type="button"
                                 onClick={() => setShowPassword((v) => !v)}
                                 className="absolute top-1/2 -translate-y-1/2 ltr:right-3 rtl:left-3 flex items-center justify-center border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground"
-                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                aria-label={showPassword ? tCommon('hide') : tCommon('show')}
                             >
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
@@ -95,7 +98,7 @@ export default function PortalLoginPage() {
                         </Alert>
                     )}
                     <Button type="submit" variant="primary" fullWidth isDisabled={loading}>
-                        {loading ? "Signing in…" : "Sign in"}
+                        {loading ? t('signingIn') : t('signIn')}
                     </Button>
                 </form>
             </div>

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
@@ -14,6 +14,8 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function WorkoutLogDetailPage() {
     const t = useTranslations("portal.training");
+    const locale = useLocale();
+    const isRTL = locale === 'ar';
     const { formatDate } = useDateFormatter();
     const router = useRouter();
     const { logId } = useParams();
@@ -44,7 +46,7 @@ export default function WorkoutLogDetailPage() {
     return (
         <div className="max-w-4xl mx-auto px-6 pt-5 pb-6 flex flex-col gap-4">
             <Link href="/portal/training/history" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                <ChevronLeft className="w-4 h-4" /> {t("history")}
+                {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />} {t("history")}
             </Link>
 
             <div>

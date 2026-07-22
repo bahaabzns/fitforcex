@@ -460,3 +460,53 @@
   margin-right: 0.75rem !important;
   margin-left: 0 !important;
 }
+
+/* Bug 6 — Range-calendar selection caps: HeroUI always rounds the start-cap's
+   left corners and the end-cap's right corners. Dates increase right-to-left
+   in RTL (reading order), so the start cap's outer edge sits on the right and
+   the end cap's outer edge sits on the left — the opposite of what's shipped.
+   Handled as three exclusive cases so a single-day selection (both attributes
+   at once) still renders as a full circle, matching the LTR behavior. */
+[dir="rtl"] .range-calendar__cell[data-selection-start="true"]:not([data-selection-end="true"]):not([data-outside-month="true"]) {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-top-right-radius: min(32px, var(--radius-3xl)) !important;
+  border-bottom-right-radius: min(32px, var(--radius-3xl)) !important;
+}
+[dir="rtl"] .range-calendar__cell[data-selection-end="true"]:not([data-selection-start="true"]):not([data-outside-month="true"]) {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-top-left-radius: min(32px, var(--radius-3xl)) !important;
+  border-bottom-left-radius: min(32px, var(--radius-3xl)) !important;
+}
+[dir="rtl"] .range-calendar__cell[data-selection-start="true"][data-selection-end="true"]:not([data-outside-month="true"]) {
+  border-top-left-radius: min(32px, var(--radius-3xl)) !important;
+  border-bottom-left-radius: min(32px, var(--radius-3xl)) !important;
+  border-top-right-radius: min(32px, var(--radius-3xl)) !important;
+  border-bottom-right-radius: min(32px, var(--radius-3xl)) !important;
+}
+
+/* Bug 7 — Date-range field outer padding: when a range separator is present,
+   HeroUI zeroes the *physical* pr-0 (start field) / pl-0 (end field) padding
+   on the side facing the separator. It also gives EVERY field a physical
+   pr-2 (8px) whenever a suffix exists in the group, and gives the suffix
+   itself a physical mr-3 (12px) — both assume the suffix sits at the visual
+   right edge. In RTL the start field mirrors to the right and the suffix
+   mirrors to the left, so all three rules end up protecting the wrong
+   physical side and the group reads flush against both true outer edges.
+   Mirror each one: start's true outer edge is now its right (12px, matching
+   the untouched px-3 the end field's outer side keeps in LTR); the side
+   facing the suffix keeps the library's 8px gap, just moved to the opposite
+   field/side; the suffix's margin moves from right to left. */
+[dir="rtl"] .date-input-group:has(.date-range-picker__range-separator) .date-input-group__input[slot="start"] {
+  padding-left: 0 !important;
+  padding-right: 0.75rem !important;
+}
+[dir="rtl"] .date-input-group:has(.date-range-picker__range-separator) .date-input-group__input[slot="end"] {
+  padding-right: 0 !important;
+  padding-left: 0.5rem !important;
+}
+[dir="rtl"] .date-input-group__suffix {
+  margin-right: 0 !important;
+  margin-left: 0.75rem !important;
+}
