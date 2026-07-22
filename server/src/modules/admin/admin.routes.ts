@@ -4,8 +4,15 @@ import { loginLimiter } from '../../middleware/rateLimit';
 import * as adminController from './admin.controller';
 import * as libraryController from './defaultLibraries.controller';
 import * as templateController from './adminFormTemplates.controller';
+import insightsAdminRouter from '../insights/insightsAdmin.routes';
 
 const router = Router();
+
+// The Insights System's admin surface (Insights inbox, Prompts, Roadmap) —
+// mounted here rather than as its own top-level /api/admin/insights router so
+// it goes through the exact same subdomain/auth gate as every other admin
+// route without a second registration in app.ts.
+router.use(insightsAdminRouter);
 
 /**
  * @openapi

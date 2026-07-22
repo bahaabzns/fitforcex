@@ -19,6 +19,7 @@ import {
     Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
 } from 'lucide-react';
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const ROLES = ["manager", "trainer", "assistant"];
 
@@ -904,6 +905,13 @@ export default function TeamPage() {
                     {t("newWorkspace")}
                 </Button>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_team_member_invited"
+                checkUrl="/api/insights/prompts/for-trigger/first_team_member_invited"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             {/* Tabs */}
             <div className="border-b border-border -mb-2">

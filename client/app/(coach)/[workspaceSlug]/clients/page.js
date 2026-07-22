@@ -33,6 +33,7 @@ import { Tooltip } from "@heroui/react/tooltip";
 import { Link as UILink } from "@heroui/react/link";
 import { today, getLocalTimeZone } from "@internationalized/date";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 
 // --- HELPERS ---
 function statusChipColor(status) {
@@ -684,6 +685,11 @@ export default function ClientsPage() {
                 <h1 className="text-3xl font-bold text-foreground">{t('pageTitle')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('pageDescription')}</p>
             </div>
+
+            <TriggerInsightBannerGroup
+                basePath="/api/insights"
+                events={["first_client_added", "first_client_archived"]}
+            />
 
             {/* Add Client Wizard Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={t('addClientTitle')} dialogClassName="max-w-[40.04rem]">

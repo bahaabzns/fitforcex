@@ -12,6 +12,7 @@ import LandingPricing from "@/app/components/LandingPricing";
 import DataTable from "@/app/components/DataTable";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const STATUS_CHIP = {
     paid:     "bg-green-500/15 text-green-600",
@@ -226,6 +227,13 @@ export default function SubscriptionPage() {
                     </span>
                 </div>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_workspace_subscription_paid"
+                checkUrl="/api/insights/prompts/for-trigger/first_workspace_subscription_paid"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             <LandingPricing
                 isInline={true}

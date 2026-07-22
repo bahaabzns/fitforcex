@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 import { computeClientStatus, logSubscriptionAudit, getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, ownerRecipients } from '../lib/events';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
+import { expireScheduledPrompts } from '../modules/insights/insights.service';
 
 function chunk<T>(items: T[], size: number): T[][] {
     const out: T[][] = [];
@@ -341,6 +342,24 @@ export function scheduleSessionCleanup(): void {
             }
         } catch (err) {
             console.error('[Scheduler] Session cleanup error:', err);
+        }
+    });
+}
+
+/**
+ * Insights System Phase 4 — ends any active prompt whose scheduling window
+ * (ends_at) has passed. Every-15-minutes cadence: a prompt with a scheduled
+ * end is a campaign, not a hot path, so this doesn't need hourly precision.
+ */
+export function scheduleInsightPromptExpiry(): void {
+    cron.schedule('*/15 * * * *', async () => {
+        try {
+            const count = await expireScheduledPrompts();
+            if (count > 0) {
+                console.info(`[Scheduler] Ended ${count} expired insight prompt(s)`);
+            }
+        } catch (err) {
+            console.error('[Scheduler] Insight prompt expiry error:', err);
         }
     });
 }

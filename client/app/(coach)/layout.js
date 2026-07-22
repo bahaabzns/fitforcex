@@ -20,10 +20,13 @@ import {
     Settings,
     MessageSquare,
     ChevronRight,
+    MessageSquarePlus,
 } from 'lucide-react';
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
+import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
+import InsightBanner from "@/app/components/insights/InsightBanner";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 
 function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
@@ -130,10 +133,12 @@ function WorkspaceContent({ children }) {
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const [clientLabel, setClientLabel] = useState(null);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     const pathname = usePathname();
     const tNav = useTranslations('nav');
+    const tInsights = useTranslations('insights');
 
     const clientIdMatch = pathname.match(/\/clients\/([^/]+)/);
     const clientId = clientIdMatch ? clientIdMatch[1] : null;
@@ -237,6 +242,15 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
+                            <Button
+                                isIconOnly
+                                size="sm"
+                                variant="ghost"
+                                title={tInsights('navLabel')}
+                                onClick={() => setFeedbackOpen(true)}
+                            >
+                                <MessageSquarePlus size={16} />
+                            </Button>
                             <NotificationBell />
                             <ThemeToggle />
                             <LanguageSwitcher />
@@ -247,6 +261,14 @@ function WorkspaceContent({ children }) {
                     {children}
                 </main>
             </div>
+
+            <FeedbackEntryModal
+                open={feedbackOpen}
+                onClose={() => setFeedbackOpen(false)}
+                submitUrl="/api/insights"
+                screenshotUploadUrl="/api/insights/screenshot"
+            />
+            <InsightBanner activePromptUrl="/api/insights/prompts/active" respondUrlPrefix="/api/insights/prompts" />
         </div>
     );
 }

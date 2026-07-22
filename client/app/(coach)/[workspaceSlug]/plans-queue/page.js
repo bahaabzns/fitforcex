@@ -9,6 +9,7 @@ import { Button } from "@heroui/react/button";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
 import ArchivedSubmissionsTable from "@/app/components/plansQueue/ArchivedSubmissionsTable";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
@@ -277,6 +278,12 @@ export default function PlansQueuePage() {
 
     return (
         <div className="p-8 overflow-auto h-full" ref={scrollContainerRef} onScroll={handleQueueScroll}>
+            <TriggerInsightBanner
+                triggerEvent="first_checkin_reviewed"
+                checkUrl="/api/insights/prompts/for-trigger/first_checkin_reviewed"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
             {showHistory ? (
                 <div className="flex flex-col gap-10">
                     <PlansQueueTable

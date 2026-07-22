@@ -10,6 +10,8 @@ import {
 import { loginLimiter, workspaceDiscoveryLimiter } from '../../middleware/rateLimit';
 import * as clientPortalController from './clientPortal.controller';
 import * as clientPortalNotificationsController from './clientPortalNotifications.controller';
+import * as clientPortalInsightsController from './clientPortalInsights.controller';
+import { screenshotUploader, uploadScreenshot } from '../insights/insights.controller';
 
 const router = Router();
 
@@ -538,5 +540,46 @@ router.get('/notifications',              ...open, clientPortalNotificationsCont
 router.get('/notifications/unread-count', ...open, clientPortalNotificationsController.getUnreadCount);
 router.patch('/notifications/read-all',   ...open, clientPortalNotificationsController.markAllRead);
 router.patch('/notifications/:id/read',   ...open, clientPortalNotificationsController.markRead);
+
+/**
+ * @openapi
+ * /client-portal/insights:
+ *   post:
+ *     summary: Submit organic feedback (bug, feature request, or a standalone rating)
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201: { description: Insight created }
+ *       400: { description: Invalid sourceType or missing required field }
+ *
+ * /client-portal/prompts/active:
+ *   get:
+ *     summary: Get the currently active Founder Prompt targeted at this client, if any and not yet answered
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: The active prompt, or null }
+ *
+ * /client-portal/prompts/{id}/respond:
+ *   post:
+ *     summary: Answer an active Founder Prompt
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       201: { description: Response recorded }
+ *       404: { description: This prompt is no longer active }
+ */
+router.post('/insights',            ...open, clientPortalInsightsController.submitInsight);
+router.post('/insights/screenshot', ...open, screenshotUploader.single('file'), uploadScreenshot);
+router.get('/prompts/active',              ...open, clientPortalInsightsController.getActivePrompt);
+router.get('/prompts/for-trigger/:event',  ...open, clientPortalInsightsController.getPromptForTrigger);
+router.post('/prompts/:id/respond',        ...open, clientPortalInsightsController.respondToPrompt);
+router.post('/prompts/:id/dismiss',        ...open, clientPortalInsightsController.dismissPrompt);
+router.post('/prompts/:id/started',        ...open, clientPortalInsightsController.startPrompt);
 
 export default router;

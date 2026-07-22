@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Bell, Check, MessageSquare, ClipboardList, UserPlus, Wallet, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Bell, Check, MessageSquare, ClipboardList, UserPlus, Wallet, AlertTriangle, CheckCircle2, PartyPopper, MessageCircle } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
@@ -32,6 +32,8 @@ const TYPE_ICON = {
     'subscription.expired':     AlertTriangle,
     'subscription.frozen':      AlertTriangle,
     'subscription.reactivated': CheckCircle2,
+    'insight.roadmap_shipped':  PartyPopper,
+    'insight.roadmap_declined': MessageCircle,
 };
 
 function getInitials(name) {

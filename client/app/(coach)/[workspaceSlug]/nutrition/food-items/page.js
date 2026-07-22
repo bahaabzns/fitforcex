@@ -10,6 +10,7 @@ import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const emptyForm = {
     name_en: '',
@@ -130,6 +131,13 @@ export default function FoodItemsPage() {
                 <h1 className="text-3xl font-bold">{t("pageTitle")}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_custom_food_item_added"
+                checkUrl="/api/insights/prompts/for-trigger/first_custom_food_item_added"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setFormData(emptyForm); }} title={t("addTitle")}>
                 <FoodForm data={formData} onChange={handleChange} onSubmit={handleSubmit} onCancel={() => { setShowForm(false); setFormData(emptyForm); }} submitLabel={t("submitAdd")} categories={categories} />

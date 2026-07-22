@@ -14,6 +14,7 @@ import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
@@ -363,6 +364,11 @@ export default function TransactionsPage() {
                 <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
+
+            <TriggerInsightBannerGroup
+                basePath="/api/insights"
+                events={["first_completed_transaction_logged", "first_refund_issued"]}
+            />
 
             {/* Create / Edit Transaction — shared modal with a client picker */}
             <TransactionModal

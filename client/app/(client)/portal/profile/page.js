@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { LogOut } from 'lucide-react';
-import { useTranslations } from "next-intl";
+import { LogOut, MessageSquarePlus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslations, useLocale } from "next-intl";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
+import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import { Avatar } from "@heroui/react/avatar";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -15,10 +16,14 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function ClientProfilePage() {
     const t = useTranslations('portal.profile');
+    const tInsights = useTranslations('insights');
     usePageTitle(t('title'));
+    const locale = useLocale();
+    const isRTL = locale === 'ar';
     const [client, setClient] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -86,6 +91,27 @@ export default function ClientProfilePage() {
                     <LanguageSwitcher />
                 </div>
             </div>
+
+            {/* Feedback entry point — opt-in only, never a popup */}
+            <button
+                onClick={() => setFeedbackOpen(true)}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-secondary cursor-pointer"
+            >
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <MessageSquarePlus size={16} className="text-muted-foreground" />
+                    {tInsights('navLabel')}
+                </span>
+                {isRTL
+                    ? <ChevronLeft size={16} className="text-muted-foreground" />
+                    : <ChevronRight size={16} className="text-muted-foreground" />}
+            </button>
+
+            <FeedbackEntryModal
+                open={feedbackOpen}
+                onClose={() => setFeedbackOpen(false)}
+                submitUrl="/api/client-portal/insights"
+                screenshotUploadUrl="/api/client-portal/insights/screenshot"
+            />
 
             {/* Logout */}
             <Button

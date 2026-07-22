@@ -529,6 +529,7 @@
     "duplicateSet": "Duplicate set",
     "deleteSet": "Delete set",
     "deleteExercise": "Delete exercise",
+    "replaceExercise": "Replace exercise",
     "watchVideo": "Watch video",
     "hideVideo": "Hide video",
     "closePanel": "Close panel",
@@ -809,6 +810,8 @@
     "archiveFormFailed": "Couldn't archive this form — check your connection and try again.",
     "deleteQuestionBlocked": "This question has {count, plural, one {# recorded answer} other {# recorded answers}} and can't be deleted without losing client history.",
     "edited": "edited",
+    "answerEdited": "Edited",
+    "editHistory": "Edit history",
     "questionCount": "{count, plural, one {# question} other {# questions}}",
     "newest": "Newest",
     "oldest": "Oldest",
@@ -902,6 +905,7 @@
     "coachLogin": "Coach Login",
     "clientPortal": "Client Portal",
     "clientPortalSubtitle": "Sign in with the credentials provided by your coach.",
+    "portalSlugLabel": "Portal: {slug}",
     "invalidLoginLink": "Invalid login link. Please use the link provided by your coach.",
     "loggingIn": "Logging in…",
     "signingIn": "Signing in…",
@@ -1620,6 +1624,7 @@
     "show": "Show",
     "hide": "Hide",
     "openOriginal": "Open original",
+    "previewImage": "Preview image",
     "justNow": "just now",
     "minutesAgo": "{count}m ago",
     "hoursAgo": "{count}h ago",
@@ -1697,7 +1702,9 @@
       "micUnsupported": "Voice recording isn't available on this connection — try HTTPS or localhost.",
       "micPermissionDenied": "Microphone access was denied. Allow microphone access to record a voice note.",
       "micUnavailable": "Couldn't start recording — check that a microphone is connected.",
-      "sendFailed": "Couldn't send — check your connection and try again."
+      "sendFailed": "Couldn't send — check your connection and try again.",
+      "today": "Today",
+      "yesterday": "Yesterday"
     },
     "forms": {
       "title": "Forms",
@@ -1712,6 +1719,7 @@
       "emptyHint": "Your coach will send forms for you to fill out.",
       "pendingChip": "{count} pending",
       "fillForm": "Fill Form",
+      "fillNow": "Fill Now",
       "notOpenYet": "Not Open Yet",
       "viewAnswers": "View Answers",
       "back": "← Back",
@@ -1720,7 +1728,28 @@
       "submitting": "Submitting…",
       "selectOption": "Select an option…",
       "requiredError": "Please answer all required questions ({count} missing).",
-      "submitFailed": "Failed to submit. Please try again."
+      "submitFailed": "Failed to submit. Please try again.",
+      "answerEdited": "Edited",
+      "editHistory": "Edit history",
+      "editAnswer": "Edit answer",
+      "saveAnswer": "Save",
+      "editFailed": "Couldn't save your change — check your connection and try again.",
+      "metricPlaceholder": "Enter {name}…",
+      "metricValueFallback": "value",
+      "uploading": "Uploading…",
+      "uploadFailed": "Upload failed — please try again",
+      "tapToReplace": "Tap to replace",
+      "tapToUploadPhoto": "Tap to upload photo",
+      "tapToUploadImage": "Tap to upload image",
+      "tapToReplaceFile": "Tap to replace file",
+      "tapToUploadFile": "Tap to upload file",
+      "openLink": "Open",
+      "progressPhotoAlt": "Progress photo",
+      "attachmentAlt": "Attachment",
+      "hintImages": "JPG, PNG, HEIC, GIF up to 20 MB",
+      "hintDocuments": "PDF, Word, Excel, PowerPoint, or text up to 20 MB",
+      "hintVideos": "Video files up to 20 MB",
+      "hintAny": "Any file up to 20 MB"
     },
     "dashboard": {
       "title": "Nutrition Plan",
@@ -1744,7 +1773,29 @@
       "fatAbbr": "F",
       "proteinAbbr": "P",
       "coachNote": "Coach Note",
-      "alternatives": "Alternatives:"
+      "alternatives": "Your Coach Recommended Alternatives",
+      "foodSwap": {
+        "swapFood": "Swap Food",
+        "swappedFrom": "Swapped from {name}",
+        "resetToCoachPlan": "Reset to Coach Plan",
+        "title": "Swap {name}",
+        "searchPlaceholder": "Search alternatives...",
+        "searching": "Searching…",
+        "noResults": "No matching foods found.",
+        "equivalentTo": "Equivalent to your meal",
+        "cancel": "Cancel",
+        "confirmSwap": "Confirm Swap",
+        "confirming": "Swapping…",
+        "searchFailed": "Couldn't load alternatives. Try again.",
+        "swapFailed": "Couldn't complete the swap. Try again.",
+        "kcal": "kcal",
+        "carbsAbbr": "C",
+        "fatAbbr": "F",
+        "proteinAbbr": "P",
+        "hint": "Tap \"Swap Food\" on any item to replace it with an equivalent alternative.",
+        "hintDismiss": "Got it",
+        "newFeature": "New Feature"
+      }
     },
     "shoppingList": {
       "title": "Shopping List",
@@ -1813,7 +1864,33 @@
       "insightsLoadError": "Could not load — try again later."
     },
     "home": {
-      "title": "Home"
+      "title": "Home",
+      "actionNeeded": "Action Needed",
+      "progress": "Progress",
+      "measurements": "Measurements",
+      "progressPhotos": "Progress Photos",
+      "noTransformationData": "Your transformation data will appear here after you submit a check-in form with body measurements.",
+      "photoCount": "{count, plural, one {# photo} other {# photos}}",
+      "compare": "Compare",
+      "exit": "Exit",
+      "dragToCompare": "Drag the handle to compare",
+      "selectBeforePhoto": "Select a before photo",
+      "selectAfterPhoto": "Now select an after photo",
+      "noPhotosInRange": "No photos in this range",
+      "before": "Before",
+      "after": "After",
+      "subscriptionExpiringSoon": "Your subscription is expiring soon",
+      "renewNowSubtitle": "Renew now to keep uninterrupted access",
+      "checkinFormReady": "Check-in form ready to fill",
+      "trainingPlanAssigned": "A new training plan was assigned to you",
+      "nutritionPlanAssigned": "A new nutrition plan was assigned to you",
+      "newTrainingPlanSubtitle": "New training plan",
+      "newNutritionPlanSubtitle": "New nutrition plan",
+      "presetAll": "All",
+      "preset6m": "6m",
+      "preset90d": "90d",
+      "preset30d": "30d",
+      "selectDateRange": "Select a date range"
     },
     "profile": {
       "title": "Profile",
@@ -2184,7 +2261,8 @@
       "allow_messaging": "Messaging",
       "allow_submit_checkins": "Submit Check-ins",
       "allow_booking_appointments": "Book Appointments",
-      "allow_download_files": "Download Files"
+      "allow_download_files": "Download Files",
+      "allow_food_swap": "Food Swap"
     },
     "help": {
       "keep_portal_access": "Sign in to the client portal.",
@@ -2196,7 +2274,8 @@
       "allow_messaging": "Message the coaching team.",
       "allow_submit_checkins": "Submit check-in forms.",
       "allow_booking_appointments": "Book appointments.",
-      "allow_download_files": "Download files and exports."
+      "allow_download_files": "Download files and exports.",
+      "allow_food_swap": "Swap a prescribed food for an equivalent alternative."
     }
   },
   "landing": {
@@ -2373,6 +2452,7 @@
       "descriptionPlaceholder": "What happened, or what would you like to see?",
       "ratingLabel": "How would you rate it, 1 to 10?",
       "screenshotLabel": "Screenshot (optional)",
+      "screenshotAdd": "Add screenshot",
       "screenshotUploading": "Uploading…",
       "screenshotRemove": "Remove",
       "submit": "Send",

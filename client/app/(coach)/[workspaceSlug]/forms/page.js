@@ -10,6 +10,7 @@ import SaveStatusIndicator from "@/app/components/SaveStatusIndicator";
 import VersionBadge from "@/app/components/forms/VersionBadge";
 import { Button } from "@heroui/react/button";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 export default function FormsPage() {
     const tNav = useTranslations("nav");
@@ -130,6 +131,14 @@ export default function FormsPage() {
                     </Button>
                 </div>
             )}
+            <div className="shrink-0 px-3 pt-3">
+                <TriggerInsightBanner
+                    triggerEvent="first_form_created"
+                    checkUrl="/api/insights/prompts/for-trigger/first_form_created"
+                    respondUrlPrefix="/api/insights/prompts"
+                    dismissUrlPrefix="/api/insights/prompts"
+                />
+            </div>
             <div
                 ref={containerRef}
                 className="flex flex-1 min-h-0 overflow-hidden gap-0 p-3"

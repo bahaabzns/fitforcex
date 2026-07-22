@@ -22,6 +22,7 @@ import { Input } from "@heroui/react/input";
 import { ComboBox } from "@heroui/react/combo-box";
 import { ListBox } from "@heroui/react/list-box";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 // --- CURRENCY LIST ---
 const CURRENCIES = [
@@ -662,6 +663,13 @@ export default function PackagesPage() {
                 <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_package_created"
+                checkUrl="/api/insights/prompts/for-trigger/first_package_created"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             {/* Toggle/delete errors (edit + create errors render inside their modals) */}
             {!showForm && !addVariationTarget && !editingPackage && !editingVariation && error && <p className="text-destructive text-sm">{error}</p>}

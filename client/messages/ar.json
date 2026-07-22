@@ -529,6 +529,7 @@
     "duplicateSet": "تكرار المجموعة",
     "deleteSet": "حذف المجموعة",
     "deleteExercise": "حذف التمرين",
+    "replaceExercise": "استبدال التمرين",
     "watchVideo": "مشاهدة الفيديو",
     "hideVideo": "إخفاء الفيديو",
     "closePanel": "إغلاق اللوحة",
@@ -809,6 +810,8 @@
     "archiveFormFailed": "تعذر أرشفة هذه الاستمارة — تحقق من اتصالك وحاول مرة أخرى.",
     "deleteQuestionBlocked": "يحتوي هذا السؤال على {count, plural, one {# إجابة مسجلة} other {# إجابات مسجلة}} ولا يمكن حذفه دون فقدان سجل العميل.",
     "edited": "عُدِّل",
+    "answerEdited": "معدّلة",
+    "editHistory": "سجل التعديلات",
     "questionCount": "{count, plural, one {# سؤال} two {# سؤالان} few {# أسئلة} many {# سؤالاً} other {# أسئلة}}",
     "newest": "الأحدث",
     "oldest": "الأقدم",
@@ -902,6 +905,7 @@
     "coachLogin": "تسجيل دخول المدرب",
     "clientPortal": "بوابة العميل",
     "clientPortalSubtitle": "سجّل الدخول بالبيانات التي قدّمها لك مدربك.",
+    "portalSlugLabel": "البوابة: {slug}",
     "invalidLoginLink": "رابط تسجيل الدخول غير صالح. يرجى استخدام الرابط الذي أرسله لك مدربك.",
     "loggingIn": "جارٍ تسجيل الدخول…",
     "signingIn": "جارٍ تسجيل الدخول…",
@@ -1620,6 +1624,7 @@
     "show": "إظهار",
     "hide": "إخفاء",
     "openOriginal": "فتح الأصل",
+    "previewImage": "معاينة الصورة",
     "justNow": "الآن",
     "minutesAgo": "منذ {count}د",
     "hoursAgo": "منذ {count}س",
@@ -1697,7 +1702,9 @@
       "micUnsupported": "تسجيل الصوت غير متاح على هذا الاتصال — جرّب HTTPS أو localhost.",
       "micPermissionDenied": "تم رفض الوصول إلى الميكروفون. اسمح بالوصول لتسجيل رسالة صوتية.",
       "micUnavailable": "تعذّر بدء التسجيل — تأكد من توصيل ميكروفون.",
-      "sendFailed": "تعذّر الإرسال — تحقق من اتصالك وحاول مرة أخرى."
+      "sendFailed": "تعذّر الإرسال — تحقق من اتصالك وحاول مرة أخرى.",
+      "today": "اليوم",
+      "yesterday": "أمس"
     },
     "forms": {
       "title": "الاستمارات",
@@ -1712,6 +1719,7 @@
       "emptyHint": "سيرسل لك مدربك استمارات لتملأها.",
       "pendingChip": "{count} معلق",
       "fillForm": "ملء الاستمارة",
+      "fillNow": "املأ الآن",
       "notOpenYet": "غير متاحة بعد",
       "viewAnswers": "عرض الإجابات",
       "back": "→ رجوع",
@@ -1720,7 +1728,28 @@
       "submitting": "جارٍ الإرسال…",
       "selectOption": "اختر خياراً…",
       "requiredError": "يرجى الإجابة على جميع الأسئلة المطلوبة ({count} غير مكتمل).",
-      "submitFailed": "فشل الإرسال. يرجى المحاولة مجدداً."
+      "submitFailed": "فشل الإرسال. يرجى المحاولة مجدداً.",
+      "answerEdited": "معدّلة",
+      "editHistory": "سجل التعديلات",
+      "editAnswer": "تعديل الإجابة",
+      "saveAnswer": "حفظ",
+      "editFailed": "تعذر حفظ التعديل — تحقق من اتصالك وحاول مرة أخرى.",
+      "metricPlaceholder": "أدخل {name}…",
+      "metricValueFallback": "القيمة",
+      "uploading": "جارٍ الرفع…",
+      "uploadFailed": "فشل الرفع — يرجى المحاولة مرة أخرى",
+      "tapToReplace": "اضغط للاستبدال",
+      "tapToUploadPhoto": "اضغط لرفع صورة",
+      "tapToUploadImage": "اضغط لرفع صورة",
+      "tapToReplaceFile": "اضغط لاستبدال الملف",
+      "tapToUploadFile": "اضغط لرفع ملف",
+      "openLink": "فتح",
+      "progressPhotoAlt": "صورة التقدم",
+      "attachmentAlt": "مرفق",
+      "hintImages": "JPG, PNG, HEIC, GIF حتى 20 ميغابايت",
+      "hintDocuments": "PDF أو Word أو Excel أو PowerPoint أو نص حتى 20 ميغابايت",
+      "hintVideos": "ملفات فيديو حتى 20 ميغابايت",
+      "hintAny": "أي ملف حتى 20 ميغابايت"
     },
     "dashboard": {
       "title": "خطة التغذية",
@@ -1744,7 +1773,29 @@
       "fatAbbr": "د",
       "proteinAbbr": "ب",
       "coachNote": "ملاحظة المدرب",
-      "alternatives": "البدائل:"
+      "alternatives": "بدائل يوصي بها مدربك",
+      "foodSwap": {
+        "swapFood": "استبدال الطعام",
+        "swappedFrom": "تم الاستبدال من {name}",
+        "resetToCoachPlan": "الرجوع لخطة المدرب",
+        "title": "استبدال {name}",
+        "searchPlaceholder": "ابحث عن بدائل...",
+        "searching": "جارٍ البحث…",
+        "noResults": "لم يتم العثور على أطعمة مطابقة.",
+        "equivalentTo": "مكافئ لوجبتك",
+        "cancel": "إلغاء",
+        "confirmSwap": "تأكيد الاستبدال",
+        "confirming": "جارٍ الاستبدال…",
+        "searchFailed": "تعذر تحميل البدائل. حاول مرة أخرى.",
+        "swapFailed": "تعذر إتمام الاستبدال. حاول مرة أخرى.",
+        "kcal": "سعرة",
+        "carbsAbbr": "ك",
+        "fatAbbr": "د",
+        "proteinAbbr": "ب",
+        "hint": "اضغط على \"استبدال الطعام\" في أي عنصر لاستبداله ببديل مكافئ.",
+        "hintDismiss": "حسناً",
+        "newFeature": "ميزة جديدة"
+      }
     },
     "shoppingList": {
       "title": "قائمة التسوق",
@@ -1813,7 +1864,33 @@
       "insightsLoadError": "تعذّر التحميل — حاول مرة أخرى لاحقاً."
     },
     "home": {
-      "title": "الرئيسية"
+      "title": "الرئيسية",
+      "actionNeeded": "الإجراءات المطلوبة",
+      "progress": "التقدم",
+      "measurements": "القياسات",
+      "progressPhotos": "صور التقدم",
+      "noTransformationData": "ستظهر بيانات تحولك هنا بعد إرسال نموذج تسجيل يتضمن قياسات الجسم.",
+      "photoCount": "{count, plural, one {صورة واحدة} other {# صور}}",
+      "compare": "مقارنة",
+      "exit": "خروج",
+      "dragToCompare": "اسحب المقبض للمقارنة",
+      "selectBeforePhoto": "اختر صورة \"قبل\"",
+      "selectAfterPhoto": "الآن اختر صورة \"بعد\"",
+      "noPhotosInRange": "لا توجد صور في هذا النطاق",
+      "before": "قبل",
+      "after": "بعد",
+      "subscriptionExpiringSoon": "اشتراكك على وشك الانتهاء",
+      "renewNowSubtitle": "جدد الآن للحفاظ على الوصول دون انقطاع",
+      "checkinFormReady": "استمارة المتابعة جاهزة للتعبئة",
+      "trainingPlanAssigned": "تم تعيين خطة تدريب جديدة لك",
+      "nutritionPlanAssigned": "تم تعيين خطة تغذية جديدة لك",
+      "newTrainingPlanSubtitle": "خطة تدريب جديدة",
+      "newNutritionPlanSubtitle": "خطة تغذية جديدة",
+      "presetAll": "الكل",
+      "preset6m": "6 أشهر",
+      "preset90d": "90 يوم",
+      "preset30d": "30 يوم",
+      "selectDateRange": "اختر نطاقاً زمنياً"
     },
     "profile": {
       "title": "الملف الشخصي",
@@ -2184,7 +2261,8 @@
       "allow_messaging": "المراسلة",
       "allow_submit_checkins": "إرسال المتابعات",
       "allow_booking_appointments": "حجز المواعيد",
-      "allow_download_files": "تنزيل الملفات"
+      "allow_download_files": "تنزيل الملفات",
+      "allow_food_swap": "استبدال الطعام"
     },
     "help": {
       "keep_portal_access": "تسجيل الدخول إلى بوابة العميل.",
@@ -2196,7 +2274,8 @@
       "allow_messaging": "مراسلة فريق التدريب.",
       "allow_submit_checkins": "إرسال نماذج المتابعة.",
       "allow_booking_appointments": "حجز المواعيد.",
-      "allow_download_files": "تنزيل الملفات."
+      "allow_download_files": "تنزيل الملفات.",
+      "allow_food_swap": "استبدال طعام موصوف ببديل مكافئ من حيث القيمة الغذائية."
     }
   },
   "landing": {
@@ -2373,6 +2452,7 @@
       "descriptionPlaceholder": "ما الذي حدث، أو ما الذي تود رؤيته؟",
       "ratingLabel": "قيّم من 1 إلى 10",
       "screenshotLabel": "لقطة شاشة (اختياري)",
+      "screenshotAdd": "إضافة لقطة شاشة",
       "screenshotUploading": "جاري الرفع…",
       "screenshotRemove": "إزالة",
       "submit": "إرسال",

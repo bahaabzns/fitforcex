@@ -21,6 +21,7 @@ import {
     scheduleSessionCleanup,
     scheduleClientStatusSync,
     scheduleCheckInDispatch,
+    scheduleInsightPromptExpiry,
 } from './middleware/scheduler';
 
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
@@ -49,6 +50,7 @@ import subscriptionPoliciesRouter from './modules/subscriptionPolicies/index';
 import notificationsRouter from './modules/notifications/index';
 import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 import metricsRouter from './modules/metrics/index';
+import insightsRouter from './modules/insights/index';
 
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
@@ -56,6 +58,7 @@ if (env.NODE_ENV !== 'test') {
     scheduleSessionCleanup();
     scheduleClientStatusSync();
     scheduleCheckInDispatch();
+    scheduleInsightPromptExpiry();
 }
 
 const serverStartTime = Date.now();
@@ -137,6 +140,7 @@ app.use('/api/billing',        apiLimiter, billingRouter);
 app.use('/api/subscription-policies', apiLimiter, subscriptionPoliciesRouter);
 app.use('/api/notifications',  apiLimiter, notificationsRouter);
 app.use('/api/metrics',        apiLimiter, metricsRouter);
+app.use('/api/insights',       apiLimiter, insightsRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

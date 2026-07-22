@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import { ChevronLeft, Dumbbell, LineChart as LineChartIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Dumbbell, LineChart as LineChartIcon } from "lucide-react";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 
 export default function TrainingHistoryPage() {
     const t = useTranslations("portal.training");
     usePageTitle(t('workoutHistoryTitle'));
+    const locale = useLocale();
+    const isRTL = locale === 'ar';
     const { formatDate } = useDateFormatter();
     const router = useRouter();
 
@@ -42,7 +45,7 @@ export default function TrainingHistoryPage() {
         <div className="max-w-4xl mx-auto px-6 pt-5 pb-6 flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <Link href="/portal/training" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronLeft className="w-4 h-4" /> {t("backToPlan")}
+                    {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />} {t("backToPlan")}
                 </Link>
                 <Link href="/portal/training/progress" className="flex items-center gap-1 text-sm text-primary hover:opacity-80">
                     <LineChartIcon className="w-4 h-4" /> {t("progress")}
@@ -50,6 +53,11 @@ export default function TrainingHistoryPage() {
             </div>
 
             <h1 className="text-2xl font-bold text-foreground">{t("history")}</h1>
+
+            <TriggerInsightBannerGroup
+                basePath="/api/client-portal"
+                events={["first_workout_logged", "workout_logs_10x"]}
+            />
 
             {logs.length === 0 ? (
                 <Card>

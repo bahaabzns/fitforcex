@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import ClientPortalNav from "@/app/components/ClientPortalNav";
 import ClientPortalProvider, { useClientPortal } from "@/app/components/ClientPortalProvider";
 import ClientPortalStatusCard from "@/app/components/ClientPortalStatusCard";
+import InsightBanner from "@/app/components/insights/InsightBanner";
 import { Skeleton } from "@heroui/react/skeleton";
 
 const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
@@ -38,6 +39,10 @@ function PortalShell({ children }) {
             <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
                 {children}
             </main>
+            <InsightBanner
+                activePromptUrl="/api/client-portal/prompts/active"
+                respondUrlPrefix="/api/client-portal/prompts"
+            />
         </div>
     );
 }

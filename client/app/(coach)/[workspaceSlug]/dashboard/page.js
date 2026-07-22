@@ -19,6 +19,7 @@ import AreaChart from "@/app/components/charts/AreaChart";
 import WelcomeOnboarding from "@/app/components/WelcomeOnboarding";
 import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -120,6 +121,13 @@ export default function DashboardPage() {
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_team_invitation_accepted"
+                checkUrl="/api/insights/prompts/for-trigger/first_team_invitation_accepted"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4">
