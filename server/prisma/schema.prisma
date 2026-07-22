@@ -44,29 +44,27 @@ model client_measurements {
 }
 
 model client_observations {
-  id                  String            @id
-  client_id           String
-  workspace_id        String
-  author_id           String?
-  title               String
-  content             String? // optional "Details" — elaboration beyond the title
-  category            String            @default("General")
-  severity            String? // 'Low' | 'Medium' | 'High'
-  exercise_library_id String?
-  food_item_id        String?
-  form_request_id     String?
-  attachment_url      String?
-  created_at          DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime?         @updatedAt @db.Timestamptz(6)
-  deleted_at          DateTime?         @db.Timestamptz(6)
-  users               users?            @relation(fields: [author_id], references: [id], onUpdate: NoAction)
-  clients             clients           @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  workspaces          workspaces        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  exercise_library    exercise_library? @relation(fields: [exercise_library_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  food_items          food_items?       @relation(fields: [food_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  form_requests       form_requests?    @relation(fields: [form_request_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  // Superseded by observation_relations (below) — kept only until the follow-up
-  // migration that drops these three columns once the cutover is verified.
+  id                    String                  @id
+  client_id             String
+  workspace_id          String
+  author_id             String?
+  content               String?
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  title                 String
+  category              String                  @default("General")
+  severity              String?
+  exercise_library_id   String?
+  food_item_id          String?
+  form_request_id       String?
+  attachment_url        String?
+  updated_at            DateTime?               @updatedAt @db.Timestamptz(6)
+  deleted_at            DateTime?               @db.Timestamptz(6)
+  users                 users?                  @relation(fields: [author_id], references: [id], onUpdate: NoAction)
+  clients               clients                 @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exercise_library      exercise_library?       @relation(fields: [exercise_library_id], references: [id], onUpdate: NoAction)
+  food_items            food_items?             @relation(fields: [food_item_id], references: [id], onUpdate: NoAction)
+  form_requests         form_requests?          @relation(fields: [form_request_id], references: [id], onUpdate: NoAction)
+  workspaces            workspaces              @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   observation_relations observation_relations[]
 
   @@index([client_id], map: "client_observations_client_id_index")
@@ -78,11 +76,6 @@ model client_observations {
   @@index([form_request_id], map: "idx_observations_form_request_id")
 }
 
-// Junction table letting one observation link to multiple entities — each row
-// is a single link (exactly one of the three FK columns set, enforced in the
-// controller). Replaces client_observations' single exercise_library_id /
-// food_item_id / form_request_id columns above, which are kept temporarily
-// for a safe rollback window.
 model observation_relations {
   id                  String              @id
   observation_id      String
@@ -90,11 +83,10 @@ model observation_relations {
   food_item_id        String?
   form_request_id     String?
   created_at          DateTime            @default(now()) @db.Timestamptz(6)
-
-  client_observations client_observations @relation(fields: [observation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   exercise_library    exercise_library?   @relation(fields: [exercise_library_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   food_items          food_items?         @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   form_requests       form_requests?      @relation(fields: [form_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  client_observations client_observations @relation(fields: [observation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([observation_id, exercise_library_id], map: "uq_observation_relations_exercise")
   @@unique([observation_id, food_item_id], map: "uq_observation_relations_food_item")
@@ -114,68 +106,65 @@ model client_photos {
   clients     clients?  @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-// Package Lifecycle — recurring check-in dispatch rows, created at plan
-// activation (nutrition/training controllers) and ticked forward by the
-// scheduler (middleware/scheduler.ts). FKs are enforced at the DB level via
-// migration 032; not modeled as Prisma relations here, matching how
-// training_plans.client_id is already a plain column in this schema.
 model check_in_schedules {
-  id               String    @id
+  id               String         @id
   workspace_id     String
   client_id        String
   form_id          String
-  next_due_at      DateTime  @db.Timestamptz(6)
-  source_plan_type String // 'nutrition' | 'training'
+  next_due_at      DateTime       @db.Timestamptz(6)
+  source_plan_type String
   source_plan_id   String
-  paused_at        DateTime? @db.Timestamptz(6)
-  created_at       DateTime  @default(now()) @db.Timestamptz(6)
-  // Bug fix: the form_requests row is now created immediately at activation
-  // (status 'scheduled', visible in Plans Queue right away) instead of only
-  // once this row becomes due. This links back to it so restart/extend can
-  // retarget its scheduled_at and the dispatch tick can flip its status
-  // instead of creating a duplicate. Plain column + DB-level FK (migration
-  // 040), matching the convention already used by client_id/form_id above.
-  form_request_id  String?   @unique
+  paused_at        DateTime?      @db.Timestamptz(6)
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  form_request_id  String?
+  clients          clients        @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forms            forms          @relation(fields: [form_id], references: [id], onUpdate: NoAction)
+  form_requests    form_requests? @relation(fields: [form_request_id], references: [id], onUpdate: NoAction)
+  workspaces       workspaces     @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([next_due_at], map: "idx_checkin_sched_due")
   @@index([client_id], map: "idx_checkin_sched_client")
-  @@index([form_id])
+  @@index([form_id], map: "check_in_schedules_form_id_index")
 }
 
 model clients {
-  id                   String                 @id
-  client_code          Int
-  fname                String                 @db.VarChar(100)
-  lname                String                 @db.VarChar(100)
-  email                String                 @db.VarChar(150)
-  phone                String?                @db.VarChar(20)
-  workspace_id         String?
-  created_at           DateTime?              @default(now()) @db.Timestamp(6)
-  password             String?                @db.VarChar(255)
-  phones               Json?                  @default("[]")
-  current_package      String?
+  id                           String                 @id
+  client_code                  Int
+  fname                        String                 @db.VarChar(100)
+  lname                        String                 @db.VarChar(100)
+  email                        String                 @db.VarChar(150)
+  phone                        String?                @db.VarChar(20)
+  workspace_id                 String?
+  created_at                   DateTime?              @default(now()) @db.Timestamp(6)
+  password                     String?                @db.VarChar(255)
+  phones                       Json?                  @default("[]")
+  current_package              String?
+  subscription_status          String                 @default("Active")
+  archived_at                  DateTime?              @db.Timestamptz(6)
+  archived_by                  String?
+  restored_at                  DateTime?              @db.Timestamptz(6)
+  restored_by                  String?
+  deleted_at                   DateTime?              @db.Timestamptz(6)
+  deleted_by                   String?
   current_package_variation_id String?
-  subscription_status  String                 @default("Active")
-  archived_at          DateTime?              @db.Timestamptz(6)
-  archived_by          String?
-  restored_at          DateTime?              @db.Timestamptz(6)
-  restored_by          String?
-  deleted_at           DateTime?              @db.Timestamptz(6)
-  deleted_by           String?
-  client_measurements  client_measurements?
-  client_observations  client_observations[]
-  client_photos        client_photos[]
-  workspaces           workspaces?            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_clients_workspace")
-  package_variations   package_variations?    @relation(fields: [current_package_variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_clients_current_package_variation")
-  form_requests        form_requests[]
-  nutrition_plans      nutrition_plans[]
-  subscription_freezes subscription_freezes[]
-  transactions         transactions[]
-  workout_logs         workout_logs[]
+  check_in_schedules           check_in_schedules[]
+  client_measurements          client_measurements?
+  client_observations          client_observations[]
+  client_photos                client_photos[]
+  package_variations           package_variations?    @relation(fields: [current_package_variation_id], references: [id], onUpdate: NoAction, map: "fk_clients_current_package_variation")
+  workspaces                   workspaces?            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_clients_workspace")
+  food_swap_history            food_swap_history[]
+  form_requests                form_requests[]
+  form_response_edits          form_response_edits[]
+  nutrition_meal_items         nutrition_meal_items[]
+  nutrition_plans              nutrition_plans[]
+  subscription_freezes         subscription_freezes[]
+  transactions                 transactions[]
+  workout_logs                 workout_logs[]
 
   @@unique([workspace_id, client_code], map: "clients_coach_id_client_code_key")
   @@unique([workspace_id, email])
   @@index([workspace_id, archived_at], map: "idx_clients_ws_archived")
+  @@index([current_package_variation_id], map: "idx_clients_current_package_variation")
 }
 
 model exercise_equipments {
@@ -203,11 +192,11 @@ model exercise_library {
   updated_at                     DateTime                         @default(now()) @db.Timestamptz(6)
   name_ar                        String?
   instructions_ar                String?
+  client_observations            client_observations[]
   workspaces                     workspaces                       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_library_workspace")
+  observation_relations          observation_relations[]
   training_exercise_alternatives training_exercise_alternatives[]
   training_exercises             training_exercises[]
-  client_observations            client_observations[]
-  observation_relations          observation_relations[]
 
   @@index([workspace_id], map: "idx_exercise_library_coach")
 }
@@ -232,26 +221,26 @@ model food_categories {
 }
 
 model food_items {
-  id                               String                             @id
-  name_en                          String                             @db.VarChar(255)
-  calories_per_serving             Decimal                            @db.Decimal
-  protein_per_serving              Decimal                            @db.Decimal
-  carbs_per_serving                Decimal                            @db.Decimal
-  fats_per_serving                 Decimal                            @db.Decimal
-  workspace_id                     String?
-  food_category                    String?
-  serving_size                     Decimal?                           @db.Decimal
-  serving_unit                     String?
-  name_ar                          String?                            @db.VarChar(255)
-  workspaces                       workspaces?                        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_items_workspace")
-  nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
-  nutrition_meal_items             nutrition_meal_items[]
-  client_observations              client_observations[]
-  observation_relations            observation_relations[]
+  id                                                                          String                             @id
+  name_en                                                                     String                             @db.VarChar(255)
+  calories_per_serving                                                        Decimal                            @db.Decimal
+  protein_per_serving                                                         Decimal                            @db.Decimal
+  carbs_per_serving                                                           Decimal                            @db.Decimal
+  fats_per_serving                                                            Decimal                            @db.Decimal
+  workspace_id                                                                String?
+  food_category                                                               String?
+  serving_size                                                                Decimal?                           @db.Decimal
+  serving_unit                                                                String?
+  name_ar                                                                     String?                            @db.VarChar(255)
+  client_observations                                                         client_observations[]
+  workspaces                                                                  workspaces?                        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_items_workspace")
+  food_swap_history_as_from                                                   food_swap_history[]                @relation("food_swap_history_from_food_item_idTofood_items")
+  food_swap_history_as_to                                                     food_swap_history[]                @relation("food_swap_history_to_food_item_idTofood_items")
+  nutrition_meal_item_alternatives                                            nutrition_meal_item_alternatives[]
+  nutrition_meal_items                                                        nutrition_meal_items[]
+  nutrition_meal_items_as_original                                            nutrition_meal_items[]             @relation("nutrition_meal_items_original_food_item_idTofood_items")
+  observation_relations                                                       observation_relations[]
 }
-
-// ── Default Libraries (global master set, owned by Super Admin) ─────────────────
-// Cloned into workspace-scoped tables on coach account creation. Not tenant-scoped.
 
 model master_exercise_muscle_groups {
   id         String   @id
@@ -313,10 +302,6 @@ model master_food_items {
   @@index([food_category])
 }
 
-// Master Form Templates — global default Assessment & Check-In forms owned by the
-// Super Admin. Cloned into workspace-scoped forms / form_questions on coach signup
-// (see lib/libraryClone.ts). Not workspace-scoped: the single global master set.
-
 model master_forms {
   id             String                  @id
   title_en       String                  @default("Untitled Form") @db.VarChar(255)
@@ -353,142 +338,156 @@ model master_form_questions {
   @@index([master_form_id])
 }
 
-// form_questions was retired in Forms Versioning Phase 4 (migration 039) —
-// fully superseded by form_versions/form_version_questions. See
-// docs/forms-architecture-investigation.md and
-// docs/forms-versioning-implementation-plan.md.
-
 model form_requests {
-  id                  String                @id
-  form_id             String?
-  client_id           String?
-  workspace_id        String
-  status              String?               @default("pending") @db.VarChar(20)
-  requested_at        DateTime?             @default(now()) @db.Timestamp(6)
-  submitted_at        DateTime?             @db.Timestamp(6)
-  post_action         String                @default("nothing")
-  scheduled_at        DateTime?             @db.Timestamptz(6)
-  action_taken_at     DateTime?             @db.Timestamptz(6)
-  assigned_to         String? // user id of the team member this request is assigned to
-  form_version_id     String? // Forms Versioning — the version pinned at creation time; never changes after
-  archived_at         DateTime?             @db.Timestamptz(6)
-  archived_by         String?
-  workspaces          workspaces            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
-  clients             clients?              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  forms               forms?                @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  form_versions       form_versions?        @relation(fields: [form_version_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  form_responses      form_responses[]
-  client_observations client_observations[]
+  id                    String                  @id
+  form_id               String?
+  client_id             String?
+  workspace_id          String
+  status                String?                 @default("pending") @db.VarChar(20)
+  requested_at          DateTime?               @default(now()) @db.Timestamp(6)
+  submitted_at          DateTime?               @db.Timestamp(6)
+  post_action           String                  @default("nothing")
+  scheduled_at          DateTime?               @db.Timestamptz(6)
+  action_taken_at       DateTime?               @db.Timestamptz(6)
+  assigned_to           String?
+  form_version_id       String?
+  archived_at           DateTime?               @db.Timestamptz(6)
+  archived_by           String?
+  check_in_schedules    check_in_schedules[]
+  client_observations   client_observations[]
+  workspaces            workspaces              @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
+  clients               clients?                @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forms                 forms?                  @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  form_versions         form_versions?          @relation(fields: [form_version_id], references: [id], onUpdate: NoAction)
+  form_responses        form_responses[]
   observation_relations observation_relations[]
 
   @@index([assigned_to])
-  @@index([form_id])
-  @@index([form_version_id])
   @@index([workspace_id, archived_at], map: "idx_form_requests_ws_archived")
+  @@index([form_id], map: "form_requests_form_id_index")
+  @@index([form_version_id], map: "form_requests_form_version_id_index")
 }
 
 model form_responses {
-  id             String          @id
-  request_id     String?
-  question_id    String?
-  answer         String?
-  created_at     DateTime?       @default(now()) @db.Timestamp(6)
-  metric_id      String?
+  id                     String                  @id
+  request_id             String?
+  question_id            String?
+  answer                 String?
+  created_at             DateTime?               @default(now()) @db.Timestamp(6)
+  metric_id              String?
+  metrics                metrics?                @relation(fields: [metric_id], references: [id], onUpdate: NoAction)
   form_version_questions form_version_questions? @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  form_requests  form_requests?  @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  metrics        metrics?        @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  form_requests          form_requests?          @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_response_edits    form_response_edits[]
 
   @@index([metric_id])
   @@index([request_id, metric_id])
-  @@index([question_id])
+  @@index([metric_id], map: "form_responses_metric_id_index")
+  @@index([question_id], map: "form_responses_question_id_index")
+  @@index([request_id, metric_id], map: "form_responses_request_id_metric_id_index")
+}
+
+// Per-question edit trail for client-submitted form answers — one row per
+// edit, so both the client and coach can see exactly what changed and when.
+// Deliberately not folded into form_responses itself: that table stays the
+// current-value source of truth (and what metric charts read live), this is
+// pure history.
+model form_response_edits {
+  id                  String         @id
+  response_id         String
+  previous_answer     String?
+  new_answer          String?
+  edited_at           DateTime       @default(now()) @db.Timestamptz(6)
+  edited_by_client_id String?
+  form_responses      form_responses @relation(fields: [response_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clients             clients?       @relation(fields: [edited_by_client_id], references: [id], onUpdate: NoAction)
+
+  @@index([response_id, edited_at])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model forms {
-  id                 String           @id
-  workspace_id       String
-  title_en           String           @default("Untitled Form") @db.VarChar(255)
-  description_en     String?
-  status             String           @default("draft") @db.VarChar(20)
-  created_at         DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
-  post_action        String           @default("nothing")
-  form_type          String           @default("check-in")
-  title_ar           String?          @db.VarChar(255)
-  description_ar     String?
-  current_version_id String? // Forms Versioning — the version coaches currently edit/assign; NULL only pre-backfill
-  form_requests      form_requests[]
+  id                    String                  @id
+  workspace_id          String
+  title_en              String                  @default("Untitled Form") @db.VarChar(255)
+  description_en        String?
+  status                String                  @default("draft") @db.VarChar(20)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  post_action           String                  @default("nothing")
+  form_type             String                  @default("check-in")
+  title_ar              String?                 @db.VarChar(255)
+  description_ar        String?
+  current_version_id    String?
+  check_in_schedules    check_in_schedules[]
+  form_requests         form_requests[]
+  form_versions         form_versions[]         @relation("FormVersionsByForm")
+  workspaces            workspaces              @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_forms_workspace")
+  current_version       form_versions?          @relation("FormCurrentVersion", fields: [current_version_id], references: [id], onUpdate: NoAction)
   package_default_forms package_default_forms[]
-  workspaces         workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_forms_workspace")
-  form_versions      form_versions[]  @relation("FormVersionsByForm")
-  current_version    form_versions?   @relation("FormCurrentVersion", fields: [current_version_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([current_version_id])
+  @@index([current_version_id], map: "forms_current_version_id_index")
 }
 
 model form_versions {
-  id             String           @id
-  form_id        String
-  version_number Int
-  sealed_at      DateTime?        @db.Timestamptz(6) // NULL = still an editable draft
-  created_by     String? // user id; NULL for system/scheduler-triggered forks
-  change_note    String? // reserved for a future manual-publish UI; unused today
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  forms          forms            @relation("FormVersionsByForm", fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  current_of_forms       forms[]                 @relation("FormCurrentVersion")
-  form_version_questions form_version_questions[]
+  id                     String                   @id
+  form_id                String
+  version_number         Int
+  sealed_at              DateTime?                @db.Timestamptz(6)
+  created_by             String?
+  change_note            String?
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
   form_requests          form_requests[]
+  form_version_questions form_version_questions[]
+  forms                  forms                    @relation("FormVersionsByForm", fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  current_of_forms       forms[]                  @relation("FormCurrentVersion")
 
-  @@unique([form_id, version_number])
-  @@index([form_id])
+  @@unique([form_id, version_number], map: "uq_form_versions_form_version_number")
+  @@index([form_id], map: "form_versions_form_id_index")
 }
 
 model form_version_questions {
-  id             String        @id
-  form_version_id String
-  label_en       String        @default("Question")
-  label_ar       String?
-  type           String        @default("text") @db.VarChar(30)
-  required       Boolean       @default(false)
-  order_index    Int           @default(0)
-  options        Json?
-  options_ar     Json?
-  placeholder_en String?
-  placeholder_ar String?
-  min_value      Int?
-  max_value      Int?
-  metric_id      String?
-  // Self-referencing root of this question's lineage across every version
-  // fork it survives — a brand-new question points at its own id; a forked
-  // clone copies its source's origin_question_id forward (see
-  // forms.service.ts's forkVersion). See migrations/043_form_version_questions_lineage.js.
+  id                 String                   @id
+  form_version_id    String
+  label_en           String                   @default("Question")
+  label_ar           String?
+  type               String                   @default("text") @db.VarChar(30)
+  required           Boolean                  @default(false)
+  order_index        Int                      @default(0)
+  options            Json?
+  options_ar         Json?
+  placeholder_en     String?
+  placeholder_ar     String?
+  min_value          Int?
+  max_value          Int?
+  metric_id          String?
+  created_at         DateTime                 @default(now()) @db.Timestamptz(6)
   origin_question_id String
-  created_at     DateTime      @default(now()) @db.Timestamptz(6)
-  form_versions  form_versions @relation(fields: [form_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  metrics        metrics?      @relation(fields: [metric_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  form_responses form_responses[]
-  origin_question  form_version_questions?  @relation("QuestionLineage", fields: [origin_question_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  lineage_children form_version_questions[] @relation("QuestionLineage")
+  form_responses     form_responses[]
+  form_versions      form_versions            @relation(fields: [form_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  metrics            metrics?                 @relation(fields: [metric_id], references: [id], onUpdate: NoAction)
+  origin_question    form_version_questions   @relation("QuestionLineage", fields: [origin_question_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  lineage_children   form_version_questions[] @relation("QuestionLineage")
 
-  @@index([form_version_id])
-  @@index([metric_id])
-  @@index([origin_question_id])
+  @@index([form_version_id], map: "form_version_questions_form_version_id_index")
+  @@index([metric_id], map: "form_version_questions_metric_id_index")
+  @@index([origin_question_id], map: "form_version_questions_origin_question_id_index")
 }
 
 model metrics {
-  id             String           @id
-  workspace_id   String
-  name           String
-  type           String           @db.VarChar(20)
-  unit           String?          @db.VarChar(50)
-  icon           String?          @db.VarChar(100)
-  description    String?
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
-  deleted_at     DateTime?        @db.Timestamptz(6)
-  workspaces     workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  form_responses form_responses[]
+  id                     String                   @id
+  workspace_id           String
+  name                   String
+  type                   String                   @db.VarChar(20)
+  unit                   String?                  @db.VarChar(50)
+  icon                   String?                  @db.VarChar(100)
+  description            String?
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  deleted_at             DateTime?                @db.Timestamptz(6)
+  form_responses         form_responses[]
   form_version_questions form_version_questions[]
+  workspaces             workspaces               @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([workspace_id, name])
   @@index([workspace_id, deleted_at])
@@ -500,17 +499,17 @@ model messages {
   sender_type         String
   sender_id           String
   body                String?
-  type                String    @default("text") // "text" | "image" | "voice" | "file"
-  attachment_url      String?
-  attachment_name     String?
-  attachment_size     Int?
-  attachment_mime     String?
-  attachment_duration Int? // seconds, voice notes only
-  edited_at           DateTime? @db.Timestamptz(6)
-  deleted_at          DateTime? @db.Timestamptz(6)
   read_by_team_at     DateTime? @db.Timestamptz(6)
   read_by_client_at   DateTime? @db.Timestamptz(6)
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  attachment_duration Int?
+  attachment_mime     String?
+  attachment_name     String?
+  attachment_size     Int?
+  attachment_url      String?
+  deleted_at          DateTime? @db.Timestamptz(6)
+  edited_at           DateTime? @db.Timestamptz(6)
+  type                String    @default("text")
 
   @@index([thread_id])
 }
@@ -540,14 +539,22 @@ model nutrition_meal_item_alternatives {
 }
 
 model nutrition_meal_items {
-  id                               String                             @id
-  meal_id                          String?
-  food_item_id                     String?
-  amount                           Decimal                            @default(100) @db.Decimal
-  meal_item_order                  Int
-  nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
-  food_items                       food_items?                        @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nutrition_meals                  nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                                                                String                             @id
+  meal_id                                                           String?
+  food_item_id                                                      String?
+  amount                                                            Decimal                            @default(100) @db.Decimal
+  meal_item_order                                                   Int
+  original_food_item_id                                             String?
+  original_amount                                                   Decimal?                           @db.Decimal
+  is_swapped                                                        Boolean                            @default(false)
+  swapped_at                                                        DateTime?                          @db.Timestamptz(6)
+  swapped_by_client_id                                              String?
+  food_swap_history                                                 food_swap_history[]
+  nutrition_meal_item_alternatives                                  nutrition_meal_item_alternatives[]
+  food_items                                                        food_items?                        @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nutrition_meals                                                   nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  original_food_item                                                food_items?                        @relation("nutrition_meal_items_original_food_item_idTofood_items", fields: [original_food_item_id], references: [id], onUpdate: NoAction)
+  swapped_by_client                                                 clients?                           @relation(fields: [swapped_by_client_id], references: [id], onUpdate: NoAction)
 }
 
 model nutrition_meals {
@@ -561,62 +568,58 @@ model nutrition_meals {
 }
 
 model nutrition_plans {
-  id                  String             @id
-  name                String
-  client_id           String?
-  workspace_id        String?
-  status              String?            @default("draft")
-  created_at          DateTime?          @default(now()) @db.Timestamp(6)
-  updated_at          DateTime?          @default(now()) @db.Timestamp(6)
-  activated_at        DateTime?          @db.Timestamptz(6)
-  created_by          String?
-  cycle_days          Int?
-  cycle_end_at        DateTime?          @db.Timestamptz(6)
-  review_notified_at  DateTime?          @db.Timestamptz(6)
-  review_offset_days  Int?
-  last_edited_by      String?
-  nutrition_cycles nutrition_cycles[]
-  workspaces       workspaces?        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_nutrition_plans_workspace")
-  clients          clients?           @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users            users?             @relation("nutrition_plans_created_by", fields: [created_by], references: [id], onUpdate: NoAction)
-  last_editor      users?             @relation("nutrition_plans_last_edited_by", fields: [last_edited_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id                 String             @id
+  name               String
+  client_id          String?
+  workspace_id       String?
+  status             String?            @default("draft")
+  created_at         DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?          @default(now()) @db.Timestamp(6)
+  activated_at       DateTime?          @db.Timestamptz(6)
+  created_by         String?
+  cycle_days         Int?
+  cycle_end_at       DateTime?          @db.Timestamptz(6)
+  review_notified_at DateTime?          @db.Timestamptz(6)
+  review_offset_days Int?
+  last_edited_by     String?
+  nutrition_cycles   nutrition_cycles[]
+  workspaces         workspaces?        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_nutrition_plans_workspace")
+  clients            clients?           @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users?             @relation("nutrition_plans_created_by", fields: [created_by], references: [id], onUpdate: NoAction)
+  last_editor        users?             @relation("nutrition_plans_last_edited_by", fields: [last_edited_by], references: [id], onUpdate: NoAction)
+
+  @@index([last_edited_by], map: "nutrition_plans_last_edited_by_index")
 }
 
 model package_variations {
-  id                    String                 @id
+  id                    String                  @id
   package_id            String
   name                  String
   description           String?
   duration              Int
-  price                 Decimal                @db.Decimal(12, 2)
-  currency              String                 @default("USD")
-  active                Boolean                @default(true)
-  created_at            DateTime               @default(now()) @db.Timestamptz(6)
+  price                 Decimal                 @db.Decimal(12, 2)
+  currency              String                  @default("USD")
+  active                Boolean                 @default(true)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
   nutrition_cycle_days  Int?
   training_cycle_days   Int?
   review_offset_days    Int?
-  plan_update_mode      String                 @default("extend")
-  packages              packages               @relation(fields: [package_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  transactions          transactions[]
+  plan_update_mode      String                  @default("extend")
   clients               clients[]
   package_default_forms package_default_forms[]
+  packages              packages                @relation(fields: [package_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transactions          transactions[]
 }
 
-// Package Lifecycle — default forms proposed at client-creation
-// (kind=assessment) or plan-activation (kind=checkin-nutrition |
-// checkin-training, one-shot) time. Read only at the moment of the
-// triggering action, never re-read live afterward. checkin-nutrition/
-// checkin-training were split from a single 'checkin' kind (migration 042)
-// so a package's check-in defaults can differ by plan type.
 model package_default_forms {
   id                   String             @id
   package_variation_id String
   form_id              String
-  kind                 String // 'assessment' | 'checkin-nutrition' | 'checkin-training'
+  kind                 String
   sort_order           Int                @default(1)
   created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  forms                forms              @relation(fields: [form_id], references: [id], onUpdate: NoAction)
   package_variations   package_variations @relation(fields: [package_variation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  forms                forms              @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([package_variation_id], map: "idx_pkg_default_forms_variation")
   @@index([form_id], map: "idx_pkg_default_forms_form")
@@ -630,18 +633,15 @@ model packages {
   created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
   updated_at                   DateTime                       @default(now()) @db.Timestamptz(6)
   package_variations           package_variations[]
-  subscription_access_policies subscription_access_policies[]
   workspaces                   workspaces                     @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_packages_workspace")
+  subscription_access_policies subscription_access_policies[]
 }
 
-// Subscription Access Policy — what an Expired or Frozen client may still see/do.
-// One row per (workspace, scope) is the global default (package_id NULL); a row with
-// package_id set overrides the global for that package + scope. See utils/subscriptionPolicy.ts.
 model subscription_access_policies {
   id                         String     @id
   workspace_id               String
   package_id                 String?
-  scope                      String // 'expired' | 'frozen'
+  scope                      String
   keep_portal_access         Boolean    @default(true)
   view_training_plans        Boolean    @default(true)
   view_nutrition_plans       Boolean    @default(true)
@@ -655,6 +655,7 @@ model subscription_access_policies {
   grace_period_days          Int        @default(0)
   created_at                 DateTime?  @default(now()) @db.Timestamptz(6)
   updated_at                 DateTime?  @default(now()) @db.Timestamptz(6)
+  allow_food_swap            Boolean    @default(false)
   packages                   packages?  @relation(fields: [package_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   workspaces                 workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -662,16 +663,13 @@ model subscription_access_policies {
   @@index([package_id], map: "idx_sub_policy_package")
 }
 
-// Audit trail for subscription policy edits ('policy.update') and automatic status
-// transitions ('status.change', actor_type 'system'). Not FK-constrained on purpose:
-// system events have no user actor and the client may be hard-deleted.
 model subscription_status_audit {
   id            String   @id
   workspace_id  String
   client_id     String?
-  actor_type    String // 'coach' | 'system'
+  actor_type    String
   actor_user_id String?
-  event_type    String // 'policy.update' | 'status.change'
+  event_type    String
   from_status   String?
   to_status     String?
   metadata      Json?
@@ -681,17 +679,13 @@ model subscription_status_audit {
   @@index([client_id], map: "idx_sub_audit_client")
 }
 
-// Durable per-recipient notification surface (the bell). Written by recordEvent()
-// in lib/events.ts, the single choke point for domain events. Not FK-constrained
-// on the recipient on purpose: recipients can be a user OR a client, and either
-// may be hard-deleted; the workspace FK cascades cleanup.
 model notifications {
   id             String    @id
   workspace_id   String
-  recipient_type String // 'user' | 'client'
+  recipient_type String
   recipient_id   String
-  type           String // event key, e.g. 'message.received'
-  importance     String    @default("info") // 'info' | 'actionable' | 'alert'
+  type           String
+  importance     String    @default("info")
   title          String
   body           String?
   entity_type    String?
@@ -704,6 +698,136 @@ model notifications {
 
   @@index([recipient_type, recipient_id, read_at, created_at(sort: Desc)], map: "idx_notifications_recipient")
   @@index([workspace_id, created_at(sort: Desc)], map: "idx_notifications_workspace")
+}
+
+model roadmap_items {
+  id           String      @id
+  workspace_id String?
+  title        String
+  status       String      @default("proposed")
+  release_tag  String?
+  archived_at  DateTime?   @db.Timestamptz(6)
+  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  resolved_at  DateTime?   @db.Timestamptz(6)
+  insights     insights[]
+  workspaces   workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "idx_roadmap_items_status")
+  @@index([workspace_id], map: "idx_roadmap_items_workspace")
+}
+
+model insight_prompts {
+  id                         String                       @id
+  workspace_id               String?
+  question_en                String
+  question_ar                String?
+  response_type              String
+  options                    Json?
+  target_audience            String                       @default("everyone")
+  trigger_event              String?
+  status                     String                       @default("active")
+  created_by                 String
+  created_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
+  ended_at                   DateTime?                    @db.Timestamptz(6)
+  starts_at                  DateTime?                    @db.Timestamptz(6)
+  ends_at                    DateTime?                    @db.Timestamptz(6)
+  max_shows_per_user         Int?
+  allow_concurrent           Boolean                      @default(false)
+  insight_prompt_conditions  insight_prompt_conditions[]
+  insight_prompt_dismissals  insight_prompt_dismissals[]
+  insight_prompt_impressions insight_prompt_impressions[]
+  insight_prompt_workspaces  insight_prompt_workspaces[]
+  workspaces                 workspaces?                  @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  insights                   insights[]
+
+  @@index([status, target_audience], map: "idx_insight_prompts_status_audience")
+  @@index([workspace_id], map: "idx_insight_prompts_workspace")
+}
+
+model insights {
+  id                String           @id
+  workspace_id      String?
+  source_type       String
+  prompt_id         String?
+  submitted_by_type String
+  submitted_by_id   String
+  module            String?
+  app_version       String?
+  rating_value      Int?
+  text_value        String?
+  selected_option   String?
+  screenshot_url    String?
+  status            String           @default("new")
+  roadmap_item_id   String?
+  resolution_note   String?
+  archived_at       DateTime?        @db.Timestamptz(6)
+  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
+  insight_prompts   insight_prompts? @relation(fields: [prompt_id], references: [id], onUpdate: NoAction)
+  roadmap_items     roadmap_items?   @relation(fields: [roadmap_item_id], references: [id], onUpdate: NoAction)
+  workspaces        workspaces?      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_insights_created")
+  @@index([prompt_id], map: "idx_insights_prompt")
+  @@index([roadmap_item_id], map: "idx_insights_roadmap_item")
+  @@index([workspace_id, status], map: "idx_insights_workspace_status")
+}
+
+model insight_events {
+  id          String    @id
+  entity_type String
+  entity_id   String
+  from_status String?
+  to_status   String
+  note        String?
+  actor_id    String
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([entity_type, entity_id, created_at(sort: Desc)], map: "idx_insight_events_entity")
+}
+
+model insight_prompt_dismissals {
+  id                String          @id
+  prompt_id         String
+  submitted_by_type String
+  submitted_by_id   String
+  dismissed_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  insight_prompts   insight_prompts @relation(fields: [prompt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([prompt_id, submitted_by_type, submitted_by_id], map: "idx_insight_prompt_dismissals_lookup")
+}
+
+model insight_prompt_workspaces {
+  id              String          @id
+  prompt_id       String
+  workspace_id    String
+  insight_prompts insight_prompts @relation(fields: [prompt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces      workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([prompt_id, workspace_id], map: "idx_insight_prompt_workspaces_unique")
+}
+
+model insight_prompt_conditions {
+  id              String          @id
+  prompt_id       String
+  field           String
+  operator        String          @default("eq")
+  value           String
+  insight_prompts insight_prompts @relation(fields: [prompt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([prompt_id], map: "idx_insight_prompt_conditions_prompt")
+}
+
+model insight_prompt_impressions {
+  id                String          @id
+  prompt_id         String
+  submitted_by_type String
+  submitted_by_id   String
+  viewed_at         DateTime        @default(now()) @db.Timestamptz(6)
+  started_at        DateTime?       @db.Timestamptz(6)
+  insight_prompts   insight_prompts @relation(fields: [prompt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([prompt_id, submitted_by_type, submitted_by_id], map: "idx_insight_prompt_impressions_lookup")
+  @@index([prompt_id], map: "idx_insight_prompt_impressions_prompt")
 }
 
 model password_reset_tokens {
@@ -880,24 +1004,24 @@ model training_exercises {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model training_plans {
-  id            String          @id
-  name          String
-  client_id     String
-  workspace_id  String
-  status        String          @default("inactive")
-  notes         String?
-  created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
-  activated_at  DateTime?       @db.Timestamptz(6)
-  created_by    String?
-  cycle_days          Int?
-  cycle_end_at        DateTime?       @db.Timestamptz(6)
-  review_notified_at  DateTime?       @db.Timestamptz(6)
-  review_offset_days  Int?
-  training_days training_days[]
-  workspaces    workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_training_plans_workspace")
-  users         users?          @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  workout_logs  workout_logs[]
+  id                 String          @id
+  name               String
+  client_id          String
+  workspace_id       String
+  status             String          @default("inactive")
+  notes              String?
+  created_at         DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime        @default(now()) @db.Timestamptz(6)
+  activated_at       DateTime?       @db.Timestamptz(6)
+  created_by         String?
+  cycle_days         Int?
+  cycle_end_at       DateTime?       @db.Timestamptz(6)
+  review_notified_at DateTime?       @db.Timestamptz(6)
+  review_offset_days Int?
+  training_days      training_days[]
+  workspaces         workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_training_plans_workspace")
+  users              users?          @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  workout_logs       workout_logs[]
 
   @@index([client_id], map: "idx_training_plans_client")
   @@index([workspace_id, client_id], map: "idx_training_plans_coach_client")
@@ -917,30 +1041,31 @@ model training_sets {
 }
 
 model transactions {
-  id                      String     @id
+  id                      String              @id
   transaction_code        Int
   workspace_id            String
   client_name             String
   package_variation       String?
   payment_method          String
-  amount                  Decimal    @db.Decimal(12, 2)
-  currency                String     @default("EGP")
-  type                    String     @default("subscription")
-  status                  String     @default("completed")
+  amount                  Decimal             @db.Decimal(12, 2)
+  currency                String              @default("EGP")
+  type                    String              @default("subscription")
+  status                  String              @default("completed")
   notes                   String?
-  transaction_date        DateTime   @default(now()) @db.Timestamptz(6)
-  created_at              DateTime   @default(now()) @db.Timestamptz(6)
+  transaction_date        DateTime            @default(now()) @db.Timestamptz(6)
+  created_at              DateTime            @default(now()) @db.Timestamptz(6)
   client_id               String?
   duration                Int?
   proof_image             String?
-  subscription_start_date DateTime?  @db.Date
-  start_mode              String     @default("on_first_plan")
+  subscription_start_date DateTime?           @db.Date
+  start_mode              String              @default("on_first_plan")
   package_variation_id    String?
-  workspaces              workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_transactions_workspace")
-  clients                 clients?   @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-  package_variations      package_variations? @relation(fields: [package_variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_transactions_package_variation")
+  workspaces              workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_transactions_workspace")
+  clients                 clients?            @relation(fields: [client_id], references: [id], onUpdate: NoAction)
+  package_variations      package_variations? @relation(fields: [package_variation_id], references: [id], onUpdate: NoAction, map: "fk_transactions_package_variation")
 
   @@unique([workspace_id, transaction_code], map: "transactions_workspace_code_key")
+  @@index([package_variation_id], map: "idx_transactions_package_variation")
 }
 
 model users {
@@ -958,17 +1083,17 @@ model users {
   phone                                                                 String?
   preferred_language                                                    String                  @default("en") @db.VarChar(10)
   client_observations                                                   client_observations[]
-  nutrition_plans                                                       nutrition_plans[]        @relation("nutrition_plans_created_by")
-  nutrition_plans_edited                                                nutrition_plans[]        @relation("nutrition_plans_last_edited_by")
+  nutrition_plans                                                       nutrition_plans[]       @relation("nutrition_plans_created_by")
+  nutrition_plans_edited                                                nutrition_plans[]       @relation("nutrition_plans_last_edited_by")
   pdf_settings                                                          pdf_settings?
   training_plans                                                        training_plans[]
+  user_sessions                                                         user_sessions[]
   workspaces_users_default_workspace_idToworkspaces                     workspaces?             @relation("users_default_workspace_idToworkspaces", fields: [default_workspace_id], references: [id], onUpdate: NoAction)
   workspace_audit_log                                                   workspace_audit_log[]
   workspace_invitations_workspace_invitations_invited_by_user_idTousers workspace_invitations[] @relation("workspace_invitations_invited_by_user_idTousers")
   workspace_invitations_workspace_invitations_invited_user_idTousers    workspace_invitations[] @relation("workspace_invitations_invited_user_idTousers")
   workspace_members                                                     workspace_members[]
   workspaces_workspaces_owner_idTousers                                 workspaces[]            @relation("workspaces_owner_idTousers")
-  user_sessions                                                         user_sessions[]
 }
 
 model workout_logs {
@@ -1095,6 +1220,7 @@ model workspaces {
   clone_error                                  String?
   client_deletion_strategy                     String                         @default("anonymize")
   renewal_link                                 String?
+  check_in_schedules                           check_in_schedules[]
   client_observations                          client_observations[]
   clients                                      clients[]
   exercise_equipments                          exercise_equipments[]
@@ -1104,10 +1230,14 @@ model workspaces {
   food_items                                   food_items[]
   form_requests                                form_requests[]
   forms                                        forms[]
+  insight_prompt_workspaces                    insight_prompt_workspaces[]
+  insight_prompts                              insight_prompts[]
+  insights                                     insights[]
   metrics                                      metrics[]
   nutrition_plans                              nutrition_plans[]
   packages                                     packages[]
   payment_methods                              payment_methods[]
+  roadmap_items                                roadmap_items[]
   subscription_access_policies                 subscription_access_policies[]
   training_plans                               training_plans[]
   transactions                                 transactions[]
@@ -1135,4 +1265,23 @@ model user_sessions {
 
   @@index([user_id], map: "idx_user_sessions_user_id")
   @@index([token_hash], map: "idx_user_sessions_token_hash")
+}
+
+model food_swap_history {
+  id                                                         String               @id
+  meal_item_id                                               String
+  client_id                                                  String?
+  from_food_item_id                                          String?
+  to_food_item_id                                            String?
+  from_amount                                                Decimal?             @db.Decimal
+  to_amount                                                  Decimal?             @db.Decimal
+  action                                                     String
+  created_at                                                 DateTime?            @default(now()) @db.Timestamptz(6)
+  clients                                                    clients?             @relation(fields: [client_id], references: [id], onUpdate: NoAction)
+  from_food_item                                             food_items?          @relation("food_swap_history_from_food_item_idTofood_items", fields: [from_food_item_id], references: [id], onUpdate: NoAction)
+  nutrition_meal_items                                       nutrition_meal_items @relation(fields: [meal_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  to_food_item                                               food_items?          @relation("food_swap_history_to_food_item_idTofood_items", fields: [to_food_item_id], references: [id], onUpdate: NoAction)
+
+  @@index([client_id], map: "idx_food_swap_history_client")
+  @@index([meal_item_id, created_at(sort: Desc)], map: "idx_food_swap_history_meal_item")
 }
