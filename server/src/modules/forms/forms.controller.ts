@@ -7,6 +7,7 @@ import { recordEvent } from '../../lib/events';
 import { resolveWritableVersion, sealVersionForAssignment } from './forms.service';
 import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions } from './questionTypes';
 import { fetchAndParseGoogleForm, parseGoogleFormHtml } from './googleFormsImport';
+import { attachEditHistory } from '../../utils/formResponseHistory';
 
 let schemaReadyPromise: Promise<void> | undefined;
 
@@ -848,10 +849,14 @@ async function enrichResponsesWithQuestionInfo<T extends ResponseRow>(responses:
         ? await prisma.metrics.findMany({ where: { id: { in: metricIds } }, select: { id: true, type: true } })
         : [];
     const metricTypeMap = new Map(metrics.map((m) => [m.id, m.type]));
-    const questionMap = new Map(questions.map((q) => [
-        q.id,
-        { ...q, metric_type: q.metric_id ? (metricTypeMap.get(q.metric_id) ?? null) : null },
-    ]));
+    // Excludes the question's own `id` from the merged value — callers that
+    // also select a response `id` (to look up edit history by response,
+    // not by question) would otherwise have it silently clobbered by the
+    // question's id below.
+    const questionMap = new Map(questions.map((q) => {
+        const { id: _questionId, ...questionInfo } = q;
+        return [q.id, { ...questionInfo, metric_type: q.metric_id ? (metricTypeMap.get(q.metric_id) ?? null) : null }];
+    }));
 
     return responses
         .map((r) => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
@@ -889,14 +894,14 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
         const allResponses = answerableIds.length > 0
             ? await prisma.form_responses.findMany({
                 where:  { request_id: { in: answerableIds } },
-                select: { request_id: true, answer: true, question_id: true },
+                select: { id: true, request_id: true, answer: true, question_id: true },
             })
             : [];
         // Forms Versioning Phase 3 — join against form_version_questions,
         // the immutable snapshot each response actually belongs to, so a
         // historical answer always renders under the label/type it was
         // originally asked with, regardless of later form edits.
-        const enrichedResponses = await enrichResponsesWithQuestionInfo(allResponses);
+        const enrichedResponses = await attachEditHistory(await enrichResponsesWithQuestionInfo(allResponses));
 
         const responsesByRequestId = new Map<string, typeof enrichedResponses>();
         for (const r of enrichedResponses) {

@@ -7,8 +7,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
+import Typography from "@/app/components/Typography";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
+import AnswerEditHistory from "@/app/components/forms/AnswerEditHistory";
 import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp, Archive, ArchiveRestore } from 'lucide-react';
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
@@ -16,6 +18,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Accordion, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import ImagePreview from "@/app/components/ImagePreview";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
@@ -330,9 +333,18 @@ export default function ClientFormsPage() {
 
     return (
         <>
+        <div className="flex flex-col h-full overflow-hidden">
+        <div className="shrink-0 px-3 pt-3">
+            <TriggerInsightBanner
+                triggerEvent="first_checkin_request_sent"
+                checkUrl="/api/insights/prompts/for-trigger/first_checkin_request_sent"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
+        </div>
         <div
             ref={containerRef}
-            className="flex h-full overflow-hidden gap-0"
+            className="flex flex-1 min-h-0 overflow-hidden gap-0"
         >
             {/* ── Left Panel: Form Requests List ─────────────────── */}
             <div
@@ -568,9 +580,9 @@ export default function ClientFormsPage() {
                                 ) : (
                                     <div className="flex flex-col gap-2 px-1 py-1">
                                         <div className="flex items-center justify-between mb-1">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                            <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">
                                                 {t('questions')}
-                                            </p>
+                                            </Typography>
                                             <div className="flex gap-1">
                                                 <button
                                                     onClick={() => setExpandedKeys(new Set(selected.responses.map((_, i) => String(i))))}
@@ -593,8 +605,13 @@ export default function ClientFormsPage() {
                                                 <Accordion.Item key={i} id={String(i)}>
                                                     <Accordion.Heading>
                                                         <Accordion.Trigger>
-                                                            <span className="text-sm text-foreground">
+                                                            <span className="text-sm text-foreground flex items-center gap-2">
                                                                 {i + 1}. {getLocalizedField(r, 'label', locale)}
+                                                                {r.edited && (
+                                                                    <Chip size="sm" color="secondary" variant="soft">
+                                                                        <Chip.Label>{t('answerEdited')}</Chip.Label>
+                                                                    </Chip>
+                                                                )}
                                                             </span>
                                                             <Accordion.Indicator />
                                                         </Accordion.Trigger>
@@ -602,6 +619,7 @@ export default function ClientFormsPage() {
                                                     <Accordion.Panel>
                                                         <Accordion.Body>
                                                             <AnswerBody response={r} />
+                                                            {r.edited && <AnswerEditHistory history={r.history} label={t('editHistory')} />}
                                                         </Accordion.Body>
                                                     </Accordion.Panel>
                                                 </Accordion.Item>
@@ -643,6 +661,7 @@ export default function ClientFormsPage() {
                     )}
                 </Surface>
             </div>
+        </div>
         </div>
 
         {/* Request Form Modal */}

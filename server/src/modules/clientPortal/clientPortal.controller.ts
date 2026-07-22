@@ -23,6 +23,7 @@ import {
 } from '../../utils/workoutLogStats';
 import { buildTransformationPayload } from '../clients/clients.controller';
 import { normalizeEmail } from '../../utils/email';
+import { attachEditHistory } from '../../utils/formResponseHistory';
 
 /** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
 async function getClientDisplayName(clientId: string): Promise<string | null> {
@@ -452,7 +453,7 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
             request.status !== 'pending' && request.status !== 'scheduled'
                 ? prisma.form_responses.findMany({
                     where:  { request_id: request.id as string },
-                    select: { question_id: true, answer: true },
+                    select: { id: true, question_id: true, answer: true },
                   })
                 : Promise.resolve([]),
         ]);
@@ -466,7 +467,8 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
             metric_name: (q as unknown as { metrics?: { name: string } }).metrics?.name ?? null,
             metric_icon: (q as unknown as { metrics?: { icon: string | null } }).metrics?.icon ?? null,
         }));
-        res.json({ ...request, questions, responses });
+        const responsesWithHistory = await attachEditHistory(responses);
+        res.json({ ...request, questions, responses: responsesWithHistory });
     } catch (err) {
         next(err);
     }
@@ -527,6 +529,59 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
         });
 
         res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Lets a client correct a previously submitted answer, any time after
+// submission (no review-lock, no time window — see DECISIONS). Every edit is
+// logged to form_response_edits so both the client and the coach can see the
+// before/after trail on that question. This updates form_responses.answer
+// in place (not an insert), which is what keeps metric-linked answers'
+// progress charts showing only the latest value at that submission's date —
+// see buildTransformationPayload in clients.controller.ts.
+export async function editFormAnswer(req: Request, res: Response, next: NextFunction) {
+    const { answer } = req.body as { answer?: unknown };
+    if (answer === undefined) return res.status(400).json({ error: 'answer is required' });
+
+    try {
+        const request = await prisma.form_requests.findFirst({
+            where:  { id: req.params.request_id as string, client_id: req.client!.clientId },
+            select: { id: true, status: true },
+        });
+        if (!request) return res.status(404).json({ error: 'Request not found' });
+        if (request.status === 'pending' || request.status === 'scheduled') {
+            return res.status(400).json({ error: 'Submit the form before editing an answer' });
+        }
+
+        const existing = await prisma.form_responses.findFirst({
+            where: { request_id: request.id, question_id: req.params.question_id as string },
+        });
+        if (!existing) return res.status(404).json({ error: 'Answer not found' });
+
+        const newAnswer = answer != null ? String(answer) : '';
+        if (newAnswer === (existing.answer ?? '')) {
+            return res.json({ success: true, answer: existing.answer });
+        }
+
+        const [, updated] = await prisma.$transaction([
+            prisma.form_response_edits.create({
+                data: {
+                    id:                  createId(),
+                    response_id:         existing.id,
+                    previous_answer:     existing.answer,
+                    new_answer:          newAnswer,
+                    edited_by_client_id: req.client!.clientId,
+                },
+            }),
+            prisma.form_responses.update({
+                where: { id: existing.id },
+                data:  { answer: newAnswer },
+            }),
+        ]);
+
+        res.json({ success: true, answer: updated.answer });
     } catch (err) {
         next(err);
     }

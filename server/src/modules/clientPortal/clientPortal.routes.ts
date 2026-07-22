@@ -327,10 +327,37 @@ router.get('/active-training-plan', ...open, requireClientAccess('view_training_
  *     responses:
  *       200:
  *         description: Form submitted
+ *
+ * /client-portal/form-requests/{request_id}/answers/{question_id}:
+ *   patch:
+ *     summary: Edit a single previously submitted answer — logs a form_response_edits entry
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: request_id, required: true, schema: { type: string } }
+ *       - { in: path, name: question_id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [answer]
+ *             properties:
+ *               answer: { type: string }
+ *     responses:
+ *       200:
+ *         description: "{ success, answer }"
+ *       400:
+ *         description: Form not submitted yet
+ *       404:
+ *         description: Request or answer not found
  */
 router.get('/form-requests',                     ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequests);
 router.get('/form-requests/:request_id',         ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequest);
 router.post('/form-requests/:request_id/submit', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.submitFormRequest);
+router.patch('/form-requests/:request_id/answers/:question_id', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.editFormAnswer);
 
 router.post('/uploads/photo', ...open, clientPortalController.photoUploader.single('photo'), clientPortalController.uploadPhoto);
 
