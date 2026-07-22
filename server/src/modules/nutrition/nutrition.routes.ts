@@ -424,4 +424,6 @@ router.post('/meal-items/:id/alternatives',  nutritionController.createMealItemA
 router.put('/meal-item-alternatives/:id',    nutritionController.updateMealItemAlternative);
 router.delete('/meal-item-alternatives/:id', nutritionController.deleteMealItemAlternative);
 
+router.get('/meal-items/:id/swap-history', nutritionController.getMealItemSwapHistory);
+
 export default router;

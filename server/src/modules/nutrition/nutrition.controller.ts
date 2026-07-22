@@ -254,12 +254,18 @@ export async function getPlan(req: Request, res: Response, next: NextFunction) {
                 const mealsWithItems = await Promise.all(
                     meals.map(async (meal) => {
                         const itemsResult = await pool.query(
-                            `SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order,
+                            // Coach view always reflects the coach's own prescription, never a
+                            // client's food swap — COALESCE falls back to original_* only while
+                            // is_swapped is true, so the builder never silently shows what the
+                            // client swapped to as if the coach had prescribed it.
+                            `SELECT nmi.id, nmi.meal_item_order, nmi.is_swapped, nmi.swapped_at,
+                                    COALESCE(nmi.original_food_item_id, nmi.food_item_id) AS food_item_id,
+                                    COALESCE(nmi.original_amount, nmi.amount) AS amount,
                                     fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
                                     fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
                                     fi.serving_size, fi.food_category
                              FROM nutrition_meal_items nmi
-                             JOIN food_items fi ON fi.id = nmi.food_item_id
+                             JOIN food_items fi ON fi.id = COALESCE(nmi.original_food_item_id, nmi.food_item_id)
                              WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC`,
                             [meal.id]
                         );
@@ -1223,8 +1229,21 @@ export async function reorderMealItems(req: Request, res: Response, next: NextFu
 export async function updateMealItem(req: Request, res: Response, next: NextFunction) {
     const { amount } = req.body as { amount?: unknown };
     try {
+        // A direct coach edit always reasserts the coach's prescription and ends
+        // any client food swap on this item — falls back to the pre-swap food,
+        // then clears the swap columns. A no-op when the item was never swapped.
         const result = await pool.query(
-            'UPDATE nutrition_meal_items SET amount = $1 WHERE id = $2 RETURNING *', [amount, req.params.id]
+            `UPDATE nutrition_meal_items
+             SET amount = $1,
+                 food_item_id = COALESCE(original_food_item_id, food_item_id),
+                 is_swapped = FALSE,
+                 original_food_item_id = NULL,
+                 original_amount = NULL,
+                 swapped_at = NULL,
+                 swapped_by_client_id = NULL
+             WHERE id = $2
+             RETURNING *`,
+            [amount, req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Meal item not found' });
         const itemDetailsResult = await pool.query(
@@ -1323,5 +1342,30 @@ export async function deleteMealItemAlternative(req: Request, res: Response, nex
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
         await touchPlanByMealItem(pool, (result.rows[0] as Row).meal_item_id as string, req.user!.userId);
         res.json(result.rows[0]);
+    } catch (err) { next(err); }
+}
+
+// Client food-swap audit trail, for support — read-only, workspace-scoped so
+// a coach can only see swap history for their own workspace's meal items.
+export async function getMealItemSwapHistory(req: Request, res: Response, next: NextFunction) {
+    try {
+        const result = await pool.query(
+            `SELECT h.id, h.from_food_item_id, h.to_food_item_id, h.from_amount, h.to_amount,
+                    h.action, h.created_at,
+                    ff.name_en AS from_food_name, tf.name_en AS to_food_name,
+                    TRIM(CONCAT(c.fname, ' ', c.lname)) AS client_name
+             FROM food_swap_history h
+             JOIN nutrition_meal_items nmi ON nmi.id = h.meal_item_id
+             JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+             JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+             JOIN nutrition_plans np ON np.id = nc.plan_id
+             LEFT JOIN food_items ff ON ff.id = h.from_food_item_id
+             LEFT JOIN food_items tf ON tf.id = h.to_food_item_id
+             LEFT JOIN clients c ON c.id = h.client_id
+             WHERE h.meal_item_id = $1 AND np.workspace_id = $2
+             ORDER BY h.created_at DESC`,
+            [req.params.id, req.user!.workspaceId]
+        );
+        res.json(result.rows);
     } catch (err) { next(err); }
 }

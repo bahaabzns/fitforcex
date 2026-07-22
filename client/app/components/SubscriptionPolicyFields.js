@@ -7,7 +7,7 @@ import { Label } from "@heroui/react/label";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
 
-// The 10 access flags, in display order. Must match the backend PERMISSION_KEYS.
+// The 11 access flags, in display order. Must match the backend PERMISSION_KEYS.
 export const PERMISSION_KEYS = [
     "keep_portal_access",
     "view_training_plans",
@@ -19,6 +19,7 @@ export const PERMISSION_KEYS = [
     "allow_submit_checkins",
     "allow_booking_appointments",
     "allow_download_files",
+    "allow_food_swap",
 ];
 
 // Forward-looking permissions stored but not yet enforced (no subsystem exists).
@@ -35,6 +36,7 @@ const READ_ONLY_DEFAULT = {
     allow_submit_checkins: false,
     allow_booking_appointments: false,
     allow_download_files: false,
+    allow_food_swap: false,
 };
 
 export function defaultPolicy(scope) {

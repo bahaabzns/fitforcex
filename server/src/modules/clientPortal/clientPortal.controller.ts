@@ -72,6 +72,9 @@ function buildNutritionPlanHierarchy(plan: Record<string, unknown>, flatRows: Re
                 calories_per_serving: row.calories_per_serving, protein_per_serving: row.protein_per_serving,
                 carbs_per_serving: row.carbs_per_serving, fats_per_serving: row.fats_per_serving,
                 serving_size: row.serving_size, food_category: row.food_category, alternatives: [],
+                is_swapped: row.is_swapped === true, swapped_at: row.swapped_at,
+                original_food_item_id: row.original_food_item_id,
+                original_food_name: row.original_food_name, original_food_name_ar: row.original_food_name_ar,
             });
             (mealsMap.get(row.meal_id as string)!.items as unknown[]).push(itemsMap.get(row.item_id as string)!);
         }
@@ -320,8 +323,10 @@ export async function getActivePlan(req: Request, res: Response, next: NextFunct
                     nc.goal_calories, nc.goal_protein, nc.goal_carbs, nc.goal_fats, nc.note AS cycle_note,
                 nm.id AS meal_id, nm.cycle_id AS meal_cycle_id, nm.name AS meal_name, nm.meal_order, nm.note AS meal_note,
                 nmi.id AS item_id, nmi.meal_id AS item_meal_id, nmi.food_item_id, nmi.amount AS item_amount, nmi.meal_item_order,
+                    nmi.is_swapped, nmi.swapped_at, nmi.original_food_item_id,
                 fi.name_en AS food_name, fi.name_ar AS food_name_ar, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving,
                     fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category,
+                fo.name_en AS original_food_name, fo.name_ar AS original_food_name_ar,
                 nmia.id AS alt_id, nmia.meal_item_id, nmia.food_item_id AS alt_food_item_id,
                     nmia.amount AS alt_amount, nmia.alt_order,
                 fi2.name_en AS alt_food_name, fi2.name_ar AS alt_food_name_ar, fi2.serving_unit AS alt_serving_unit,
@@ -334,6 +339,7 @@ export async function getActivePlan(req: Request, res: Response, next: NextFunct
             LEFT JOIN nutrition_meals nm ON nm.cycle_id = nc.id
             LEFT JOIN nutrition_meal_items nmi ON nmi.meal_id = nm.id
             LEFT JOIN food_items fi ON fi.id = nmi.food_item_id
+            LEFT JOIN food_items fo ON fo.id = nmi.original_food_item_id
             LEFT JOIN nutrition_meal_item_alternatives nmia ON nmia.meal_item_id = nmi.id
             LEFT JOIN food_items fi2 ON fi2.id = nmia.food_item_id
             WHERE np.id = ${plan.id}

@@ -20,6 +20,7 @@ const permissionsSchema = z.object({
     allow_submit_checkins:      z.boolean(),
     allow_booking_appointments: z.boolean(),
     allow_download_files:       z.boolean(),
+    allow_food_swap:            z.boolean(),
 });
 
 const expiredSchema = permissionsSchema.extend({

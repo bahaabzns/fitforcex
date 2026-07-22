@@ -3,14 +3,15 @@ import type { SubscriptionStatus } from './subscriptionStatus';
 /**
  * Subscription Access Policy — what a client may still see/do once their
  * subscription is no longer active. Two scopes: 'expired' and 'frozen'.
- * Each scope carries the same 10 permission flags; the expired scope also
- * carries a grace period. See migration 024 / model subscription_access_policies.
+ * Each scope carries the same 11 permission flags; the expired scope also
+ * carries a grace period. See migration 024 (+ 055 for allow_food_swap) /
+ * model subscription_access_policies.
  */
 
 export const POLICY_SCOPES = ['expired', 'frozen'] as const;
 export type PolicyScope = (typeof POLICY_SCOPES)[number];
 
-/** The 10 access flags, in display order. Keys mirror the DB columns 1:1. */
+/** The 11 access flags, in display order. Keys mirror the DB columns 1:1. */
 export const PERMISSION_KEYS = [
     'keep_portal_access',
     'view_training_plans',
@@ -22,12 +23,13 @@ export const PERMISSION_KEYS = [
     'allow_submit_checkins',
     'allow_booking_appointments',
     'allow_download_files',
+    'allow_food_swap',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 export type PolicyPermissions = Record<PermissionKey, boolean>;
 
-/** Expired policy = the 10 flags + a grace window (days after expiry treated as Active). */
+/** Expired policy = the 11 flags + a grace window (days after expiry treated as Active). */
 export type ExpiredPolicy = PolicyPermissions & { grace_period_days: number };
 export type FrozenPolicy  = PolicyPermissions;
 
@@ -43,6 +45,7 @@ const READ_ONLY_FLAGS: PolicyPermissions = {
     allow_submit_checkins:      false,
     allow_booking_appointments: false,
     allow_download_files:       false,
+    allow_food_swap:            false,
 };
 
 export const DEFAULT_EXPIRED_POLICY: ExpiredPolicy = { ...READ_ONLY_FLAGS, grace_period_days: 0 };

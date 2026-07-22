@@ -11,6 +11,7 @@ import { loginLimiter, workspaceDiscoveryLimiter } from '../../middleware/rateLi
 import * as clientPortalController from './clientPortal.controller';
 import * as clientPortalNotificationsController from './clientPortalNotifications.controller';
 import * as clientPortalInsightsController from './clientPortalInsights.controller';
+import * as clientPortalFoodSwapController from './clientPortalFoodSwap.controller';
 import { screenshotUploader, uploadScreenshot } from '../insights/insights.controller';
 
 const router = Router();
@@ -172,6 +173,89 @@ router.get('/access', ...authed, clientPortalController.getAccess);
  *               $ref: '#/components/schemas/NutritionPlan'
  */
 router.get('/active-plan', ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getActivePlan);
+
+/**
+ * @openapi
+ * /client-portal/meal-items/{mealItemId}/swap-search:
+ *   get:
+ *     summary: Search foods in the same category as the current meal item for an equivalent swap
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: mealItemId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: query
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Current food plus candidate alternatives (same food category) with pre-computed equivalent amounts
+ */
+router.get(
+    '/meal-items/:mealItemId/swap-search',
+    ...open,
+    requireClientAccess('view_nutrition_plans'),
+    clientPortalFoodSwapController.searchSwapAlternatives
+);
+
+/**
+ * @openapi
+ * /client-portal/meal-items/{mealItemId}/swap:
+ *   post:
+ *     summary: Swap a meal item's food for a backend-computed equivalent amount
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: mealItemId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               alternativeFoodId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Swap applied
+ */
+router.post(
+    '/meal-items/:mealItemId/swap',
+    ...open,
+    requireClientAccess('allow_food_swap'),
+    clientPortalFoodSwapController.swapMealItemFood
+);
+
+/**
+ * @openapi
+ * /client-portal/meal-items/{mealItemId}/swap/reset:
+ *   post:
+ *     summary: Reset a swapped meal item back to the coach's original prescription
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: mealItemId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Reset applied
+ */
+router.post(
+    '/meal-items/:mealItemId/swap/reset',
+    ...open,
+    requireClientAccess('allow_food_swap'),
+    clientPortalFoodSwapController.resetMealItemFood
+);
 
 /**
  * @openapi
