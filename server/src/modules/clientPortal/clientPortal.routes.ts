@@ -359,6 +359,18 @@ router.get('/form-requests/:request_id',         ...open, requireAnyClientAccess
 router.post('/form-requests/:request_id/submit', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.submitFormRequest);
 router.patch('/form-requests/:request_id/answers/:question_id', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.editFormAnswer);
 
+/**
+ * @openapi
+ * /client-portal/action-items:
+ *   get:
+ *     summary: Things needing the client's attention — pending forms, new/restarted plans, subscription renewal
+ *     tags: [Client Portal]
+ *     responses:
+ *       200:
+ *         description: List of action items, most urgent first
+ */
+router.get('/action-items', ...open, clientPortalController.getActionItems);
+
 router.post('/uploads/photo', ...open, clientPortalController.photoUploader.single('photo'), clientPortalController.uploadPhoto);
 
 /**

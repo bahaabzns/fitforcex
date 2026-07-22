@@ -474,6 +474,113 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
     }
 }
 
+type ActionItem = {
+    id:        string;
+    kind:      'subscription' | 'pending_form' | 'plan_update';
+    title_en:  string;
+    title_ar?: string | null;
+    subtitle?: string | null;
+    href:      string;
+    createdAt: string;
+};
+
+/**
+ * Aggregates the small set of things a client portal home page treats as
+ * "needs your attention" — pending forms, a coach's plan activation/restart,
+ * and a subscription in its grace period — each read from data that already
+ * exists for other endpoints (form_requests, notifications, clientAccess), so
+ * this is a read-only convenience view, not a new source of truth.
+ *
+ * A fully lapsed subscription (keep_portal_access: false) is handled
+ * elsewhere: portal/layout.js replaces the whole shell with
+ * ClientPortalStatusCard before this page ever renders, so this only needs to
+ * cover the softer "still has access, but should renew soon" grace window.
+ */
+export async function getActionItems(req: Request, res: Response, next: NextFunction) {
+    try {
+        await activateDueClientScheduledRequests(req.client!.clientId);
+
+        const [pendingForms, planNotifications] = await Promise.all([
+            prisma.$queryRaw<Record<string, unknown>[]>`
+                SELECT fr.id, fr.requested_at,
+                       f.title_en AS form_title_en, f.title_ar AS form_title_ar
+                FROM form_requests fr
+                JOIN forms f ON f.id = fr.form_id
+                WHERE fr.client_id = ${req.client!.clientId} AND fr.status = 'pending'
+                ORDER BY fr.requested_at DESC
+            `,
+            prisma.notifications.findMany({
+                where: {
+                    workspace_id:   req.client!.workspaceId,
+                    recipient_type: 'client',
+                    recipient_id:   req.client!.clientId,
+                    read_at:        null,
+                    type:           { in: ['plan.assigned', 'plan.duration_restarted'] },
+                },
+                orderBy: { created_at: 'desc' },
+            }),
+        ]);
+
+        const items: ActionItem[] = [];
+
+        const access = req.clientAccess;
+        if (access?.status === 'Expired' && access.withinGrace) {
+            const workspace = await prisma.workspaces.findFirst({
+                where:  { id: req.client!.workspaceId },
+                select: { renewal_link: true },
+            });
+            items.push({
+                id:        'subscription',
+                kind:      'subscription',
+                title_en:  'Your subscription is expiring soon',
+                subtitle:  'Renew now to keep uninterrupted access',
+                href:      workspace?.renewal_link || '/portal/profile',
+                createdAt: new Date().toISOString(),
+            });
+        }
+
+        for (const row of pendingForms) {
+            items.push({
+                id:        row.id as string,
+                kind:      'pending_form',
+                title_en:  row.form_title_en as string,
+                title_ar:  row.form_title_ar as string | null,
+                subtitle:  'Check-in form ready to fill',
+                href:      `/portal/forms/${row.id}`,
+                createdAt: new Date(row.requested_at as string).toISOString(),
+            });
+        }
+
+        // A client can accumulate several unread plan.assigned/restarted
+        // notifications for the same plan type (e.g. a coach re-activating a
+        // plan a few times) — only the most recent per type is actionable,
+        // so keep the first one seen (planNotifications is created_at desc).
+        const seenPlanTypes = new Set<string>();
+        for (const n of planNotifications) {
+            const entityType = n.entity_type === 'training_plan' ? 'training_plan' : 'nutrition_plan';
+            if (seenPlanTypes.has(entityType)) continue;
+            seenPlanTypes.add(entityType);
+
+            items.push({
+                id:        n.id,
+                kind:      'plan_update',
+                title_en:  n.title,
+                subtitle:  entityType === 'training_plan' ? 'New training plan' : 'New nutrition plan',
+                href:      entityType === 'training_plan' ? '/portal/training' : '/portal/nutrition',
+                createdAt: n.created_at.toISOString(),
+            });
+        }
+
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Subscription is the most urgent item regardless of recency.
+        items.sort((a, b) => (a.kind === 'subscription' ? -1 : b.kind === 'subscription' ? 1 : 0));
+
+        res.json(items);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function submitFormRequest(req: Request, res: Response, next: NextFunction) {
     const { answers } = req.body as { answers?: Array<{ question_id: string; answer: unknown }> };
     if (!answers || !Array.isArray(answers)) {

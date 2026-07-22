@@ -75,6 +75,25 @@ export function formatDate(value, locale = DEFAULT_LOCALE) {
 }
 
 /**
+ * Format a date as `D MMMM YYYY`, localized with the full month name — e.g.
+ * "4 March 2024" / "4 مارس 2024". Same shape as {@link formatDate} but for
+ * surfaces that want the spelled-out month rather than the abbreviation.
+ * @param {Date|string|number|null|undefined} value
+ * @param {string} [locale] - active app locale ("en" | "ar")
+ * @returns {string}
+ */
+export function formatFullDate(value, locale = DEFAULT_LOCALE) {
+    const date = toValidDate(value);
+    if (!date) return "";
+    const { day, month, year } = partsOf(date, locale, {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+    return `${day} ${month} ${year}`;
+}
+
+/**
  * Buckets a date into "Today" / "Yesterday" / a full weekday date, localized —
  * e.g. "Today", "Yesterday", "Tuesday, Mar 4". Used to group lists (messenger,
  * notifications) into day bands without re-deriving the same date math twice.
