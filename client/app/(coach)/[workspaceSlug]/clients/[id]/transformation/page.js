@@ -6,6 +6,7 @@ import { useLocale } from "next-intl";
 import { TrendingUp, Camera } from "lucide-react";
 import api from "@/lib/axios";
 import AreaChart from "@/app/components/charts/AreaChart";
+import Typography from "@/app/components/Typography";
 import { usePageHeaderActions } from "@/app/contexts/pageHeaderActions";
 import { DateRangePicker } from "@heroui/react/date-range-picker";
 import { RangeCalendar } from "@heroui/react/range-calendar";
@@ -415,7 +416,9 @@ export default function ClientTransformationPage() {
                 {/* Measurements */}
                 {numericMetrics.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Measurements</h2>
+                        <Typography as="h2" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-3">
+                            Measurements
+                        </Typography>
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                             {numericMetrics.map(m => (
                                 <MetricChart key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />
@@ -427,7 +430,9 @@ export default function ClientTransformationPage() {
                 {/* Progress Photos */}
                 {imageMetrics.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Progress Photos</h2>
+                        <Typography as="h2" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-3">
+                            Progress Photos
+                        </Typography>
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                             {imageMetrics.map(m => (
                                 <PhotoGallery key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />

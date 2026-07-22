@@ -8,6 +8,7 @@ import { ScrollShadow } from "@/app/components/ScrollShadow";
 import LineChart from "@/app/components/charts/LineChart";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
+import Typography from "@/app/components/Typography";
 import api from "@/lib/axios";
 
 const DumbbellIcon = () => (
@@ -43,9 +44,9 @@ function daysAgo(dateStr) {
 
 function SectionLabel({ children }) {
     return (
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+        <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-2">
             {children}
-        </p>
+        </Typography>
     );
 }
 

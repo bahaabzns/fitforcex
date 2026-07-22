@@ -13,6 +13,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
+import Typography from "@/app/components/Typography";
 import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
@@ -23,6 +24,7 @@ import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
 import MessageComposer from "@/app/components/MessageComposer";
 import MessageRow from "@/app/components/MessageRow";
 import ObservationCard from "@/app/components/ObservationCard";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import ObservationModal from "@/app/components/ObservationModal";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -358,6 +360,14 @@ export default function MessengerPage() {
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden p-3">
+            <div className="shrink-0">
+                <TriggerInsightBanner
+                    triggerEvent="first_message_sent_by_coach"
+                    checkUrl="/api/insights/prompts/for-trigger/first_message_sent_by_coach"
+                    respondUrlPrefix="/api/insights/prompts"
+                    dismissUrlPrefix="/api/insights/prompts"
+                />
+            </div>
             <div className="flex flex-row flex-1 min-h-0 overflow-hidden gap-2">
 
                 {/* ── Panel 1: Conversations ─────────────────────────────── */}
@@ -783,10 +793,10 @@ export default function MessengerPage() {
                                     <Separator className="mt-4 mb-4 shrink-0" />
                                     <div className="shrink-0">
                                         <div className="flex items-center justify-between mb-2">
-                                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                            <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider flex items-center gap-1.5">
                                                 <NotebookText size={12} />
                                                 {t('recentObservations')}
-                                            </p>
+                                            </Typography>
                                             <Button
                                                 isIconOnly
                                                 variant="ghost"

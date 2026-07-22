@@ -7,6 +7,7 @@ import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Chip } from "@heroui/react/chip";
 import { Spinner } from "@heroui/react/spinner";
 import LineChart from "@/app/components/charts/LineChart";
+import Typography from "@/app/components/Typography";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 
@@ -17,7 +18,11 @@ const METRICS = [
 ];
 
 function SectionLabel({ children }) {
-    return <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{children}</p>;
+    return (
+        <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-2">
+            {children}
+        </Typography>
+    );
 }
 
 // Client-portal counterpart to the coach's ExerciseInsightsModal — same shared
