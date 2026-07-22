@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
 import { useDateFormatter } from '@/utils/useDateFormatter';
-import { Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { Chip } from '@heroui/react/chip';
@@ -353,6 +353,12 @@ export default function AdminPromptsPage() {
     const [showForm, setShowForm] = useState(false);
     const [expandedId, setExpandedId] = useState(null);
 
+    const [editingId, setEditingId] = useState(null);
+    const [editQuestionEn, setEditQuestionEn] = useState('');
+    const [editQuestionAr, setEditQuestionAr] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState('');
+
     const fetchPrompts = useCallback(() => {
         setLoading(true);
         api.get('/api/admin/prompts', { params: { status: statusFilter } })
@@ -365,6 +371,31 @@ export default function AdminPromptsPage() {
     async function handleEnd(id) {
         await api.patch(`/api/admin/prompts/${id}/end`);
         fetchPrompts();
+    }
+
+    function startEdit(p) {
+        setEditingId(p.id);
+        setEditQuestionEn(p.question_en);
+        setEditQuestionAr(p.question_ar ?? '');
+        setEditError('');
+    }
+
+    async function saveEdit(id) {
+        if (!editQuestionEn.trim()) { setEditError('Question is required'); return; }
+        setEditSaving(true);
+        setEditError('');
+        try {
+            await api.patch(`/api/admin/prompts/${id}/question`, {
+                questionEn: editQuestionEn.trim(),
+                questionAr: editQuestionAr.trim() || null,
+            });
+            setEditingId(null);
+            fetchPrompts();
+        } catch (err) {
+            setEditError(err?.response?.data?.error ?? 'Could not save this question');
+        } finally {
+            setEditSaving(false);
+        }
     }
 
     return (
@@ -397,6 +428,20 @@ export default function AdminPromptsPage() {
                 ) : (
                     prompts.map((p, idx) => (
                         <div key={p.id} className={idx > 0 ? 'border-t border-border' : ''}>
+                            {editingId === p.id ? (
+                                <div className="px-4 py-3 flex flex-col gap-2">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Edit question</p>
+                                    <TextArea value={editQuestionEn} onChange={e => setEditQuestionEn(e.target.value)} rows={2} placeholder="Question (English)" />
+                                    <TextArea value={editQuestionAr} onChange={e => setEditQuestionAr(e.target.value)} rows={2} placeholder="Question (Arabic — optional)" />
+                                    {editError && <p className="text-sm text-red-500">{editError}</p>}
+                                    <div className="flex justify-end gap-2">
+                                        <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+                                        <Button size="sm" variant="primary" isDisabled={editSaving} onClick={() => saveEdit(p.id)}>
+                                            {editSaving ? 'Saving…' : 'Save'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
                             <button
                                 onClick={() => setExpandedId(cur => (cur === p.id ? null : p.id))}
                                 className="w-full flex items-center justify-between gap-4 px-4 py-3 text-left hover:bg-default/40 transition-colors cursor-pointer"
@@ -416,6 +461,15 @@ export default function AdminPromptsPage() {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
+                                    <span
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={(e) => { e.stopPropagation(); startEdit(p); }}
+                                        className="text-muted-foreground hover:text-foreground cursor-pointer px-1.5"
+                                        aria-label="Edit question"
+                                    >
+                                        <Pencil size={14} />
+                                    </span>
                                     {p.status === 'active' && (
                                         <span
                                             role="button"
@@ -429,7 +483,8 @@ export default function AdminPromptsPage() {
                                     {expandedId === p.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                                 </div>
                             </button>
-                            {expandedId === p.id && (
+                            )}
+                            {expandedId === p.id && editingId !== p.id && (
                                 <div className="px-4 pb-4">
                                     <PromptAnalytics promptId={p.id} />
                                 </div>

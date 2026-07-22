@@ -317,3 +317,85 @@ describe('Insights System — repeat_interval_days (recurring pulse prompts)', (
         expect(res.status).toBe(400);
     });
 });
+
+describe('Insights System — endPrompt only ever ends the one prompt it targets', () => {
+    test('endPrompt rejects a falsy id instead of matching every active prompt (Prisma drops undefined where-fields, not matches-none)', async () => {
+        const a = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Keep me active A', responseType: 'text', targetAudience: 'everyone', allowConcurrent: true },
+            'admin-1',
+        );
+        const b = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Keep me active B', responseType: 'text', targetAudience: 'everyone', allowConcurrent: true },
+            'admin-1',
+        );
+
+        await expect(insightsService.endPrompt(undefined as unknown as string)).rejects.toThrow();
+        await expect(insightsService.endPrompt('')).rejects.toThrow();
+
+        const aAfter = await testPrisma.insight_prompts.findUnique({ where: { id: a.id } });
+        const bAfter = await testPrisma.insight_prompts.findUnique({ where: { id: b.id } });
+        expect(aAfter?.status).toBe('active');
+        expect(bAfter?.status).toBe('active');
+    });
+
+    test('PATCH /admin/prompts/:id/end ends only the targeted prompt, leaving siblings active', async () => {
+        const target = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'End me', responseType: 'text', targetAudience: 'everyone', allowConcurrent: true },
+            'admin-1',
+        );
+        const sibling = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Do not end me', responseType: 'text', targetAudience: 'everyone', allowConcurrent: true },
+            'admin-1',
+        );
+
+        const res = await request.patch(`/api/admin/prompts/${target.id}/end`).set('Cookie', makeAdminCookie());
+        expect(res.status).toBe(200);
+
+        const targetAfter = await testPrisma.insight_prompts.findUnique({ where: { id: target.id } });
+        const siblingAfter = await testPrisma.insight_prompts.findUnique({ where: { id: sibling.id } });
+        expect(targetAfter?.status).toBe('ended');
+        expect(siblingAfter?.status).toBe('active');
+    });
+
+    test('PATCH /admin/prompts/ /end (id param effectively blank) is rejected with 400', async () => {
+        const res = await request.patch('/api/admin/prompts/%20/end').set('Cookie', makeAdminCookie());
+        expect(res.status).toBe(400);
+    });
+});
+
+describe('Insights System — editing a prompt question (content only)', () => {
+    test('updates question_en/question_ar and leaves audience, trigger, response type, and status untouched', async () => {
+        const prompt = await insightsService.activatePrompt(
+            {
+                workspaceId: null, questionEn: 'Original wording', responseType: 'rating_with_text',
+                targetAudience: 'client', triggerEvent: 'first_checkin_completed',
+            },
+            'admin-1',
+        );
+
+        const res = await request.patch(`/api/admin/prompts/${prompt.id}/question`).set('Cookie', makeAdminCookie()).send({
+            questionEn: 'Reworded question', questionAr: 'سؤال معدل',
+        });
+        expect(res.status).toBe(200);
+        expect(res.body.question_en).toBe('Reworded question');
+        expect(res.body.question_ar).toBe('سؤال معدل');
+        expect(res.body.target_audience).toBe('client');
+        expect(res.body.trigger_event).toBe('first_checkin_completed');
+        expect(res.body.response_type).toBe('rating_with_text');
+        expect(res.body.status).toBe('active');
+    });
+
+    test('rejects an empty questionEn', async () => {
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Original wording', responseType: 'text', targetAudience: 'everyone' },
+            'admin-1',
+        );
+        const res = await request.patch(`/api/admin/prompts/${prompt.id}/question`).set('Cookie', makeAdminCookie()).send({ questionEn: '   ' });
+        expect(res.status).toBe(400);
+    });
+
+    test('returns 404 for a nonexistent prompt id', async () => {
+        const res = await request.patch('/api/admin/prompts/not-a-real-id/question').set('Cookie', makeAdminCookie()).send({ questionEn: 'New text' });
+        expect(res.status).toBe(404);
+    });
+});

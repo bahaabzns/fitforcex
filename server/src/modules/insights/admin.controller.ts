@@ -152,9 +152,40 @@ export async function getPromptAnalytics(req: Request, res: Response, next: Next
 }
 
 export async function endPromptHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const id = req.params.id;
+    if (typeof id !== 'string' || id.trim().length === 0) {
+        res.status(400).json({ error: 'Prompt id is required' });
+        return;
+    }
     try {
-        await insightsService.endPrompt(req.params.id as string);
+        await insightsService.endPrompt(id);
         res.json({ ended: true });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updatePromptQuestion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const id = req.params.id;
+    if (typeof id !== 'string' || id.trim().length === 0) {
+        res.status(400).json({ error: 'Prompt id is required' });
+        return;
+    }
+    const { questionEn, questionAr } = req.body as Record<string, unknown>;
+    if (questionEn !== undefined && (typeof questionEn !== 'string' || questionEn.trim().length === 0)) {
+        res.status(400).json({ error: 'questionEn must be a non-empty string' });
+        return;
+    }
+    if (questionAr !== undefined && questionAr !== null && typeof questionAr !== 'string') {
+        res.status(400).json({ error: 'questionAr must be a string or null' });
+        return;
+    }
+    try {
+        const prompt = await insightsService.updatePromptQuestion(id, {
+            questionEn: questionEn as string | undefined,
+            questionAr: questionAr as string | null | undefined,
+        });
+        res.json(prompt);
     } catch (err) {
         next(err);
     }

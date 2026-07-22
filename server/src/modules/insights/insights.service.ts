@@ -493,10 +493,37 @@ export async function activatePrompt(input: NewPromptInput, actorId: string): Pr
 }
 
 export async function endPrompt(id: string): Promise<void> {
+    // Guard against Prisma's `where: { id: undefined }` footgun — an undefined field is
+    // dropped from the query entirely, not matched against, so a falsy id here would end
+    // every active prompt instead of none.
+    if (!id) throw Object.assign(new Error('endPrompt requires a prompt id'), { status: 400 });
     await prisma.insight_prompts.updateMany({
         where: { id, status: 'active' },
         data: { status: 'ended', ended_at: new Date() },
     });
+}
+
+/**
+ * Fixes a typo/wording issue on an already-created prompt — content only. Deliberately
+ * narrow: target_audience, trigger_event, response_type, and status are structural and
+ * affect how existing responses are interpreted, so they're never touched here.
+ */
+export async function updatePromptQuestion(
+    id: string,
+    input: { questionEn?: string; questionAr?: string | null },
+): Promise<InsightPromptRow> {
+    if (!id) throw Object.assign(new Error('updatePromptQuestion requires a prompt id'), { status: 400 });
+    const prompt = await prisma.insight_prompts.findUnique({ where: { id } });
+    if (!prompt) throw Object.assign(new Error('Prompt not found'), { status: 404 });
+
+    const updated = await prisma.insight_prompts.update({
+        where: { id },
+        data: {
+            ...(input.questionEn !== undefined ? { question_en: input.questionEn } : {}),
+            ...(input.questionAr !== undefined ? { question_ar: input.questionAr } : {}),
+        },
+    });
+    return updated as unknown as InsightPromptRow;
 }
 
 export interface TriageInput {

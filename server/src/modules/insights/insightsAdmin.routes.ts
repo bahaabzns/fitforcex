@@ -77,10 +77,24 @@ router.patch('/insights/:id', adminAuthMiddleware, adminController.triageInsight
  *     responses:
  *       200: { description: PromptFunnel }
  *       404: { description: Prompt not found }
+ *
+ * /admin/prompts/{id}/question:
+ *   patch:
+ *     summary: Edit a created prompt's question text only (never audience, trigger, response type, or status)
+ *     tags: [Admin, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Prompt updated }
+ *       400: { description: Invalid input }
+ *       404: { description: Prompt not found }
  */
 router.get('/prompts',                adminAuthMiddleware, adminController.listPrompts);
 router.post('/prompts',               adminAuthMiddleware, adminController.createPrompt);
 router.patch('/prompts/:id/end',      adminAuthMiddleware, adminController.endPromptHandler);
+router.patch('/prompts/:id/question', adminAuthMiddleware, adminController.updatePromptQuestion);
 router.get('/prompts/:id/analytics',  adminAuthMiddleware, adminController.getPromptAnalytics);
 
 /**
