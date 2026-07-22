@@ -733,6 +733,7 @@ model insight_prompts {
   ends_at                    DateTime?                    @db.Timestamptz(6)
   max_shows_per_user         Int?
   allow_concurrent           Boolean                      @default(false)
+  repeat_interval_days       Int?
   insight_prompt_conditions  insight_prompt_conditions[]
   insight_prompt_dismissals  insight_prompt_dismissals[]
   insight_prompt_impressions insight_prompt_impressions[]

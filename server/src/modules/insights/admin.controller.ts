@@ -52,7 +52,7 @@ export async function triageInsight(req: Request, res: Response, next: NextFunct
 
 // ── Prompts ──────────────────────────────────────────────────────────────
 
-const RESPONSE_TYPES = ['rating', 'multiple_choice', 'text'];
+const RESPONSE_TYPES = ['rating', 'multiple_choice', 'text', 'rating_with_text'];
 const AUDIENCES = ['user', 'client', 'everyone'];
 
 export async function listPrompts(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -73,7 +73,7 @@ const CONDITION_FIELDS = ['subscription_status', 'package_variation_id'];
 export async function createPrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
     const {
         workspaceId, questionEn, questionAr, responseType, options, targetAudience, triggerEvent,
-        startsAt, endsAt, maxShowsPerUser, allowConcurrent, workspaceIds, conditions,
+        startsAt, endsAt, maxShowsPerUser, allowConcurrent, workspaceIds, conditions, repeatIntervalDays,
     } = req.body as Record<string, unknown>;
 
     if (typeof questionEn !== 'string' || questionEn.trim().length === 0) {
@@ -96,6 +96,16 @@ export async function createPrompt(req: Request, res: Response, next: NextFuncti
         res.status(400).json({ error: 'workspaceIds must be an array of workspace ids' });
         return;
     }
+    if (repeatIntervalDays != null && (typeof repeatIntervalDays !== 'number' || !Number.isInteger(repeatIntervalDays) || repeatIntervalDays < 1)) {
+        res.status(400).json({ error: 'repeatIntervalDays must be a positive integer' });
+        return;
+    }
+    // getPromptForTrigger's eligibility check has no repeat-interval logic — it's manual-only, and silently
+    // ignoring this on a contextual prompt would look like a working recurrence that never actually recurs.
+    if (repeatIntervalDays != null && triggerEvent != null) {
+        res.status(400).json({ error: 'repeatIntervalDays only applies to manual (immediate) prompts, not contextual ones with a triggerEvent' });
+        return;
+    }
     let parsedConditions: insightsService.PromptCondition[] | undefined;
     if (conditions != null) {
         if (!Array.isArray(conditions) || conditions.some((c) => !CONDITION_FIELDS.includes(c?.field) || typeof c?.value !== 'string')) {
@@ -112,7 +122,7 @@ export async function createPrompt(req: Request, res: Response, next: NextFuncti
                 workspaceId: (workspaceId as string | undefined) ?? null,
                 questionEn,
                 questionAr: (questionAr as string | undefined) ?? null,
-                responseType: responseType as 'rating' | 'multiple_choice' | 'text',
+                responseType: responseType as 'rating' | 'multiple_choice' | 'text' | 'rating_with_text',
                 options: responseType === 'multiple_choice' ? options : undefined,
                 targetAudience: audience as 'user' | 'client' | 'everyone',
                 triggerEvent: (triggerEvent as insightsService.TriggerEvent | undefined) ?? null,
@@ -122,6 +132,7 @@ export async function createPrompt(req: Request, res: Response, next: NextFuncti
                 allowConcurrent: allowConcurrent === true,
                 workspaceIds: workspaceIds as string[] | undefined,
                 conditions: parsedConditions,
+                repeatIntervalDays: typeof repeatIntervalDays === 'number' ? repeatIntervalDays : null,
             },
             adminActorId(req),
         );

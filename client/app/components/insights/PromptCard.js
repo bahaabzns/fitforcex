@@ -31,14 +31,20 @@ export default function PromptCard({ prompt, onSubmit, onDismiss, onStart, submi
 
     const canSubmit =
         (prompt.response_type === 'rating' && rating != null) ||
+        (prompt.response_type === 'rating_with_text' && rating != null) ||
         (prompt.response_type === 'multiple_choice' && selectedOption != null) ||
         (prompt.response_type === 'text' && text.trim().length > 0);
 
     function handleSubmit() {
+        const isRating = prompt.response_type === 'rating' || prompt.response_type === 'rating_with_text';
         onSubmit({
-            ratingValue: prompt.response_type === 'rating' ? rating : undefined,
+            ratingValue: isRating ? rating : undefined,
             selectedOption: prompt.response_type === 'multiple_choice' ? selectedOption : undefined,
-            textValue: prompt.response_type === 'text' ? text.trim() : undefined,
+            textValue: prompt.response_type === 'text'
+                ? text.trim()
+                : prompt.response_type === 'rating_with_text' && text.trim().length > 0
+                    ? text.trim()
+                    : undefined,
         });
     }
 
@@ -65,7 +71,7 @@ export default function PromptCard({ prompt, onSubmit, onDismiss, onStart, submi
             </div>
 
             <div className="mt-2.5">
-                {prompt.response_type === 'rating' && (
+                {(prompt.response_type === 'rating' || prompt.response_type === 'rating_with_text') && (
                     <div className="flex flex-wrap gap-1">
                         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                             <button
@@ -82,6 +88,16 @@ export default function PromptCard({ prompt, onSubmit, onDismiss, onStart, submi
                             </button>
                         ))}
                     </div>
+                )}
+
+                {prompt.response_type === 'rating_with_text' && (
+                    <TextArea
+                        className="mt-2"
+                        placeholder={t('optionalNote')}
+                        value={text}
+                        onChange={(e) => { markStarted(); setText(e.target.value); }}
+                        rows={2}
+                    />
                 )}
 
                 {prompt.response_type === 'multiple_choice' && Array.isArray(prompt.options) && (

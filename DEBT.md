@@ -446,6 +446,15 @@ Format:
 
 ---
 
+## 2026-07-23 — server/.env.test database (fitforce_x_test) has no migration history and pre-existing FK drift
+**Type:** Knowledge
+**What:** Adding the `insight_prompts.repeat_interval_days` column (this session's Founder Prompts recurring-pulse feature) required a migration on the dev DB, which applied cleanly via `prisma migrate deploy`. The same command against the test DB failed with P3005 ("schema is not empty") — its `_prisma_migrations` history table was never initialized, so Prisma can't tell what's already applied. Falling back to `prisma db push` against the test DB also failed, independently, on a pre-existing FK violation: orphaned `check_in_schedules` rows referencing missing `clients`. Worked around by hand-patching just the one new column directly via `pg` against `TEST_DATABASE_URL` — the test suite passes, but the test DB's schema history is unmanaged.
+**Why it matters:** Every future migration will hit the same P3005 wall on the test DB until it's baselined (`prisma migrate resolve --applied <migration>` for the history, plus cleaning the orphaned `check_in_schedules` rows so `db push`/`migrate deploy` can run cleanly). Until then, schema changes require the same manual-patch workaround every time, which is easy to forget and silently drifts the test DB from `schema.prisma`.
+**Effort:** Small–Medium (delete/fix orphaned `check_in_schedules` rows, then `prisma migrate resolve --applied` for each of the 3 existing migrations to establish history, or re-seed the test DB from scratch)
+**Priority:** Medium
+
+---
+
 ## 2026-07-15 — Recurring class of bug: schema.prisma edited without a committed migration
 **Type:** Process gap (root cause behind three separate incidents: 043/044, 045, and 046)
 **What:** At least three times now, a column got added to `schema.prisma` and the app code started writing to it, without a `server/migrations/*.js` file ever being committed for it. Locally the bug is invisible because dev databases pick the column up via an out-of-band `prisma db push`/`db pull`; production only runs committed migrations (`npm run migrate`), so it 500s on the first write to the missing column. Migration 046 (`form_responses.metric_id`) is the latest instance — client-portal form submission was 500ing in production with `The column metric_id does not exist in the current database` until this migration shipped.

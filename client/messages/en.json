@@ -2479,7 +2479,8 @@
       "quickQuestion": "Quick question",
       "submit": "Send",
       "dismiss": "Not now",
-      "thanks": "Thanks for the feedback!"
+      "thanks": "Thanks for the feedback!",
+      "optionalNote": "Add a note (optional)"
     }
   }
 }

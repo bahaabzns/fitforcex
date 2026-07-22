@@ -9,7 +9,8 @@ import { Button } from '@heroui/react/button';
 import { Chip } from '@heroui/react/chip';
 import { TextArea } from '@heroui/react/textarea';
 
-const RESPONSE_TYPES = ['rating', 'multiple_choice', 'text'];
+const RESPONSE_TYPES = ['rating', 'multiple_choice', 'text', 'rating_with_text'];
+const RESPONSE_TYPE_LABELS = { rating: 'rating', multiple_choice: 'multiple choice', text: 'text', rating_with_text: 'rating + text' };
 const AUDIENCES = ['everyone', 'user', 'client'];
 // Grouped to match insights.service.ts's TRIGGER_EVENTS ordering/comments —
 // keep both lists in sync when adding a new trigger.
@@ -74,6 +75,7 @@ function NewPromptForm({ onClose, onCreated }) {
     const [startsAt, setStartsAt] = useState('');
     const [endsAt, setEndsAt] = useState('');
     const [maxShowsPerUser, setMaxShowsPerUser] = useState('');
+    const [repeatIntervalDays, setRepeatIntervalDays] = useState('');
     const [allowConcurrent, setAllowConcurrent] = useState(false);
     const [workspaceIdsText, setWorkspaceIdsText] = useState('');
     const [conditions, setConditions] = useState([]);
@@ -96,6 +98,7 @@ function NewPromptForm({ onClose, onCreated }) {
                 startsAt: startsAt || undefined,
                 endsAt: endsAt || undefined,
                 maxShowsPerUser: maxShowsPerUser ? Number(maxShowsPerUser) : undefined,
+                repeatIntervalDays: repeatIntervalDays ? Number(repeatIntervalDays) : undefined,
                 allowConcurrent: allowConcurrent || undefined,
                 workspaceIds: workspaceIdsText.trim()
                     ? workspaceIdsText.split(',').map(s => s.trim()).filter(Boolean)
@@ -127,7 +130,7 @@ function NewPromptForm({ onClose, onCreated }) {
                     <div className="flex gap-1.5">
                         {RESPONSE_TYPES.map(rt => (
                             <button key={rt} onClick={() => setResponseType(rt)} className="cursor-pointer">
-                                <Chip size="sm" variant={responseType === rt ? 'primary' : 'soft'}>{rt.replace('_', ' ')}</Chip>
+                                <Chip size="sm" variant={responseType === rt ? 'primary' : 'soft'}>{RESPONSE_TYPE_LABELS[rt]}</Chip>
                             </button>
                         ))}
                     </div>
@@ -149,7 +152,7 @@ function NewPromptForm({ onClose, onCreated }) {
                 <select
                     className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none"
                     value={triggerEvent}
-                    onChange={e => setTriggerEvent(e.target.value)}
+                    onChange={e => { setTriggerEvent(e.target.value); if (e.target.value) setRepeatIntervalDays(''); }}
                 >
                     {TRIGGER_GROUPS.map((group) => (
                         group.label ? (
@@ -205,6 +208,13 @@ function NewPromptForm({ onClose, onCreated }) {
                             <input type="number" min="1" placeholder="unlimited" className="w-28 px-3 py-1.5 text-sm bg-background border border-border rounded-lg outline-none"
                                 value={maxShowsPerUser} onChange={e => setMaxShowsPerUser(e.target.value)} />
                         </div>
+                        {!triggerEvent && (
+                            <div>
+                                <p className="text-xs text-muted-foreground mb-1">Repeat every (days)</p>
+                                <input type="number" min="1" placeholder="ask once" className="w-28 px-3 py-1.5 text-sm bg-background border border-border rounded-lg outline-none"
+                                    value={repeatIntervalDays} onChange={e => setRepeatIntervalDays(e.target.value)} />
+                            </div>
+                        )}
                     </div>
 
                     <button onClick={() => setAllowConcurrent(v => !v)} className="self-start cursor-pointer">
@@ -394,9 +404,10 @@ export default function AdminPromptsPage() {
                                 <div className="min-w-0">
                                     <p className="text-sm font-medium text-foreground truncate">{p.question_en}</p>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        {p.response_type.replace('_', ' ')} · {p.target_audience === 'user' ? 'coaches' : p.target_audience} · {formatDate(p.created_at)}
+                                        {RESPONSE_TYPE_LABELS[p.response_type] ?? p.response_type} · {p.target_audience === 'user' ? 'coaches' : p.target_audience} · {formatDate(p.created_at)}
                                         {p.allow_concurrent && ' · concurrent'}
                                         {p.max_shows_per_user && ` · max ${p.max_shows_per_user}/user`}
+                                        {p.repeat_interval_days && ` · repeats every ${p.repeat_interval_days}d`}
                                     </p>
                                     {p.trigger_event && (
                                         <Chip size="sm" variant="soft" className="mt-1">

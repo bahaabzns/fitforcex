@@ -166,6 +166,16 @@ async function respondToPromptShared(
             return { status: 400, payload: { error: 'selectedOption must be one of the prompt options' } };
         }
         data.selected_option = selectedOption;
+    } else if (prompt.response_type === 'rating_with_text') {
+        // Rating is required; the accompanying note is optional, unlike the plain 'rating' and 'text' types.
+        const rating = Number(ratingValue);
+        if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
+            return { status: 400, payload: { error: 'ratingValue must be an integer between 1 and 10' } };
+        }
+        data.rating_value = rating;
+        if (typeof textValue === 'string' && textValue.trim().length > 0) {
+            data.text_value = textValue.trim();
+        }
     } else {
         if (typeof textValue !== 'string' || textValue.trim().length === 0) {
             return { status: 400, payload: { error: 'textValue is required' } };

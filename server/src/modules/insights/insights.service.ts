@@ -105,11 +105,15 @@ async function recordImpression(promptId: string, submitterType: SubmitterType, 
 /**
  * The active prompt (if any) eligible for this submitter — targeted at their
  * audience (or 'everyone'), scoped to their workspace or platform-wide, not
- * yet answered by them, not a contextual (trigger_event-gated) prompt —
- * manual/immediate delivery only — and passing every Phase 4 filter above.
- * Raw SQL for the NOT EXISTS checks, matching this codebase's existing
- * convention of dropping to $queryRaw for this class of query (see
- * forms.controller.ts). Records an impression when a match is returned.
+ * a contextual (trigger_event-gated) prompt — manual/immediate delivery
+ * only — and passing every Phase 4 filter above. "Not yet answered" is
+ * usually forever (ask-once), but if repeat_interval_days is set, a past
+ * response only excludes them until that many days have passed — this is
+ * how a recurring pulse (e.g. a bi-weekly "how's it going") re-asks instead
+ * of being answered once and never shown again. Raw SQL for the NOT EXISTS
+ * checks, matching this codebase's existing convention of dropping to
+ * $queryRaw for this class of query (see forms.controller.ts). Records an
+ * impression when a match is returned.
  */
 export async function getActivePrompt(
     audience: SubmitterType,
@@ -125,6 +129,10 @@ export async function getActivePrompt(
               SELECT 1 FROM insights
               WHERE insights.prompt_id = insight_prompts.id
                 AND insights.submitted_by_id = ${submitterId}
+                AND (
+                    insight_prompts.repeat_interval_days IS NULL
+                    OR insights.created_at > NOW() - make_interval(days => insight_prompts.repeat_interval_days)
+                )
           )
           ${phase4EligibilityFragment(audience, workspaceId, submitterId)}
         ORDER BY created_at DESC
@@ -393,7 +401,7 @@ export interface NewPromptInput {
     workspaceId: string | null;
     questionEn: string;
     questionAr?: string | null;
-    responseType: 'rating' | 'multiple_choice' | 'text';
+    responseType: 'rating' | 'multiple_choice' | 'text' | 'rating_with_text';
     options?: unknown;
     targetAudience: 'user' | 'client' | 'everyone';
     /** Phase 3: set for a contextual prompt, omit/null for the Phase 2 manual/immediate kind. */
@@ -402,6 +410,8 @@ export interface NewPromptInput {
     startsAt?: Date | null;
     endsAt?: Date | null;
     maxShowsPerUser?: number | null;
+    /** Re-ask cadence in days (e.g. 14 for bi-weekly) instead of the default ask-once-ever behavior — see getActivePrompt. */
+    repeatIntervalDays?: number | null;
     /** Opts this prompt out of the "one active question at a time" exclusivity entirely — for running a deliberate multi-campaign research push. */
     allowConcurrent?: boolean;
     /** Non-empty = target exactly these workspaces instead of the single workspaceId-or-platform-wide rule. */
@@ -462,6 +472,7 @@ export async function activatePrompt(input: NewPromptInput, actorId: string): Pr
                 ends_at: input.endsAt ?? null,
                 max_shows_per_user: input.maxShowsPerUser ?? null,
                 allow_concurrent: input.allowConcurrent ?? false,
+                repeat_interval_days: input.repeatIntervalDays ?? null,
             },
         });
 
@@ -703,7 +714,7 @@ export async function getPromptFunnel(promptId: string): Promise<PromptFunnel> {
         completionRate: sent > 0 ? completed / sent : 0,
     };
 
-    if (prompt.response_type === 'rating') {
+    if (prompt.response_type === 'rating' || prompt.response_type === 'rating_with_text') {
         const ratings = responses.map((r) => r.rating_value).filter((v): v is number => v != null);
         funnel.rating = {
             average: ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,

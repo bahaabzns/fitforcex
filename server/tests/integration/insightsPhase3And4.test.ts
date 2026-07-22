@@ -233,3 +233,87 @@ describe('Insights System — Phase 4 (research platform)', () => {
         expect(analytics.body.rating.average).toBe(9);
     });
 });
+
+describe('Insights System — rating_with_text response type', () => {
+    test('rejects a response with no ratingValue, accepts one with an optional note, accepts one with no note', async () => {
+        const { cookie } = await makeClientFixture();
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'How has it been going?', responseType: 'rating_with_text', targetAudience: 'client' },
+            'admin-1',
+        );
+
+        const missingRating = await request.post(`/api/client-portal/prompts/${prompt.id}/respond`).set('Cookie', cookie).send({ textValue: 'no rating here' });
+        expect(missingRating.status).toBe(400);
+
+        const withNote = await request.post(`/api/client-portal/prompts/${prompt.id}/respond`).set('Cookie', cookie).send({ ratingValue: 7, textValue: 'a bit slow lately' });
+        expect(withNote.status).toBe(201);
+        expect(withNote.body.rating_value).toBe(7);
+        expect(withNote.body.text_value).toBe('a bit slow lately');
+
+        const withoutNote = await request.post(`/api/client-portal/prompts/${prompt.id}/respond`).set('Cookie', cookie).send({ ratingValue: 5 });
+        expect(withoutNote.status).toBe(201);
+        expect(withoutNote.body.rating_value).toBe(5);
+        expect(withoutNote.body.text_value).toBeNull();
+    });
+
+    test('the analytics funnel buckets rating_with_text the same way as a plain rating', async () => {
+        const { cookie } = await makeClientFixture();
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Pulse check', responseType: 'rating_with_text', targetAudience: 'client' },
+            'admin-1',
+        );
+        await request.post(`/api/client-portal/prompts/${prompt.id}/respond`).set('Cookie', cookie).send({ ratingValue: 3, textValue: 'rough week' });
+
+        const analytics = await request.get(`/api/admin/prompts/${prompt.id}/analytics`).set('Cookie', makeAdminCookie());
+        expect(analytics.body.rating.detractors).toBe(1);
+        expect(analytics.body.rating.average).toBe(3);
+    });
+});
+
+describe('Insights System — repeat_interval_days (recurring pulse prompts)', () => {
+    test('without repeat_interval_days, answering excludes the submitter forever', async () => {
+        const { cookie } = await makeClientFixture();
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Ask-once pulse', responseType: 'rating', targetAudience: 'client' },
+            'admin-1',
+        );
+        await request.post(`/api/client-portal/prompts/${prompt.id}/respond`).set('Cookie', cookie).send({ ratingValue: 8 });
+
+        const after = await request.get('/api/client-portal/prompts/active').set('Cookie', cookie);
+        expect(after.body).toBeNull();
+    });
+
+    test('with repeat_interval_days, the submitter is excluded only until the interval elapses', async () => {
+        const { cookie } = await makeClientFixture();
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Bi-weekly pulse', responseType: 'rating', targetAudience: 'client', repeatIntervalDays: 14 },
+            'admin-1',
+        );
+
+        const before = await request.get('/api/client-portal/prompts/active').set('Cookie', cookie);
+        expect(before.body?.id).toBe(prompt.id);
+
+        const respond = await request.post(`/api/client-portal/prompts/${prompt.id}/respond`).set('Cookie', cookie).send({ ratingValue: 8 });
+        expect(respond.status).toBe(201);
+
+        const justAfter = await request.get('/api/client-portal/prompts/active').set('Cookie', cookie);
+        expect(justAfter.body).toBeNull();
+
+        // Simulate 15 days passing since the response was recorded.
+        await testPrisma.insights.update({
+            where: { id: respond.body.id },
+            data: { created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
+        });
+
+        const afterInterval = await request.get('/api/client-portal/prompts/active').set('Cookie', cookie);
+        expect(afterInterval.body?.id).toBe(prompt.id);
+    });
+
+    test('rejects repeatIntervalDays on a contextual prompt — getPromptForTrigger has no repeat logic, so it would silently never recur', async () => {
+        const res = await request.post('/api/admin/prompts').set('Cookie', makeAdminCookie()).send({
+            questionEn: 'Contextual with a bogus repeat', responseType: 'text', targetAudience: 'client',
+            triggerEvent: 'first_checkin_completed', repeatIntervalDays: 14,
+        });
+        expect(res.status).toBe(400);
+    });
+});
