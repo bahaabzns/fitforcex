@@ -445,6 +445,36 @@ export function useTrainingPlan(clientId) {
         markPlanDirty(selectedPlan.id);
     }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
 
+    const handleReplaceExercise = useCallback((dayId, exerciseId, libraryItem) => {
+        if (!selectedPlan || !libraryItem) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => {
+                        if (String(e.id) !== String(exerciseId)) return e;
+                        return {
+                            ...e,
+                            name: libraryItem.name_en,
+                            library_name_en: libraryItem.name_en ?? null,
+                            library_name_ar: libraryItem.name_ar ?? null,
+                            equipment: libraryItem.equipment ?? "",
+                            exercise_library_id: libraryItem.id ?? null,
+                            thumbnail_path: libraryItem.thumbnail_path ?? null,
+                            video_path: libraryItem.video_path ?? null,
+                            youtube_url: libraryItem.youtube_url ?? null,
+                            muscle_group: libraryItem.muscle_group ?? null,
+                        };
+                    }),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
     const handleDeleteExercise = useCallback((dayId, exerciseId) => {
         if (!selectedPlan) return;
         const nextPlan = {
@@ -769,6 +799,7 @@ export function useTrainingPlan(clientId) {
         handleUpdateDayNotes,
         handleAddExercise,
         handleAddMultipleExercises,
+        handleReplaceExercise,
         handleDeleteExercise,
         handleUpdateExerciseNotes,
         handleAddSet,

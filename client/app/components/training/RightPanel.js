@@ -13,6 +13,7 @@ import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
+import Typography from "@/app/components/Typography";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
 
 const SET_INPUT_CLASS = "h-6 px-1.5 py-0 text-sm font-semibold text-center shadow-none w-full !rounded";
@@ -68,6 +69,12 @@ const LayersIcon = () => (
         <path d="M2 12l10 5 10-5"/>
     </svg>
 );
+const SwapIcon = ({ size = 14 }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/>
+        <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
+    </svg>
+);
 const TrendingUpIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
@@ -79,6 +86,7 @@ export default function RightPanel({
     selectedDay,
     handleAddExercise,
     handleAddMultipleExercises,
+    handleReplaceExercise,
     handleDeleteExercise,
     handleUpdateExerciseNotes,
     handleReorderExercises,
@@ -102,6 +110,7 @@ export default function RightPanel({
     const [videoModalId, setVideoModalId] = useState(null);
     const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
     const [insightsExercise, setInsightsExercise] = useState(null);
+    const [replacingExerciseId, setReplacingExerciseId] = useState(null);
 
     const toggleExercise = (exercise) => {
         const key = exercise.exercise_library_id ?? exercise.id;
@@ -152,6 +161,18 @@ export default function RightPanel({
                 open={showPicker}
                 onClose={() => setShowPicker(false)}
                 onAddExercises={(items) => { handleAddMultipleExercises(selectedDay.id, items); setShowPicker(false); }}
+            />
+
+            <ExercisePickerModal
+                open={!!replacingExerciseId}
+                onClose={() => setReplacingExerciseId(null)}
+                single
+                title={t('replaceExercise')}
+                confirmLabel={t('replaceExercise')}
+                onAddExercises={(items) => {
+                    if (items[0]) handleReplaceExercise(selectedDay.id, replacingExerciseId, items[0]);
+                    setReplacingExerciseId(null);
+                }}
             />
 
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
@@ -289,6 +310,13 @@ export default function RightPanel({
                                                         </button>
                                                     )}
                                                     <button
+                                                        onClick={(e) => { e.stopPropagation(); setReplacingExerciseId(exercise.id); }}
+                                                        className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                        title={t('replaceExercise')}
+                                                    >
+                                                        <SwapIcon size={16} />
+                                                    </button>
+                                                    <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
                                                         className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                                         title={t('deleteExercise')}
@@ -303,7 +331,7 @@ export default function RightPanel({
                                             <div className="px-3 pb-4 pt-0 flex flex-col gap-0">
                                                 {/* Sets header */}
                                                 <div className="flex items-center justify-between py-2 mt-2 mb-3 border-b border-border/20">
-                                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('sets')}</span>
+                                                    <Typography as="span" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">{t('sets')}</Typography>
                                                     <button
                                                         title={t('addSet')}
                                                         onClick={() => handleAddSet(selectedDay.id, exercise.id)}

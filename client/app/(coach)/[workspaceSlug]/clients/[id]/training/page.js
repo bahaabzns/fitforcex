@@ -14,6 +14,7 @@ import ConfigureActivationModal from "@/app/components/ConfigureActivationModal"
 import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
+import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const { id, workspaceSlug } = useParams();
@@ -100,6 +101,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         handleReorderDays,
         handleAddExercise,
         handleAddMultipleExercises,
+        handleReplaceExercise,
         handleDeleteExercise,
         handleUpdateExerciseNotes,
         handleReorderExercises,
@@ -270,6 +272,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
             selectedDay={selectedDay}
             handleAddExercise={handleAddExercise}
             handleAddMultipleExercises={handleAddMultipleExercises}
+            handleReplaceExercise={handleReplaceExercise}
             handleDeleteExercise={handleDeleteExercise}
             handleUpdateExerciseNotes={handleUpdateExerciseNotes}
             handleReorderExercises={handleReorderExercises}
@@ -290,6 +293,12 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
 
     return (
         <div className="flex-1 h-full min-h-full flex flex-col overflow-hidden">
+            <div className="shrink-0 px-3 pt-3">
+                <TriggerInsightBannerGroup
+                    basePath="/api/insights"
+                    events={["first_training_plan_created", "first_training_plan_activated"]}
+                />
+            </div>
             <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
                 <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>
                     <LeftPanel

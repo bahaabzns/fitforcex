@@ -30,7 +30,7 @@ function getPageNumbers(currentPage, totalPages) {
     return pages;
 }
 
-export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
+export default function ExercisePickerModal({ open, onClose, onAddExercises, single = false, title, confirmLabel }) {
     const t = useTranslations('training');
     const tFilter = useTranslations('filter');
     const [items, setItems] = useState([]);
@@ -88,6 +88,10 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const visibleSelectedKeys = new Set([...selectedIds].filter(id => pageIdSet.has(id)));
 
     const handleTableSelectionChange = (keys) => {
+        if (single) {
+            setSelectedIds(keys === "all" ? new Set() : new Set(keys));
+            return;
+        }
         setSelectedIds(prev => {
             const outsidePage = new Set([...prev].filter(id => !pageIdSet.has(id)));
             if (keys === "all") {
@@ -104,12 +108,12 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
 
     const handleExerciseCreated = (created) => {
         setItems((prev) => [created, ...prev]);
-        setSelectedIds((prev) => new Set([...prev, String(created.id)]));
+        setSelectedIds((prev) => single ? new Set([String(created.id)]) : new Set([...prev, String(created.id)]));
         setShowCreateForm(false);
     };
 
     return (
-        <Modal open={open} onClose={onClose} title={t('addExercises')} wide>
+        <Modal open={open} onClose={onClose} title={title ?? t('addExercises')} wide>
             <div className="flex flex-col gap-3 p-2">
 
                 {/* Search row: field + muscle group dropdown + equipment dropdown + result count */}
@@ -207,19 +211,21 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                     <Table>
                         <Table.ScrollContainer>
                             <Table.Content
-                                aria-label={t('addExercises')}
-                                selectionMode="multiple"
+                                aria-label={title ?? t('addExercises')}
+                                selectionMode={single ? "single" : "multiple"}
                                 selectionBehavior="toggle"
                                 selectedKeys={visibleSelectedKeys}
                                 onSelectionChange={handleTableSelectionChange}
                             >
                                 <Table.Header>
                                     <Table.Column id="select" className="w-8 p-2">
-                                        <Checkbox aria-label="Select all" slot="selection">
-                                            <Checkbox.Control>
-                                                <Checkbox.Indicator />
-                                            </Checkbox.Control>
-                                        </Checkbox>
+                                        {!single && (
+                                            <Checkbox aria-label="Select all" slot="selection">
+                                                <Checkbox.Control>
+                                                    <Checkbox.Indicator />
+                                                </Checkbox.Control>
+                                            </Checkbox>
+                                        )}
                                     </Table.Column>
                                     <Table.Column id="exercise" isRowHeader>{t('exerciseCol')}</Table.Column>
                                     <Table.Column id="muscleGroup">{t('muscleGroupCol')}</Table.Column>
@@ -338,7 +344,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                             onPress={handleConfirm}
                             isDisabled={selectedIds.size === 0}
                         >
-                            {tFilter('addSelected')}
+                            {confirmLabel ?? tFilter('addSelected')}
                         </Button>
                     </div>
                 </div>
