@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-const WHATSAPP_URL = "https://wa.me/201017979636?text=Hello!%20I'm%20interested%20in%20FitForce.";
+const WHATSAPP_URL = "https://wa.me/201501233314?text=Hello!%20I'm%20interested%20in%20FitForce.";
 
 export default function LandingWhatsAppButton() {
     const t = useTranslations("landing.whatsapp");

@@ -1030,6 +1030,119 @@
       }
     }
   },
+  "aboutUs": {
+    "backToHome": "Back to Home",
+    "title": "About Us",
+    "intro": "FitForce is a coaching platform built to help fitness professionals run their entire business — training, nutrition, client communication, and billing — from one place.",
+    "sections": {
+      "ourStory": {
+        "heading": "Our Story",
+        "body": "FitForce was founded by Dr. Bahaa to solve a problem he saw firsthand: coaches spending more time on spreadsheets, PDFs, and scattered messages than on actually coaching. FitForce brings training plans, nutrition programs, client check-ins, and payments into a single platform built specifically for fitness professionals."
+      },
+      "whatWeDo": {
+        "heading": "What We Do",
+        "intro": "FitForce gives coaches everything they need to manage and grow their coaching business:",
+        "items": [
+          "Training and nutrition plan builders",
+          "A dedicated client portal for check-ins, progress tracking, and messaging",
+          "Subscription and billing management",
+          "Team and workspace tools for coaching businesses of any size"
+        ]
+      },
+      "ourCompany": {
+        "heading": "Our Company",
+        "body": "FitForce is operated by Codecture for Software, registered and based in Cairo, Egypt."
+      },
+      "contactUs": {
+        "heading": "Get in Touch",
+        "body": "Have a question or want to learn more? Visit our Contact page or reach us at:",
+        "email": "support@fitforce.app"
+      }
+    }
+  },
+  "contactUs": {
+    "backToHome": "Back to Home",
+    "title": "Contact Us",
+    "intro": "We're here to help. Reach out through any of the channels below and our team will get back to you.",
+    "sections": {
+      "email": {
+        "heading": "Email",
+        "body": "For support, billing, or general inquiries:"
+      },
+      "phone": {
+        "heading": "Phone (Egypt)",
+        "body": "Call or WhatsApp us:"
+      },
+      "address": {
+        "heading": "Business Address",
+        "body": "Codecture for Software",
+        "value": "Al-Nuzha, Unit G, 5th Floor, Main Sea Street, Sheraton, Cairo, Egypt"
+      },
+      "supportHours": {
+        "heading": "Support Hours",
+        "body": "We offer support every day except Fridays, from 10 AM to 7 PM (Cairo time)."
+      }
+    }
+  },
+  "refundPolicy": {
+    "backToHome": "Back to Home",
+    "title": "Refund & Cancellation Policy",
+    "effectiveDate": "Effective Date: 22 Jul, 2026",
+    "intro": "This policy explains how subscriptions, cancellations, and refunds work on FitForce.",
+    "sections": {
+      "subscription": {
+        "heading": "Subscription & Billing",
+        "body": "FitForce offers a free plan for coaches managing up to 3 clients — no credit card required, no time limit. If you need to manage more than 3 clients or want additional features, you can upgrade to a paid plan at any time. Paid subscriptions are billed in advance for the plan and billing cycle you select."
+      },
+      "cancellation": {
+        "heading": "Cancellation",
+        "body": "You can cancel your subscription at any time from your account settings, or by contacting us. Cancellation stops future billing — your access continues until the end of the billing period you've already paid for, after which your account will not be renewed or charged again."
+      },
+      "refunds": {
+        "heading": "Refunds",
+        "intro": "Because FitForce is a digital service delivered immediately upon payment, payments already processed are generally non-refundable. Exceptions are made for:",
+        "items": [
+          "A duplicate or accidental charge",
+          "A verified billing error on our part",
+          "A technical failure that prevented you from accessing the service you paid for"
+        ]
+      },
+      "howToRequest": {
+        "heading": "How to Request a Cancellation or Refund",
+        "body": "Contact us with your account email and, if applicable, your payment reference, and we'll review your request as quickly as possible."
+      },
+      "contactUs": {
+        "heading": "Contact Us",
+        "body": "For billing questions, contact us at:",
+        "email": "support@fitforce.app"
+      }
+    }
+  },
+  "deliveryPolicy": {
+    "backToHome": "Back to Home",
+    "title": "Delivery & Shipment Policy",
+    "effectiveDate": "Effective Date: 22 Jul, 2026",
+    "intro": "FitForce is a fully digital software-as-a-service platform. We do not sell or ship any physical products, so this policy explains how digital access is delivered instead.",
+    "sections": {
+      "digitalDelivery": {
+        "heading": "Digital Delivery",
+        "body": "Access to FitForce is granted electronically. As soon as your payment is confirmed, your subscription is activated automatically and you can log in and start using the platform immediately — there is no physical shipment, waiting period, or delivery fee."
+      },
+      "noPhysicalProducts": {
+        "heading": "No Physical Products",
+        "body": "FitForce does not manufacture, sell, or ship any physical goods. All features — training plans, nutrition programs, the client portal, and reporting tools — are delivered entirely online."
+      },
+      "accessIssues": {
+        "heading": "Access Issues",
+        "body": "If your payment was successful but you're unable to access your account, contact us and we'll resolve it as quickly as possible."
+      },
+      "contactUs": {
+        "heading": "Contact Us",
+        "body": "For access issues, contact us at:",
+        "email": "support@fitforce.app"
+      }
+    }
+  },
   "settings": {
     "pageTitle": "Settings",
     "pageDescription": "Manage your account, workspace and subscription.",
@@ -2192,7 +2305,7 @@
     },
     "pricing": {
       "title": "Choose Your Plan",
-      "subtitle": "All prices include tax. Start with a free trial.",
+      "subtitle": "All prices include tax. Free to start, up to 3 clients.",
       "mostPopular": "Most Popular",
       "currentPlan": "Current Plan",
       "loadError": "Could not load pricing. Please refresh."
@@ -2204,19 +2317,19 @@
       "founderTitle": "Founder & CEO, FitForce",
       "quote": "I built FitForce because I believe every coach deserves tools that empower them, not limit them. If FitForce doesn't transform how you manage your coaching business within 7 days, I want to hear from you personally.",
       "guarantees": [
-        "No credit card required for your 7-day trial — start risk-free today",
+        "Free to start — manage up to 3 clients with no credit card required",
         "Cancel anytime with one click — no questions asked, no hidden fees",
-        "Unlimited clients from day one — grow without worrying about caps or extra charges"
+        "Upgrade only when you're ready — unlock unlimited clients on any paid plan"
       ],
-      "cta": "Start Your Free Trial"
+      "cta": "Get Started Free"
     },
     "faq": {
       "title": "Frequently Asked Questions",
       "subtitle": "Everything you need to know about FitForce",
       "stillHaveQuestions": "Still have questions? Chat with our team →",
-      "q1": { "question": "How does the free trial work?", "answer": "Start with a 7-day free trial with full access to all features. No credit card required. Cancel anytime." },
+      "q1": { "question": "How does the free plan work?", "answer": "Start free with up to 3 clients — no credit card required. Need to manage more? Upgrade to a paid plan anytime." },
       "q2": { "question": "Can I cancel anytime?", "answer": "Yes, you can cancel your subscription at any time. No long-term contracts or cancellation fees." },
-      "q3": { "question": "How many clients can I add?", "answer": "All plans include unlimited clients. Scale your business without worrying about additional fees." },
+      "q3": { "question": "How many clients can I add?", "answer": "The free plan supports up to 3 clients. Upgrade to a paid plan for unlimited clients and scale your business without worrying about caps." },
       "q4": { "question": "Is the client portal branded?", "answer": "Yes, Team Force and Enterprise plans include custom branding options for the client portal and mobile app." },
       "q6": { "question": "What are your support hours?", "answer": "We offer WhatsApp support all days of the week except Fridays from 10 AM to 7 PM. Enterprise clients get 24/7 phone support." },
       "q7": { "question": "Can I import my existing clients?", "answer": "Yes, we provide easy import tools to bring in your existing client data from spreadsheets or other platforms." },
@@ -2231,25 +2344,50 @@
       "features": "Features",
       "pricing": "Pricing",
       "about": "About",
-      "careers": "Careers",
-      "blog": "Blog",
-      "helpCenter": "Help Center",
       "contact": "Contact",
-      "terms": "Terms of Service",
       "privacy": "Privacy Policy",
-      "cookiePolicy": "Cookie Policy",
+      "refundPolicy": "Refund & Cancellation Policy",
+      "deliveryPolicy": "Delivery & Shipment Policy",
       "clientPortal": "Client Portal",
       "dashboard": "Dashboard",
-      "email": "support@fitforce.io",
+      "email": "support@fitforce.app",
       "copyright": "© {year} FitForce. All rights reserved.",
       "ctaTitle": "Ready to Transform Your Coaching Business?",
       "ctaSubtitle": "Join the coaches who trust FitForce to manage their clients and grow their business.",
-      "startTrial": "Start Free Trial",
+      "startTrial": "Start for Free",
       "talkToSales": "Talk to Sales",
       "guarantees": "✓ No credit card required • ✓ Cancel anytime"
     },
     "whatsapp": {
       "chatWithUs": "Chat with us!"
+    }
+  },
+  "insights": {
+    "navLabel": "Feedback",
+    "entry": {
+      "title": "Send feedback",
+      "typeBug": "Report a bug",
+      "typeFeatureRequest": "Suggest a feature",
+      "typeRating": "Rate FitForce",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "What happened, or what would you like to see?",
+      "ratingLabel": "How would you rate it, 1 to 10?",
+      "screenshotLabel": "Screenshot (optional)",
+      "screenshotUploading": "Uploading…",
+      "screenshotRemove": "Remove",
+      "submit": "Send",
+      "submitting": "Sending…",
+      "sentTitle": "Thanks — got it",
+      "sentBody": "We'll let you know if this leads to a change.",
+      "errorDescriptionRequired": "Please add a description",
+      "errorRatingRequired": "Please choose a rating",
+      "errorSubmitFailed": "Could not send this. Please try again."
+    },
+    "banner": {
+      "quickQuestion": "Quick question",
+      "submit": "Send",
+      "dismiss": "Not now",
+      "thanks": "Thanks for the feedback!"
     }
   }
 }

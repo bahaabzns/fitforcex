@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 
-const WHATSAPP_URL = "https://wa.me/201017979636?text=Hello!%20I'm%20interested%20in%20FitForce.";
+const WHATSAPP_URL = "https://wa.me/201501233314?text=Hello!%20I'm%20interested%20in%20FitForce.";
 
 // lucide-react doesn't ship brand/social icons — inline glyphs instead.
 function TwitterIcon(props) {
@@ -47,20 +47,17 @@ export default function LandingFooter({ dashboardUrl }) {
     ];
 
     const companyLinks = [
-        { label: t("about"), href: "#" },
-        { label: t("blog"), href: "#" },
-        { label: t("careers"), href: "#" },
+        { label: t("about"), href: "/about" },
     ];
 
     const supportLinks = [
-        { label: t("helpCenter"), href: "#" },
-        { label: t("contact"), href: WHATSAPP_URL },
+        { label: t("contact"), href: "/contact" },
     ];
 
     const legalLinks = [
         { label: t("privacy"), href: "/privacy" },
-        { label: t("terms"), href: "#" },
-        { label: t("cookiePolicy"), href: "#" },
+        { label: t("refundPolicy"), href: "/refund-policy" },
+        { label: t("deliveryPolicy"), href: "/delivery-policy" },
     ];
 
     return (
