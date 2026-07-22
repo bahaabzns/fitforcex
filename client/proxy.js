@@ -5,6 +5,11 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'fitforce.app';
 // Subdomains that are NOT coach slugs — route normally
 const RESERVED = new Set(['my', 'admin', 'www', 'api', 'mail', 'smtp']);
 
+// Local dev root domains where the incoming port must be preserved on
+// subdomain redirects (see the port-setter comment below) — 'localhost' for
+// plain dev, 'lvh.me' for subdomain smoke-testing (see client/.env.local).
+const LOCAL_DEV_ROOT_DOMAINS = new Set(['localhost', 'lvh.me']);
+
 export function proxy(request) {
     const host = request.headers.get('host') || '';
     const hostname = host.split(':')[0]; // strip port if present
@@ -38,7 +43,7 @@ export function proxy(request) {
             // was on the incoming request (e.g. an internal 3000 behind the
             // reverse proxy) and leak it into the production redirect.
             url.hostname = `my.${ROOT_DOMAIN}`;
-            url.port = ROOT_DOMAIN === 'localhost' ? url.port : '';
+            url.port = LOCAL_DEV_ROOT_DOMAINS.has(ROOT_DOMAIN) ? url.port : '';
             return NextResponse.redirect(url);
         }
         return NextResponse.next();
@@ -48,7 +53,7 @@ export function proxy(request) {
     if (pathname.startsWith('/admin') && subdomain !== 'admin') {
         const url = request.nextUrl.clone();
         url.hostname = `admin.${ROOT_DOMAIN}`;
-        url.port = ROOT_DOMAIN === 'localhost' ? url.port : '';
+        url.port = LOCAL_DEV_ROOT_DOMAINS.has(ROOT_DOMAIN) ? url.port : '';
         return NextResponse.redirect(url);
     }
 
