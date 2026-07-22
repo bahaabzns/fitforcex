@@ -8,6 +8,7 @@ import { Card } from "@heroui/react/card";
 import api from "@/lib/axios";
 import { getLocalizedField } from "@/utils/localization";
 import Typography from "@/app/components/Typography";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 
 const KIND_ICON = {
     pending_form: ClipboardList,
@@ -79,9 +80,18 @@ export default function ActionNeeded() {
 
     return (
         <section className="flex flex-col gap-2">
-            <Typography as="h2" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">
-                {t("actionNeeded")}
-            </Typography>
+            <NewFeatureTooltip
+                featureKey="action_needed_hint"
+                active
+                message={t("actionNeededHint")}
+                dismissLabel={t("actionNeededHintDismiss")}
+                badgeLabel={t("actionNeededNewFeature")}
+                triggerClassName="inline-flex w-fit cursor-pointer"
+            >
+                <Typography as="h2" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">
+                    {t("actionNeeded")}
+                </Typography>
+            </NewFeatureTooltip>
             <div className="flex flex-col gap-1.5">
                 {items.map(item => {
                     const Icon = iconFor(item);

@@ -14,6 +14,7 @@ import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
 import Typography from "@/app/components/Typography";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
 
 const SET_INPUT_CLASS = "h-6 px-1.5 py-0 text-sm font-semibold text-center shadow-none w-full !rounded";
@@ -309,13 +310,23 @@ export default function RightPanel({
                                                             )}
                                                         </button>
                                                     )}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setReplacingExerciseId(exercise.id); }}
-                                                        className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                                                        title={t('replaceExercise')}
-                                                    >
-                                                        <SwapIcon size={16} />
-                                                    </button>
+                                                    {/* NewFeatureTooltip's trigger click handler doesn't
+                                                        receive the event, so stopPropagation is applied on
+                                                        this wrapping span instead — it still runs before the
+                                                        click bubbles up to the row's onClick (toggle expand). */}
+                                                    <span title={t('replaceExercise')} onClick={(e) => e.stopPropagation()}>
+                                                        <NewFeatureTooltip
+                                                            featureKey="replace_exercise_hint"
+                                                            active={originalIndex === 0}
+                                                            message={t('replaceExerciseHint')}
+                                                            dismissLabel={t('replaceExerciseHintDismiss')}
+                                                            badgeLabel={t('replaceExerciseNewFeature')}
+                                                            onTriggerClick={() => setReplacingExerciseId(exercise.id)}
+                                                            triggerClassName="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                        >
+                                                            <SwapIcon size={16} />
+                                                        </NewFeatureTooltip>
+                                                    </span>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
                                                         className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"

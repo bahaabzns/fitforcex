@@ -8,6 +8,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { Avatar } from "@heroui/react/avatar";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -93,9 +94,14 @@ export default function ClientProfilePage() {
             </div>
 
             {/* Feedback entry point — opt-in only, never a popup */}
-            <button
-                onClick={() => setFeedbackOpen(true)}
-                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-secondary cursor-pointer"
+            <NewFeatureTooltip
+                featureKey="feedback_entry_hint"
+                active
+                message={tInsights('hint')}
+                dismissLabel={tInsights('hintDismiss')}
+                badgeLabel={tInsights('newFeature')}
+                onTriggerClick={() => setFeedbackOpen(true)}
+                triggerClassName="flex items-center justify-between px-4 py-3 rounded-2xl bg-secondary cursor-pointer"
             >
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                     <MessageSquarePlus size={16} className="text-muted-foreground" />
@@ -104,7 +110,7 @@ export default function ClientProfilePage() {
                 {isRTL
                     ? <ChevronLeft size={16} className="text-muted-foreground" />
                     : <ChevronRight size={16} className="text-muted-foreground" />}
-            </button>
+            </NewFeatureTooltip>
 
             <FeedbackEntryModal
                 open={feedbackOpen}

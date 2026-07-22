@@ -27,6 +27,7 @@ import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
 import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import InsightBanner from "@/app/components/insights/InsightBanner";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 
 function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
@@ -242,15 +243,17 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
-                            <Button
-                                isIconOnly
-                                size="sm"
-                                variant="ghost"
-                                title={tInsights('navLabel')}
-                                onClick={() => setFeedbackOpen(true)}
+                            <NewFeatureTooltip
+                                featureKey="feedback_entry_hint"
+                                active
+                                message={tInsights('hint')}
+                                dismissLabel={tInsights('hintDismiss')}
+                                badgeLabel={tInsights('newFeature')}
+                                onTriggerClick={() => setFeedbackOpen(true)}
+                                triggerClassName="button button--icon-only button--sm button--ghost"
                             >
-                                <MessageSquarePlus size={16} />
-                            </Button>
+                                <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
+                            </NewFeatureTooltip>
                             <NotificationBell />
                             <ThemeToggle />
                             <LanguageSwitcher />

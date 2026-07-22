@@ -13,6 +13,7 @@ import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import AnswerEditHistory from "@/app/components/forms/AnswerEditHistory";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 
 export default function ClientFillFormPage() {
     const t = useTranslations('portal.forms');
@@ -127,6 +128,11 @@ export default function ClientFillFormPage() {
 
     const inputCls = "w-full px-3 py-2 rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground text-sm outline-none transition-colors hover:border-primary/40 disabled:bg-secondary disabled:text-muted-foreground";
 
+    // Gates the first-time "you can edit this" hint to the first editable
+    // question rendered — NewFeatureTooltip itself handles never showing it
+    // again after that (localStorage), same pattern as the food-swap hint.
+    let firstEditHintClaimed = false;
+
     return (
         <div className="max-w-2xl mx-auto p-6">
             {/* Page header */}
@@ -167,6 +173,8 @@ export default function ClientFillFormPage() {
                 {data.questions.map((q, index) => {
                     const response = responseByQuestion[q.id];
                     const locked = isSubmitted && editingQuestionId !== q.id;
+                    const isFirstEditableQuestion = isSubmitted && !firstEditHintClaimed;
+                    if (isFirstEditableQuestion) firstEditHintClaimed = true;
                     return (
                     <Card key={q.id}>
                         <Card.Content className="p-6 flex flex-col gap-2">
@@ -302,10 +310,17 @@ export default function ClientFillFormPage() {
                                             </button>
                                         </>
                                     ) : (
-                                        <button type="button" onClick={() => startEdit(q)}
-                                            className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors cursor-pointer">
+                                        <NewFeatureTooltip
+                                            featureKey="edit_answer_hint"
+                                            active={isFirstEditableQuestion}
+                                            message={t('editHint')}
+                                            dismissLabel={t('editHintDismiss')}
+                                            badgeLabel={t('editHintNewFeature')}
+                                            onTriggerClick={() => startEdit(q)}
+                                            triggerClassName="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors cursor-pointer"
+                                        >
                                             {t('editAnswer')}
-                                        </button>
+                                        </NewFeatureTooltip>
                                     )}
                                 </div>
                             )}
