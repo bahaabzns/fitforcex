@@ -363,6 +363,56 @@ describe('Insights System — endPrompt only ever ends the one prompt it targets
     });
 });
 
+describe('Insights System — reactivating an ended prompt', () => {
+    test('reactivating a plain ended prompt with no competitors just flips it back to active', async () => {
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Solo prompt', responseType: 'text', targetAudience: 'everyone' },
+            'admin-1',
+        );
+        await insightsService.endPrompt(prompt.id);
+
+        const res = await request.patch(`/api/admin/prompts/${prompt.id}/reactivate`).set('Cookie', makeAdminCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe('active');
+        expect(res.body.ended_at).toBeNull();
+    });
+
+    test('reactivating re-runs the exclusivity gate — it ends whichever prompt currently holds the overlapping-audience slot', async () => {
+        const original = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Original manual prompt', responseType: 'text', targetAudience: 'user' },
+            'admin-1',
+        );
+        await insightsService.endPrompt(original.id);
+
+        const newer = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Newer manual prompt', responseType: 'text', targetAudience: 'everyone' },
+            'admin-1',
+        );
+
+        const res = await request.patch(`/api/admin/prompts/${original.id}/reactivate`).set('Cookie', makeAdminCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe('active');
+
+        const newerAfter = await testPrisma.insight_prompts.findUnique({ where: { id: newer.id } });
+        expect(newerAfter?.status).toBe('ended');
+    });
+
+    test('reactivating an already-active prompt is a harmless no-op', async () => {
+        const prompt = await insightsService.activatePrompt(
+            { workspaceId: null, questionEn: 'Already active', responseType: 'text', targetAudience: 'everyone' },
+            'admin-1',
+        );
+        const res = await request.patch(`/api/admin/prompts/${prompt.id}/reactivate`).set('Cookie', makeAdminCookie());
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe('active');
+    });
+
+    test('returns 404 for a nonexistent prompt id', async () => {
+        const res = await request.patch('/api/admin/prompts/not-a-real-id/reactivate').set('Cookie', makeAdminCookie());
+        expect(res.status).toBe(404);
+    });
+});
+
 describe('Insights System — editing a prompt question (content only)', () => {
     test('updates question_en/question_ar and leaves audience, trigger, response type, and status untouched', async () => {
         const prompt = await insightsService.activatePrompt(

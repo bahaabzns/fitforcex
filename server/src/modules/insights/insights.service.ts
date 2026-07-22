@@ -419,8 +419,16 @@ export interface NewPromptInput {
     conditions?: PromptCondition[];
 }
 
+interface ExclusivityScope {
+    triggerEvent: string | null;
+    targetAudience: string;
+    workspaceId: string | null;
+    allowConcurrent: boolean;
+}
+
 /**
- * Activates a new prompt. Exclusivity is scoped to how the prompt is
+ * Shared by activatePrompt (a new row) and reactivatePrompt (an existing row
+ * coming back from 'ended') — exclusivity is scoped to how the prompt is
  * delivered, not just its audience:
  *   - allowConcurrent skips exclusivity entirely — Phase 4's "run multiple
  *     campaigns at once" escape hatch.
@@ -433,27 +441,35 @@ export interface NewPromptInput {
  *     since they're shown at different moments, not competing for the same
  *     "one thing visible right now" slot.
  */
+async function endCompetingPrompts(tx: Prisma.TransactionClient, scope: ExclusivityScope): Promise<void> {
+    if (scope.allowConcurrent) return;
+    if (scope.triggerEvent) {
+        await tx.$executeRaw`
+            UPDATE insight_prompts
+            SET status = 'ended', ended_at = NOW()
+            WHERE status = 'active' AND trigger_event = ${scope.triggerEvent} AND allow_concurrent = false
+        `;
+    } else {
+        await tx.$executeRaw`
+            UPDATE insight_prompts
+            SET status = 'ended', ended_at = NOW()
+            WHERE status = 'active'
+              AND trigger_event IS NULL
+              AND allow_concurrent = false
+              AND (target_audience = ${scope.targetAudience} OR target_audience = 'everyone' OR ${scope.targetAudience} = 'everyone')
+              AND (workspace_id IS NULL OR ${scope.workspaceId}::text IS NULL OR workspace_id = ${scope.workspaceId})
+        `;
+    }
+}
+
 export async function activatePrompt(input: NewPromptInput, actorId: string): Promise<InsightPromptRow> {
     return prisma.$transaction(async (tx) => {
-        if (!input.allowConcurrent) {
-            if (input.triggerEvent) {
-                await tx.$executeRaw`
-                    UPDATE insight_prompts
-                    SET status = 'ended', ended_at = NOW()
-                    WHERE status = 'active' AND trigger_event = ${input.triggerEvent} AND allow_concurrent = false
-                `;
-            } else {
-                await tx.$executeRaw`
-                    UPDATE insight_prompts
-                    SET status = 'ended', ended_at = NOW()
-                    WHERE status = 'active'
-                      AND trigger_event IS NULL
-                      AND allow_concurrent = false
-                      AND (target_audience = ${input.targetAudience} OR target_audience = 'everyone' OR ${input.targetAudience} = 'everyone')
-                      AND (workspace_id IS NULL OR ${input.workspaceId}::text IS NULL OR workspace_id = ${input.workspaceId})
-                `;
-            }
-        }
+        await endCompetingPrompts(tx, {
+            triggerEvent: input.triggerEvent ?? null,
+            targetAudience: input.targetAudience,
+            workspaceId: input.workspaceId,
+            allowConcurrent: input.allowConcurrent ?? false,
+        });
 
         const id = createId();
         await tx.insight_prompts.create({
@@ -500,6 +516,35 @@ export async function endPrompt(id: string): Promise<void> {
     await prisma.insight_prompts.updateMany({
         where: { id, status: 'active' },
         data: { status: 'ended', ended_at: new Date() },
+    });
+}
+
+/**
+ * Reverses endPrompt. Runs the same exclusivity gate activatePrompt runs (scoped to
+ * this prompt's own trigger_event/target_audience/workspace_id/allow_concurrent) so
+ * bringing an old manual prompt back doesn't silently create two competing "active"
+ * prompts with an overlapping audience — it ends whichever one currently holds that
+ * slot, same as creating a new prompt would.
+ */
+export async function reactivatePrompt(id: string): Promise<InsightPromptRow> {
+    if (!id) throw Object.assign(new Error('reactivatePrompt requires a prompt id'), { status: 400 });
+    return prisma.$transaction(async (tx) => {
+        const prompt = await tx.insight_prompts.findUnique({ where: { id } });
+        if (!prompt) throw Object.assign(new Error('Prompt not found'), { status: 404 });
+        if (prompt.status === 'active') return prompt as unknown as InsightPromptRow;
+
+        await endCompetingPrompts(tx, {
+            triggerEvent: prompt.trigger_event,
+            targetAudience: prompt.target_audience,
+            workspaceId: prompt.workspace_id,
+            allowConcurrent: prompt.allow_concurrent,
+        });
+
+        const updated = await tx.insight_prompts.update({
+            where: { id },
+            data: { status: 'active', ended_at: null },
+        });
+        return updated as unknown as InsightPromptRow;
     });
 }
 

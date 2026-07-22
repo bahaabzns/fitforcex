@@ -373,6 +373,11 @@ export default function AdminPromptsPage() {
         fetchPrompts();
     }
 
+    async function handleReactivate(id) {
+        await api.patch(`/api/admin/prompts/${id}/reactivate`);
+        fetchPrompts();
+    }
+
     function startEdit(p) {
         setEditingId(p.id);
         setEditQuestionEn(p.question_en);
@@ -470,7 +475,7 @@ export default function AdminPromptsPage() {
                                     >
                                         <Pencil size={14} />
                                     </span>
-                                    {p.status === 'active' && (
+                                    {p.status === 'active' ? (
                                         <span
                                             role="button"
                                             tabIndex={0}
@@ -478,6 +483,15 @@ export default function AdminPromptsPage() {
                                             className="text-sm text-muted-foreground hover:text-foreground cursor-pointer px-2"
                                         >
                                             End
+                                        </span>
+                                    ) : (
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={(e) => { e.stopPropagation(); handleReactivate(p.id); }}
+                                            className="text-sm text-muted-foreground hover:text-foreground cursor-pointer px-2"
+                                        >
+                                            Reactivate
                                         </span>
                                     )}
                                     {expandedId === p.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}

@@ -165,6 +165,20 @@ export async function endPromptHandler(req: Request, res: Response, next: NextFu
     }
 }
 
+export async function reactivatePromptHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const id = req.params.id;
+    if (typeof id !== 'string' || id.trim().length === 0) {
+        res.status(400).json({ error: 'Prompt id is required' });
+        return;
+    }
+    try {
+        const prompt = await insightsService.reactivatePrompt(id);
+        res.json(prompt);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function updatePromptQuestion(req: Request, res: Response, next: NextFunction): Promise<void> {
     const id = req.params.id;
     if (typeof id !== 'string' || id.trim().length === 0) {

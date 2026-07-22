@@ -66,6 +66,18 @@ router.patch('/insights/:id', adminAuthMiddleware, adminController.triageInsight
  *     responses:
  *       200: { description: Prompt ended }
  *
+ * /admin/prompts/{id}/reactivate:
+ *   patch:
+ *     summary: Bring an ended prompt back to active (runs the same exclusivity gate as creating a new prompt)
+ *     tags: [Admin, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Prompt reactivated }
+ *       404: { description: Prompt not found }
+ *
  * /admin/prompts/{id}/analytics:
  *   get:
  *     summary: "Phase 4 — funnel (sent/started/completed) and response breakdown for a prompt"
@@ -94,6 +106,7 @@ router.patch('/insights/:id', adminAuthMiddleware, adminController.triageInsight
 router.get('/prompts',                adminAuthMiddleware, adminController.listPrompts);
 router.post('/prompts',               adminAuthMiddleware, adminController.createPrompt);
 router.patch('/prompts/:id/end',      adminAuthMiddleware, adminController.endPromptHandler);
+router.patch('/prompts/:id/reactivate', adminAuthMiddleware, adminController.reactivatePromptHandler);
 router.patch('/prompts/:id/question', adminAuthMiddleware, adminController.updatePromptQuestion);
 router.get('/prompts/:id/analytics',  adminAuthMiddleware, adminController.getPromptAnalytics);
 
