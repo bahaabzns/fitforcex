@@ -14,6 +14,7 @@ import { Tooltip } from "@heroui/react/tooltip";
 import ExerciseVideoPlayer from "@/app/components/training-mode/ExerciseVideoPlayer";
 import ClientExerciseInsightsModal from "@/app/components/training-mode/ClientExerciseInsightsModal";
 import ExerciseInstructionsModal from "@/app/components/training-mode/ExerciseInstructionsModal";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { planKey, setSeenPlanKey } from "@/lib/lastSeenStore";
 import { getActiveTrainingSession } from "@/lib/trainingSessionStore";
@@ -373,19 +374,19 @@ export default function ClientTrainingPage() {
                                                         </Button>
                                                         <Tooltip.Content>{t('progress')}</Tooltip.Content>
                                                     </Tooltip>
-                                                    <Tooltip>
-                                                        <Button
-                                                            isIconOnly
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            aria-label={t('instructions')}
-                                                            onClick={() => setInstructionsExercise(exercise)}
-                                                            className="shrink-0 text-muted-foreground"
+                                                    <span title={t('instructions')}>
+                                                        <NewFeatureTooltip
+                                                            featureKey="exercise_instructions_hint"
+                                                            active={exIdx === 0}
+                                                            message={t('instructionsHint')}
+                                                            dismissLabel={t('instructionsHintDismiss')}
+                                                            badgeLabel={t('instructionsNewFeature')}
+                                                            onTriggerClick={() => setInstructionsExercise(exercise)}
+                                                            triggerClassName="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-default hover:text-foreground transition-colors cursor-pointer"
                                                         >
                                                             <BookOpen className="w-4 h-4" />
-                                                        </Button>
-                                                        <Tooltip.Content>{t('instructions')}</Tooltip.Content>
-                                                    </Tooltip>
+                                                        </NewFeatureTooltip>
+                                                    </span>
                                                 </div>
 
                                                 {exercise.notes && (
@@ -434,14 +435,20 @@ export default function ClientTrainingPage() {
                 it always resumes its own day, blocking a second one from being started. */}
             {!noplan && trainingPlan && (
                 activeSession ? (
-                    <Link
-                        href={`/portal/training/session?day=${activeSession.day_index}`}
-                        className="fixed left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 px-5 py-2 bg-primary text-primary-foreground rounded-2xl shadow-lg hover:opacity-90 active:scale-95 transition-all"
-                        style={{ bottom: '4.5rem', zIndex: 30 }}
-                    >
-                        <span className="text-xs font-semibold leading-tight truncate max-w-40">{t('continueDay', { day: activeSession.day_name })}</span>
-                        <span className="text-sm font-bold tabular-nums leading-tight">{formatDuration(sessionElapsedSeconds)}</span>
-                    </Link>
+                    <div className="fixed left-1/2 -translate-x-1/2" style={{ bottom: '4.5rem', zIndex: 30 }}>
+                        <NewFeatureTooltip
+                            featureKey="resume_session_hint"
+                            active
+                            message={t('resumeSessionHint')}
+                            dismissLabel={t('resumeSessionHintDismiss')}
+                            badgeLabel={t('resumeSessionNewFeature')}
+                            onTriggerClick={() => router.push(`/portal/training/session?day=${activeSession.day_index}`)}
+                            triggerClassName="flex flex-col items-center gap-0.5 px-5 py-2 bg-primary text-primary-foreground rounded-2xl shadow-lg hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                        >
+                            <span className="text-xs font-semibold leading-tight truncate max-w-40">{t('continueDay', { day: activeSession.day_name })}</span>
+                            <span className="text-sm font-bold tabular-nums leading-tight">{formatDuration(sessionElapsedSeconds)}</span>
+                        </NewFeatureTooltip>
+                    </div>
                 ) : (
                     activeDay && (activeDay.exercises ?? []).length > 0 && (
                         <Link

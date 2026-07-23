@@ -10,6 +10,7 @@ import { Button } from "@heroui/react/button";
 import { Modal } from "@heroui/react/modal";
 import ExerciseLogCard from "@/app/components/training-mode/ExerciseLogCard";
 import RestTimerBar from "@/app/components/training-mode/RestTimerBar";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { formatDuration, completedSetCount } from "@/utils/workout";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { getActiveTrainingSession, saveTrainingSession, clearTrainingSession } from "@/lib/trainingSessionStore";
@@ -287,16 +288,19 @@ export default function TrainingSessionPage() {
         <div className="max-w-4xl mx-auto flex flex-col">
             {/* Sticky session header */}
             <div className="sticky top-14 z-30 bg-background px-6 pt-4 pb-3 flex items-center gap-3 border-b border-border">
-                <Button
-                    isIconOnly
-                    variant="ghost"
-                    size="sm"
-                    onClick={minimize}
-                    aria-label={t("minimizeSession")}
-                    className="shrink-0 text-muted-foreground"
-                >
-                    <ChevronDown className="w-5 h-5" />
-                </Button>
+                <span title={t("minimizeSession")}>
+                    <NewFeatureTooltip
+                        featureKey="minimize_session_hint"
+                        active
+                        message={t("minimizeSessionHint")}
+                        dismissLabel={t("minimizeSessionHintDismiss")}
+                        badgeLabel={t("minimizeSessionNewFeature")}
+                        onTriggerClick={minimize}
+                        triggerClassName="shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-muted-foreground hover:bg-default hover:text-foreground transition-colors cursor-pointer"
+                    >
+                        <ChevronDown className="w-5 h-5" />
+                    </NewFeatureTooltip>
+                </span>
                 <div className="flex-1 flex items-center justify-center min-w-0">
                     <span className="text-xl font-bold text-foreground tabular-nums leading-tight">{formatDuration(elapsedSeconds)}</span>
                 </div>
@@ -315,6 +319,7 @@ export default function TrainingSessionPage() {
                             exercise={exercise}
                             previous={previous[exercise.exercise_id]}
                             focusSetIndex={focusSetIndexFor(exIdx)}
+                            isFirstExercise={exIdx === 0}
                             onChangeSet={(setIdx, field, value) => changeSet(exIdx, setIdx, field, value)}
                             onToggleSet={(setIdx) => toggleSet(exIdx, setIdx)}
                             onChangeNote={(value) => changeNote(exIdx, value)}

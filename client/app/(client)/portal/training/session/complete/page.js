@@ -8,6 +8,7 @@ import { Button } from "@heroui/react/button";
 import { TextField } from "@heroui/react/textfield";
 import { TextArea } from "@heroui/react/textarea";
 import api from "@/lib/axios";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { formatDuration } from "@/utils/workout";
 import { getLocalizedField } from "@/utils/localization";
 import { playSuccessChime } from "@/utils/sound";
@@ -105,7 +106,14 @@ export default function SessionCompletePage() {
                     <p dir="auto" className="text-base font-semibold text-foreground">
                         {getLocalizedField(prompt, "question", locale)}
                     </p>
-                    <div className="flex items-center gap-1">
+                    <NewFeatureTooltip
+                        featureKey="rate_session_hint"
+                        active
+                        message={t("rateSessionHint")}
+                        dismissLabel={t("rateSessionHintDismiss")}
+                        badgeLabel={t("rateSessionNewFeature")}
+                        triggerClassName="flex items-center gap-1"
+                    >
                         {stars.map(n => (
                             <button
                                 key={n}
@@ -123,7 +131,7 @@ export default function SessionCompletePage() {
                                 />
                             </button>
                         ))}
-                    </div>
+                    </NewFeatureTooltip>
                     <TextField value={feedbackText} onChange={setFeedbackText} aria-label={t("feedbackPlaceholder")} variant="secondary" fullWidth>
                         <TextArea placeholder={t("feedbackPlaceholder")} dir={locale === "ar" ? "rtl" : "ltr"} rows={3} className="resize-none" />
                     </TextField>

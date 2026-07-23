@@ -14,6 +14,7 @@ import { formatDuration } from "@/utils/workout";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 
 export default function TrainingHistoryPage() {
     const t = useTranslations("portal.training");
@@ -87,7 +88,7 @@ export default function TrainingHistoryPage() {
                 </Card>
             ) : (
                 <div className="flex flex-col gap-2">
-                    {logs.map(log => (
+                    {logs.map((log, idx) => (
                         <Card key={log.id} className="px-4 py-4 gap-0 hover:border-primary/40 transition-colors">
                             <Card.Content
                                 className="flex flex-row items-center gap-3 cursor-pointer"
@@ -103,16 +104,19 @@ export default function TrainingHistoryPage() {
                                         {formatDuration(log.duration_seconds)} · {log.total_volume} {t("volumeUnit")} · {log.total_sets} {t("setsShort")}
                                     </p>
                                 </div>
-                                <Button
-                                    isIconOnly
-                                    variant="ghost"
-                                    size="sm"
-                                    aria-label={t("deleteLog")}
-                                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(log); }}
-                                    className="shrink-0 text-muted-foreground hover:text-danger"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
+                                <span title={t("deleteLog")} onClick={(e) => e.stopPropagation()}>
+                                    <NewFeatureTooltip
+                                        featureKey="delete_log_hint"
+                                        active={idx === 0}
+                                        message={t("deleteLogHint")}
+                                        dismissLabel={t("deleteLogHintDismiss")}
+                                        badgeLabel={t("deleteLogNewFeature")}
+                                        onTriggerClick={() => setDeleteTarget(log)}
+                                        triggerClassName="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-default hover:text-danger transition-colors cursor-pointer"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </NewFeatureTooltip>
+                                </span>
                                 {isRTL
                                     ? <ChevronLeft size={16} className="text-muted-foreground shrink-0" />
                                     : <ChevronRight size={16} className="text-muted-foreground shrink-0" />}

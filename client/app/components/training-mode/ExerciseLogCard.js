@@ -12,6 +12,7 @@ import ExerciseVideoPlayer from "./ExerciseVideoPlayer";
 import ExerciseNotesModal from "./ExerciseNotesModal";
 import ExerciseInstructionsModal from "./ExerciseInstructionsModal";
 import ClientExerciseInsightsModal from "./ClientExerciseInsightsModal";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { hasTempoValue, hasRirValue } from "@/utils/workout";
 
 const SET_ROW_COLS_BOTH     = "grid-cols-[24px_1fr_1fr_1fr_32px_40px_28px]";
@@ -25,7 +26,7 @@ const SET_ROW_COLS_NEITHER  = "grid-cols-[24px_1fr_1fr_1fr_28px]";
 // the session list's own spacing/dividers rather than a card container, so
 // the video, header and table read as one continuous section (matches the
 // mobile app's Training Mode, which deliberately dropped card chrome here).
-export default function ExerciseLogCard({ exercise, previous, focusSetIndex, onChangeSet, onToggleSet, onChangeNote }) {
+export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isFirstExercise, onChangeSet, onToggleSet, onChangeNote }) {
     const t = useTranslations("portal.training");
     const [insightsOpen, setInsightsOpen] = useState(false);
     const [instructionsOpen, setInstructionsOpen] = useState(false);
@@ -102,19 +103,19 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, onC
                     </Button>
                     <Tooltip.Content>{t("progress")}</Tooltip.Content>
                 </Tooltip>
-                <Tooltip>
-                    <Button
-                        isIconOnly
-                        variant="ghost"
-                        size="sm"
-                        aria-label={t("instructions")}
-                        onClick={() => setInstructionsOpen(true)}
-                        className="shrink-0 text-muted-foreground"
+                <span title={t("instructions")}>
+                    <NewFeatureTooltip
+                        featureKey="exercise_instructions_hint"
+                        active={!!isFirstExercise}
+                        message={t("instructionsHint")}
+                        dismissLabel={t("instructionsHintDismiss")}
+                        badgeLabel={t("instructionsNewFeature")}
+                        onTriggerClick={() => setInstructionsOpen(true)}
+                        triggerClassName="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-default hover:text-foreground transition-colors cursor-pointer"
                     >
                         <BookOpen className="w-4 h-4" />
-                    </Button>
-                    <Tooltip.Content>{t("instructions")}</Tooltip.Content>
-                </Tooltip>
+                    </NewFeatureTooltip>
+                </span>
                 <Tooltip>
                     <Button
                         isIconOnly
