@@ -589,6 +589,18 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
  *         description: Session detail
  *       404:
  *         description: Not found
+ *   delete:
+ *     summary: Delete a logged session
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *       404:
+ *         description: Not found
  */
 // Specific routes before the parameterized /:id (§8.6).
 // Logging a session needs the training plan; reading history needs progress-history view.
@@ -599,6 +611,7 @@ router.get('/workout-logs/exercise-progress', ...open, requireClientAccess('view
 router.get('/workout-logs/exercise-insights', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseInsights);
 router.get('/workout-logs/exercises',         ...open, requireClientAccess('view_progress_history'), clientPortalController.getLoggedExercises);
 router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
+router.delete('/workout-logs/:id',            ...open, requireClientAccess('view_progress_history'), clientPortalController.deleteWorkoutLog);
 
 /**
  * @openapi

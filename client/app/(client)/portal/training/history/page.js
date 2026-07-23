@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import { ChevronLeft, ChevronRight, Dumbbell, LineChart as LineChartIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Dumbbell, LineChart as LineChartIcon, Trash2 } from "lucide-react";
 import { Card } from "@heroui/react/card";
+import { Button } from "@heroui/react/button";
+import { Modal } from "@heroui/react/modal";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
 import { useDateFormatter } from "@/utils/useDateFormatter";
@@ -15,14 +17,17 @@ import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightB
 
 export default function TrainingHistoryPage() {
     const t = useTranslations("portal.training");
+    const tCommon = useTranslations("common");
     usePageTitle(t('workoutHistoryTitle'));
     const locale = useLocale();
     const isRTL = locale === 'ar';
-    const { formatDate } = useDateFormatter();
+    const { formatFullDateTime } = useDateFormatter();
     const router = useRouter();
 
     const [logs, setLogs]       = useState([]);
     const [loading, setLoading] = useState(true);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting]         = useState(false);
 
     useEffect(() => {
         api.get("/api/client-portal/workout-logs")
@@ -30,6 +35,19 @@ export default function TrainingHistoryPage() {
             .catch(() => router.replace("/portal/training"))
             .finally(() => setLoading(false));
     }, [router]);
+
+    async function confirmDelete() {
+        setDeleting(true);
+        try {
+            await api.delete(`/api/client-portal/workout-logs/${deleteTarget.id}`);
+            setLogs(prev => prev.filter(log => log.id !== deleteTarget.id));
+            setDeleteTarget(null);
+        } catch {
+            window.alert(t("deleteLogFailed"));
+        } finally {
+            setDeleting(false);
+        }
+    }
 
     if (loading) {
         return (
@@ -68,26 +86,66 @@ export default function TrainingHistoryPage() {
                     </Card.Content>
                 </Card>
             ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                     {logs.map(log => (
-                        <Link key={log.id} href={`/portal/training/history/${log.id}`}>
-                            <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-                                <Card.Content className="px-4 py-3 flex items-center gap-4">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-foreground truncate">{log.day_name || t("workout")}</p>
-                                        <p className="text-xs text-muted-foreground">{formatDate(log.date)}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums shrink-0">
-                                        <span>{formatDuration(log.duration_seconds)}</span>
-                                        <span>{log.total_volume} {t("volumeUnit")}</span>
-                                        <span>{log.total_sets} {t("setsShort")}</span>
-                                    </div>
-                                </Card.Content>
-                            </Card>
-                        </Link>
+                        <Card key={log.id} className="px-4 py-4 gap-0 hover:border-primary/40 transition-colors">
+                            <Card.Content
+                                className="flex flex-row items-center gap-3 cursor-pointer"
+                                onClick={() => router.push(`/portal/training/history/${log.id}`)}
+                            >
+                                <div className="shrink-0 rounded-full p-2.5 bg-primary/10 text-primary">
+                                    <Dumbbell size={18} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">{log.day_name || t("workout")}</p>
+                                    <p className="text-xs text-muted-foreground truncate mt-0.5">{formatFullDateTime(log.start_time || log.date)}</p>
+                                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                        {formatDuration(log.duration_seconds)} · {log.total_volume} {t("volumeUnit")} · {log.total_sets} {t("setsShort")}
+                                    </p>
+                                </div>
+                                <Button
+                                    isIconOnly
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={t("deleteLog")}
+                                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(log); }}
+                                    className="shrink-0 text-muted-foreground hover:text-danger"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                                {isRTL
+                                    ? <ChevronLeft size={16} className="text-muted-foreground shrink-0" />
+                                    : <ChevronRight size={16} className="text-muted-foreground shrink-0" />}
+                            </Card.Content>
+                        </Card>
                     ))}
                 </div>
             )}
+
+            {/* Delete confirmation */}
+            <Modal isOpen={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+                <Modal.Backdrop>
+                    <Modal.Container className="max-w-sm">
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>{t("deleteLog")}</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body>
+                                <p className="text-sm text-muted-foreground">{t("deleteLogConfirm")}</p>
+                            </Modal.Body>
+                            <Modal.Footer className="flex justify-end gap-2 pt-2">
+                                <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(null)}>
+                                    {tCommon("cancel")}
+                                </Button>
+                                <Button size="sm" variant="danger" onClick={confirmDelete} isDisabled={deleting}>
+                                    {t("deleteLog")}
+                                </Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
         </div>
     );
 }

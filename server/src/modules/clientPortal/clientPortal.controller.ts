@@ -998,11 +998,12 @@ export async function getWorkoutLogs(req: Request, res: Response, next: NextFunc
         });
 
         res.json(logs.map(log => ({
-            id:        log.id,
-            date:      log.date,
-            day_id:    log.day_id,
-            day_name:  log.training_days?.name ?? null,
-            notes:     log.notes,
+            id:         log.id,
+            date:       log.date,
+            start_time: log.start_time,
+            day_id:     log.day_id,
+            day_name:   log.training_days?.name ?? null,
+            notes:      log.notes,
             ...summarizeLog(toLogRow(log)),
         })));
     } catch (err) {
@@ -1129,6 +1130,21 @@ export async function getWorkoutLog(req: Request, res: Response, next: NextFunct
             exercises:  parseLoggedExercises(log.exercises),
             ...summarizeLog(toLogRow(log)),
         });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function deleteWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    try {
+        const log = await prisma.workout_logs.findFirst({
+            where:  { id: req.params.id as string, client_id: req.client!.clientId },
+            select: { id: true },
+        });
+        if (!log) return res.status(404).json({ error: 'Workout log not found' });
+
+        await prisma.workout_logs.delete({ where: { id: log.id } });
+        res.json({ success: true });
     } catch (err) {
         next(err);
     }
