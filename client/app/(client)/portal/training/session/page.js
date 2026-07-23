@@ -4,17 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import { Flag, Trash2 } from "lucide-react";
+import { ChevronDown, Flag, Trash2 } from "lucide-react";
 import { Spinner } from "@heroui/react/spinner";
 import { Button } from "@heroui/react/button";
-import { Tooltip } from "@heroui/react/tooltip";
 import { Modal } from "@heroui/react/modal";
 import ExerciseLogCard from "@/app/components/training-mode/ExerciseLogCard";
 import RestTimerBar from "@/app/components/training-mode/RestTimerBar";
-import { formatDuration, totalVolume, completedSetCount } from "@/utils/workout";
+import { formatDuration, completedSetCount } from "@/utils/workout";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { getActiveTrainingSession, saveTrainingSession, clearTrainingSession } from "@/lib/trainingSessionStore";
 
-const STORAGE_KEY  = "ff_training_session";
 const DEFAULT_REST = 90;
 
 // Wall-clock read kept out of the component body so it isn't treated as an
@@ -24,6 +23,25 @@ const currentMillis = () => Date.now();
 function toNumber(value) {
     const n = parseFloat(value);
     return Number.isFinite(n) ? n : null;
+}
+
+// A resumed session's exercise metadata (name, notes, instructions, video, …)
+// is whatever was cached when the session started — it can silently go stale
+// if the coach edits the plan mid-session, or (as happened here) if a field
+// gets added to buildSession after the client already had a session cached.
+// Re-derive metadata from the freshly fetched day on every resume; only the
+// client's own logged data (sets, per-exercise note, start time) survives
+// from storage.
+function resumeSession(fresh, restored) {
+    const restoredById = new Map(restored.exercises.map(ex => [ex.exercise_id, ex]));
+    return {
+        ...fresh,
+        started_at: restored.started_at,
+        exercises: fresh.exercises.map(ex => {
+            const saved = restoredById.get(ex.exercise_id);
+            return saved ? { ...ex, note: saved.note, sets: saved.sets } : ex;
+        }),
+    };
 }
 
 function buildSession(plan, day, dayIndex) {
@@ -45,6 +63,7 @@ function buildSession(plan, day, dayIndex) {
                 video_path:          ex.video_path ?? null,
                 muscle_group:        ex.muscle_group ?? null,
                 equipment:           ex.equipment ?? null,
+                notes:               ex.notes ?? null,
                 instructions_en:     ex.instructions_en ?? null,
                 instructions_ar:     ex.instructions_ar ?? null,
                 prescribed:          prescribed.map(s => ({ reps: s.reps, rest_seconds: s.rest_seconds, rir: s.rir, tempo: s.tempo })),
@@ -100,13 +119,11 @@ export default function TrainingSessionPage() {
                 } catch { /* no previous data available */ }
                 if (cancelled) return;
 
-                let restored = null;
-                try {
-                    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-                    if (saved && saved.day_id === day.id) restored = saved;
-                } catch { /* ignore corrupt storage */ }
+                const saved = getActiveTrainingSession();
+                const restored = saved && saved.day_id === day.id ? saved : null;
 
-                setSession(restored ?? buildSession(plan, day, dayIndex));
+                const fresh = buildSession(plan, day, dayIndex);
+                setSession(restored ? resumeSession(fresh, restored) : fresh);
             } catch (e) {
                 if (e.response?.status === 404) router.replace("/portal/training");
                 else router.replace("/portal");
@@ -124,9 +141,10 @@ export default function TrainingSessionPage() {
         return () => clearInterval(id);
     }, []);
 
-    // Persist in-progress session so a refresh resumes it.
+    // Persist in-progress session so a refresh (or minimizing back to the day
+    // preview) resumes it.
     useEffect(() => {
-        if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        if (session) saveTrainingSession(session);
     }, [session]);
 
     function updateExercise(exIdx, updater) {
@@ -188,8 +206,12 @@ export default function TrainingSessionPage() {
 
     function confirmDiscard() {
         setDiscardConfirmOpen(false);
-        localStorage.removeItem(STORAGE_KEY);
+        clearTrainingSession();
         router.replace("/portal/training");
+    }
+
+    function minimize() {
+        router.push("/portal/training");
     }
 
     function finish() {
@@ -206,7 +228,7 @@ export default function TrainingSessionPage() {
     async function submitFinish() {
         setSaving(true);
         try {
-            await api.post("/api/client-portal/workout-logs", {
+            const { data } = await api.post("/api/client-portal/workout-logs", {
                 plan_id:    session.plan_id,
                 day_id:     session.day_id,
                 day_index:  session.day_index,
@@ -228,8 +250,14 @@ export default function TrainingSessionPage() {
                     })),
                 })),
             });
-            localStorage.removeItem(STORAGE_KEY);
-            router.replace("/portal/training/history");
+            clearTrainingSession();
+            const params = new URLSearchParams({
+                dayName:  session.day_name,
+                duration: String(data.duration_seconds ?? ""),
+                volume:   String(data.total_volume ?? ""),
+                sets:     String(data.total_sets ?? ""),
+            });
+            router.replace(`/portal/training/session/complete?${params.toString()}`);
         } catch {
             setSaving(false);
             window.alert(t("saveFailed"));
@@ -259,15 +287,18 @@ export default function TrainingSessionPage() {
         <div className="max-w-4xl mx-auto flex flex-col">
             {/* Sticky session header */}
             <div className="sticky top-14 z-30 bg-background px-6 pt-4 pb-3 flex items-center gap-3 border-b border-border">
-                <Tooltip>
-                    <Button isIconOnly variant="ghost" size="sm" onClick={discard} aria-label={t("discard")} className="shrink-0 text-muted-foreground hover:text-danger">
-                        <Trash2 className="w-5 h-5" />
-                    </Button>
-                    <Tooltip.Content>{t("discard")}</Tooltip.Content>
-                </Tooltip>
-                <div className="flex-1 min-w-0">
-                    <h1 className="text-base font-bold text-foreground truncate">{session.day_name}</h1>
-                    <span className="text-xs text-muted-foreground tabular-nums">{formatDuration(elapsedSeconds)} · {totalVolume(session.exercises)} {t("volumeUnit")}</span>
+                <Button
+                    isIconOnly
+                    variant="ghost"
+                    size="sm"
+                    onClick={minimize}
+                    aria-label={t("minimizeSession")}
+                    className="shrink-0 text-muted-foreground"
+                >
+                    <ChevronDown className="w-5 h-5" />
+                </Button>
+                <div className="flex-1 flex items-center justify-center min-w-0">
+                    <span className="text-xl font-bold text-foreground tabular-nums leading-tight">{formatDuration(elapsedSeconds)}</span>
                 </div>
                 <Button variant="primary" size="sm" onClick={finish} isDisabled={saving} className="shrink-0">
                     <Flag className="w-4 h-4" /> {saving ? t("saving") : t("finish")}
@@ -275,6 +306,8 @@ export default function TrainingSessionPage() {
             </div>
 
             <div className="px-6 pt-3 pb-28 flex flex-col">
+                <h1 className="text-xl font-bold text-foreground mb-4">{session.day_name}</h1>
+
                 {session.exercises.map((exercise, exIdx) => (
                     <div key={exercise.exercise_id}>
                         {exIdx > 0 && <div className="my-4 border-t border-border/50" />}
@@ -288,6 +321,10 @@ export default function TrainingSessionPage() {
                         />
                     </div>
                 ))}
+
+                <Button variant="outline" onClick={discard} fullWidth className="mt-6 border-danger text-danger hover:bg-danger/10">
+                    <Trash2 className="w-4 h-4" /> {t("discard")}
+                </Button>
             </div>
 
             {rest && (
