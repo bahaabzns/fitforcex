@@ -143,6 +143,27 @@ export async function getActivePrompt(
     return prompt;
 }
 
+/** Reserved trigger_event marker for the seeded "Post-Session Feedback" prompt (migration 061) — deliberately not in TRIGGER_EVENTS. */
+const POST_SESSION_PROMPT_TRIGGER = 'workout_session_finished';
+
+/**
+ * The single "Post-Session Feedback" prompt shown inline on the Training
+ * Mode completion page after every finished session. Unlike every other
+ * prompt in this system, it's meant to be answered again after every
+ * session, not once-ever — so eligibility here is deliberately just "is
+ * there an active row," with no per-user dedup and no impression tracking.
+ * It's reached only through this dedicated lookup (by its reserved
+ * trigger_event marker, which is NOT part of TRIGGER_EVENTS), so it can
+ * never surface through the generic /prompts/for-trigger/:event route or
+ * collide with the site-wide manual InsightBanner (which only considers
+ * trigger_event IS NULL rows).
+ */
+export async function getPostSessionPrompt() {
+    return prisma.insight_prompts.findFirst({
+        where: { trigger_event: POST_SESSION_PROMPT_TRIGGER, status: 'active' },
+    });
+}
+
 /**
  * Phase 3 — the fixed trigger catalog. Deliberately a hardcoded lookup, not a
  * generic rules/condition engine: nobody has asked for compound conditions,
@@ -754,8 +775,8 @@ export interface PromptFunnel {
     started: number;
     completed: number;
     completionRate: number;
-    /** Only for response_type = 'rating': average score plus a standard 0–10-scale NPS-style split (9–10 promoter, 7–8 passive, 0–6 detractor). */
-    rating?: { average: number | null; promoters: number; passives: number; detractors: number };
+    /** Only for response_type = 'rating'/'rating_with_text': average score (out of scaleMax) plus a promoter/passive/detractor split — that split is only meaningful (non-zero) when scaleMax is the default 10. */
+    rating?: { average: number | null; scaleMax: number; promoters: number; passives: number; detractors: number };
     /** Only for response_type = 'multiple_choice': how many times each option was picked. */
     optionCounts?: Record<string, number>;
 }
@@ -788,11 +809,17 @@ export async function getPromptFunnel(promptId: string): Promise<PromptFunnel> {
 
     if (prompt.response_type === 'rating' || prompt.response_type === 'rating_with_text') {
         const ratings = responses.map((r) => r.rating_value).filter((v): v is number => v != null);
+        const scaleMax = prompt.scale_max ?? 10;
+        // The 9-10/7-8/0-6 NPS-style split only makes sense on the default 0-10
+        // scale — a prompt with a smaller scale_max (see migration 061) still
+        // gets a correct average, just no promoter/passive/detractor breakdown.
+        const isTenScale = scaleMax === 10;
         funnel.rating = {
             average: ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
-            promoters: ratings.filter((v) => v >= 9).length,
-            passives: ratings.filter((v) => v >= 7 && v <= 8).length,
-            detractors: ratings.filter((v) => v <= 6).length,
+            scaleMax,
+            promoters: isTenScale ? ratings.filter((v) => v >= 9).length : 0,
+            passives: isTenScale ? ratings.filter((v) => v >= 7 && v <= 8).length : 0,
+            detractors: isTenScale ? ratings.filter((v) => v <= 6).length : 0,
         };
     } else if (prompt.response_type === 'multiple_choice') {
         const counts: Record<string, number> = {};

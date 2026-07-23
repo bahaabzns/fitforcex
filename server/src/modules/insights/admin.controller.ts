@@ -24,8 +24,44 @@ export async function listInsights(req: Request, res: Response, next: NextFuncti
                 archived_at: null,
             },
             orderBy: { created_at: 'desc' },
+            // A prompt_response's rating is out of its prompt's own scale_max
+            // (default 10, but e.g. 5 for the Post-Session Feedback prompt) —
+            // the client needs this to render "X/5" instead of always "X/10".
+            include: {
+                insight_prompts: { select: { scale_max: true } },
+                workspaces: { select: { name: true, slug: true } },
+            },
         });
-        res.json(rows);
+
+        // submitted_by_id has no FK (it points at either clients or users
+        // depending on submitted_by_type), so resolve "who sent this" with a
+        // couple of batched lookups instead of a per-row query.
+        const clientIds = [...new Set(rows.filter(r => r.submitted_by_type === 'client').map(r => r.submitted_by_id))];
+        const userIds   = [...new Set(rows.filter(r => r.submitted_by_type === 'user').map(r => r.submitted_by_id))];
+
+        const [clients, users] = await Promise.all([
+            clientIds.length > 0
+                ? prisma.clients.findMany({
+                    where: { id: { in: clientIds } },
+                    select: { id: true, client_code: true, fname: true, lname: true, email: true, phone: true },
+                })
+                : [],
+            userIds.length > 0
+                ? prisma.users.findMany({
+                    where: { id: { in: userIds } },
+                    select: { id: true, fname: true, lname: true, email: true, phone: true },
+                })
+                : [],
+        ]);
+        const clientById = new Map(clients.map(c => [c.id, c]));
+        const userById   = new Map(users.map(u => [u.id, u]));
+
+        res.json(rows.map(row => ({
+            ...row,
+            submitter: row.submitted_by_type === 'client'
+                ? (clientById.get(row.submitted_by_id) ?? null)
+                : (userById.get(row.submitted_by_id) ?? null),
+        })));
     } catch (err) {
         next(err);
     }

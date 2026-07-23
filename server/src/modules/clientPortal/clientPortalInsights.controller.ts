@@ -61,6 +61,16 @@ export async function getActivePrompt(req: Request, res: Response, next: NextFun
     }
 }
 
+/** The single recurring "Post-Session Feedback" prompt for the Training Mode completion page — see insightsService.getPostSessionPrompt. */
+export async function getPostSessionPrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const prompt = await insightsService.getPostSessionPrompt();
+        res.json(prompt);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function respondToPrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const { status, payload } = await respondToPromptShared(

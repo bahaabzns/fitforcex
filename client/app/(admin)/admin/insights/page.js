@@ -65,7 +65,7 @@ function TriageDrawer({ insight, onClose, onSaved }) {
                     <div>
                         <Chip size="sm" className={meta.className}>{meta.label}</Chip>
                         {insight.rating_value != null && (
-                            <p className="text-2xl font-bold text-foreground mt-2">{insight.rating_value}<span className="text-sm text-muted-foreground">/10</span></p>
+                            <p className="text-2xl font-bold text-foreground mt-2">{insight.rating_value}<span className="text-sm text-muted-foreground">/{insight.insight_prompts?.scale_max ?? 10}</span></p>
                         )}
                         {insight.text_value && <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">{insight.text_value}</p>}
                         {insight.selected_option && <p className="text-sm text-foreground mt-2">{insight.selected_option}</p>}
@@ -74,6 +74,30 @@ function TriageDrawer({ insight, onClose, onSaved }) {
                             <img src={insight.screenshot_url} alt="" className="mt-2 max-h-48 rounded-lg border border-border" />
                         )}
                         {insight.module && <p className="text-xs text-muted-foreground mt-2">Module: {insight.module}</p>}
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Submitted by</p>
+                        <div className="rounded-lg bg-secondary/30 px-3 py-2.5 flex flex-col gap-1 text-sm">
+                            <div className="flex items-center gap-1.5">
+                                <Chip size="sm" variant="soft">{insight.submitted_by_type === 'client' ? 'Client' : 'Coach'}</Chip>
+                                <span className="font-medium text-foreground">
+                                    {insight.submitter ? `${insight.submitter.fname} ${insight.submitter.lname}` : 'Unknown (deleted)'}
+                                </span>
+                            </div>
+                            {insight.submitter?.client_code != null && (
+                                <p className="text-xs text-muted-foreground">Client code: #{insight.submitter.client_code}</p>
+                            )}
+                            {insight.submitter?.email && (
+                                <p className="text-xs text-muted-foreground">{insight.submitter.email}</p>
+                            )}
+                            {insight.submitter?.phone && (
+                                <p className="text-xs text-muted-foreground">{insight.submitter.phone}</p>
+                            )}
+                            {insight.workspaces && (
+                                <p className="text-xs text-muted-foreground">Workspace: {insight.workspaces.name} ({insight.workspaces.slug})</p>
+                            )}
+                        </div>
                     </div>
 
                     <div>
@@ -181,9 +205,15 @@ export default function AdminInsightsPage() {
                                     <Icon size={12} />
                                     {meta.label}
                                 </Chip>
-                                <span className="text-sm text-foreground truncate">
-                                    {insight.text_value || insight.selected_option || (insight.rating_value != null ? `Rating: ${insight.rating_value}/10` : '—')}
-                                </span>
+                                <div className="min-w-0 flex flex-col gap-0.5">
+                                    <span className="text-sm text-foreground truncate">
+                                        {insight.text_value || insight.selected_option || (insight.rating_value != null ? `Rating: ${insight.rating_value}/${insight.insight_prompts?.scale_max ?? 10}` : '—')}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                        {insight.submitter ? `${insight.submitter.fname} ${insight.submitter.lname}` : 'Unknown'}
+                                        {insight.workspaces ? ` · ${insight.workspaces.name}` : ''}
+                                    </span>
+                                </div>
                                 <Chip size="sm" variant="soft" className="shrink-0">{insight.status}</Chip>
                                 <span className="text-xs text-muted-foreground shrink-0">{formatDate(insight.created_at)}</span>
                             </button>

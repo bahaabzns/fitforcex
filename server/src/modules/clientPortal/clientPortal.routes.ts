@@ -698,6 +698,15 @@ router.patch('/notifications/:id/read',   ...open, clientPortalNotificationsCont
  *     responses:
  *       200: { description: The active prompt, or null }
  *
+ * /client-portal/prompts/post-session:
+ *   get:
+ *     summary: Get the recurring Post-Session Feedback prompt shown on the Training Mode completion page
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: The prompt, or null if not currently active }
+ *
  * /client-portal/prompts/{id}/respond:
  *   post:
  *     summary: Answer an active Founder Prompt
@@ -713,6 +722,7 @@ router.patch('/notifications/:id/read',   ...open, clientPortalNotificationsCont
 router.post('/insights',            ...open, clientPortalInsightsController.submitInsight);
 router.post('/insights/screenshot', ...open, screenshotUploader.single('file'), uploadScreenshot);
 router.get('/prompts/active',              ...open, clientPortalInsightsController.getActivePrompt);
+router.get('/prompts/post-session',        ...open, clientPortalInsightsController.getPostSessionPrompt);
 router.get('/prompts/for-trigger/:event',  ...open, clientPortalInsightsController.getPromptForTrigger);
 router.post('/prompts/:id/respond',        ...open, clientPortalInsightsController.respondToPrompt);
 router.post('/prompts/:id/dismiss',        ...open, clientPortalInsightsController.dismissPrompt);

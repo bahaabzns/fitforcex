@@ -154,10 +154,14 @@ async function respondToPromptShared(
         status: 'new',
     };
 
+    // Most prompts are 1-10 (scale_max NULL); a prompt can opt into a smaller
+    // scale (e.g. 5) by setting scale_max — see migration 061.
+    const scaleMax = prompt.scale_max ?? 10;
+
     if (prompt.response_type === 'rating') {
         const rating = Number(ratingValue);
-        if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
-            return { status: 400, payload: { error: 'ratingValue must be an integer between 1 and 10' } };
+        if (!Number.isInteger(rating) || rating < 1 || rating > scaleMax) {
+            return { status: 400, payload: { error: `ratingValue must be an integer between 1 and ${scaleMax}` } };
         }
         data.rating_value = rating;
     } else if (prompt.response_type === 'multiple_choice') {
@@ -169,8 +173,8 @@ async function respondToPromptShared(
     } else if (prompt.response_type === 'rating_with_text') {
         // Rating is required; the accompanying note is optional, unlike the plain 'rating' and 'text' types.
         const rating = Number(ratingValue);
-        if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
-            return { status: 400, payload: { error: 'ratingValue must be an integer between 1 and 10' } };
+        if (!Number.isInteger(rating) || rating < 1 || rating > scaleMax) {
+            return { status: 400, payload: { error: `ratingValue must be an integer between 1 and ${scaleMax}` } };
         }
         data.rating_value = rating;
         if (typeof textValue === 'string' && textValue.trim().length > 0) {

@@ -322,12 +322,16 @@ function PromptAnalytics({ promptId }) {
             {funnel.rating && (
                 <div className="flex flex-col gap-1.5">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Average {funnel.rating.average != null ? funnel.rating.average.toFixed(1) : '—'}/10
+                        Average {funnel.rating.average != null ? funnel.rating.average.toFixed(1) : '—'}/{funnel.rating.scaleMax ?? 10}
                     </p>
-                    <NpsBar {...funnel.rating} />
-                    <p className="text-xs text-muted-foreground">
-                        {funnel.rating.promoters} promoters (9–10) · {funnel.rating.passives} passive (7–8) · {funnel.rating.detractors} detractors (0–6)
-                    </p>
+                    {(funnel.rating.scaleMax ?? 10) === 10 && (
+                        <>
+                            <NpsBar {...funnel.rating} />
+                            <p className="text-xs text-muted-foreground">
+                                {funnel.rating.promoters} promoters (9–10) · {funnel.rating.passives} passive (7–8) · {funnel.rating.detractors} detractors (0–6)
+                            </p>
+                        </>
+                    )}
                 </div>
             )}
 
