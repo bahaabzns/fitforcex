@@ -7,8 +7,77 @@ import { applyPayment } from '../billing/index';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { normalizeEmail } from '../../utils/email';
+import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
+import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
 
 type Row = Record<string, unknown>;
+
+/** Id-preserving nested upsert for a plan's variations, mirroring the pattern already
+ *  proven in packages.controller.ts:updatePackage — existing variations keep their id
+ *  (workspace_subscriptions/workspace_payments hold FKs to it), only genuinely new rows
+ *  get a fresh one. Removing a variation that a workspace is subscribed to or has paid
+ *  for is blocked rather than silently orphaning that workspace's entitlement. */
+async function upsertPlanVariations(tx: Prisma.TransactionClient, planId: string, variations: unknown): Promise<void> {
+    if (!Array.isArray(variations)) return;
+    if (variations.length === 0) throw { status: 400, message: 'A plan must have at least one variation.' };
+
+    const existing = await tx.plan_variations.findMany({ where: { plan_id: planId }, select: { id: true } });
+    const existingIds = new Set(existing.map(v => v.id));
+    const keptIds = new Set<string>();
+
+    const rows = variations.map((raw, index) => {
+        const v = raw as Record<string, unknown>;
+        const rawId = typeof v.id === 'string' ? v.id : null;
+        const isExisting = !!(rawId && existingIds.has(rawId));
+        const id = isExisting ? (rawId as string) : createId();
+        if (isExisting) keptIds.add(id);
+
+        const data: Prisma.plan_variationsUncheckedCreateInput = {
+            id, plan_id: planId,
+            max_clients:      (v.max_clients as number | null | undefined) ?? null,
+            max_team_seats:   (v.max_team_seats as number | null | undefined) ?? null,
+            max_workspaces:   (v.max_workspaces as number | null | undefined) ?? null,
+            price_monthly:    (v.price_monthly as number | null | undefined) ?? null,
+            currency:         (v.currency as string | undefined)?.trim() || 'LE',
+            payment_link:     (v.payment_link as string | undefined)?.trim() || null,
+            has_team_counter: (v.has_team_counter as boolean | undefined) ?? false,
+            price_per_seat:   (v.price_per_seat as number | null | undefined) ?? null,
+            min_seat_count:   (v.min_seat_count as number | undefined) ?? 1,
+            max_seat_count:   (v.max_seat_count as number | undefined) ?? 20,
+            is_default:       (v.is_default as boolean | undefined) ?? false,
+            is_active:        (v.is_active as boolean | undefined) ?? true,
+            sort_order:       index,
+        };
+        return { id, isNew: !isExisting, data };
+    });
+
+    const idsToDelete = existing.map(v => v.id).filter(eid => !keptIds.has(eid));
+    if (idsToDelete.length > 0) {
+        const [subsInUse, paymentsInUse] = await Promise.all([
+            tx.workspace_subscriptions.count({ where: { variation_id: { in: idsToDelete } } }),
+            tx.workspace_payments.count({ where: { variation_id: { in: idsToDelete } } }),
+        ]);
+        if (subsInUse > 0 || paymentsInUse > 0) {
+            throw { status: 409, message: 'Cannot remove a variation that a workspace is currently subscribed to or has paid for.' };
+        }
+        await tx.plan_variations.deleteMany({ where: { id: { in: idsToDelete } } });
+    }
+
+    // Two-pass write on kept rows: bump sort_order out of range first, then set final
+    // values — avoids the (plan_id, sort_order) unique constraint colliding mid-reorder.
+    const kept = rows.filter(r => !r.isNew);
+    for (const row of kept) {
+        await tx.plan_variations.update({ where: { id: row.id }, data: { sort_order: row.data.sort_order as number + 100000 } });
+    }
+    for (const row of kept) {
+        await tx.plan_variations.update({ where: { id: row.id }, data: row.data });
+    }
+
+    const toCreate = rows.filter(r => r.isNew).map(r => r.data);
+    if (toCreate.length > 0) {
+        await tx.plan_variations.createMany({ data: toCreate });
+    }
+}
 
 async function upsertPeriodLinks(tx: Prisma.TransactionClient, planId: string, periodLinks: unknown): Promise<void> {
     if (!periodLinks || typeof periodLinks !== 'object') return;
@@ -238,16 +307,18 @@ export async function getWorkspaceById(req: Request, res: Response, next: NextFu
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at, w.slug_customized,
                        u.id AS owner_id, u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                        p.id AS plan_id, COALESCE(p.name, 'none') AS plan, COALESCE(p.display_name, 'No Plan') AS plan_display,
+                       pv.id AS variation_id,
                        ws.status AS subscription_status, ws.starts_at, ws.expires_at,
                        COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
                 LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
                 LEFT JOIN plans p ON p.id = ws.plan_id
+                LEFT JOIN plan_variations pv ON pv.id = ws.variation_id
                 LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.is_active = TRUE
                 LEFT JOIN clients c ON c.workspace_id = w.id
                 WHERE w.id = ${req.params.id}
-                GROUP BY w.id, u.id, p.id, ws.id
+                GROUP BY w.id, u.id, p.id, pv.id, ws.id
             `,
             prisma.$queryRaw<Row[]>`
                 SELECT wm.id, wm.role, wm.is_active, wm.joined_at,
@@ -267,19 +338,73 @@ export async function getWorkspaceById(req: Request, res: Response, next: NextFu
 }
 
 export async function updateWorkspaceSubscription(req: Request, res: Response, next: NextFunction) {
-    const { planId, notes } = req.body as { planId?: string; notes?: string };
-    if (!planId) return res.status(400).json({ message: 'planId is required' });
+    const { planId, variationId, notes, force } = req.body as {
+        planId?: string; variationId?: string; notes?: string; force?: boolean;
+    };
+    if (!planId || !variationId) return res.status(400).json({ message: 'planId and variationId are required' });
 
     try {
-        const plan = await prisma.plans.findFirst({ where: { id: planId }, select: { id: true } });
+        const [plan, variation, workspace] = await Promise.all([
+            prisma.plans.findFirst({ where: { id: planId }, select: { id: true } }),
+            prisma.plan_variations.findFirst({ where: { id: variationId, plan_id: planId } }),
+            prisma.workspaces.findFirst({ where: { id: req.params.id as string }, select: { id: true, owner_id: true } }),
+        ]);
         if (!plan) return res.status(404).json({ message: 'Plan not found' });
+        if (!variation) return res.status(404).json({ message: 'Plan variation not found' });
+        if (!workspace) return res.status(404).json({ message: 'Workspace not found' });
+
+        // Same downgrade guard self-serve checkout uses (§8) — an admin override skips it
+        // only when explicitly forced, so a workspace never lands over its new limits by
+        // accident.
+        if (!force) {
+            await checkVariationSwitchAllowed(workspace.id, workspace.owner_id, variation);
+        }
 
         await prisma.workspace_subscriptions.updateMany({
-            where: { workspace_id: req.params.id as string },
-            data:  { plan_id: planId, notes: notes || null, status: 'active' },
+            where: { workspace_id: workspace.id },
+            data: {
+                plan_id:              planId,
+                variation_id:         variationId,
+                locked_price_monthly: variation.price_monthly,
+                locked_currency:      variation.currency,
+                notes:                notes || null,
+                status:               'active',
+            },
         });
 
         res.json({ message: 'Subscription updated' });
+    } catch (err) {
+        const httpErr = err as { status?: number; message?: string };
+        if (httpErr.status) return res.status(httpErr.status).json({ message: httpErr.message });
+        next(err);
+    }
+}
+
+/** Manual lever for decision 5: an admin editing a variation's public price never
+ *  retroactively reprices existing subscribers (see workspace_subscriptions.locked_price_monthly).
+ *  This explicitly opts one workspace into the variation's *current* public price. */
+export async function resyncSubscriptionPrice(req: Request, res: Response, next: NextFunction) {
+    try {
+        const sub = await prisma.workspace_subscriptions.findUnique({
+            where:   { workspace_id: req.params.id as string },
+            include: { plan_variations: true },
+        });
+        if (!sub) return res.status(404).json({ message: 'Subscription not found' });
+        if (!sub.plan_variations) return res.status(409).json({ message: 'Subscription has no variation to resync from' });
+
+        const updated = await prisma.workspace_subscriptions.update({
+            where: { workspace_id: req.params.id as string },
+            data: {
+                locked_price_monthly: sub.plan_variations.price_monthly,
+                locked_currency:      sub.plan_variations.currency,
+            },
+        });
+
+        res.json({
+            message:            'Price resynced to the variation\'s current public price',
+            lockedPriceMonthly: updated.locked_price_monthly,
+            lockedCurrency:     updated.locked_currency,
+        });
     } catch (err) {
         next(err);
     }
@@ -325,12 +450,18 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
         if (plans.length === 0) return res.json([]);
 
         const planIds = plans.map((p: Row) => p.id as string);
-        const links   = await prisma.$queryRaw<Row[]>`
-            SELECT ppl.plan_id, bd.period_key, ppl.payment_link
-            FROM plan_period_links ppl
-            JOIN billing_discounts bd ON bd.id = ppl.billing_discount_id
-            WHERE ppl.plan_id = ANY(${Prisma.raw(`ARRAY[${planIds.map(id => `'${id}'`).join(',')}]`)})
-        `;
+        const [links, variations] = await Promise.all([
+            prisma.$queryRaw<Row[]>`
+                SELECT ppl.plan_id, bd.period_key, ppl.payment_link
+                FROM plan_period_links ppl
+                JOIN billing_discounts bd ON bd.id = ppl.billing_discount_id
+                WHERE ppl.plan_id = ANY(${Prisma.raw(`ARRAY[${planIds.map(id => `'${id}'`).join(',')}]`)})
+            `,
+            prisma.plan_variations.findMany({
+                where:   { plan_id: { in: planIds } },
+                orderBy: { sort_order: 'asc' },
+            }),
+        ]);
 
         const linkMap: Record<string, Record<string, string>> = {};
         (links as Row[]).forEach(({ plan_id, period_key, payment_link }) => {
@@ -338,7 +469,16 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
             linkMap[plan_id as string][period_key as string] = (payment_link as string) ?? '';
         });
 
-        res.json(plans.map((p: Row) => ({ ...p, period_links: linkMap[p.id as string] ?? {} })));
+        const variationMap: Record<string, Row[]> = {};
+        for (const v of variations) {
+            (variationMap[v.plan_id] ??= []).push({ ...v, label: formatPlanVariationLabel(v) });
+        }
+
+        res.json(plans.map((p: Row) => ({
+            ...p,
+            period_links: linkMap[p.id as string] ?? {},
+            variations:   variationMap[p.id as string] ?? [],
+        })));
     } catch (err) {
         next(err);
     }
@@ -346,10 +486,9 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
 
 export async function createPlan(req: Request, res: Response, next: NextFunction) {
     const {
-        name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link,
+        name, display_name, features, trial_days,
         subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
-        has_team_counter, sort_order, currency, show_on_landing,
-        price_per_seat, min_seat_count, max_seat_count, period_links, max_clients,
+        sort_order, show_on_landing, period_links, variations,
     } = req.body as Record<string, unknown>;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
@@ -361,28 +500,19 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
                     id:                  createId(),
                     name:                (name as string).trim(),
                     display_name:        (display_name as string).trim(),
-                    max_team_seats:      (max_team_seats as number | undefined) ?? null,
-                    max_workspaces:      (max_workspaces as number | undefined) ?? null,
-                    price_monthly:       (price_monthly as number | undefined) ?? null,
                     features:            features ? (features as Prisma.InputJsonValue) : ([] as Prisma.InputJsonValue),
                     trial_days:          (trial_days as number | undefined) ?? null,
-                    payment_link:        (payment_link as string | undefined)?.trim() || null,
                     subtitle:            (subtitle as string | undefined)?.trim() || null,
                     is_popular:          (is_popular as boolean | undefined) ?? false,
                     cta_text:            (cta_text as string | undefined)?.trim() || 'Get Started',
                     cta_variant:         (cta_variant as string | undefined)?.trim() || 'outline',
                     features_header:     (features_header as string | undefined)?.trim() || "What's included:",
                     features_subheader:  (features_subheader as string | undefined)?.trim() || null,
-                    has_team_counter:    (has_team_counter as boolean | undefined) ?? false,
                     sort_order:          (sort_order as number | undefined) ?? 0,
-                    currency:            (currency as string | undefined)?.trim() || 'LE',
                     show_on_landing:     (show_on_landing as boolean | undefined) ?? true,
-                    price_per_seat:      (price_per_seat as number | undefined) ?? null,
-                    min_seat_count:      (min_seat_count as number | undefined) ?? 1,
-                    max_seat_count:      (max_seat_count as number | undefined) ?? 20,
-                    max_clients:         (max_clients as number | undefined) ?? null,
                 },
             }) as unknown as Row;
+            await upsertPlanVariations(tx, createdPlan!.id as string, variations);
             await upsertPeriodLinks(tx, createdPlan!.id as string, period_links);
         });
         res.status(201).json(createdPlan);
@@ -390,16 +520,17 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
             return res.status(409).json({ message: 'A plan with this name already exists' });
         }
+        const httpErr = err as { status?: number; message?: string };
+        if (httpErr.status) return res.status(httpErr.status).json({ message: httpErr.message });
         next(err);
     }
 }
 
 export async function updatePlan(req: Request, res: Response, next: NextFunction) {
     const {
-        display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default, trial_days, payment_link,
+        display_name, features, is_active, is_default, trial_days,
         subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
-        has_team_counter, sort_order, currency, show_on_landing,
-        price_per_seat, min_seat_count, max_seat_count, period_links, max_clients,
+        sort_order, show_on_landing, period_links, variations,
     } = req.body as Record<string, unknown>;
 
     try {
@@ -416,31 +547,22 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
                 where: { id: req.params.id as string },
                 data: {
                     display_name:       (display_name as string | undefined)?.trim() ?? undefined,
-                    max_team_seats:     max_team_seats !== undefined ? ((max_team_seats as number | null) ?? null) : undefined,
-                    max_workspaces:     max_workspaces !== undefined ? ((max_workspaces as number | null) ?? null) : undefined,
-                    price_monthly:      price_monthly  !== undefined ? ((price_monthly  as number | null) ?? null) : undefined,
                     features:           features ? (features as Prisma.InputJsonValue) : undefined,
                     is_active:          is_active  !== undefined ? (is_active  as boolean) : undefined,
                     is_default:         is_default !== undefined ? (is_default as boolean) : undefined,
                     trial_days:         trial_days !== undefined ? ((trial_days as number | null) ?? null) : undefined,
-                    payment_link:       payment_link      !== undefined ? ((payment_link as string | undefined)?.trim() || null) : undefined,
                     subtitle:           subtitle          !== undefined ? ((subtitle as string | undefined)?.trim() || null) : undefined,
                     is_popular:         is_popular        !== undefined ? (is_popular  as boolean)    : undefined,
                     cta_text:           cta_text          !== undefined ? ((cta_text as string | undefined)?.trim() || undefined) : undefined,
                     cta_variant:        cta_variant       !== undefined ? ((cta_variant as string | undefined)?.trim() || undefined) : undefined,
                     features_header:    features_header   !== undefined ? ((features_header as string | undefined)?.trim() || undefined) : undefined,
                     features_subheader: features_subheader !== undefined ? ((features_subheader as string | undefined)?.trim() || null) : undefined,
-                    has_team_counter:   has_team_counter  !== undefined ? (has_team_counter as boolean) : undefined,
                     sort_order:         sort_order        !== undefined ? (sort_order  as number) : undefined,
-                    currency:           currency          !== undefined ? ((currency as string | undefined)?.trim() || undefined) : undefined,
                     show_on_landing:    show_on_landing   !== undefined ? (show_on_landing as boolean) : undefined,
-                    price_per_seat:     price_per_seat    !== undefined ? ((price_per_seat as number | null) ?? null) : undefined,
-                    min_seat_count:     min_seat_count    !== undefined ? (min_seat_count as number) : undefined,
-                    max_seat_count:     max_seat_count    !== undefined ? (max_seat_count as number) : undefined,
-                    max_clients:        max_clients       !== undefined ? ((max_clients as number | null) ?? null) : undefined,
                 },
             }) as unknown as Row;
 
+            if (variations !== undefined) await upsertPlanVariations(tx, req.params.id as string, variations);
             await upsertPeriodLinks(tx, req.params.id as string, period_links);
         });
 
@@ -449,6 +571,8 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
             return res.status(404).json({ message: 'Plan not found' });
         }
+        const httpErr = err as { status?: number; message?: string };
+        if (httpErr.status) return res.status(httpErr.status).json({ message: httpErr.message });
         next(err);
     }
 }

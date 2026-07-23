@@ -13,24 +13,59 @@ import { Input } from '@heroui/react/input';
 import { Select } from '@heroui/react/select';
 import { ListBox } from '@heroui/react/list-box';
 
+// A variation's display label is generated from its limits (no free-text name field) —
+// mirrors server/src/lib/planVariationLabel.ts so the admin preview never drifts from
+// what the public landing page actually shows.
+function formatVariationLabel(v) {
+    return v.max_clients === '' || v.max_clients == null
+        ? 'Unlimited clients'
+        : `Up to ${v.max_clients} clients`;
+}
+
+function emptyVariation(isDefault = false) {
+    return {
+        id: null,
+        max_clients: '', max_team_seats: '', max_workspaces: '',
+        price_monthly: '', currency: 'LE', payment_link: '',
+        has_team_counter: false, price_per_seat: '', min_seat_count: 1, max_seat_count: 20,
+        is_default: isDefault, is_active: true,
+    };
+}
+
+function variationFromServer(v) {
+    return {
+        id: v.id,
+        max_clients:      v.max_clients ?? '',
+        max_team_seats:   v.max_team_seats ?? '',
+        max_workspaces:   v.max_workspaces ?? '',
+        price_monthly:    v.price_monthly ?? '',
+        currency:         v.currency ?? 'LE',
+        payment_link:     v.payment_link ?? '',
+        has_team_counter: v.has_team_counter ?? false,
+        price_per_seat:   v.price_per_seat ?? '',
+        min_seat_count:   v.min_seat_count ?? 1,
+        max_seat_count:   v.max_seat_count ?? 20,
+        is_default:       v.is_default ?? false,
+        is_active:        v.is_active ?? true,
+    };
+}
+
 const EMPTY_FORM = {
     name: '', display_name: '',
     subtitle: '',
-    max_team_seats: '', max_workspaces: '',
-    price_monthly: '', currency: 'LE',
-    trial_days: '', payment_link: '',
+    trial_days: '',
     is_active: true, is_default: false,
     is_popular: false, show_on_landing: true,
     cta_text: "Get Started – It's FREE!", cta_variant: 'outline',
     features_header: "What's included:", features_subheader: '',
-    has_team_counter: false, sort_order: 0,
+    sort_order: 0,
     features: [],
-    price_per_seat: '', min_seat_count: 1, max_seat_count: 20,
-    max_clients: '',
     period_links: {}, // { period_key: payment_link }
+    variations: [emptyVariation(true)],
 };
 
 const INPUT_CLS = 'w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
+const INPUT_SM_CLS = 'px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const SECTION_LABEL_CLS = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground pt-2';
 
 function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
@@ -40,12 +75,7 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
             ? {
                 display_name:      plan.display_name,
                 subtitle:          plan.subtitle ?? '',
-                max_team_seats:    plan.max_team_seats ?? '',
-                max_workspaces:    plan.max_workspaces ?? '',
-                price_monthly:     plan.price_monthly ?? '',
-                currency:          plan.currency ?? 'LE',
                 trial_days:        plan.trial_days ?? '',
-                payment_link:      plan.payment_link ?? '',
                 is_active:         plan.is_active,
                 is_default:        plan.is_default,
                 is_popular:        plan.is_popular ?? false,
@@ -54,14 +84,12 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 cta_variant:       plan.cta_variant ?? 'outline',
                 features_header:   plan.features_header ?? "What's included:",
                 features_subheader:plan.features_subheader ?? '',
-                has_team_counter:  plan.has_team_counter ?? false,
                 sort_order:        plan.sort_order ?? 0,
                 features:          Array.isArray(plan.features) ? plan.features : [],
-                price_per_seat:    plan.price_per_seat ?? '',
-                min_seat_count:    plan.min_seat_count ?? 1,
-                max_seat_count:    plan.max_seat_count ?? 20,
-                max_clients:       plan.max_clients ?? '',
                 period_links:      plan.period_links ?? {},
+                variations:        Array.isArray(plan.variations) && plan.variations.length > 0
+                    ? plan.variations.map(variationFromServer)
+                    : [emptyVariation(true)],
               }
             : EMPTY_FORM
     );
@@ -69,6 +97,21 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
     const [error, setError] = useState('');
 
     function set(key, val) { setForm(f => ({ ...f, [key]: val })); }
+
+    function setVariation(index, key, val) {
+        setForm(f => ({
+            ...f,
+            variations: f.variations.map((v, i) => (i === index ? { ...v, [key]: val } : v)),
+        }));
+    }
+
+    function addVariation() {
+        setForm(f => ({ ...f, variations: [...f.variations, emptyVariation(f.variations.length === 0)] }));
+    }
+
+    function removeVariation(index) {
+        setForm(f => ({ ...f, variations: f.variations.filter((_, i) => i !== index) }));
+    }
 
     function parseOptInt(v) { const n = parseInt(v); return isNaN(n) ? null : n; }
     function parseOptFloat(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
@@ -79,11 +122,7 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
         try {
             const payload = {
                 display_name:       form.display_name.trim() || undefined,
-                max_team_seats:     parseOptInt(form.max_team_seats),
-                max_workspaces:     parseOptInt(form.max_workspaces),
-                price_monthly:      parseOptFloat(form.price_monthly),
                 trial_days:         parseOptInt(form.trial_days),
-                payment_link:       form.payment_link.trim() || null,
                 is_active:          form.is_active,
                 is_default:         form.is_default,
                 features:           form.features.filter(f => f.trim() !== ''),
@@ -93,15 +132,24 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 cta_variant:        form.cta_variant,
                 features_header:    form.features_header.trim() || "What's included:",
                 features_subheader: form.features_subheader.trim() || null,
-                has_team_counter:   form.has_team_counter,
                 sort_order:         parseOptInt(form.sort_order) ?? 0,
-                currency:           form.currency.trim() || 'LE',
                 show_on_landing:    form.show_on_landing,
-                price_per_seat:     parseOptFloat(form.price_per_seat),
-                min_seat_count:     parseOptInt(form.min_seat_count) ?? 1,
-                max_seat_count:     parseOptInt(form.max_seat_count) ?? 20,
-                max_clients:        parseOptInt(form.max_clients),
                 period_links:       form.period_links,
+                variations: form.variations.map(v => ({
+                    id:               v.id || undefined,
+                    max_clients:      parseOptInt(v.max_clients),
+                    max_team_seats:   parseOptInt(v.max_team_seats),
+                    max_workspaces:   parseOptInt(v.max_workspaces),
+                    price_monthly:    parseOptFloat(v.price_monthly),
+                    currency:         v.currency.trim() || 'LE',
+                    payment_link:     v.payment_link.trim() || null,
+                    has_team_counter: v.has_team_counter,
+                    price_per_seat:   parseOptFloat(v.price_per_seat),
+                    min_seat_count:   parseOptInt(v.min_seat_count) ?? 1,
+                    max_seat_count:   parseOptInt(v.max_seat_count) ?? 20,
+                    is_default:       v.is_default,
+                    is_active:        v.is_active,
+                })),
             };
             if (isEdit) {
                 await api.put(`/api/admin/plans/${plan.id}`, payload);
@@ -138,46 +186,10 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     </TextField>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Max clients <span className="text-muted-foreground">(blank = unlimited)</span></FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Max clients" value={form.max_clients} onChange={(val) => set('max_clients', val)}>
-                            <Input type="number" min="1" inputMode="numeric" placeholder="∞" />
-                        </TextField>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Max team seats <span className="text-muted-foreground">(blank = unlimited)</span></FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Max team seats" value={form.max_team_seats} onChange={(val) => set('max_team_seats', val)}>
-                            <Input type="number" min="0" inputMode="numeric" placeholder="∞" />
-                        </TextField>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Max workspaces <span className="text-muted-foreground">(blank = unlimited)</span></FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Max workspaces" value={form.max_workspaces} onChange={(val) => set('max_workspaces', val)}>
-                            <Input type="number" min="1" inputMode="numeric" placeholder="∞" />
-                        </TextField>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Monthly price <span className="text-muted-foreground">(blank = TBD)</span></FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Monthly price" value={form.price_monthly} onChange={(val) => set('price_monthly', val)}>
-                            <Input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" />
-                        </TextField>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no expiry)</span></FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
-                            <Input type="number" min="1" inputMode="numeric" placeholder="—" />
-                        </TextField>
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Fawaterak payment link <span className="text-muted-foreground">(paste from your Fawaterak dashboard)</span></FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Fawaterak payment link" value={form.payment_link} onChange={(val) => set('payment_link', val)}>
-                        <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
+                <div className="flex flex-col gap-1.5 max-w-56">
+                    <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no trial, shared by all variations)</span></FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
+                        <Input type="number" min="1" inputMode="numeric" placeholder="—" />
                     </TextField>
                 </div>
 
@@ -185,6 +197,108 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
                     Active
                 </label>
+
+                {/* ── Variations ── */}
+                <p className={SECTION_LABEL_CLS}>Variations</p>
+                <p className="text-xs text-muted-foreground -mt-2">
+                    Every plan needs at least one. Each variation has its own limits, price, and payment link —
+                    the coach picks one via a dropdown on the pricing card; the feature list above is shared by all.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                    {form.variations.map((v, i) => (
+                        <div key={v.id ?? `new-${i}`} className="flex flex-col gap-2.5 p-3 rounded-lg border border-border bg-secondary/20">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-foreground">{formatVariationLabel(v)}</span>
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                                        <input type="checkbox" checked={v.is_default} onChange={e => setVariation(i, 'is_default', e.target.checked)} className="rounded" />
+                                        Default
+                                    </label>
+                                    <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                                        <input type="checkbox" checked={v.is_active} onChange={e => setVariation(i, 'is_active', e.target.checked)} className="rounded" />
+                                        Active
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeVariation(i)}
+                                        disabled={form.variations.length <= 1}
+                                        className="p-1 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                        title="Remove variation"
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Max clients <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
+                                    <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
+                                        value={v.max_clients} onChange={e => setVariation(i, 'max_clients', e.target.value)} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Max seats <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
+                                    <input type="number" min="0" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
+                                        value={v.max_team_seats} onChange={e => setVariation(i, 'max_team_seats', e.target.value)} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Max workspaces <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
+                                    <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
+                                        value={v.max_workspaces} onChange={e => setVariation(i, 'max_workspaces', e.target.value)} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Price / mo <span className="text-muted-foreground">(blank = TBD)</span></FieldLabel>
+                                    <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" className={INPUT_SM_CLS}
+                                        value={v.price_monthly} onChange={e => setVariation(i, 'price_monthly', e.target.value)} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Currency</FieldLabel>
+                                    <input type="text" placeholder="LE" className={INPUT_SM_CLS}
+                                        value={v.currency} onChange={e => setVariation(i, 'currency', e.target.value)} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Fawaterak payment link</FieldLabel>
+                                    <input type="url" placeholder="https://app.fawaterak.com/pay/..." className={INPUT_SM_CLS}
+                                        value={v.payment_link} onChange={e => setVariation(i, 'payment_link', e.target.value)} />
+                                </div>
+                            </div>
+
+                            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                                <input type="checkbox" checked={v.has_team_counter} onChange={e => setVariation(i, 'has_team_counter', e.target.checked)} className="rounded" />
+                                Let the coach buy extra seats beyond the limit above
+                            </label>
+
+                            {v.has_team_counter && (
+                                <div className="grid grid-cols-3 gap-2 ml-5">
+                                    <div className="flex flex-col gap-1">
+                                        <FieldLabel>Price / extra seat</FieldLabel>
+                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" className={INPUT_SM_CLS}
+                                            value={v.price_per_seat} onChange={e => setVariation(i, 'price_per_seat', e.target.value)} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <FieldLabel>Min seats</FieldLabel>
+                                        <input type="number" min="1" inputMode="numeric" placeholder="1" className={INPUT_SM_CLS}
+                                            value={v.min_seat_count} onChange={e => setVariation(i, 'min_seat_count', e.target.value)} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <FieldLabel>Max seats</FieldLabel>
+                                        <input type="number" min="1" inputMode="numeric" placeholder="20" className={INPUT_SM_CLS}
+                                            value={v.max_seat_count} onChange={e => setVariation(i, 'max_seat_count', e.target.value)} />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    <Button variant="ghost" onClick={addVariation} className="self-start">
+                        <Plus size={14} className="mr-1.5" />
+                        Add variation
+                    </Button>
+                </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
@@ -204,19 +318,11 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     </TextField>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Currency</FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Currency" value={form.currency} onChange={(val) => set('currency', val)}>
-                            <Input type="text" placeholder="LE" />
-                        </TextField>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Sort order</FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label="Sort order" value={form.sort_order} onChange={(val) => set('sort_order', val)}>
-                            <Input type="number" min="0" inputMode="numeric" placeholder="0" />
-                        </TextField>
-                    </div>
+                <div className="flex flex-col gap-1.5 max-w-56">
+                    <FieldLabel>Sort order</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Sort order" value={form.sort_order} onChange={(val) => set('sort_order', val)}>
+                        <Input type="number" min="0" inputMode="numeric" placeholder="0" />
+                    </TextField>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -274,36 +380,6 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 </label>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                    <input type="checkbox" checked={form.has_team_counter} onChange={e => set('has_team_counter', e.target.checked)} className="rounded" />
-                    Show team member counter widget
-                </label>
-
-                {form.has_team_counter && (
-                    <div className="ml-6 flex flex-col gap-3 p-3 rounded-lg bg-secondary/40 border border-border">
-                        <div className="flex flex-col gap-1.5">
-                            <FieldLabel>Price per additional seat / month <span className="text-muted-foreground">(blank = no seat charge)</span></FieldLabel>
-                            <TextField variant="secondary" fullWidth aria-label="Price per additional seat" value={form.price_per_seat} onChange={(val) => set('price_per_seat', val)}>
-                                <Input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" />
-                            </TextField>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex flex-col gap-1.5">
-                                <FieldLabel>Min seats</FieldLabel>
-                                <TextField variant="secondary" fullWidth aria-label="Min seats" value={form.min_seat_count} onChange={(val) => set('min_seat_count', val)}>
-                                    <Input type="number" min="1" inputMode="numeric" placeholder="1" />
-                                </TextField>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <FieldLabel>Max seats</FieldLabel>
-                                <TextField variant="secondary" fullWidth aria-label="Max seats" value={form.max_seat_count} onChange={(val) => set('max_seat_count', val)}>
-                                    <Input type="number" min="1" inputMode="numeric" placeholder="20" />
-                                </TextField>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.show_on_landing} onChange={e => set('show_on_landing', e.target.checked)} className="rounded" />
                     Show on landing page
                 </label>
@@ -313,7 +389,7 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     <>
                         <p className={SECTION_LABEL_CLS}>Payment Links per Billing Period</p>
                         <p className="text-xs text-muted-foreground -mt-2">
-                            Each period needs its own Fawaterak link (different billing amount). Leave blank to fall back to the default payment link above.
+                            Each period needs its own Fawaterak link (different billing amount). Leave blank to fall back to each variation&apos;s own payment link above.
                         </p>
                         {billingPeriods.map(d => (
                             <div key={d.period_key} className="flex flex-col gap-1.5">
@@ -502,12 +578,11 @@ export default function AdminPlansPage() {
 
             {/* ── Plans table ── */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Name</span>
                     <span>Display</span>
-                    <span>Seats</span>
-                    <span>Workspaces</span>
-                    <span>Price/mo</span>
+                    <span>Variations</span>
+                    <span>Price range</span>
                     <span>Trial days</span>
                     <span>Workspaces Using</span>
                     <span>Default</span>
@@ -521,18 +596,24 @@ export default function AdminPlansPage() {
                 ) : plans.length === 0 ? (
                     <div className="py-14 text-center text-sm text-muted-foreground border-t border-border">No plans found.</div>
                 ) : (
-                    plans.map((p, idx) => (
+                    plans.map((p, idx) => {
+                        const variations = Array.isArray(p.variations) ? p.variations : [];
+                        const prices = variations.map(v => v.price_monthly).filter(v => v != null).map(Number);
+                        const currency = variations[0]?.currency ?? '';
+                        const priceRange = prices.length === 0
+                            ? '—'
+                            : Math.min(...prices) === Math.max(...prices)
+                                ? `${Math.min(...prices).toLocaleString('en-EG')} ${currency}`.trim()
+                                : `${Math.min(...prices).toLocaleString('en-EG')}–${Math.max(...prices).toLocaleString('en-EG')} ${currency}`.trim();
+                        return (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
+                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
                         >
                             <span className="text-sm font-mono text-muted-foreground w-20">{p.name}</span>
                             <span className="text-sm font-medium text-foreground">{p.display_name}</span>
-                            <span className="text-sm text-foreground w-16 text-center">{p.max_team_seats ?? '∞'}</span>
-                            <span className="text-sm text-foreground w-20 text-center">{p.max_workspaces ?? '∞'}</span>
-                            <span className="text-sm text-foreground w-20 text-right">
-                                {p.price_monthly != null ? `${parseFloat(p.price_monthly).toLocaleString('en-EG')} ${p.currency || ''}`.trim() : '—'}
-                            </span>
+                            <span className="text-sm text-foreground w-20 text-center">{variations.length}</span>
+                            <span className="text-sm text-foreground w-32 text-right">{priceRange}</span>
                             <span className="text-sm text-foreground w-20 text-center">
                                 {p.trial_days != null ? `${p.trial_days}d` : '—'}
                             </span>
@@ -557,7 +638,8 @@ export default function AdminPlansPage() {
                                 </button>
                             </div>
                         </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

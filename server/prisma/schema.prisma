@@ -909,6 +909,35 @@ model plan_period_links {
   @@unique([plan_id, billing_discount_id])
 }
 
+/// Deprecated: max_clients/max_team_seats/max_workspaces/price_monthly/currency/payment_link
+/// are being superseded by plan_variations (each plan now has >=1 variation carrying these
+/// values). Kept in place until every read/write path is migrated; see the plan-variations
+/// implementation plan for the removal follow-up.
+model plan_variations {
+  id                      String                    @id
+  plan_id                 String
+  max_clients             Int?
+  max_team_seats          Int?
+  max_workspaces          Int?
+  price_monthly           Decimal?                  @db.Decimal(10, 2)
+  currency                String                    @default("LE")
+  payment_link            String?
+  has_team_counter        Boolean                   @default(false)
+  price_per_seat          Decimal?                  @db.Decimal(10, 2)
+  min_seat_count          Int                       @default(1)
+  max_seat_count          Int                       @default(20)
+  is_default              Boolean                   @default(false)
+  is_active               Boolean                   @default(true)
+  sort_order              Int                       @default(0)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  plans                   plans                     @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_payments      workspace_payments[]
+  workspace_subscriptions workspace_subscriptions[]
+
+  @@unique([plan_id, sort_order])
+  @@index([plan_id])
+}
+
 model plans {
   id                      String                    @id
   name                    String                    @unique
@@ -938,6 +967,7 @@ model plans {
   max_seat_count          Int                       @default(20)
   max_clients             Int?
   plan_period_links       plan_period_links[]
+  plan_variations         plan_variations[]
   workspace_payments      workspace_payments[]
   workspace_subscriptions workspace_subscriptions[]
 }
@@ -1176,38 +1206,47 @@ model workspace_members {
 }
 
 model workspace_payments {
-  id                    String     @id
+  id                    String           @id
   workspace_id          String
   plan_id               String
-  amount                Decimal    @db.Decimal(10, 2)
-  currency              String     @default("EGP")
+  variation_id          String?
+  amount                Decimal          @db.Decimal(10, 2)
+  currency              String           @default("EGP")
   duration_days         Int
   fawaterak_invoice_id  String?
   fawaterak_payment_url String?
-  fawaterak_status      String     @default("pending")
+  fawaterak_status      String           @default("pending")
   fawaterak_raw_webhook Json?
   notes                 String?
-  paid_at               DateTime?  @db.Timestamptz(6)
-  created_at            DateTime   @default(now()) @db.Timestamptz(6)
-  plans                 plans      @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workspaces            workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paid_at               DateTime?        @db.Timestamptz(6)
+  created_at            DateTime         @default(now()) @db.Timestamptz(6)
+  plans                 plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan_variations       plan_variations? @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspaces            workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([fawaterak_invoice_id])
   @@index([workspace_id])
+  @@index([variation_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model workspace_subscriptions {
-  id           String     @id
-  workspace_id String     @unique
-  plan_id      String
-  status       String     @default("active")
-  starts_at    DateTime   @default(now()) @db.Timestamptz(6)
-  expires_at   DateTime?  @db.Timestamptz(6)
-  notes        String?
-  created_at   DateTime   @default(now()) @db.Timestamptz(6)
-  plans        plans      @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                    String           @id
+  workspace_id          String           @unique
+  plan_id               String
+  variation_id          String?
+  locked_price_monthly  Decimal?         @db.Decimal(10, 2)
+  locked_currency       String?
+  status                String           @default("active")
+  starts_at             DateTime         @default(now()) @db.Timestamptz(6)
+  expires_at            DateTime?        @db.Timestamptz(6)
+  notes                 String?
+  created_at            DateTime         @default(now()) @db.Timestamptz(6)
+  plans                 plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan_variations       plan_variations? @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspaces            workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([variation_id])
 }
 
 model workspaces {

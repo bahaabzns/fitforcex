@@ -48,6 +48,24 @@ function BillingPeriodToggle({ discounts, selected, onSelect }) {
     );
 }
 
+function VariationDropdown({ variations, selectedId, onSelect }) {
+    if (variations.length <= 1) return null;
+    return (
+        <select
+            aria-label="Plan variation"
+            value={selectedId ?? ''}
+            onChange={e => onSelect(e.target.value)}
+            className="w-full px-3 py-2 text-sm font-medium text-foreground bg-white/5 border border-white/10 rounded-lg outline-none hover:border-primary/40 transition-colors cursor-pointer [&>option]:bg-neutral-900 [&>option]:text-white"
+        >
+            {variations.map(v => (
+                <option key={v.id} value={v.id}>
+                    {v.label} — {v.price_monthly != null ? `${Number(v.price_monthly).toLocaleString('en-EG')} ${v.currency}` : 'Custom pricing'}
+                </option>
+            ))}
+        </select>
+    );
+}
+
 function TeamMemberCounter({ value, onChange, min, max, pricePerSeat, currency }) {
     const extraSeats = Math.max(0, value - min);
     const extraCost  = pricePerSeat ? extraSeats * Number(pricePerSeat) : 0;
@@ -95,7 +113,10 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
-    // Per-plan team member counts, keyed by plan id
+    // Which variation is selected per plan (planId -> variationId) — the dropdown on each
+    // card. Defaults to the variation the admin marked `is_default`.
+    const [selectedVariations, setSelectedVariations] = useState({});
+    // Per-variation team member counts, keyed by variation id
     const [seatCounts, setSeatCounts] = useState({});
 
     useEffect(() => {
@@ -108,17 +129,21 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
             setPlans(plansData);
             setDiscounts(discountsData);
             setSelectedPeriod(discountsData[0] ?? null);
-            // Initialise each plan's counter to its min_seat_count
-            const initial = {};
-            plansData.forEach(p => { if (p.has_team_counter) initial[p.id] = p.min_seat_count ?? 1; });
-            setSeatCounts(initial);
+            // Initialise each plan's dropdown to its default variation (or the first one).
+            const initialVariations = {};
+            plansData.forEach(p => {
+                const variations = Array.isArray(p.variations) ? p.variations : [];
+                const def = variations.find(v => v.is_default) ?? variations[0];
+                if (def) initialVariations[p.id] = def.id;
+            });
+            setSelectedVariations(initialVariations);
         })
         .catch(() => setError(true))
         .finally(() => setLoading(false));
     }, []);
 
-    function setSeats(planId, val) {
-        setSeatCounts(s => ({ ...s, [planId]: val }));
+    function setSeats(variationId, val) {
+        setSeatCounts(s => ({ ...s, [variationId]: val }));
     }
 
     const discount     = selectedPeriod?.discount_percent ?? 0;
@@ -168,18 +193,23 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
 
                         <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${isInline ? "items-stretch" : "items-center"}`}>
                             {plans.map((plan) => {
+                                const variations = Array.isArray(plan.variations) ? plan.variations : [];
+                                const selectedVariationId = selectedVariations[plan.id] ?? variations.find(v => v.is_default)?.id ?? variations[0]?.id;
+                                const variation  = variations.find(v => v.id === selectedVariationId) ?? variations[0] ?? null;
+
                                 const periodKey  = selectedPeriod?.period_key;
                                 const ctaHref    = `/register?plan=${encodeURIComponent(plan.name)}`
-                                    + (periodKey ? `&period=${encodeURIComponent(periodKey)}` : '');
-                                const base       = plan.price_monthly ? Number(plan.price_monthly) : null;
-                                const teamCount  = seatCounts[plan.id] ?? (plan.min_seat_count ?? 1);
-                                const extraSeats = Math.max(0, teamCount - (plan.min_seat_count ?? 1));
-                                const seatAdd    = plan.price_per_seat ? extraSeats * Number(plan.price_per_seat) : 0;
+                                    + (periodKey ? `&period=${encodeURIComponent(periodKey)}` : '')
+                                    + (variation ? `&variation=${encodeURIComponent(variation.id)}` : '');
+                                const base       = variation?.price_monthly ? Number(variation.price_monthly) : null;
+                                const teamCount  = variation ? (seatCounts[variation.id] ?? (variation.min_seat_count ?? 1)) : 1;
+                                const extraSeats = variation ? Math.max(0, teamCount - (variation.min_seat_count ?? 1)) : 0;
+                                const seatAdd    = variation?.price_per_seat ? extraSeats * Number(variation.price_per_seat) : 0;
                                 const effective  = base != null ? Math.round((base + seatAdd) * (1 - discount / 100)) : null;
                                 const periodTotal= effective != null ? effective * months : null;
                                 const priceDisplay = effective != null ? effective.toLocaleString('en-EG') : null;
                                 const periodLabel  = months > 1 && periodTotal != null
-                                    ? `billed ${periodTotal.toLocaleString('en-EG')} ${plan.currency} every ${months} mo`
+                                    ? `billed ${periodTotal.toLocaleString('en-EG')} ${variation?.currency} every ${months} mo`
                                     : null;
                                 const features = Array.isArray(plan.features) ? plan.features : [];
                                 const isCurrentPlan = currentPlanId === plan.id;
@@ -224,6 +254,13 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                         <p className="text-sm text-foreground/50 leading-snug">{plan.subtitle}</p>
                                                     )}
                                                 </div>
+
+                                                <VariationDropdown
+                                                    variations={variations}
+                                                    selectedId={variation?.id}
+                                                    onSelect={id => setSelectedVariations(s => ({ ...s, [plan.id]: id }))}
+                                                />
+
                                                 <div className="flex flex-col gap-0.5 pt-1">
                                                     <div className="flex items-end gap-1.5">
                                                         {priceDisplay ? (
@@ -232,7 +269,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                                     {priceDisplay}
                                                                 </span>
                                                                 <div className="flex flex-col leading-tight pb-0.5">
-                                                                    <span className="text-sm font-semibold text-foreground/70">{plan.currency}</span>
+                                                                    <span className="text-sm font-semibold text-foreground/70">{variation?.currency}</span>
                                                                     <span className="text-xs text-foreground/40">/ month</span>
                                                                 </div>
                                                             </>
@@ -240,7 +277,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                             <span className="text-3xl font-bold text-foreground leading-none">Custom pricing</span>
                                                         )}
                                                     </div>
-                                                    {plan.has_team_counter && priceDisplay && (
+                                                    {variation?.has_team_counter && priceDisplay && (
                                                         <p className="text-xs text-foreground/35 font-medium">
                                                             {extraSeats > 0
                                                                 ? `Total for ${teamCount} seats`
@@ -256,14 +293,14 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                             <Card.Content className="flex flex-col gap-4 flex-1">
                                                 <Separator />
 
-                                                {plan.has_team_counter && (
+                                                {variation?.has_team_counter && (
                                                     <TeamMemberCounter
                                                         value={teamCount}
-                                                        onChange={val => setSeats(plan.id, val)}
-                                                        min={plan.min_seat_count ?? 1}
-                                                        max={plan.max_seat_count ?? 20}
-                                                        pricePerSeat={plan.price_per_seat}
-                                                        currency={plan.currency}
+                                                        onChange={val => setSeats(variation.id, val)}
+                                                        min={variation.min_seat_count ?? 1}
+                                                        max={variation.max_seat_count ?? 20}
+                                                        pricePerSeat={variation.price_per_seat}
+                                                        currency={variation.currency}
                                                     />
                                                 )}
 
@@ -300,7 +337,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                             <Card.Footer className="flex flex-col gap-2">
                                                 {onCtaClick ? (
                                                     <button
-                                                        onClick={() => onCtaClick(plan.id, plan)}
+                                                        onClick={() => onCtaClick(plan.id, variation?.id, plan)}
                                                         className={`button button--${isCurrentPlan ? "secondary" : plan.cta_variant} button--md button--full-width`}
                                                     >
                                                         {isCurrentPlan ? `✓ ${t("currentPlan")}` : plan.cta_text}

@@ -14,7 +14,7 @@ import {
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
-        const { fname, lname, email, password, phone } = req.body as Record<string, string | undefined>;
+        const { fname, lname, email, password, phone, plan: planSlug, variation: variationId } = req.body as Record<string, string | undefined>;
 
         if (!email || typeof email !== 'string' || !email.trim()) {
             return res.status(400).json({ message: 'Email is required' });
@@ -85,21 +85,61 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                     data:  { default_workspace_id: workspaceId },
                 });
 
-                const defaultPlan = await tx.plans.findFirst({
-                    where:  { is_default: true },
-                    select: { id: true, trial_days: true },
-                });
-
-                if (defaultPlan) {
-                    const expiresAt = defaultPlan.trial_days
-                        ? new Date(Date.now() + Number(defaultPlan.trial_days) * 86400000)
-                        : null;
-                    await tx.workspace_subscriptions.create({
-                        data: {
-                            id: createId(), workspace_id: workspaceId, plan_id: defaultPlan.id,
-                            expires_at: expiresAt,
+                // A plan+variation selected on the landing page only activates immediately
+                // if the plan has a free trial — otherwise the workspace starts on the
+                // default free plan and the coach completes payment afterward (deep-linked
+                // into settings/subscription), which activates the real plan/variation via
+                // the normal checkout path (billing.controller.ts:applyPayment).
+                let selectedSubscription: { planId: string; variationId: string; priceMonthly: unknown; currency: string; trialDays: number | null } | null = null;
+                if (planSlug && variationId) {
+                    const requestedPlan = await tx.plans.findFirst({
+                        where:  { name: planSlug, is_active: true },
+                        select: {
+                            id: true, trial_days: true,
+                            plan_variations: { where: { id: variationId, is_active: true }, select: { id: true, price_monthly: true, currency: true } },
                         },
                     });
+                    const requestedVariation = requestedPlan?.plan_variations[0];
+                    if (requestedPlan && requestedVariation && requestedPlan.trial_days) {
+                        selectedSubscription = {
+                            planId: requestedPlan.id, variationId: requestedVariation.id,
+                            priceMonthly: requestedVariation.price_monthly, currency: requestedVariation.currency,
+                            trialDays: requestedPlan.trial_days,
+                        };
+                    }
+                }
+
+                if (selectedSubscription) {
+                    await tx.workspace_subscriptions.create({
+                        data: {
+                            id: createId(), workspace_id: workspaceId,
+                            plan_id: selectedSubscription.planId, variation_id: selectedSubscription.variationId,
+                            locked_price_monthly: selectedSubscription.priceMonthly as Prisma.Decimal | null,
+                            locked_currency: selectedSubscription.currency,
+                            expires_at: new Date(Date.now() + Number(selectedSubscription.trialDays) * 86400000),
+                        },
+                    });
+                } else {
+                    const defaultPlan = await tx.plans.findFirst({
+                        where:  { is_default: true },
+                        select: { id: true, trial_days: true, plan_variations: { where: { is_default: true }, select: { id: true, price_monthly: true, currency: true } } },
+                    });
+
+                    if (defaultPlan) {
+                        const defaultVariation = defaultPlan.plan_variations[0];
+                        const expiresAt = defaultPlan.trial_days
+                            ? new Date(Date.now() + Number(defaultPlan.trial_days) * 86400000)
+                            : null;
+                        await tx.workspace_subscriptions.create({
+                            data: {
+                                id: createId(), workspace_id: workspaceId, plan_id: defaultPlan.id,
+                                variation_id: defaultVariation?.id,
+                                locked_price_monthly: defaultVariation?.price_monthly,
+                                locked_currency: defaultVariation?.currency,
+                                expires_at: expiresAt,
+                            },
+                        });
+                    }
                 }
 
                 return [newUser];

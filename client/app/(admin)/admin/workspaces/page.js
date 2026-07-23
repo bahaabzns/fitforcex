@@ -21,15 +21,25 @@ function useDebounce(value, delay = 350) {
 
 function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
     const [planId, setPlanId] = useState(workspace.plan_id);
+    const [variationId, setVariationId] = useState(workspace.variation_id);
     const [notes, setNotes] = useState('');
+    const [force, setForce] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+
+    const variations = plans.find(p => p.id === planId)?.variations ?? [];
+
+    function handlePlanChange(newPlanId) {
+        setPlanId(newPlanId);
+        const newVariations = plans.find(p => p.id === newPlanId)?.variations ?? [];
+        setVariationId(newVariations.find(v => v.is_default)?.id ?? newVariations[0]?.id ?? '');
+    }
 
     async function handleSave() {
         setSaving(true);
         setError('');
         try {
-            await api.put(`/api/admin/workspaces/${workspace.id}/subscription`, { planId, notes });
+            await api.put(`/api/admin/workspaces/${workspace.id}/subscription`, { planId, variationId, notes, force });
             onSaved();
             onClose();
         } catch (err) {
@@ -55,11 +65,26 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
                                 <label className="text-xs font-medium text-muted-foreground">Plan</label>
                                 <select
                                     value={planId}
-                                    onChange={e => setPlanId(e.target.value)}
+                                    onChange={e => handlePlanChange(e.target.value)}
                                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
                                 >
                                     {plans.map(p => (
                                         <option key={p.id} value={p.id}>{p.display_name} ({p.name})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Variation</label>
+                                <select
+                                    value={variationId}
+                                    onChange={e => setVariationId(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {variations.map(v => (
+                                        <option key={v.id} value={v.id}>
+                                            {v.label} — {v.price_monthly != null ? `${v.price_monthly} ${v.currency}` : 'Custom'}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
@@ -74,6 +99,11 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
                                     className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                                 />
                             </div>
+
+                            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                                <input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} className="rounded" />
+                                Force (skip the check that blocks downgrading below current usage)
+                            </label>
 
                             {error && <p className="text-sm text-red-500">{error}</p>}
                         </Modal.Body>

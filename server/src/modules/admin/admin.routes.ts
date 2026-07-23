@@ -158,12 +158,25 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *     responses:
  *       200:
  *         description: Workspace archived
+ *
+ * /admin/workspaces/{id}/resync-price:
+ *   post:
+ *     summary: Opt a workspace into its variation's current public price (no payment)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Locked price resynced
  */
-router.get('/workspaces',                  adminAuthMiddleware, adminController.getWorkspaces);
-router.get('/workspaces/:id',              adminAuthMiddleware, adminController.getWorkspaceById);
-router.put('/workspaces/:id/subscription', adminAuthMiddleware, adminController.updateWorkspaceSubscription);
-router.post('/workspaces/:id/restore',     adminAuthMiddleware, adminController.restoreWorkspace);
-router.post('/workspaces/:id/archive',     adminAuthMiddleware, adminController.archiveWorkspace);
+router.get('/workspaces',                     adminAuthMiddleware, adminController.getWorkspaces);
+router.get('/workspaces/:id',                 adminAuthMiddleware, adminController.getWorkspaceById);
+router.put('/workspaces/:id/subscription',    adminAuthMiddleware, adminController.updateWorkspaceSubscription);
+router.post('/workspaces/:id/resync-price',   adminAuthMiddleware, adminController.resyncSubscriptionPrice);
+router.post('/workspaces/:id/restore',        adminAuthMiddleware, adminController.restoreWorkspace);
+router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminController.archiveWorkspace);
 
 /**
  * @openapi

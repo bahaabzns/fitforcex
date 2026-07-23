@@ -59,6 +59,7 @@ export default function RegisterPage() {
     const searchParams = useSearchParams();
     const planSlug = searchParams.get('plan');
     const periodKey = searchParams.get('period');
+    const variationId = searchParams.get('variation');
 
     const [formData, setFormData] = useState({
         fname: '', lname: '', email: '', password: '',
@@ -107,6 +108,7 @@ export default function RegisterPage() {
                 phone,
                 plan: planSlug,
                 period: periodKey,
+                variation: variationId,
             });
             const slug = res.data?.workspace_slug;
             if (!slug) { router.push('/login'); return; }

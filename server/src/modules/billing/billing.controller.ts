@@ -5,6 +5,8 @@ import { getInvoiceStatus } from '../../lib/fawaterak';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import pool from '../../db';
+import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
+import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
 
 export async function handleCallback(req: Request, res: Response) {
     const { p: paymentId, sig } = req.query as { p?: string; sig?: string };
@@ -39,11 +41,10 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             where: { workspace_id: req.user!.workspaceId },
             include: {
                 plans: {
-                    select: {
-                        id: true, name: true, display_name: true,
-                        price_monthly: true, duration_days: true,
-                        max_team_seats: true, max_workspaces: true, trial_days: true,
-                    },
+                    select: { id: true, name: true, display_name: true, duration_days: true, trial_days: true },
+                },
+                plan_variations: {
+                    select: { id: true, max_clients: true, max_team_seats: true, max_workspaces: true, price_monthly: true },
                 },
             },
         });
@@ -59,31 +60,41 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 id: true, amount: true, currency: true, duration_days: true,
                 fawaterak_status: true, created_at: true, paid_at: true,
                 plans: { select: { display_name: true } },
+                plan_variations: { select: { max_clients: true } },
             },
             orderBy: { created_at: 'desc' },
             take: 20,
         });
 
-        const plan = sub.plans;
+        const plan      = sub.plans;
+        const variation = sub.plan_variations;
         res.json({
             subscription: {
-                status:        sub.status,
-                planId:        plan.id,
-                planName:      plan.name,
-                planDisplay:   plan.display_name,
-                priceMonthly:  plan.price_monthly,
-                durationDays:  plan.duration_days,
-                maxTeamSeats:  plan.max_team_seats,
-                maxWorkspaces: plan.max_workspaces,
-                trialDays:     plan.trial_days,
-                startsAt:      sub.starts_at,
-                expiresAt:     sub.expires_at,
+                status:         sub.status,
+                planId:         plan.id,
+                planName:       plan.name,
+                planDisplay:    plan.display_name,
+                variationId:    variation?.id ?? null,
+                variationLabel: variation ? formatPlanVariationLabel(variation) : null,
+                // Locked price = what this workspace actually pays, snapshotted at checkout —
+                // deliberately not the live plan_variations.price_monthly (see decision 5:
+                // editing a variation's public price never retroactively reprices existing
+                // subscribers without an explicit admin resync).
+                priceMonthly:   sub.locked_price_monthly ?? variation?.price_monthly ?? null,
+                durationDays:   plan.duration_days,
+                maxTeamSeats:   variation?.max_team_seats ?? null,
+                maxWorkspaces:  variation?.max_workspaces ?? null,
+                trialDays:      plan.trial_days,
+                startsAt:       sub.starts_at,
+                expiresAt:      sub.expires_at,
                 daysRemaining,
             },
             payments: payments.map(p => ({
                 ...p,
-                plan_display: p.plans.display_name,
-                plans: undefined,
+                plan_display:      p.plans.display_name,
+                variation_label:   p.plan_variations ? formatPlanVariationLabel(p.plan_variations) : null,
+                plans:             undefined,
+                plan_variations:   undefined,
             })),
         });
     } catch (err) { next(err); }
@@ -93,30 +104,41 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
     try {
         const plans = await prisma.plans.findMany({
             where: { is_active: true },
-            select: {
-                id: true, name: true, display_name: true,
-                price_monthly: true, duration_days: true,
-                max_team_seats: true, max_workspaces: true, features: true,
-            },
-            orderBy: { price_monthly: 'asc' },
+            select: { id: true, name: true, display_name: true, duration_days: true, features: true },
         });
         res.json(plans);
     } catch (err) { next(err); }
 }
 
 export async function createInvoice(req: Request, res: Response, next: NextFunction) {
-    const { planId } = req.body as { planId?: string };
-    if (!planId) return res.status(400).json({ error: 'planId is required' });
+    const { planId, variationId } = req.body as { planId?: string; variationId?: string };
+    if (!planId || !variationId) return res.status(400).json({ error: 'planId and variationId are required' });
 
     try {
-        const plan = await prisma.plans.findFirst({
-            where: { id: planId, is_active: true },
-        });
+        const [plan, variation] = await Promise.all([
+            prisma.plans.findFirst({ where: { id: planId, is_active: true } }),
+            prisma.plan_variations.findFirst({ where: { id: variationId, plan_id: planId, is_active: true } }),
+        ]);
         if (!plan) return res.status(404).json({ error: 'Plan not found' });
+        if (!variation) return res.status(404).json({ error: 'Plan variation not found' });
 
-        if (!plan.payment_link) {
-            return res.status(400).json({ error: 'No payment link configured for this plan. Contact support.' });
+        await checkVariationSwitchAllowed(req.user!.workspaceId, req.user!.userId, variation);
+
+        const paymentLink = variation.payment_link || plan.payment_link;
+        if (!paymentLink) {
+            return res.status(400).json({ error: 'No payment link configured for this variation. Contact support.' });
         }
+
+        // Renewing the same variation charges the workspace's locked-in price, not the
+        // variation's current public price (decision 5) — switching to a different
+        // variation/plan always uses the target's current public price.
+        const currentSub = await prisma.workspace_subscriptions.findUnique({
+            where:  { workspace_id: req.user!.workspaceId },
+            select: { variation_id: true, locked_price_monthly: true, locked_currency: true },
+        });
+        const isRenewal = currentSub?.variation_id === variation.id && currentSub.locked_price_monthly != null;
+        const amount    = isRenewal ? Number(currentSub!.locked_price_monthly) : (Number(variation.price_monthly) || 0);
+        const currency  = isRenewal ? (currentSub!.locked_currency || variation.currency) : variation.currency;
 
         const paymentId = createId();
         await prisma.workspace_payments.create({
@@ -124,8 +146,9 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
                 id:               paymentId,
                 workspace_id:     req.user!.workspaceId,
                 plan_id:          plan.id,
-                amount:           Number(plan.price_monthly) || 0,
-                currency:         'EGP',
+                variation_id:     variation.id,
+                amount,
+                currency,
                 duration_days:    plan.duration_days,
                 fawaterak_status: 'pending',
             },
@@ -133,8 +156,8 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
 
         const sig = crypto.createHmac('sha256', env.JWT_SECRET).update(String(paymentId)).digest('hex');
         const callbackUrl = `${env.SERVER_URL}/api/billing/callback?p=${paymentId}&sig=${sig}`;
-        const sep = plan.payment_link.includes('?') ? '&' : '?';
-        const paymentUrl = `${plan.payment_link}${sep}customerRef=${paymentId}&successUrl=${encodeURIComponent(callbackUrl)}`;
+        const sep = paymentLink.includes('?') ? '&' : '?';
+        const paymentUrl = `${paymentLink}${sep}customerRef=${paymentId}&successUrl=${encodeURIComponent(callbackUrl)}`;
 
         await prisma.workspace_payments.update({
             where: { id: paymentId },
@@ -142,7 +165,11 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
         });
 
         res.json({ paymentUrl, paymentId });
-    } catch (err) { next(err); }
+    } catch (err) {
+        const httpErr = err as { status?: number; message?: string };
+        if (httpErr.status) return res.status(httpErr.status).json({ error: httpErr.message });
+        next(err);
+    }
 }
 
 export async function getPaymentStatus(req: Request, res: Response, next: NextFunction) {
@@ -190,7 +217,7 @@ export async function applyPayment(paymentId: string, workspaceId: string): Prom
         await dbClient.query('BEGIN');
 
         const { rows } = await dbClient.query(`
-            SELECT id, plan_id, duration_days, paid_at FROM workspace_payments
+            SELECT id, plan_id, variation_id, amount, currency, duration_days, paid_at FROM workspace_payments
             WHERE id = $1 AND workspace_id = $2 FOR UPDATE
         `, [paymentId, workspaceId]);
 
@@ -207,11 +234,12 @@ export async function applyPayment(paymentId: string, workspaceId: string): Prom
 
         await dbClient.query(`
             UPDATE workspace_subscriptions
-            SET plan_id   = $1, status = 'active',
+            SET plan_id   = $1, variation_id = $2, locked_price_monthly = $3, locked_currency = $4,
+                status = 'active',
                 starts_at = COALESCE(starts_at, NOW()),
-                expires_at = GREATEST(NOW(), COALESCE(expires_at, NOW())) + ($2 || ' days')::INTERVAL
-            WHERE workspace_id = $3
-        `, [payment.plan_id, payment.duration_days, workspaceId]);
+                expires_at = GREATEST(NOW(), COALESCE(expires_at, NOW())) + ($5 || ' days')::INTERVAL
+            WHERE workspace_id = $6
+        `, [payment.plan_id, payment.variation_id, payment.amount, payment.currency, payment.duration_days, workspaceId]);
 
         await dbClient.query('COMMIT');
     } catch (err) {

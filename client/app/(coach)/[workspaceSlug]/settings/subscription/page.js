@@ -92,16 +92,24 @@ export default function SubscriptionPage() {
         setPayStatus(null);
     }
 
-    async function handlePay(planId) {
+    async function handlePay(planId, variationId) {
         setPaying(planId);
         setError("");
         try {
-            const res = await api.post("/api/billing/create-invoice", { planId });
+            const res = await api.post("/api/billing/create-invoice", { planId, variationId });
             setIframeUrl(res.data.paymentUrl);
             setIframePayId(res.data.paymentId);
             setPayStatus(null);
         } catch (err) {
-            setError(err.response?.data?.error || t("paymentFailed"));
+            const message = err.response?.data?.error || "";
+            const limitMatch = message.match(/^(client|seat|workspace)_limit_exceeded:(\d+)$/);
+            if (limitMatch) {
+                const [, kind, limit] = limitMatch;
+                const kindLabel = kind === "client" ? "clients" : kind === "seat" ? "team seats" : "workspaces";
+                setError(`You currently have more ${kindLabel} than this plan allows (max ${limit}). Reduce usage before switching.`);
+            } else {
+                setError(message || t("paymentFailed"));
+            }
         } finally {
             setPaying(false);
         }
@@ -120,7 +128,9 @@ export default function SubscriptionPage() {
             sortable: true,
             render: (row) => (
                 <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-foreground">{row.plan_display}</span>
+                    <span className="font-medium text-foreground">
+                        {row.plan_display}{row.variation_label ? ` · ${row.variation_label}` : ""}
+                    </span>
                     <span className="text-xs text-muted-foreground">{t("columnDays", { count: row.duration_days })}</span>
                 </div>
             ),
@@ -210,7 +220,12 @@ export default function SubscriptionPage() {
                     "border-border bg-secondary/30"
                 }`}>
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("currentPlan")}</span>
-                    <span className="text-sm font-bold text-foreground">{subscription?.planDisplay ?? "—"}</span>
+                    <span className="text-sm font-bold text-foreground">
+                        {subscription?.planDisplay ?? "—"}
+                        {subscription?.variationLabel && (
+                            <span className="font-normal text-muted-foreground"> · {subscription.variationLabel}</span>
+                        )}
+                    </span>
                     <span className="text-border">·</span>
                     <Chip size="sm" className={
                         subscription?.status === "active"
@@ -238,7 +253,7 @@ export default function SubscriptionPage() {
             <LandingPricing
                 isInline={true}
                 currentPlanId={subscription?.planId}
-                onCtaClick={(planId) => handlePay(planId)}
+                onCtaClick={(planId, variationId) => handlePay(planId, variationId)}
             />
 
             {error && <ErrorMsg msg={error} />}
