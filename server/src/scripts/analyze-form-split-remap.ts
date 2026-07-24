@@ -27,7 +27,7 @@
  *   ORIGINAL_FORM_ID="<id>" \
  *   TRAINING_FORM_ID="<id>" \
  *   NUTRITION_FORM_ID="<id>" \
- *     npx tsx src/scripts/analyze-form-split-remap.ts
+ *     npx ts-node -r tsconfig-paths/register src/scripts/analyze-form-split-remap.ts
  *
  * TRAINING_FORM_ID / NUTRITION_FORM_ID are optional -- omit them to just
  * see the original form's submission/question inventory before the two new
@@ -117,9 +117,19 @@ async function main() {
         const archivedCount = requests.filter(r => r.archived_at != null).length;
         if (archivedCount > 0) log(`⚠ ${archivedCount} of these are archived (hidden from the active queue) — will still be remapped unless you say otherwise`);
 
-        const distinctClients = new Set(requests.map(r => r.client_id));
-        if (distinctClients.size !== requests.length) {
-            log(`⚠ ${requests.length - distinctClients.size} client(s) have MORE THAN ONE submission of this form — check for duplicates before remapping`);
+        const submittedOrReviewed = requests.filter(r => r.status === 'submitted' || r.status === 'reviewed');
+        const byClientSubmitted = new Map<string, typeof submittedOrReviewed>();
+        for (const r of submittedOrReviewed) {
+            const list = byClientSubmitted.get(r.client_id) ?? [];
+            list.push(r);
+            byClientSubmitted.set(r.client_id, list);
+        }
+        const duplicateClients = [...byClientSubmitted.entries()].filter(([, rows]) => rows.length > 1);
+        if (duplicateClients.length > 0) {
+            log(`⚠ ${duplicateClients.length} client(s) have MORE THAN ONE submitted/reviewed row — check for duplicates before remapping (remap script keeps only the latest per client by default):`);
+            for (const [clientId, rows] of duplicateClients) {
+                log(`  - client ${clientId}: ${rows.map(r => `${r.id} (submitted ${r.submitted_at}${r.archived_at ? ', archived' : ''})`).join(' / ')}`);
+            }
         }
 
         // ---- Distinct logical questions across all submissions (by lineage) ------
@@ -144,14 +154,19 @@ async function main() {
             log(`  - [${q.origin_question_id}] "${q.label_en}" (${q.type})${q.metric_id ? ' [metric-linked]' : ''} — ${q.response_count} answers across ${q.request_count} submissions`);
         }
 
-        const requestIdsWithNoAnswers = requests.length - new Set(
+        // Only submitted/reviewed rows should ever have answers — a 'pending'
+        // row has none by definition (not yet filled out), so checking those
+        // would just be noise.
+        const answeredRequestIds = new Set(
             (await db.query<{ request_id: string }>(
                 `SELECT DISTINCT request_id FROM form_responses WHERE request_id = ANY($1::text[])`,
-                [requests.map(r => r.id)]
+                [submittedOrReviewed.map(r => r.id)]
             )).rows.map(r => r.request_id)
-        ).size;
-        if (requestIdsWithNoAnswers > 0) {
-            log(`⚠ ${requestIdsWithNoAnswers} submission(s) have ZERO form_responses rows — investigate individually before remapping those`);
+        );
+        const requestIdsWithNoAnswers = submittedOrReviewed.filter(r => !answeredRequestIds.has(r.id));
+        if (requestIdsWithNoAnswers.length > 0) {
+            log(`⚠ ${requestIdsWithNoAnswers.length} submitted/reviewed row(s) have ZERO form_responses rows — investigate individually before remapping those:`);
+            for (const r of requestIdsWithNoAnswers) log(`  - ${r.id} (client ${r.client_id})`);
         }
 
         // ---- New forms' current questions, if provided ---------------------------

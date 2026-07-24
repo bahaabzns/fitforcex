@@ -1,17 +1,35 @@
 /**
- * Remaps the 61 fitsavior-com submissions of a no-post-action assessment
- * form into two brand-new form_requests per client — one against the
- * coach's new training form (post_action='workout-plan'), one against the
- * new nutrition form (post_action='nutrition-plan') — so they land back in
- * the Plans Queue as actionable ('submitted'), the state they should have
- * been in from the start. See analyze-form-split-remap.ts for the
- * read-only report this depends on.
+ * Fixes the fitsavior-com "Assessment Form" (post_action='nothing', so
+ * nothing ever routed to a plan). Every form_requests row against it —
+ * submitted or still-pending — gets replaced with two brand-new rows per
+ * client: one against the coach's new training form (post_action=
+ * 'workout-plan'), one against the new nutrition form (post_action=
+ * 'nutrition-plan'). See analyze-form-split-remap.ts for the read-only
+ * report this depends on.
  *
- * PURELY ADDITIVE. The original form, its form_requests (still 'reviewed'),
- * and its form_responses are never modified or deleted — they stay exactly
- * as the coach left them, an untouched audit trail. Every row this script
- * writes is brand new, with a freshly generated id, so the entire migration
- * is undoable with two DELETEs keyed on the ids recorded in LEDGER_FILE.
+ * Two structurally different cases, handled differently on purpose:
+ *
+ *  - status='submitted' (or 'reviewed'/archived — anything with real
+ *    answers): PURELY ADDITIVE. The original row and its form_responses are
+ *    never modified or deleted — untouched audit trail. Two new
+ *    form_requests are inserted with status='submitted', and every answer is
+ *    cloned across via the question mapping. Only the LATEST submission per
+ *    client is processed — see DEDUPE note below.
+ *
+ *  - status='pending' (delivered to the client, never answered — zero
+ *    form_responses rows, confirmed no other table references it): the old
+ *    row is DELETED and replaced with two new status='pending' rows, one per
+ *    new form. Safe because there is no answer data to lose — the client
+ *    just sees two forms to fill instead of one, instead of three.
+ *
+ * DEDUPE: fitsavior-com has 9 clients who submitted this form twice — the
+ * first was archived within minutes-to-a-day, then the client immediately
+ * resubmitted a full copy. The older, archived submission is treated as
+ * superseded and is NOT remapped or touched in any way (it's simply excluded
+ * from processing — still sits in the DB exactly as the coach left it). Only
+ * the newer submission (by submitted_at) is processed. Confirmed by
+ * inspecting form_responses.answer_count on both rows (56/56 — a full
+ * resubmission, not a partial retry) before deciding this.
  *
  * Requires a human-reviewed mapping file (see analyze-form-split-remap.ts's
  * draft output) of the shape:
@@ -21,49 +39,51 @@
  *                                "nutrition": "<new_question_id>"|null }
  *   }
  * training/nutrition null means "this question intentionally has no
- * counterpart on that form" (e.g. a pure-nutrition question has no training
- * counterpart) — that's valid and expected, NOT an error. What IS an error,
- * and aborts the whole run before any write: an origin_question_id that
- * shows up in a real answer but has no entry in the mapping file at all.
- * Never guessed, ever.
+ * counterpart on that form" — valid and expected, NOT an error. What IS an
+ * error, and aborts the whole run before any write: an origin_question_id
+ * that shows up in a real answer but has no entry in the mapping file at
+ * all. Never guessed, ever.
  *
- * Idempotent via LEDGER_FILE: an append-only, one-JSON-line-per-request-pair
- * log written incrementally as each original request is processed. Re-running
- * (dry or live) skips any original request_id already present in the ledger,
- * so an interrupted run can just be re-invoked with the same ledger file.
- * The ledger is also the rollback list.
+ * Idempotent via LEDGER_FILE: an append-only, one-JSON-line-per-original-row
+ * log written incrementally as each row is processed (both the additive and
+ * the delete-and-replace path append to it). Re-running (dry or live) skips
+ * any original request_id already present in the ledger, so an interrupted
+ * run can just be re-invoked with the same ledger file. The ledger is also
+ * the rollback list.
  *
  * DRY_RUN=true by default (matches every other one-off script in this repo,
  * see backfill-stale-need-action-submissions.ts) -- always run dry first,
  * read the full report, and only re-run with DRY_RUN=false once every line
  * of it looks right.
  *
+ * INCLUDE_PENDING=true opts into the delete-and-replace path for pending
+ * rows. Defaults to false so the two cases can be reviewed and run as
+ * separate, deliberate steps rather than one opaque batch.
+ *
  * Usage (from server/):
  *   DRY_RUN=true DATABASE_URL="$DATABASE_URL" \
  *   WORKSPACE_SLUG="fitsavior-com" \
  *   ORIGINAL_FORM_ID="<id>" TRAINING_FORM_ID="<id>" NUTRITION_FORM_ID="<id>" \
  *   MAPPING_FILE="form-split-mapping.json" LEDGER_FILE="form-split-ledger.jsonl" \
- *     npx tsx src/scripts/remap-form-split-submissions.ts
+ *   INCLUDE_PENDING=true \
+ *     npx ts-node -r tsconfig-paths/register src/scripts/remap-form-split-submissions.ts
  *
- *   # once the dry-run report is fully reviewed and correct:
- *   DATABASE_URL="$DATABASE_URL" WORKSPACE_SLUG="fitsavior-com" \
- *   ORIGINAL_FORM_ID="<id>" TRAINING_FORM_ID="<id>" NUTRITION_FORM_ID="<id>" \
- *   MAPPING_FILE="form-split-mapping.json" LEDGER_FILE="form-split-ledger.jsonl" \
- *     npx tsx src/scripts/remap-form-split-submissions.ts
+ *   # once the dry-run report is fully reviewed and correct, same command with DRY_RUN=false
  */
 
 import { Pool, PoolClient } from 'pg';
 import { createId } from '@paralleldrive/cuid2';
 import { readFileSync, existsSync, appendFileSync } from 'fs';
 
-const DATABASE_URL     = process.env.DATABASE_URL;
-const WORKSPACE_SLUG   = process.env.WORKSPACE_SLUG;
-const ORIGINAL_FORM_ID = process.env.ORIGINAL_FORM_ID;
+const DATABASE_URL      = process.env.DATABASE_URL;
+const WORKSPACE_SLUG    = process.env.WORKSPACE_SLUG;
+const ORIGINAL_FORM_ID  = process.env.ORIGINAL_FORM_ID;
 const TRAINING_FORM_ID  = process.env.TRAINING_FORM_ID;
 const NUTRITION_FORM_ID = process.env.NUTRITION_FORM_ID;
-const MAPPING_FILE     = process.env.MAPPING_FILE;
-const LEDGER_FILE      = process.env.LEDGER_FILE;
-const DRY_RUN          = process.env.DRY_RUN !== 'false'; // default true — opt OUT, not in
+const MAPPING_FILE      = process.env.MAPPING_FILE;
+const LEDGER_FILE       = process.env.LEDGER_FILE;
+const DRY_RUN           = process.env.DRY_RUN !== 'false';       // default true — opt OUT, not in
+const INCLUDE_PENDING   = process.env.INCLUDE_PENDING === 'true'; // default false — opt IN
 
 for (const [name, val] of Object.entries({
     DATABASE_URL, WORKSPACE_SLUG, ORIGINAL_FORM_ID, TRAINING_FORM_ID, NUTRITION_FORM_ID, MAPPING_FILE, LEDGER_FILE,
@@ -78,7 +98,11 @@ function log(msg: string) { console.log(`[remap-form-split] ${msg}`); }
 interface MappingEntry { label_en: string; type: string; training: string | null; nutrition: string | null }
 type Mapping = Record<string, MappingEntry>;
 
-interface LedgerEntry { originalRequestId: string; clientId: string; trainingRequestId: string; nutritionRequestId: string; migratedAt: string }
+interface LedgerEntry {
+    kind: 'submitted' | 'pending';
+    originalRequestId: string; clientId: string;
+    trainingRequestId: string; nutritionRequestId: string; migratedAt: string;
+}
 
 async function sealCurrentVersion(client: PoolClient, formId: string, workspaceId: string): Promise<string> {
     const { rows } = await client.query<{ id: string; current_version_id: string | null; status: string }>(
@@ -95,7 +119,7 @@ async function sealCurrentVersion(client: PoolClient, formId: string, workspaceI
 }
 
 async function main() {
-    log(`Starting… ${DRY_RUN ? '(DRY RUN — no writes)' : '(LIVE — writing to production)'}`);
+    log(`Starting… ${DRY_RUN ? '(DRY RUN — no writes)' : '(LIVE — writing to production)'} — pending rows ${INCLUDE_PENDING ? 'INCLUDED' : 'excluded (set INCLUDE_PENDING=true to include)'}`);
 
     const mapping: Mapping = JSON.parse(readFileSync(MAPPING_FILE as string, 'utf8'));
 
@@ -127,8 +151,8 @@ async function main() {
         if (trainingForm.post_action !== 'workout-plan') log(`⚠ training form's post_action is '${trainingForm.post_action}', not 'workout-plan' — queue routing won't work as intended`);
         if (nutritionForm.post_action !== 'nutrition-plan') log(`⚠ nutrition form's post_action is '${nutritionForm.post_action}', not 'nutrition-plan' — queue routing won't work as intended`);
 
-        // ---- Load target submissions ----------------------------------------------
-        const { rows: requests } = await db.query<{
+        // ---- Load all rows against the original form -------------------------------
+        const { rows: allRequests } = await db.query<{
             id: string; client_id: string; status: string; requested_at: string | null;
             submitted_at: string | null; assigned_to: string | null; archived_at: string | null;
         }>(
@@ -136,19 +160,43 @@ async function main() {
              FROM form_requests WHERE workspace_id = $1 AND form_id = $2 ORDER BY requested_at ASC`,
             [workspaceId, ORIGINAL_FORM_ID]
         );
-        log(`original submissions found: ${requests.length}`);
-        const toProcess = requests.filter(r => !alreadyMigrated.has(r.id));
-        log(`remaining to migrate this run: ${toProcess.length}`);
-        if (toProcess.length === 0) { log('Nothing to do.'); return; }
+        log(`total form_requests against original form: ${allRequests.length}`);
 
-        // ---- Pre-flight: every answered question must have a mapping entry --------
-        const { rows: answeredOrigins } = await db.query<{ origin_question_id: string }>(
-            `SELECT DISTINCT fvq.origin_question_id
-             FROM form_responses rr
-             JOIN form_version_questions fvq ON fvq.id = rr.question_id
-             WHERE rr.request_id = ANY($1::text[])`,
-            [toProcess.map(r => r.id)]
-        );
+        // ---- Submitted-row set: dedupe to latest submission per client -------------
+        const submittedRows = allRequests.filter(r => r.status === 'submitted' || r.status === 'reviewed');
+        const latestByClient = new Map<string, typeof submittedRows[number]>();
+        for (const r of submittedRows) {
+            const current = latestByClient.get(r.client_id);
+            const rTime = r.submitted_at ?? r.requested_at ?? '';
+            const curTime = current ? (current.submitted_at ?? current.requested_at ?? '') : '';
+            if (!current || rTime > curTime) latestByClient.set(r.client_id, r);
+        }
+        const dedupedSubmitted = [...latestByClient.values()];
+        const skippedAsStale = submittedRows.filter(r => !dedupedSubmitted.includes(r));
+        if (skippedAsStale.length > 0) {
+            log(`skipping ${skippedAsStale.length} superseded duplicate submission(s) (older of a resubmit pair) — never touched:`);
+            for (const s of skippedAsStale) log(`  - ${s.id} (client ${s.client_id}, submitted ${s.submitted_at})`);
+        }
+        const submittedToProcess = dedupedSubmitted.filter(r => !alreadyMigrated.has(r.id));
+        log(`submitted rows to process this run: ${submittedToProcess.length} (of ${dedupedSubmitted.length} deduped, ${submittedRows.length} raw)`);
+
+        // ---- Pending-row set ---------------------------------------------------------
+        const pendingRows = allRequests.filter(r => r.status === 'pending');
+        const pendingToProcess = INCLUDE_PENDING ? pendingRows.filter(r => !alreadyMigrated.has(r.id)) : [];
+        log(`pending rows: ${pendingRows.length} total${INCLUDE_PENDING ? `, ${pendingToProcess.length} to process this run` : ' (excluded this run)'}`);
+
+        if (submittedToProcess.length === 0 && pendingToProcess.length === 0) { log('Nothing to do.'); return; }
+
+        // ---- Pre-flight: every answered question must have a mapping entry ---------
+        const { rows: answeredOrigins } = submittedToProcess.length > 0
+            ? await db.query<{ origin_question_id: string }>(
+                `SELECT DISTINCT fvq.origin_question_id
+                 FROM form_responses rr
+                 JOIN form_version_questions fvq ON fvq.id = rr.question_id
+                 WHERE rr.request_id = ANY($1::text[])`,
+                [submittedToProcess.map(r => r.id)]
+            )
+            : { rows: [] as { origin_question_id: string }[] };
         const unmapped = answeredOrigins.filter(o => !(o.origin_question_id in mapping));
         if (unmapped.length > 0) {
             log(`✕ ABORTING — ${unmapped.length} question(s) that appear in real answers have NO mapping entry:`);
@@ -186,12 +234,13 @@ async function main() {
         log('Pre-flight OK — every answered question has a valid mapping entry.');
 
         if (DRY_RUN) {
-            log(`DRY RUN: would create ${toProcess.length * 2} new form_requests (${toProcess.length} training, ${toProcess.length} nutrition) and their form_responses.`);
+            log(`DRY RUN: would create ${submittedToProcess.length * 2} new 'submitted' form_requests (${submittedToProcess.length} training, ${submittedToProcess.length} nutrition) with cloned answers.`);
+            if (INCLUDE_PENDING) log(`DRY RUN: would DELETE ${pendingToProcess.length} pending original row(s) and create ${pendingToProcess.length * 2} new 'pending' form_requests (${pendingToProcess.length} training, ${pendingToProcess.length} nutrition) with no answers.`);
             log('Re-run with DRY_RUN=false to write.');
             return;
         }
 
-        // ---- Seal both new forms' current versions once, up front -----------------
+        // ---- Seal both new forms' current versions once, up front -------------------
         let trainingVersionId = '';
         let nutritionVersionId = '';
         {
@@ -217,8 +266,13 @@ async function main() {
         );
         const metricByQuestion = new Map(newQuestionMeta.map(q => [q.id, q.metric_id]));
 
-        let migrated = 0;
-        for (const request of toProcess) {
+        function writeLedger(entry: LedgerEntry) {
+            appendFileSync(LEDGER_FILE as string, JSON.stringify(entry) + '\n');
+        }
+
+        // ---- Submitted rows: additive clone ------------------------------------------
+        let migratedSubmitted = 0;
+        for (const request of submittedToProcess) {
             const client = await db.connect();
             try {
                 await client.query('BEGIN');
@@ -272,25 +326,69 @@ async function main() {
                 }
 
                 await client.query('COMMIT');
-
-                const entry: LedgerEntry = {
-                    originalRequestId: request.id, clientId: request.client_id,
-                    trainingRequestId, nutritionRequestId, migratedAt: new Date().toISOString(),
-                };
-                appendFileSync(LEDGER_FILE as string, JSON.stringify(entry) + '\n');
-                migrated++;
+                writeLedger({ kind: 'submitted', originalRequestId: request.id, clientId: request.client_id, trainingRequestId, nutritionRequestId, migratedAt: new Date().toISOString() });
+                migratedSubmitted++;
             } catch (err) {
                 await client.query('ROLLBACK');
-                log(`✕ FAILED on original request ${request.id} (client ${request.client_id}): ${(err as Error).message}`);
-                log(`Stopping here — ${migrated} request(s) migrated so far are safely committed and in the ledger; already-done rows won't be reprocessed on retry.`);
+                log(`✕ FAILED on submitted request ${request.id} (client ${request.client_id}): ${(err as Error).message}`);
+                log(`Stopping here — ${migratedSubmitted} submitted request(s) migrated so far are safely committed and in the ledger.`);
                 process.exit(1);
             } finally {
                 client.release();
             }
         }
+        log(`Submitted rows done — migrated ${migratedSubmitted}.`);
 
-        log(`Done — migrated ${migrated} submission(s) into ${migrated} new training + ${migrated} new nutrition form_requests.`);
-        log(`Ledger: ${LEDGER_FILE}. To roll back, DELETE FROM form_requests WHERE id IN (each trainingRequestId/nutritionRequestId in the ledger) — form_responses cascade-delete with them.`);
+        // ---- Pending rows: delete original, insert two fresh pending rows -----------
+        let migratedPending = 0;
+        for (const request of pendingToProcess) {
+            const client = await db.connect();
+            try {
+                await client.query('BEGIN');
+
+                const trainingRequestId  = createId();
+                const nutritionRequestId = createId();
+
+                await client.query(
+                    `INSERT INTO form_requests
+                        (id, form_id, form_version_id, client_id, workspace_id, status,
+                         requested_at, post_action, assigned_to)
+                     VALUES ($1,$2,$3,$4,$5,'pending',$6,'workout-plan',$7)`,
+                    [trainingRequestId, TRAINING_FORM_ID, trainingVersionId, request.client_id, workspaceId,
+                     request.requested_at, request.assigned_to]
+                );
+                await client.query(
+                    `INSERT INTO form_requests
+                        (id, form_id, form_version_id, client_id, workspace_id, status,
+                         requested_at, post_action, assigned_to)
+                     VALUES ($1,$2,$3,$4,$5,'pending',$6,'nutrition-plan',$7)`,
+                    [nutritionRequestId, NUTRITION_FORM_ID, nutritionVersionId, request.client_id, workspaceId,
+                     request.requested_at, request.assigned_to]
+                );
+
+                // Safe: confirmed via analyze step that zero check_in_schedules /
+                // client_observations / observation_relations reference any row
+                // against this form, and a pending row has zero form_responses by
+                // definition — there is nothing here to lose.
+                const del = await client.query(`DELETE FROM form_requests WHERE id = $1 AND status = 'pending'`, [request.id]);
+                if (del.rowCount !== 1) throw new Error(`expected to delete exactly 1 pending row for ${request.id}, deleted ${del.rowCount}`);
+
+                await client.query('COMMIT');
+                writeLedger({ kind: 'pending', originalRequestId: request.id, clientId: request.client_id, trainingRequestId, nutritionRequestId, migratedAt: new Date().toISOString() });
+                migratedPending++;
+            } catch (err) {
+                await client.query('ROLLBACK');
+                log(`✕ FAILED on pending request ${request.id} (client ${request.client_id}): ${(err as Error).message}`);
+                log(`Stopping here — ${migratedPending} pending request(s) replaced so far are safely committed and in the ledger.`);
+                process.exit(1);
+            } finally {
+                client.release();
+            }
+        }
+        if (INCLUDE_PENDING) log(`Pending rows done — replaced ${migratedPending}.`);
+
+        log(`Done — ${migratedSubmitted} submitted + ${migratedPending} pending row(s) processed this run.`);
+        log(`Ledger: ${LEDGER_FILE}. Rollback: for 'submitted' entries, DELETE FROM form_requests WHERE id IN (trainingRequestId, nutritionRequestId) — form_responses cascade with them, original untouched. For 'pending' entries, the original row was deleted — re-create it manually from the ledger's originalRequestId/clientId if you ever need to undo, then delete the two new rows the same way.`);
     } catch (err) {
         console.error('[remap-form-split] FAILED:', err);
         process.exit(1);
