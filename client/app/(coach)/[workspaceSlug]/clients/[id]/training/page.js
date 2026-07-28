@@ -15,6 +15,7 @@ import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import { downloadPdfExport } from "@/lib/pdfExport";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const { id, workspaceSlug } = useParams();
@@ -122,6 +123,21 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
 
+    const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportError, setExportError] = useState("");
+    async function handleExportPdf() {
+        if (!selectedPlan?.id) return;
+        setExportingPdf(true);
+        setExportError("");
+        try {
+            await downloadPdfExport("training", selectedPlan.id, `${selectedPlan.name || "training-plan"}.pdf`);
+        } catch {
+            setExportError(t("exportPdfFailed"));
+        } finally {
+            setExportingPdf(false);
+        }
+    }
+
     // Observation counts per exercise, for the small count chip next to each
     // row's "Exercise insights" action — refetched whenever that modal closes
     // (create/edit/delete all funnel through there), matching the same
@@ -144,7 +160,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
     actionsRef.current = {
-        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan,
+        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, handleExportPdf,
         selectedPlanId: selectedPlan?.id, selectedPlanStatus: selectedPlan?.status,
         submissionId, setActivateModal, setConfigureActivationOpen, setDurationChoicePrompt,
     };
@@ -209,12 +225,20 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         if (!onHeaderActionsChange) return;
         const savePlanVisible = isSelectedPlanDirty;
         const activateVisible = selectedPlan && selectedPlan.status !== "active";
-        if (!showSaveAll && !savePlanVisible && !activateVisible) {
+        const exportVisible = !!selectedPlan?.id;
+        if (!showSaveAll && !savePlanVisible && !activateVisible && !exportVisible) {
             onHeaderActionsChange(null);
             return;
         }
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
+                {selectedPlan?.id && (
+                    <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
+                        title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
+                        onClick={() => actionsRef.current.handleExportPdf()}>
+                        {exportingPdf ? t('exportingPdf') : t('exportPdf')}
+                    </Button>
+                )}
                 {showSaveAll && (
                     <Button variant="outline" isDisabled={!isDirty || isSaving}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
@@ -244,7 +268,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);
@@ -298,6 +322,11 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     basePath="/api/insights"
                     events={["first_training_plan_created", "first_training_plan_activated"]}
                 />
+                {exportError && (
+                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 mt-2">
+                        {exportError}
+                    </p>
+                )}
             </div>
             <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
                 <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>

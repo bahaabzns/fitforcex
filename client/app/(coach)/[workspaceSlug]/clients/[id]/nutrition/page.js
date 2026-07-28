@@ -16,6 +16,7 @@ import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import { downloadPdfExport } from "@/lib/pdfExport";
 
 export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) {
     const t = useTranslations('nutrition');
@@ -138,6 +139,21 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
 
+    const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportError, setExportError] = useState("");
+    async function handleExportPdf() {
+        if (!selectedPlan?.id) return;
+        setExportingPdf(true);
+        setExportError("");
+        try {
+            await downloadPdfExport("nutrition", selectedPlan.id, `${selectedPlan.name || "nutrition-plan"}.pdf`);
+        } catch {
+            setExportError(t("exportPdfFailed"));
+        } finally {
+            setExportingPdf(false);
+        }
+    }
+
     // Observation counts per food item, for the small count chip next to each
     // row's "Observations" action — refetched whenever Food Insights closes
     // (create/edit/delete all funnel through there) rather than tracked
@@ -160,7 +176,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
     actionsRef.current = {
-        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan,
+        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, handleExportPdf,
         selectedPlanId: selectedPlan?.id, selectedPlanStatus: selectedPlan?.status,
         submissionId, setActivateModal, setConfigureActivationOpen, setDurationChoicePrompt,
     };
@@ -234,12 +250,20 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         if (!onHeaderActionsChange) return;
         const savePlanVisible = isSelectedPlanDirty;
         const activateVisible = selectedPlan && selectedPlan.status !== "active";
-        if (!showSaveAll && !savePlanVisible && !activateVisible) {
+        const exportVisible = !!selectedPlan?.id;
+        if (!showSaveAll && !savePlanVisible && !activateVisible && !exportVisible) {
             onHeaderActionsChange(null);
             return;
         }
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
+                {selectedPlan?.id && (
+                    <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
+                        title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
+                        onClick={() => actionsRef.current.handleExportPdf()}>
+                        {exportingPdf ? t('exportingPdf') : t('exportPdf')}
+                    </Button>
+                )}
                 {showSaveAll && (
                     <Button variant="outline" isDisabled={!isDirty || isSaving}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
@@ -271,7 +295,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);
@@ -333,6 +357,11 @@ return (
             basePath="/api/insights"
             events={["nutrition_builder_used_10x", "first_nutrition_plan_activated"]}
         />
+        {exportError && (
+            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 mt-2">
+                {exportError}
+            </p>
+        )}
     </div>
 
     <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>

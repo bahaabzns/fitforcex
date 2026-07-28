@@ -9,7 +9,7 @@ import { Tabs } from "@heroui/react/tabs";
 import { Separator } from "@heroui/react/separator";
 import SettingsPageHeader from "./_components/SettingsPageHeader";
 
-const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "advanced"];
+const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "pdf", "advanced"];
 
 export default function SettingsLayout({ children, params }) {
     const router = useRouter();
@@ -47,6 +47,7 @@ export default function SettingsLayout({ children, params }) {
     }, [load]);
 
     const isOwner = me?.currentWorkspace?.role === "owner";
+    const canManagePdfExport = isOwner || me?.currentWorkspace?.permissions?.pdfExport?.write === true;
 
     if (loading) {
         return (
@@ -98,6 +99,12 @@ export default function SettingsLayout({ children, params }) {
                                     {tNav("clientExperience")}
                                     <Tabs.Indicator />
                                 </Tabs.Tab>
+                                {canManagePdfExport && (
+                                    <Tabs.Tab id="pdf">
+                                        {tNav("pdfExport")}
+                                        <Tabs.Indicator />
+                                    </Tabs.Tab>
+                                )}
                                 {isOwner && (
                                     <Tabs.Tab id="advanced">
                                         {tNav("advanced")}
