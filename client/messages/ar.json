@@ -56,7 +56,8 @@
     "portalPolicies": "سياسات البوابة",
     "advanced": "متقدم",
     "dangerZone": "منطقة الخطر",
-    "transformation": "التحول"
+    "transformation": "التحول",
+    "pdfExport": "علامة PDF التجارية"
   },
   "sidebar": {
     "logout": "تسجيل الخروج",
@@ -554,6 +555,10 @@
     "saveAll": "حفظ الكل",
     "saving": "جارٍ الحفظ...",
     "saved": "تم الحفظ",
+    "exportPdf": "تصدير PDF",
+    "exportingPdf": "جارٍ التصدير...",
+    "exportPdfFailed": "تعذر تصدير PDF — تحقق من اتصالك وحاول مرة أخرى.",
+    "exportPdfDirtyHint": "احفظ تغييراتك قبل التصدير",
     "formSubmissions": "الاستمارات المُرسلة",
     "noSubmittedForms": "لا توجد استمارات مُرسلة بعد",
     "noResponses": "لا توجد ردود مسجلة",
@@ -636,6 +641,10 @@
     "saveAll": "حفظ الكل",
     "saving": "جارٍ الحفظ...",
     "saved": "تم الحفظ",
+    "exportPdf": "تصدير PDF",
+    "exportingPdf": "جارٍ التصدير...",
+    "exportPdfFailed": "تعذر تصدير PDF — تحقق من اتصالك وحاول مرة أخرى.",
+    "exportPdfDirtyHint": "احفظ تغييراتك قبل التصدير",
     "formSubmissions": "الاستمارات المُرسلة",
     "noSubmittedForms": "لا توجد استمارات مُرسلة بعد",
     "relatedObservations": "الملاحظات المرتبطة",
@@ -2320,6 +2329,83 @@
       "allow_booking_appointments": "حجز المواعيد.",
       "allow_download_files": "تنزيل الملفات.",
       "allow_food_swap": "استبدال طعام موصوف ببديل مكافئ من حيث القيمة الغذائية."
+    }
+  },
+  "pdfExport": {
+    "pageTitle": "علامة PDF التجارية",
+    "pageSubtitle": "خصص شكل خطط التغذية والتدريب المصدّرة — الشعار والألوان وصفحة الغلاف والأقسام الظاهرة.",
+    "exportButton": "تصدير PDF",
+    "exporting": "جارٍ التصدير…",
+    "exportFailed": "تعذر تصدير PDF — تحقق من اتصالك وحاول مرة أخرى.",
+    "saveSuccess": "تم حفظ إعدادات PDF.",
+    "saveFailed": "تعذر حفظ إعدادات PDF — تحقق من اتصالك وحاول مرة أخرى.",
+    "saving": "جارٍ الحفظ…",
+    "save": "حفظ التغييرات",
+    "discard": "تجاهل",
+    "uploadFailed": "تعذر رفع الصورة — تحقق من الملف وحاول مرة أخرى.",
+    "dropZone": {
+      "instructions": "اسحب صورة وأفلتها هنا، أو",
+      "chooseFile": "اختر ملفًا",
+      "uploading": "جارٍ الرفع…",
+      "remove": "إزالة",
+      "removing": "جارٍ الإزالة…"
+    },
+    "branding": {
+      "title": "العلامة التجارية",
+      "coachName": "اسم العرض",
+      "footerText": "نص التذييل",
+      "primaryColor": "اللون الأساسي",
+      "headerTextColor": "لون نص الترويسة",
+      "tableHeaderColor": "خلفية رأس الجدول",
+      "tableAltColor": "خلفية الصفوف المتناوبة",
+      "logo": "الشعار",
+      "uploadLogo": "رفع الشعار"
+    },
+    "coverPage": {
+      "title": "صفحة الغلاف",
+      "showCoverPage": "إظهار صفحة الغلاف",
+      "showCoverHeader": "إظهار الترويسة (الشعار + الاسم) في الغلاف",
+      "coverTitle": "عنوان الغلاف المخصص",
+      "showCoverTitle": "إظهار العنوان",
+      "coverSubtitle": "العنوان الفرعي للغلاف",
+      "showCoverSubtitle": "إظهار العنوان الفرعي",
+      "coverImage": "صورة الغلاف",
+      "uploadImage": "رفع صورة",
+      "coverImageSizeHint": "تملأ صفحة الغلاف بالكامل كخلفية — يجب أن تكون بمقاس {width}x{height}px بالضبط لمطابقة حجم الصفحة.",
+      "coverImageSizeWarning": "مقاس هذه الصورة {actualWidth}x{actualHeight}px، لكن صفحة الغلاف تتطلب بالضبط {width}x{height}px. غيّر حجمها وحاول مرة أخرى.",
+      "coverImageUnreadable": "تعذرت قراءة هذه الصورة — تأكد من أنها ملف صورة صالح وحاول مرة أخرى.",
+      "showCoverClientName": "إظهار سطر \"تم إعداده لـ [اسم العميل]\"",
+      "showBackCoverPage": "إظهار الغلاف الخلفي",
+      "backCoverImage": "صورة الغلاف الخلفي",
+      "showPlanSummaryPage": "إظهار صفحة ملخص الخطة"
+    },
+    "nutrition": {
+      "title": "أقسام خطة التغذية",
+      "showNotes": "إظهار ملاحظات الدورة/الوجبة",
+      "showAlternatives": "إظهار بدائل الطعام",
+      "showCycleTotals": "إظهار إجماليات هدف الدورة",
+      "showMealTotals": "إظهار إجمالي سعرات الوجبة",
+      "showFoodCalories": "إظهار سعرات كل طعام",
+      "showFoodMacros": "إظهار المغذيات الكبرى لكل طعام",
+      "showCycleSummaryPage": "إظهار صفحة ملخص لكل دورة",
+      "showMealSummaryPage": "إظهار صفحات تفصيل الوجبات",
+      "maxMealsPerPage": "أقصى عدد وجبات لكل صفحة (0 = بلا حد)"
+    },
+    "training": {
+      "title": "أقسام خطة التدريب",
+      "showExerciseNotes": "إظهار ملاحظات التمرين",
+      "showExerciseEquipment": "إظهار معدات التمرين",
+      "showSetsDetail": "إظهار جدول المجموعات (التكرارات/الراحة/الإيقاع/RIR)",
+      "showDaySummaryPage": "إظهار صفحة ملخص لكل يوم",
+      "maxExercisesPerPage": "أقصى عدد تمارين لكل صفحة (0 = بلا حد)"
+    },
+    "preview": {
+      "title": "معاينة",
+      "nutrition": "تغذية",
+      "training": "تدريب",
+      "empty": "ستظهر المعاينة هنا.",
+      "failed": "تعذر عرض المعاينة.",
+      "hint": "تستخدم المعاينة بيانات خطة نموذجية — تتحدث تلقائيًا مع تغيير الإعدادات أعلاه."
     }
   },
   "landing": {

@@ -461,3 +461,19 @@ Format:
 **Why it matters:** This is silent until a real user hits the write path in production — nothing in CI or local dev catches it, because `schema.prisma` and the DB agree locally even when the migration history doesn't.
 **Effort:** Small — a CI/pre-deploy check that runs `prisma migrate diff --from-migrations server/migrations --to-schema-datamodel server/prisma/schema.prisma` (or applies all committed migrations to a scratch DB and diffs against `schema.prisma`) and fails the build on drift.
 **Priority:** High — cheap to add, and each incidence so far has meant a real production outage on a live write path before anyone noticed.
+
+---
+
+## 2026-07-28 — server (Puppeteer PDF export not covered by Jest for real rendering)
+**Type:** Dependency
+**What:** `puppeteer` (added for the PDF export feature) ships as a pure-ESM package with no CJS build. Jest's module runtime (`ts-jest`, CJS target) routes even a lazy `await import('puppeteer')` through the same transform pipeline used for `require()`, which can't parse puppeteer's `export * from ...` syntax — confirmed by isolating a standalone `renderHtmlToPdf()` call in a throwaway test, which hit the identical parse error. Applies equally to the PDF Settings live-preview endpoint (`POST /pdf-export/settings/preview`), added later on the same renderer. `tests/integration/pdfExport.test.ts` covers everything that doesn't reach the actual render call (auth, permission, validation, tenant isolation, settings CRUD); the render call itself is only verified manually via `server/src/scripts/smoke-test-pdf-export.ts` and `smoke-test-pdf-preview.ts` against real dev-DB data.
+**Why it matters:** A regression that breaks HTML->PDF rendering specifically (a broken template, a Puppeteer API change, a `page.pdf()` option error) would not be caught by `npm test` — only by re-running the manual smoke script.
+**Effort:** Medium — either move to `puppeteer-core` + a system Chromium (may not fix the ESM issue, `puppeteer-core` should be checked separately) or add Jest ESM support (`--experimental-vm-modules` + config changes), which risks affecting the whole suite and needs its own careful rollout.
+**Priority:** Medium
+
+## 2026-07-28 — server (Chromium system libs not yet confirmed on the deploy VPS)
+**Type:** Shortcut
+**What:** `deploy.sh` targets a bare VPS via PM2 (no Docker). Puppeteer's bundled Chromium needs shared libs (`libnss3`, `libatk1.0-0`, `libgbm1`, etc.) installed on that VPS — not yet verified on the actual production host, only confirmed working in local dev.
+**Why it matters:** The PDF export feature will 500 in production on first use if those libs aren't present, even though it works locally.
+**Effort:** Small — `sudo apt-get install` the required libs once, then smoke-test a real export against the deployed instance before announcing the feature as live.
+**Priority:** High (blocks this feature from being production-ready, not just a nice-to-have)

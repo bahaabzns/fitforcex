@@ -56,7 +56,8 @@
     "portalPolicies": "Portal Policies",
     "advanced": "Advanced",
     "dangerZone": "Danger Zone",
-    "transformation": "Transformation"
+    "transformation": "Transformation",
+    "pdfExport": "PDF Branding"
   },
   "sidebar": {
     "logout": "Logout",
@@ -554,6 +555,10 @@
     "saveAll": "Save All",
     "saving": "Saving...",
     "saved": "Saved",
+    "exportPdf": "Export PDF",
+    "exportingPdf": "Exporting...",
+    "exportPdfFailed": "Could not export PDF — check your connection and retry.",
+    "exportPdfDirtyHint": "Save your changes before exporting",
     "formSubmissions": "Form Submissions",
     "noSubmittedForms": "No submitted forms yet",
     "noResponses": "No responses recorded",
@@ -636,6 +641,10 @@
     "saveAll": "Save All",
     "saving": "Saving...",
     "saved": "Saved",
+    "exportPdf": "Export PDF",
+    "exportingPdf": "Exporting...",
+    "exportPdfFailed": "Could not export PDF — check your connection and retry.",
+    "exportPdfDirtyHint": "Save your changes before exporting",
     "formSubmissions": "Form Submissions",
     "noSubmittedForms": "No submitted forms yet",
     "relatedObservations": "Related Observations",
@@ -2320,6 +2329,83 @@
       "allow_booking_appointments": "Book appointments.",
       "allow_download_files": "Download files and exports.",
       "allow_food_swap": "Swap a prescribed food for an equivalent alternative."
+    }
+  },
+  "pdfExport": {
+    "pageTitle": "PDF Branding",
+    "pageSubtitle": "Customize how exported nutrition and training plans look — logo, colors, cover page, and which sections appear.",
+    "exportButton": "Export PDF",
+    "exporting": "Exporting…",
+    "exportFailed": "Could not export PDF — check your connection and retry.",
+    "saveSuccess": "PDF settings saved.",
+    "saveFailed": "Could not save PDF settings — check your connection and retry.",
+    "saving": "Saving…",
+    "save": "Save changes",
+    "discard": "Discard",
+    "uploadFailed": "Could not upload image — check the file and retry.",
+    "dropZone": {
+      "instructions": "Drag & drop an image here, or",
+      "chooseFile": "Choose file",
+      "uploading": "Uploading…",
+      "remove": "Remove",
+      "removing": "Removing…"
+    },
+    "branding": {
+      "title": "Branding",
+      "coachName": "Display name",
+      "footerText": "Footer text",
+      "primaryColor": "Primary color",
+      "headerTextColor": "Header text color",
+      "tableHeaderColor": "Table header background",
+      "tableAltColor": "Table alternate row background",
+      "logo": "Logo",
+      "uploadLogo": "Upload logo"
+    },
+    "coverPage": {
+      "title": "Cover Page",
+      "showCoverPage": "Show cover page",
+      "showCoverHeader": "Show header (logo + name) on cover",
+      "coverTitle": "Cover title override",
+      "showCoverTitle": "Show title",
+      "coverSubtitle": "Cover subtitle",
+      "showCoverSubtitle": "Show subtitle",
+      "coverImage": "Cover image",
+      "uploadImage": "Upload image",
+      "coverImageSizeHint": "Fills the whole cover page as a background — must be exactly {width}x{height}px to match the page size.",
+      "coverImageSizeWarning": "This image is {actualWidth}x{actualHeight}px, but the cover page requires exactly {width}x{height}px. Resize it and try again.",
+      "coverImageUnreadable": "Could not read this image — make sure it's a valid image file and try again.",
+      "showCoverClientName": "Show \"Prepared for [client name]\" line",
+      "showBackCoverPage": "Show back cover page",
+      "backCoverImage": "Back cover image",
+      "showPlanSummaryPage": "Show plan summary page"
+    },
+    "nutrition": {
+      "title": "Nutrition Plan Sections",
+      "showNotes": "Show cycle/meal notes",
+      "showAlternatives": "Show food alternatives",
+      "showCycleTotals": "Show cycle goal totals",
+      "showMealTotals": "Show meal calorie totals",
+      "showFoodCalories": "Show per-food calories",
+      "showFoodMacros": "Show per-food macros",
+      "showCycleSummaryPage": "Show per-cycle summary page",
+      "showMealSummaryPage": "Show meal breakdown pages",
+      "maxMealsPerPage": "Max meals per page (0 = no limit)"
+    },
+    "training": {
+      "title": "Training Plan Sections",
+      "showExerciseNotes": "Show exercise notes",
+      "showExerciseEquipment": "Show exercise equipment",
+      "showSetsDetail": "Show sets table (reps/rest/tempo/RIR)",
+      "showDaySummaryPage": "Show per-day summary page",
+      "maxExercisesPerPage": "Max exercises per page (0 = no limit)"
+    },
+    "preview": {
+      "title": "Preview",
+      "nutrition": "Nutrition",
+      "training": "Training",
+      "empty": "Preview will appear here.",
+      "failed": "Could not render the preview.",
+      "hint": "Preview uses sample plan data — updates automatically as you change settings above."
     }
   },
   "landing": {
