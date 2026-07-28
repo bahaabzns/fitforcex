@@ -56,7 +56,7 @@
 				<key>CFBundleTypeRole</key>
 				<string>Editor</string>
 				<key>CFBundleURLName</key>
-				<string>com.fitforcex.workspace</string>
+				<string>com.fitforce.mobile.workspace</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
 					<string>fitforcex</string>
