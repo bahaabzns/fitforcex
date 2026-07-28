@@ -3,7 +3,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { Pool, PoolClient } from 'pg';
 import {
     toIsoDateOrNull,
-    serializePlanRow,
     serializePlanRows,
     normalizeOrderedList,
     insertOrderedChildren,
@@ -15,7 +14,7 @@ import {
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
-import { toNumberOrNull } from './nutrition.service';
+import { toNumberOrNull, fetchFullNutritionPlan } from './nutrition.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
 
@@ -228,77 +227,15 @@ export async function getPlans(req: Request, res: Response, next: NextFunction) 
 
 export async function getPlan(req: Request, res: Response, next: NextFunction) {
     try {
-        const planResult = await pool.query(
-            `SELECT np.*, TRIM(CONCAT(u.fname, ' ', u.lname)) AS last_edited_by_name
-             FROM nutrition_plans np
-             LEFT JOIN users u ON u.id = np.last_edited_by
-             WHERE np.id = $1 AND np.workspace_id = $2`,
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!planResult.rows.length) return res.status(404).json({ error: 'Nutrition plan not found' });
+        const plan = await fetchFullNutritionPlan(req.params.id as string, req.user!.workspaceId);
+        if (!plan) return res.status(404).json({ error: 'Nutrition plan not found' });
 
-        const cyclesResult = await pool.query(
-            'SELECT * FROM nutrition_cycles WHERE plan_id = $1 ORDER BY cycle_order ASC',
-            [req.params.id]
-        );
-
-        const mealsResult = await Promise.all(
-            (cyclesResult.rows as Row[]).map((cycle) =>
-                pool.query('SELECT * FROM nutrition_meals WHERE cycle_id = $1 ORDER BY meal_order ASC', [cycle.id])
-            )
-        );
-
-        const cycles = await Promise.all(
-            (cyclesResult.rows as Row[]).map(async (cycle, cycleIndex) => {
-                const meals = mealsResult[cycleIndex].rows as Row[];
-                const mealsWithItems = await Promise.all(
-                    meals.map(async (meal) => {
-                        const itemsResult = await pool.query(
-                            // Coach view always reflects the coach's own prescription, never a
-                            // client's food swap — COALESCE falls back to original_* only while
-                            // is_swapped is true, so the builder never silently shows what the
-                            // client swapped to as if the coach had prescribed it.
-                            `SELECT nmi.id, nmi.meal_item_order, nmi.is_swapped, nmi.swapped_at,
-                                    COALESCE(nmi.original_food_item_id, nmi.food_item_id) AS food_item_id,
-                                    COALESCE(nmi.original_amount, nmi.amount) AS amount,
-                                    fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
-                                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
-                                    fi.serving_size, fi.food_category
-                             FROM nutrition_meal_items nmi
-                             JOIN food_items fi ON fi.id = COALESCE(nmi.original_food_item_id, nmi.food_item_id)
-                             WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC`,
-                            [meal.id]
-                        );
-                        const itemsWithAlts = await Promise.all(
-                            (itemsResult.rows as Row[]).map(async (item) => {
-                                const altsResult = await pool.query(
-                                    `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                                            fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
-                                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
-                                            fi.serving_size, fi.food_category
-                                     FROM nutrition_meal_item_alternatives nmia
-                                     JOIN food_items fi ON fi.id = nmia.food_item_id
-                                     WHERE nmia.meal_item_id = $1 ORDER BY nmia.alt_order ASC`,
-                                    [item.id]
-                                );
-                                return { ...item, alternatives: altsResult.rows };
-                            })
-                        );
-                        return { ...meal, items: itemsWithAlts };
-                    })
-                );
-                return { ...cycle, meals: mealsWithItems };
-            })
-        );
-
-        const serializedPlan = serializePlanRow(planResult.rows[0] as Row)!;
-
-        // Spread the full row (matches training.controller.ts's getPlan) --
+        // Spreads the full row (matches training.controller.ts's getPlan) --
         // a prior hand-picked field list silently dropped activated_at/
         // cycle_days/cycle_end_at/review_offset_days/review_notified_at on
         // every plan-detail fetch, so a page reload lost the active plan's
         // cycle progress even though the DB had it.
-        res.json({ ...serializedPlan, cycles });
+        res.json(plan);
     } catch (err) { next(err); }
 }
 

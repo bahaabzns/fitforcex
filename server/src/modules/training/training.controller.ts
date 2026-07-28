@@ -4,7 +4,6 @@ import { PoolClient } from 'pg';
 import { deleteFile, toPublicUrl } from '../../lib/storage';
 import {
     toIsoDateOrNull,
-    serializePlanRow,
     serializePlanRows,
     normalizeOrderedList,
     insertOrderedChildren,
@@ -16,7 +15,7 @@ import {
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
-import { FileBag } from './training.service';
+import { FileBag, fetchFullTrainingPlan } from './training.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
 
@@ -278,60 +277,9 @@ export async function getPlans(req: Request, res: Response, next: NextFunction) 
 
 export async function getPlan(req: Request, res: Response, next: NextFunction) {
     try {
-        const planResult = await pool.query(
-            'SELECT * FROM training_plans WHERE id = $1 AND workspace_id = $2',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!planResult.rows.length) return res.status(404).json({ error: 'Training plan not found' });
-
-        const plan = planResult.rows[0] as Row;
-
-        const daysResult = await pool.query(
-            'SELECT * FROM training_days WHERE plan_id = $1 ORDER BY day_order ASC',
-            [plan.id]
-        );
-
-        const days = await Promise.all((daysResult.rows as Row[]).map(async (day) => {
-            const exercisesResult = await pool.query(
-                `SELECT te.*,
-                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
-                        el.instructions_en AS instructions, el.instructions_ar,
-                        el.name_en AS library_name_en, el.name_ar AS library_name_ar
-                 FROM training_exercises te
-                 LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
-                 WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,
-                [day.id]
-            );
-
-            const exercises = await Promise.all((exercisesResult.rows as Row[]).map(async (exercise) => {
-                const [setsResult, alternativesResult] = await Promise.all([
-                    pool.query('SELECT * FROM training_sets WHERE exercise_id = $1 ORDER BY set_order ASC', [exercise.id]),
-                    pool.query(
-                        `SELECT tea.*, el.name_en AS name, el.name_ar, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
-                         FROM training_exercise_alternatives tea
-                         JOIN exercise_library el ON el.id = tea.exercise_library_id
-                         WHERE tea.exercise_id = $1 ORDER BY tea.alt_order ASC`,
-                        [exercise.id]
-                    ),
-                ]);
-
-                return {
-                    ...exercise,
-                    thumbnail_path: toPublicUrl(exercise.thumbnail_path as string | null),
-                    video_path:     toPublicUrl(exercise.video_path as string | null),
-                    sets:           setsResult.rows,
-                    alternatives:   (alternativesResult.rows as Row[]).map((alt) => ({
-                        ...alt,
-                        thumbnail_path: toPublicUrl(alt.thumbnail_path as string | null),
-                        video_path:     toPublicUrl(alt.video_path as string | null),
-                    })),
-                };
-            }));
-
-            return { ...day, exercises };
-        }));
-
-        res.json({ ...serializePlanRow(plan), days, day_count: days.length });
+        const plan = await fetchFullTrainingPlan(req.params.id as string, req.user!.workspaceId);
+        if (!plan) return res.status(404).json({ error: 'Training plan not found' });
+        res.json(plan);
     } catch (err) { next(err); }
 }
 

@@ -1,4 +1,4 @@
-import { S3Client, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multerS3 from 'multer-s3';
 import multer from 'multer';
@@ -59,6 +59,22 @@ export function makeUploader(
         limits: { fileSize: options.maxSize ?? 50 * 1024 * 1024 },
         ...(options.fileFilter && { fileFilter: options.fileFilter }),
     });
+}
+
+// Direct buffer upload, for the rare case a route needs to inspect a file's
+// bytes (e.g. validating image dimensions) before deciding whether to persist
+// it at all — makeUploader's storage engines write straight to S3/disk as
+// part of the multer stream, with no point to intercept and reject first.
+export async function putBuffer(folder: string, filename: string, buffer: Buffer, contentType: string): Promise<string> {
+    const key = `${folder}/${filename}`;
+    if (!s3Configured) {
+        const dest = path.join('uploads', folder);
+        fs.mkdirSync(dest, { recursive: true });
+        fs.writeFileSync(path.join(dest, filename), buffer);
+        return key;
+    }
+    await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: buffer, ContentType: contentType }));
+    return key;
 }
 
 export async function deleteFile(key: string | null | undefined): Promise<void> {
