@@ -1,0 +1,82 @@
+// Fixture data for the PDF Settings live preview (pdfExport.controller.ts's
+// previewSettings) — lets a coach see their branding applied without needing
+// a real client/plan selected. Shape matches what fetchFullNutritionPlan /
+// fetchFullTrainingPlan return, just hand-written instead of queried.
+
+export const SAMPLE_CLIENT_NAME = 'Sample Client';
+
+export const SAMPLE_NUTRITION_PLAN = {
+    name: 'Sample Nutrition Plan',
+    cycles: [
+        {
+            name: 'Cycle 1',
+            goal_calories: 2200,
+            goal_protein: 160,
+            goal_carbs: 220,
+            goal_fats: 70,
+            note: 'Focus on whole foods and consistent meal timing.',
+            meals: [
+                {
+                    name: 'Breakfast',
+                    note: 'Eat within an hour of waking.',
+                    items: [
+                        {
+                            name: 'Oats', amount: 80, serving_size: 100, serving_unit: 'g',
+                            calories_per_serving: 389, protein_per_serving: 17, carbs_per_serving: 66, fats_per_serving: 7,
+                            is_swapped: false, alternatives: [{ name: 'Cream of Wheat' }],
+                        },
+                        {
+                            name: 'Whey Protein', amount: 30, serving_size: 30, serving_unit: 'g',
+                            calories_per_serving: 120, protein_per_serving: 24, carbs_per_serving: 3, fats_per_serving: 1.5,
+                            is_swapped: false, alternatives: [],
+                        },
+                    ],
+                },
+                {
+                    name: 'Lunch',
+                    note: '',
+                    items: [
+                        {
+                            name: 'Chicken Breast', amount: 200, serving_size: 100, serving_unit: 'g',
+                            calories_per_serving: 165, protein_per_serving: 31, carbs_per_serving: 0, fats_per_serving: 3.6,
+                            is_swapped: false, alternatives: [],
+                        },
+                        {
+                            name: 'White Rice', amount: 150, serving_size: 100, serving_unit: 'g',
+                            calories_per_serving: 130, protein_per_serving: 2.7, carbs_per_serving: 28, fats_per_serving: 0.3,
+                            is_swapped: false, alternatives: [{ name: 'Quinoa' }],
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+export const SAMPLE_TRAINING_PLAN = {
+    name: 'Sample Training Plan',
+    notes: 'Progressive overload — increase load once every set hits the top of the rep range.',
+    days: [
+        {
+            name: 'Day 1 — Push',
+            notes: 'Warm up shoulders before pressing.',
+            exercises: [
+                {
+                    name: 'Barbell Bench Press', equipment: 'Barbell', notes: 'Control the eccentric.',
+                    sets: [
+                        { reps: '8', rest_seconds: 90, tempo: '2010', rir: 2 },
+                        { reps: '8', rest_seconds: 90, tempo: '2010', rir: 2 },
+                        { reps: '8', rest_seconds: 90, tempo: '2010', rir: 1 },
+                    ],
+                },
+                {
+                    name: 'Overhead Press', equipment: 'Barbell', notes: '',
+                    sets: [
+                        { reps: '10', rest_seconds: 75, tempo: null, rir: null },
+                        { reps: '10', rest_seconds: 75, tempo: null, rir: null },
+                    ],
+                },
+            ],
+        },
+    ],
+};
