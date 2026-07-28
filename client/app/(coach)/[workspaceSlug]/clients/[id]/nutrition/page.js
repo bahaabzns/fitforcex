@@ -268,7 +268,21 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                     <NewFeatureTooltip
                         featureKey="pdf_export_button_hint"
                         active={!isSelectedPlanDirty && !isSaving && !exportingPdf}
-                        message={t('exportPdfHint')}
+                        message={
+                            <>
+                                {t('exportPdfHint')}{' '}
+                                {/* New tab, not client-side nav -- keeps whatever's on
+                                    screen in the builder (including unsaved state) intact. */}
+                                <a
+                                    href={`/${workspaceSlug}/settings/pdf`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline font-medium text-primary"
+                                >
+                                    {t('exportPdfHintCustomizeLink')}
+                                </a>
+                            </>
+                        }
                         dismissLabel={t('exportPdfHintDismiss')}
                         badgeLabel={t('exportPdfNewFeature')}
                     >
@@ -310,7 +324,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);
