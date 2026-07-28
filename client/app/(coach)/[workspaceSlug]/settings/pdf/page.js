@@ -463,13 +463,20 @@ export default function PdfExportSettingsPage() {
         <div className="flex flex-col gap-8">
             <SettingsPageHeader title={t("pageTitle")} description={t("pageSubtitle")} />
 
-            <div className="flex gap-1 self-start rounded-lg border border-border p-1">
-                <Button size="sm" variant={activeType === "nutrition" ? "primary" : "ghost"} onClick={() => setActiveType("nutrition")}>
-                    {t("preview.nutrition")}
-                </Button>
-                <Button size="sm" variant={activeType === "training" ? "primary" : "ghost"} onClick={() => setActiveType("training")}>
-                    {t("preview.training")}
-                </Button>
+            <div className="flex flex-col gap-1.5">
+                <div className="flex gap-1 self-start rounded-lg border border-border p-1">
+                    <Button size="sm" variant={activeType === "nutrition" ? "primary" : "ghost"} onClick={() => setActiveType("nutrition")}>
+                        {t("preview.nutrition")}
+                    </Button>
+                    <Button size="sm" variant={activeType === "training" ? "primary" : "ghost"} onClick={() => setActiveType("training")}>
+                        {t("preview.training")}
+                    </Button>
+                </div>
+                {/* Persistent, not a one-time dismissible hint -- this runs against
+                    the intuitive "I set my logo once, it applies everywhere"
+                    assumption (see DECISIONS.md 2026-07-28), so it needs to stay
+                    visible every time, not just the first. */}
+                <p className="text-xs text-muted-foreground">{t("typeSwitcherHint")}</p>
             </div>
 
             {error && (

@@ -15,6 +15,7 @@ import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { downloadPdfExport } from "@/lib/pdfExport";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
@@ -233,11 +234,24 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
                 {selectedPlan?.id && (
-                    <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
-                        title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
-                        onClick={() => actionsRef.current.handleExportPdf()}>
-                        {exportingPdf ? t('exportingPdf') : t('exportPdf')}
-                    </Button>
+                    // display:contents keeps this purely a hint anchor -- the Button
+                    // below stays the one and only real interactive/disabled-aware
+                    // element; the wrapping trigger div is invisible to layout and
+                    // to assistive tech, so it never doubles up the a11y semantics.
+                    <NewFeatureTooltip
+                        featureKey="pdf_export_button_hint"
+                        active={!isSelectedPlanDirty && !isSaving && !exportingPdf}
+                        message={t('exportPdfHint')}
+                        dismissLabel={t('exportPdfHintDismiss')}
+                        badgeLabel={t('exportPdfNewFeature')}
+                        triggerClassName="contents"
+                    >
+                        <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
+                            title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
+                            onClick={() => actionsRef.current.handleExportPdf()}>
+                            {exportingPdf ? t('exportingPdf') : t('exportPdf')}
+                        </Button>
+                    </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
                     <Button variant="outline" isDisabled={!isDirty || isSaving}
