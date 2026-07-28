@@ -259,17 +259,18 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
                 {selectedPlan?.id && (
-                    // display:contents keeps this purely a hint anchor -- the Button
-                    // below stays the one and only real interactive/disabled-aware
-                    // element; the wrapping trigger div is invisible to layout and
-                    // to assistive tech, so it never doubles up the a11y semantics.
+                    // Default popover__trigger styling (inline-block) is required here --
+                    // it's what gives the trigger a real box for the popover to anchor
+                    // to; overriding it with display:contents collapses that box and the
+                    // popover mispositions to the viewport's top-left corner instead of
+                    // the button. inline-block still shrink-wraps the Button with no
+                    // layout impact, so nothing else changes visually.
                     <NewFeatureTooltip
                         featureKey="pdf_export_button_hint"
                         active={!isSelectedPlanDirty && !isSaving && !exportingPdf}
                         message={t('exportPdfHint')}
                         dismissLabel={t('exportPdfHintDismiss')}
                         badgeLabel={t('exportPdfNewFeature')}
-                        triggerClassName="contents"
                     >
                         <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
                             title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
