@@ -464,6 +464,16 @@ Format:
 
 ---
 
+## 2026-07-23 — deploy.sh built Next.js in-place under the live process ✅ RESOLVED 2026-07-23
+**Type:** Shortcut
+**What:** `deploy.sh` ran `npm run build` directly into `client/.next` while `pm2`'s `fitforce-web` (`next start`) was still serving traffic from that same directory. Turbopack/webpack rewrite content-hashed chunk filenames on every build, so any SSR request landing mid-build looked up a chunk the build had just deleted or renamed, throwing `Error [ChunkLoadError]` / `MODULE_NOT_FOUND` as an **unhandled rejection** — the request never got a response, so affected users saw an infinite loading spinner / blank page (not a clean error), reproducible for anyone hitting the site during that window regardless of browser/network/device. Confirmed in `web-error-1.log` across three separate incidents (2026-07-21 10:24, 2026-07-22 21:48–22:05) and matched a client-reported blank-page incident.
+**Why it matters:** Every deploy had a live window (build duration, easily 30s+) where any client-portal page load could hang forever. No error surfaced to monitoring because the process itself never crashed — it just failed to respond to the specific in-flight requests.
+**Fix:** Added `distDir: process.env.NEXT_DIST_DIR || '.next'` to `client/next.config.mjs`. `deploy.sh` now builds into `.next-staging` (untouched by the live process), then atomically swaps it into `.next` via `mv` only after the build completes successfully, before restarting pm2.
+**Effort:** Small
+**Priority:** High
+
+---
+
 ## 2026-07-28 — server (Puppeteer PDF export not covered by Jest for real rendering)
 **Type:** Dependency
 **What:** `puppeteer` (added for the PDF export feature) ships as a pure-ESM package with no CJS build. Jest's module runtime (`ts-jest`, CJS target) routes even a lazy `await import('puppeteer')` through the same transform pipeline used for `require()`, which can't parse puppeteer's `export * from ...` syntax — confirmed by isolating a standalone `renderHtmlToPdf()` call in a throwaway test, which hit the identical parse error. Applies equally to the PDF Settings live-preview endpoint (`POST /pdf-export/settings/preview`), added later on the same renderer. `tests/integration/pdfExport.test.ts` covers everything that doesn't reach the actual render call (auth, permission, validation, tenant isolation, settings CRUD); the render call itself is only verified manually via `server/src/scripts/smoke-test-pdf-export.ts` and `smoke-test-pdf-preview.ts` against real dev-DB data.
@@ -476,4 +486,17 @@ Format:
 **What:** `deploy.sh` targets a bare VPS via PM2 (no Docker). Puppeteer's bundled Chromium needs shared libs (`libnss3`, `libatk1.0-0`, `libgbm1`, etc.) installed on that VPS — not yet verified on the actual production host, only confirmed working in local dev.
 **Why it matters:** The PDF export feature will 500 in production on first use if those libs aren't present, even though it works locally.
 **Effort:** Small — `sudo apt-get install` the required libs once, then smoke-test a real export against the deployed instance before announcing the feature as live.
+
+---
+
+## 2026-07-29 — Three coach-reported bugs (clients package filter, messenger client list, plans-queue filter menu) ✅ RESOLVED 2026-07-29
+**Type:** Shortcut (root causes, all fixed same day)
+**What:** Three separate reports from the fitsavior-com workspace, all root-caused and fixed:
+1. Clients page package filter showed extra/renamed variations beyond the Packages module's actual 4 — it built its option list from `distinct(clients.current_package)`, a denormalized text snapshot stamped at creation/transaction time that never updates after a package/variation rename. Fixed by sourcing filter options from the live `packages`/`package_variations` list and matching client rows by `current_package_variation_id` (the FK) instead of the label string. `mapClient()` now also returns `current_package_variation_id`.
+2. Messenger showed far fewer clients (4) than the clients page's "Active" filter (23), and the messenger/dashboard "Active"/"Expired" counts disagreed with the clients page generally. Two compounding causes: (a) `messenger.controller.ts`'s `getThreads` inner-joined `threads → clients`, silently excluding any client who had never been messaged — same query also fed the package filter dropdown, so it was thin too; (b) messenger and the dashboard both read the raw `clients.subscription_status` column, which is only a once-daily snapshot written by the scheduler for change-detection (see `middleware/scheduler.ts`) — the clients page has always computed status live from transactions/freezes/plan-activation instead. Fixed by rewriting `getThreads` to `LEFT JOIN` from `clients` (so a client with no conversation yet still appears, with `id: null` until the coach sends a first message — the messenger frontend lazily creates the thread at that point) and adding a shared `computeStatusesForClients` helper (`server/src/lib/clientSubscriptionStatus.ts`), now used by `clients.controller.ts`, `messenger.controller.ts`, and `dashboard.controller.ts` so the three can't drift apart again.
+3. On the plans-queue page, the "Other Filters" dropdown (and the per-column pinned filter popovers) rendered visually behind the table's pinned `stickyEnd` "Actions" column. Both used `z-20`; ties break by DOM order, and the table (rendered after the toolbar) won. Fixed by raising the toolbar dropdowns to `z-50`/`z-60` in `DataTable.js` — fixes the bug class for any current or future table using `stickyEnd` columns, not just plans-queue.
+**Why it matters:** (1) and (2) were data-correctness bugs a coach could act on incorrectly (e.g. broadcasting to what looked like "all active clients" but was actually a small subset); (3) blocked a UI feature outright.
+**Follow-up not yet fixed:** `clients.current_package` (the same stale text snapshot from bug 1) is also read directly by `clientPortal.controller.ts` and `forms.controller.ts`, and `subscriptionPolicies.service.ts`'s `resolveClientPackageId` matches package overrides by this same name string (see the 2026-06-24 entry above) — none of these were touched by today's fix and remain the same class of risk if a package/variation is renamed.
+**Effort:** Medium (already spent) — follow-up above is Small–Medium per call site.
+**Priority:** High (resolved) / Medium (follow-up)
 **Priority:** High (blocks this feature from being production-ready, not just a nice-to-have)
