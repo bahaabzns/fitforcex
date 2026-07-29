@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
-import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
+import { computeStatusesForClients } from '../../lib/clientSubscriptionStatus';
 import { checkClientLimit } from '../../lib/seatLimits';
 import { logSubscriptionAudit } from '../subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, teamRecipients } from '../../lib/events';
@@ -37,6 +37,7 @@ function mapClient(row: ClientRow) {
         phone:               row.phone,
         phones,
         current_package:     row.current_package,
+        current_package_variation_id: row.current_package_variation_id ?? null,
         subscription_status: row.subscription_status || 'Pre-start',
         has_password:        !!row.password,
         created_at:          row.created_at,
@@ -92,63 +93,16 @@ export async function getClients(req: Request, res: Response, next: NextFunction
             prisma.clients.count({ where: whereClause }),
         ]);
 
-        const clientIds = clientRows.map(r => r.id);
-        if (clientIds.length === 0) {
+        if (clientRows.length === 0) {
             return res.json({ data: [], total: 0, page, limit, totalPages: 0 });
         }
 
-        const [txRows, freezeRows, planActRows] = await Promise.all([
-            prisma.transactions.findMany({
-                where:  { workspace_id: wsId, client_id: { in: clientIds } },
-                select: { client_id: true, status: true, duration: true, subscription_start_date: true, start_mode: true, created_at: true },
-            }),
-            prisma.subscription_freezes.findMany({
-                where: { client_id: { in: clientIds } },
-            }),
-            prisma.$queryRaw<PlanActRow[]>`
-                SELECT client_id, MIN(activated_at) AS first_activation FROM (
-                    SELECT client_id, activated_at FROM training_plans
-                    WHERE workspace_id = ${wsId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
-                    UNION ALL
-                    SELECT client_id, activated_at FROM nutrition_plans
-                    WHERE workspace_id = ${wsId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
-                ) combined GROUP BY client_id
-            `,
-        ]);
-
-        type TxLike = { status: string; created_at: string | Date; duration?: number | string | null; start_mode?: string | null; subscription_start_date?: string | Date | null };
-        const txByClient: Record<string, TxLike[]> = {};
-        for (const tx of txRows) {
-            if (!tx.client_id) continue;
-            if (!txByClient[tx.client_id]) txByClient[tx.client_id] = [];
-            txByClient[tx.client_id].push(tx as TxLike);
-        }
-
-        type FreezeLike = { freeze_start_date: string | Date; freeze_duration_days: number | string; client_id?: string };
-        const freezesByClient: Record<string, FreezeLike[]> = {};
-        for (const f of freezeRows as FreezeLike[]) {
-            const key = (f as FreezeRow).client_id as string;
-            if (!freezesByClient[key]) freezesByClient[key] = [];
-            freezesByClient[key].push(f);
-        }
-
-        const planActivationByClient: Record<string, string | null> = {};
-        for (const row of planActRows) {
-            planActivationByClient[row.client_id] = row.first_activation ? new Date(row.first_activation).toISOString() : null;
-        }
+        const statuses = await computeStatusesForClients(wsId, clientRows.map(r => ({ id: r.id, archived_at: r.archived_at })));
 
         res.json({
             data: clientRows.map(row => ({
                 ...mapClient(row as unknown as ClientRow),
-                // Archived is a lifecycle state that sits above the computed
-                // subscription status — surface it instead of Active/Frozen/etc.
-                subscription_status: row.archived_at
-                    ? 'Archived'
-                    : computeSubscriptionStatus(
-                        txByClient[row.id] || [],
-                        freezesByClient[row.id] || [],
-                        planActivationByClient[row.id] ?? null
-                    ),
+                subscription_status: statuses[row.id],
             })),
             total, page, limit, totalPages: Math.ceil(total / limit),
         });
@@ -267,9 +221,10 @@ export async function getClient(req: Request, res: Response, next: NextFunction)
         if (!client) return res.status(404).json({ error: 'Client not found' });
 
         const mapped = mapClient(client as unknown as ClientRow);
+        const statuses = await computeStatusesForClients(req.user!.workspaceId, [{ id: client.id, archived_at: client.archived_at }]);
         res.json({
             ...mapped,
-            subscription_status: mapped.is_archived ? 'Archived' : mapped.subscription_status,
+            subscription_status: statuses[client.id],
             firstPlanActivatedAt: planActRows[0]?.first_activation ?? null,
         });
     } catch (err) {

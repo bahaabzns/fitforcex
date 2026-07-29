@@ -596,12 +596,20 @@ export default function ClientsPage() {
         phone: Array.isArray(c.phones) && c.phones.length > 0 ? c.phones : (c.phone ? [{ countryCode: "", number: c.phone }] : []),
         phoneSearch: (Array.isArray(c.phones) ? c.phones : []).map(p => `${p.countryCode} ${p.number}`).join(" "),
         currentPackage: c.current_package || "—",
+        currentPackageVariationId: c.current_package_variation_id || null,
         currentSubscriptionStatus: c.subscription_status || "Active",
         isArchived: !!c.is_archived,
         dateCreated: c.created_at,
     }));
 
-    const uniquePackages = [...new Set(clients.map(c => c.current_package).filter(Boolean))];
+    // Filter options come from the live Packages module (packageOptions above), not
+    // from clients' stored current_package text — that text is a point-in-time
+    // snapshot that never updates after a package/variation rename, so building the
+    // dropdown from distinct client values surfaced stale/renamed labels alongside
+    // the current ones. Matching happens on the variation id (a stable FK), not the
+    // label, so renames stay correct automatically.
+    const packageFilterOptions = packageOptions.map(p => p.variationId);
+    const packageFilterLabels = new Map(packageOptions.map(p => [p.variationId, p.label]));
 
     const columns = [
         {
@@ -643,7 +651,9 @@ export default function ClientsPage() {
             key: "currentPackage",
             label: t('colPackage'),
             filterType: "multi",
-            options: uniquePackages,
+            options: packageFilterOptions,
+            optionLabel: (variationId) => packageFilterLabels.get(variationId) ?? variationId,
+            filterValue: (row) => row.currentPackageVariationId,
             sortable: true,
         },
         {
