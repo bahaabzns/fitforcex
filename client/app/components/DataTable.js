@@ -160,7 +160,7 @@ function PinnedFilterButton({ col, filterRules, upsertFilter }) {
 
     return (
         <div className="relative">
-            {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />}
+            {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
             <Button
                 size="sm"
                 variant="secondary"
@@ -171,7 +171,9 @@ function PinnedFilterButton({ col, filterRules, upsertFilter }) {
                 {col.label}
             </Button>
             {open && (
-                <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                // z-50: must clear the table's stickyEnd column (z-20) below — ties break
+                // by DOM order, and the table (later in the DOM) would otherwise paint on top.
+                <div className="absolute z-50 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
                     {renderFilterFields(col, value, (next) => upsertFilter(col.key, next))}
                 </div>
             )}
@@ -533,7 +535,7 @@ export default function DataTable({
                 {columns.some(c => c.filterType && !c.pinned) && (
                     <div className="relative">
                         {addFilterOpen && (
-                            <div className="fixed inset-0 z-10" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
+                            <div className="fixed inset-0 z-40" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
                         )}
                         <Button
                             size="sm"
@@ -544,7 +546,10 @@ export default function DataTable({
                             {filterButtonLabel ?? t('filterButton')}
                         </Button>
                         {addFilterOpen && (
-                            <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
+                            // z-50/z-60: must clear the table's stickyEnd column (z-20) below —
+                            // ties break by DOM order, and the table (later in the DOM) would
+                            // otherwise paint on top, hiding this menu behind a pinned column.
+                            <div className="absolute z-50 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
                                 {columns.filter(c => c.filterType && !c.pinned).map(col => (
                                     <div key={col.key} className="relative">
                                         <button
@@ -556,7 +561,7 @@ export default function DataTable({
                                         </button>
 
                                         {pendingColKey === col.key && pendingValue !== null && (
-                                            <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                                            <div className="absolute z-60 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
                                                 {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
                                             </div>
                                         )}
