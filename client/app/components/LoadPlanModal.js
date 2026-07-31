@@ -577,13 +577,16 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                                                                 // the name/kcal/separators/meal-count stay neutral muted text.
                                                                 <p key={cycle.id} className="truncate text-[11px] text-muted-foreground">
                                                                     {cycle.name || tNutrition('untitledCycle')}
-                                                                    {cycle.goal_calories != null && <> <span className="text-muted-foreground/40">|</span> {cycle.goal_calories} kcal</>}
-                                                                    {(cycle.goal_protein != null || cycle.goal_carbs != null || cycle.goal_fats != null) && (
+                                                                    {/* calories/protein/carbs/fats are computed from the cycle's actual
+                                                                        meal items (server-side), not the optional manually-set goal_*
+                                                                        columns most coaches leave blank — see nutrition.controller.ts. */}
+                                                                    {cycle.calories != null && <> <span className="text-muted-foreground/40">|</span> {cycle.calories} kcal</>}
+                                                                    {(cycle.protein != null || cycle.carbs != null || cycle.fats != null) && (
                                                                         <>
                                                                             {' '}<span className="text-muted-foreground/40">|</span>{' '}
-                                                                            {cycle.goal_protein != null && <span className="text-orange-500">P{cycle.goal_protein}</span>}
-                                                                            {cycle.goal_carbs != null && <span className="text-primary"> C{cycle.goal_carbs}</span>}
-                                                                            {cycle.goal_fats != null && <span className="text-amber-500"> F{cycle.goal_fats}</span>}
+                                                                            {cycle.protein != null && <span className="text-orange-500">P{cycle.protein}</span>}
+                                                                            {cycle.carbs != null && <span className="text-primary"> C{cycle.carbs}</span>}
+                                                                            {cycle.fats != null && <span className="text-amber-500"> F{cycle.fats}</span>}
                                                                         </>
                                                                     )}
                                                                     {' '}<span className="text-muted-foreground/40">|</span>{' '}

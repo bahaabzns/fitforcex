@@ -195,23 +195,46 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
                 c.client_code,
                 NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
                 NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
-                (SELECT COUNT(*)::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id) AS cycle_count,
-                (SELECT ROUND(AVG(nc.goal_calories))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_calories IS NOT NULL) AS avg_calories,
-                (SELECT ROUND(AVG(nc.goal_protein))::int  FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_protein  IS NOT NULL) AS avg_protein,
-                (SELECT ROUND(AVG(nc.goal_carbs))::int    FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_carbs    IS NOT NULL) AS avg_carbs,
-                (SELECT ROUND(AVG(nc.goal_fats))::int     FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_fats     IS NOT NULL) AS avg_fats,
-                (SELECT COALESCE(json_agg(cyc ORDER BY cyc.cycle_order), '[]'::json)
-                    FROM (
-                        SELECT nc.id, nc.name, nc.cycle_order,
-                               nc.goal_calories, nc.goal_protein, nc.goal_carbs, nc.goal_fats,
-                               (SELECT COUNT(*)::int FROM nutrition_meals nm WHERE nm.cycle_id = nc.id) AS meal_count
-                        FROM nutrition_cycles nc
-                        WHERE nc.plan_id = np.id
-                    ) cyc
-                ) AS cycles
+                cyc_agg.cycle_count, cyc_agg.avg_calories, cyc_agg.avg_protein, cyc_agg.avg_carbs, cyc_agg.avg_fats,
+                cyc_agg.cycles
              FROM nutrition_plans np
              LEFT JOIN clients c ON c.id = np.client_id
              LEFT JOIN users u ON u.id = np.created_by
+             -- goal_calories/protein/carbs/fats on nutrition_cycles are an OPTIONAL
+             -- manual target most coaches never fill in (they just build meals from
+             -- food items) — that's why cards showed no macros at all for plans built
+             -- that way. Computed instead from the actual meal items, mirroring the
+             -- exact formula the builder itself uses client-side (lib/nutritionCalc.js:
+             -- amount / serving_size * per_serving macro), so this always reflects
+             -- what's really in the plan rather than an often-empty aspirational goal.
+             LEFT JOIN LATERAL (
+                 SELECT
+                     COUNT(*)::int AS cycle_count,
+                     ROUND(AVG(cyc.calories))::int AS avg_calories,
+                     ROUND(AVG(cyc.protein))::int  AS avg_protein,
+                     ROUND(AVG(cyc.carbs))::int    AS avg_carbs,
+                     ROUND(AVG(cyc.fats))::int     AS avg_fats,
+                     COALESCE(json_agg(cyc ORDER BY cyc.cycle_order), '[]'::json) AS cycles
+                 FROM (
+                     SELECT nc.id, nc.name, nc.cycle_order,
+                            actual.calories, actual.protein, actual.carbs, actual.fats,
+                            COALESCE(actual.meal_count, 0) AS meal_count
+                     FROM nutrition_cycles nc
+                     LEFT JOIN LATERAL (
+                         SELECT
+                             ROUND(SUM(fi.calories_per_serving * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS calories,
+                             ROUND(SUM(fi.protein_per_serving  * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS protein,
+                             ROUND(SUM(fi.carbs_per_serving    * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS carbs,
+                             ROUND(SUM(fi.fats_per_serving     * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS fats,
+                             COUNT(DISTINCT nm.id)::int AS meal_count
+                         FROM nutrition_meals nm
+                         LEFT JOIN nutrition_meal_items nmi ON nmi.meal_id = nm.id
+                         LEFT JOIN food_items fi ON fi.id = COALESCE(nmi.original_food_item_id, nmi.food_item_id)
+                         WHERE nm.cycle_id = nc.id
+                     ) actual ON true
+                     WHERE nc.plan_id = np.id
+                 ) cyc
+             ) cyc_agg ON true
              WHERE np.workspace_id = $1
              ORDER BY np.updated_at DESC`,
             [req.user!.workspaceId]
