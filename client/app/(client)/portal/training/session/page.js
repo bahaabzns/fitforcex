@@ -106,6 +106,10 @@ export default function TrainingSessionPage() {
                 const { data: plan } = await api.get("/api/client-portal/active-training-plan");
                 const day = plan?.days?.[dayIndex];
                 if (!day || (day.exercises ?? []).length === 0) {
+                    // A saved session pointing at this day is stale (plan changed
+                    // since it was started) — clear it so the client isn't stuck
+                    // bouncing back here forever on the next "Continue" tap.
+                    clearTrainingSession();
                     router.replace("/portal/training");
                     return;
                 }
@@ -126,8 +130,13 @@ export default function TrainingSessionPage() {
                 const fresh = buildSession(plan, day, dayIndex);
                 setSession(restored ? resumeSession(fresh, restored) : fresh);
             } catch (e) {
-                if (e.response?.status === 404) router.replace("/portal/training");
-                else router.replace("/portal");
+                if (e.response?.status === 404) {
+                    // No active plan at all — any saved session is stale.
+                    clearTrainingSession();
+                    router.replace("/portal/training");
+                } else {
+                    router.replace("/portal");
+                }
             } finally {
                 if (!cancelled) setLoading(false);
             }
