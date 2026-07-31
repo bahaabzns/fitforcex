@@ -15,6 +15,7 @@ import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 
 // "assessment" → "Assessment", "check-in" → "Check-in"
 function titleCaseType(type) {
@@ -68,6 +69,18 @@ function IconAction({ label, onClick, disabled, className = "", children, showLa
             {button}
             <Tooltip.Content>{label}</Tooltip.Content>
         </Tooltip>
+    );
+}
+
+// Two-line member option: name on top, current "Need Action" workload below —
+// lets a manager see who's overloaded right in the assignment dropdown instead
+// of having to cross-reference a separate report.
+function MemberOptionLabel({ name, count, needActionLabel }) {
+    return (
+        <div className="flex flex-col min-w-0 items-start">
+            <span className="truncate">{name}</span>
+            <span className="text-[11px] text-muted-foreground">{needActionLabel} &middot; {count}</span>
+        </div>
     );
 }
 
@@ -289,6 +302,18 @@ export default function PlansQueueTable({
     const allItems = completingItem && !baseItems.some((r) => r.id === completingItem.id)
         ? [...baseItems, withDerived(completingItem)]
         : baseItems;
+
+    // Per-member "Need Action" workload, straight from this table's own live
+    // rows (already carries assignMap's optimistic overrides) — no extra
+    // request, so reassigning a row updates every member's count immediately.
+    // Only "need-action" counts (not the awaiting/scheduled/action-done rows
+    // also present in allItems on the History view) match what the Assigned
+    // dropdown's example describes: how much a member still needs to act on.
+    const needActionCountByAssignee = new Map();
+    for (const row of allItems) {
+        if (row.status !== "need-action" || !row.assignedTo) continue;
+        needActionCountByAssignee.set(row.assignedTo, (needActionCountByAssignee.get(row.assignedTo) ?? 0) + 1);
+    }
 
     // Sorted (not insertion order) so a given package name always lands on the
     // same color regardless of which row it first appears in.
@@ -585,32 +610,49 @@ export default function PlansQueueTable({
             width: "170px",
             cardPriority: "secondary",
             render: (row) => (
-                <Select
-                    aria-label={t('assignTo')}
-                    value={row.assignedTo ?? "none"}
-                    onChange={(v) => assignTo(row.id, v === "none" ? null : v)}
-                    size="sm"
-                >
-                    <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
-                        <UserPlus size={13} className="shrink-0" />
-                        <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
-                        <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                        <ListBox>
-                            <ListBox.Item id="none" textValue={t('unassigned')}>
-                                {t('unassigned')}
-                                <ListBox.ItemIndicator />
-                            </ListBox.Item>
-                            {members.map((m) => (
-                                <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
-                                    {m.name}
+                <div className="flex items-center gap-1 min-w-0">
+                    {/* One-time hint pointing at the workload counts now shown inside
+                        this dropdown — only on the Main view's first row, where a
+                        manager's eye actually lands, and only until dismissed once. */}
+                    {hideStatusColumn && members.length > 0 && row.id === allItems[0]?.id && (
+                        <NewFeatureTooltip
+                            featureKey="assignee_workload_hint"
+                            active
+                            message={t('assignWorkloadHint')}
+                            dismissLabel={t('assignWorkloadHintDismiss')}
+                            badgeLabel={t('assignWorkloadHintBadge')}
+                            triggerClassName="shrink-0 w-1.5 h-1.5 rounded-full bg-primary cursor-pointer"
+                        >
+                            <span className="sr-only">{t('assignWorkloadHintBadge')}</span>
+                        </NewFeatureTooltip>
+                    )}
+                    <Select
+                        aria-label={t('assignTo')}
+                        value={row.assignedTo ?? "none"}
+                        onChange={(v) => assignTo(row.id, v === "none" ? null : v)}
+                        size="sm"
+                    >
+                        <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
+                            <UserPlus size={13} className="shrink-0" />
+                            <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item id="none" textValue={t('unassigned')}>
+                                    {t('unassigned')}
                                     <ListBox.ItemIndicator />
                                 </ListBox.Item>
-                            ))}
-                        </ListBox>
-                    </Select.Popover>
-                </Select>
+                                {members.map((m) => (
+                                    <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
+                                        <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                ))}
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+                </div>
             ),
         },
         {
@@ -790,7 +832,7 @@ export default function PlansQueueTable({
                                 </ListBox.Item>
                                 {members.map((m) => (
                                     <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
-                                        {m.name}
+                                        <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
                                         <ListBox.ItemIndicator />
                                     </ListBox.Item>
                                 ))}
