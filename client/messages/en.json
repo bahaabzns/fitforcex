@@ -572,6 +572,7 @@
     "selectPlanHint": "Select a training plan to view details",
     "dayCount": "{count, plural, one {# day} other {# days}}",
     "exerciseCount": "{count, plural, one {# exercise} other {# exercises}}",
+    "setCount": "{count, plural, one {# set} other {# sets}}",
     "untitledPlan": "Untitled Plan",
     "untitledDay": "Untitled Day",
     "createExerciseNamed": "Create \"{name}\"",
@@ -725,6 +726,8 @@
     "foodResetSelection": "Reset Selection",
     "foodAddSelected": "Add Selected",
     "cycleCount": "{count, plural, one {# cycle} other {# cycles}}",
+    "mealCount": "{count, plural, one {# meal} other {# meals}}",
+    "moreCycles": "+{count} more {count, plural, one {cycle} other {cycles}}",
     "untitledPlan": "Untitled Plan",
     "untitledCycle": "Untitled Cycle",
     "untitledMeal": "Untitled Meal",
@@ -1602,6 +1605,7 @@
     "rowsPerPage": "Rows per page",
     "previous": "Previous",
     "next": "Next",
+    "pageOf": "Page {page} of {total}",
     "clearAll": "Clear all",
     "showLess": "Show less",
     "showMore": "+{count} more",
@@ -1621,6 +1625,9 @@
     "searchPlanName": "Search by plan name...",
     "allMembers": "All members",
     "createdBy": "Created by",
+    "client": "Client",
+    "allClients": "All clients",
+    "searchClient": "Search clients...",
     "noPlansYet": "No plans in this workspace yet.",
     "noPlansMatch": "No plans match the current filters.",
     "plansCount": "{filtered} of {total} plans"
@@ -1633,7 +1640,7 @@
     "confirm": "Confirm",
     "loadTrainingPlan": "Load Training Plan",
     "loadNutritionPlan": "Load Nutrition Plan",
-    "loadSelectedPlan": "Load Selected Plan",
+    "loadSelectedPlan": "Load",
     "loadFailed": "Could not load this plan — please try again."
   },
   "common": {

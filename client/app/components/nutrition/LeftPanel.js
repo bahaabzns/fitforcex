@@ -5,6 +5,7 @@ import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import CycleCalculator from "./CycleCalculator";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
+import PlanIcon from "@/app/components/PlanIcon";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
 import ObservationModal from "@/app/components/ObservationModal";
@@ -30,11 +31,6 @@ function formatRelativeTime(dateStr, t) {
     return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
 
-const PlanIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
-    </svg>
-);
 
 export default function LeftPanel({
     plans,

@@ -572,6 +572,7 @@
     "selectPlanHint": "اختر خطة تدريبية لعرض تفاصيلها",
     "dayCount": "{count, plural, one {# يوم} two {# يومان} few {# أيام} many {# يوماً} other {# أيام}}",
     "exerciseCount": "{count, plural, one {# تمرين} two {# تمرينان} few {# تمارين} many {# تمريناً} other {# تمارين}}",
+    "setCount": "{count, plural, one {# مجموعة} two {# مجموعتان} few {# مجموعات} many {# مجموعة} other {# مجموعات}}",
     "untitledPlan": "خطة بدون عنوان",
     "untitledDay": "يوم بدون عنوان",
     "createExerciseNamed": "إنشاء \"{name}\"",
@@ -725,6 +726,8 @@
     "foodResetSelection": "إعادة تعيين التحديد",
     "foodAddSelected": "إضافة المحدد",
     "cycleCount": "{count, plural, one {# دورة} two {# دورتان} few {# دورات} many {# دورات} other {# دورات}}",
+    "mealCount": "{count, plural, one {# وجبة} two {# وجبتان} few {# وجبات} many {# وجبات} other {# وجبات}}",
+    "moreCycles": "+{count} دورات أخرى",
     "untitledPlan": "خطة بدون عنوان",
     "untitledCycle": "دورة بدون عنوان",
     "untitledMeal": "وجبة بدون عنوان",
@@ -1602,6 +1605,7 @@
     "rowsPerPage": "صفوف في الصفحة",
     "previous": "السابق",
     "next": "التالي",
+    "pageOf": "صفحة {page} من {total}",
     "clearAll": "مسح الكل",
     "showLess": "عرض أقل",
     "showMore": "+{count} المزيد",
@@ -1621,6 +1625,9 @@
     "searchPlanName": "البحث باسم الخطة...",
     "allMembers": "كل الأعضاء",
     "createdBy": "أنشأه",
+    "client": "العميل",
+    "allClients": "كل العملاء",
+    "searchClient": "البحث عن عميل...",
     "noPlansYet": "لا توجد خطط في هذه المساحة بعد.",
     "noPlansMatch": "لا توجد خطط تطابق الفلاتر الحالية.",
     "plansCount": "{filtered} من {total} خطة"
@@ -1633,7 +1640,7 @@
     "confirm": "تأكيد",
     "loadTrainingPlan": "تحميل خطة تدريب",
     "loadNutritionPlan": "تحميل خطة تغذية",
-    "loadSelectedPlan": "تحميل الخطة المحددة",
+    "loadSelectedPlan": "تحميل",
     "loadFailed": "تعذّر تحميل هذه الخطة — يرجى المحاولة مجدداً."
   },
   "common": {
