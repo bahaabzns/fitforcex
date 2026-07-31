@@ -13,22 +13,9 @@ import { Separator } from "@heroui/react/separator";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Pagination } from "@heroui/react/pagination";
+import { getPageNumbers } from "@/utils/pagination";
 
 const PAGE_SIZE = 10;
-
-function getPageNumbers(currentPage, totalPages) {
-    if (totalPages <= 7) {
-        return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const pages = [1];
-    if (currentPage > 3) pages.push("ellipsis");
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (currentPage < totalPages - 2) pages.push("ellipsis");
-    pages.push(totalPages);
-    return pages;
-}
 
 export default function ExercisePickerModal({ open, onClose, onAddExercises, single = false, title, confirmLabel }) {
     const t = useTranslations('training');

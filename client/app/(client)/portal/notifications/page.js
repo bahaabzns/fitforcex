@@ -12,6 +12,7 @@ import { Disclosure } from "@heroui/react/disclosure";
 import EmptyState from "@/app/components/EmptyState";
 import { sortByPriority, priorityAccentClass, groupNotifications, FILTER_KEYS, filterItems } from "@/utils/notifications";
 import { getDateLabel } from "@/utils/date";
+import { getInitials } from "@/utils/initials";
 import api from "@/lib/axios";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -27,12 +28,6 @@ const TYPE_ICON = {
     'insight.roadmap_declined': MessageCircle,
 };
 
-function getInitials(name) {
-    if (!name) return null;
-    const parts = name.trim().split(/\s+/);
-    const initials = `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
-    return initials || null;
-}
 
 // Leading visual for a card — the sender's avatar when we know who they are
 // (message.received), a training/nutrition icon for plan.assigned depending on
