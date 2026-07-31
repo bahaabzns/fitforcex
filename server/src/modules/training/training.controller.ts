@@ -244,12 +244,24 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
         const result = await pool.query(
             `SELECT
                 tp.id, tp.name, tp.status, tp.created_at, tp.updated_at, tp.created_by,
+                c.client_code,
                 NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
                 NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
                 (SELECT COUNT(*)::int FROM training_days td WHERE td.plan_id = tp.id) AS day_count,
                 (SELECT COUNT(*)::int FROM training_exercises te
                     JOIN training_days td ON td.id = te.day_id
-                    WHERE td.plan_id = tp.id) AS exercise_count
+                    WHERE td.plan_id = tp.id) AS exercise_count,
+                (SELECT COALESCE(json_agg(d ORDER BY d.day_order), '[]'::json)
+                    FROM (
+                        SELECT td.id, td.name, td.day_order,
+                               (SELECT COUNT(*)::int FROM training_exercises te WHERE te.day_id = td.id) AS exercise_count,
+                               (SELECT COUNT(*)::int FROM training_sets ts
+                                   JOIN training_exercises te2 ON te2.id = ts.exercise_id
+                                   WHERE te2.day_id = td.id) AS set_count
+                        FROM training_days td
+                        WHERE td.plan_id = tp.id
+                    ) d
+                ) AS days
              FROM training_plans tp
              LEFT JOIN clients c ON c.id = tp.client_id
              LEFT JOIN users u ON u.id = tp.created_by

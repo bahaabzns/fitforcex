@@ -192,13 +192,23 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
         const result = await pool.query(
             `SELECT
                 np.id, np.name, np.status, np.created_at, np.updated_at, np.created_by,
+                c.client_code,
                 NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
                 NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
                 (SELECT COUNT(*)::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id) AS cycle_count,
                 (SELECT ROUND(AVG(nc.goal_calories))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_calories IS NOT NULL) AS avg_calories,
                 (SELECT ROUND(AVG(nc.goal_protein))::int  FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_protein  IS NOT NULL) AS avg_protein,
                 (SELECT ROUND(AVG(nc.goal_carbs))::int    FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_carbs    IS NOT NULL) AS avg_carbs,
-                (SELECT ROUND(AVG(nc.goal_fats))::int     FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_fats     IS NOT NULL) AS avg_fats
+                (SELECT ROUND(AVG(nc.goal_fats))::int     FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_fats     IS NOT NULL) AS avg_fats,
+                (SELECT COALESCE(json_agg(cyc ORDER BY cyc.cycle_order), '[]'::json)
+                    FROM (
+                        SELECT nc.id, nc.name, nc.cycle_order,
+                               nc.goal_calories, nc.goal_protein, nc.goal_carbs, nc.goal_fats,
+                               (SELECT COUNT(*)::int FROM nutrition_meals nm WHERE nm.cycle_id = nc.id) AS meal_count
+                        FROM nutrition_cycles nc
+                        WHERE nc.plan_id = np.id
+                    ) cyc
+                ) AS cycles
              FROM nutrition_plans np
              LEFT JOIN clients c ON c.id = np.client_id
              LEFT JOIN users u ON u.id = np.created_by
