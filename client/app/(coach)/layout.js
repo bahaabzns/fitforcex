@@ -149,6 +149,17 @@ function WorkspaceContent({ children }) {
     const breadcrumbInteractive = pathname.includes('/clients');
 
     useEffect(() => {
+        // Re-arm the gate on every workspaceSlug change, not just first mount.
+        // This layout persists across client-side navigation between two
+        // workspace slugs (Next.js keeps the same instance, only the param
+        // changes), so without resetting here children below would keep
+        // rendering — and firing API calls — against the previous workspace's
+        // cookie for as long as the /me + switch-workspace round trip takes.
+        // That's a window real network latency (prod) opens up far wider than
+        // it ever does over loopback (local dev), and a write that lands in
+        // it lands permanently in the wrong workspace.
+        setLoading(true);
+
         api.get('/api/auth/me')
             .then(res => {
                 const data = res.data;
