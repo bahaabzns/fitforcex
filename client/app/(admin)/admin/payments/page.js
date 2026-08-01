@@ -36,6 +36,7 @@ function EditPaymentModal({ payment, plans, onClose, onSaved }) {
     const [durationDays, setDurationDays] = useState(String(payment.duration_days));
     const [notes, setNotes] = useState(payment.notes ?? '');
     const [resync, setResync] = useState(false);
+    const [startDate, setStartDate] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
@@ -59,6 +60,7 @@ function EditPaymentModal({ payment, plans, onClose, onSaved }) {
                 notes,
                 ...(isAddon ? {} : { planId, variationId: variationId || null }),
                 resyncSubscription: canResync && resync,
+                startDate:    (canResync && resync && startDate) ? startDate : undefined,
             });
             onSaved();
             onClose();
@@ -155,13 +157,28 @@ function EditPaymentModal({ payment, plans, onClose, onSaved }) {
                             </div>
 
                             {canResync && (
-                                <label className="flex items-start gap-2 text-xs text-foreground cursor-pointer">
-                                    <input type="checkbox" checked={resync} onChange={e => setResync(e.target.checked)} className="rounded mt-0.5" />
-                                    <span>
-                                        Also update this workspace&apos;s current subscription to match (price, plan/variation, and
-                                        expiry recomputed from these corrected values). Leave unchecked to only fix this record.
-                                    </span>
-                                </label>
+                                <>
+                                    <label className="flex items-start gap-2 text-xs text-foreground cursor-pointer">
+                                        <input type="checkbox" checked={resync} onChange={e => setResync(e.target.checked)} className="rounded mt-0.5" />
+                                        <span>
+                                            Also update this workspace&apos;s current subscription to match (price, plan/variation, and
+                                            expiry recomputed from these corrected values). Leave unchecked to only fix this record.
+                                        </span>
+                                    </label>
+                                    {resync && (
+                                        <div className="flex flex-col gap-1.5 ml-6">
+                                            <label className="text-xs font-medium text-muted-foreground">
+                                                Start date <span className="opacity-60">(blank = keep the subscription&apos;s current start)</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={startDate}
+                                                onChange={e => setStartDate(e.target.value)}
+                                                className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                            />
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {error && <p className="text-sm text-red-500">{error}</p>}

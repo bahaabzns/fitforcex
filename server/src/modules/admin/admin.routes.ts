@@ -413,6 +413,7 @@ router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrial
  *               planId:             { type: string }
  *               variationId:        { type: string, nullable: true }
  *               resyncSubscription: { type: boolean, description: "Also push the corrected values onto the workspace's live subscription" }
+ *               startDate:          { type: string, format: date, description: "Backdate/schedule the resynced subscription's effective start; only used when resyncSubscription is true" }
  *     responses:
  *       200:
  *         description: Payment updated

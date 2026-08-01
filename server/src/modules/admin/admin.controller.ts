@@ -962,16 +962,23 @@ export async function updatePaymentStatus(req: Request, res: Response, next: Nex
  *  itself, never the workspace's live subscription. `resyncSubscription` is a separate,
  *  explicit opt-in (mirrors the "force" pattern already used for the subscription-override
  *  action): only when checked does this ALSO push the corrected plan/variation/price/expiry
- *  onto workspace_subscriptions, computed from the same starts_at the subscription already
- *  has (or now, if it never had one) + the corrected duration — i.e. "pretend this payment,
- *  with its corrected values, is what's currently in effect." Not offered for add-on payments
- *  (payment.addon_id set) — those would need the billing-cycle-extension math re-run, out of
- *  scope here. */
+ *  onto workspace_subscriptions, computed from `startDate` (if given, letting the admin
+ *  backdate/schedule it — same idea as createManualPayment's startDate) or else the
+ *  subscription's own existing starts_at (or now, if it never had one) + the corrected
+ *  duration — i.e. "pretend this payment, with its corrected values, is what's currently in
+ *  effect." Not offered for add-on payments (payment.addon_id set) — those would need the
+ *  billing-cycle-extension math re-run, out of scope here. */
 export async function updatePayment(req: Request, res: Response, next: NextFunction) {
-    const { amount, currency, durationDays, notes, planId, variationId, resyncSubscription } = req.body as {
+    const { amount, currency, durationDays, notes, planId, variationId, resyncSubscription, startDate } = req.body as {
         amount?: number; currency?: string; durationDays?: number; notes?: string;
-        planId?: string; variationId?: string | null; resyncSubscription?: boolean;
+        planId?: string; variationId?: string | null; resyncSubscription?: boolean; startDate?: string;
     };
+
+    let parsedStartDate: Date | undefined;
+    if (startDate) {
+        parsedStartDate = new Date(startDate);
+        if (isNaN(parsedStartDate.getTime())) return res.status(400).json({ message: 'startDate is not a valid date' });
+    }
 
     try {
         const payment = await prisma.workspace_payments.findFirst({ where: { id: req.params.id as string } });
@@ -1010,7 +1017,7 @@ export async function updatePayment(req: Request, res: Response, next: NextFunct
         if (resyncSubscription && !updated.addon_id && updated.fawaterak_status === 'paid') {
             const sub = await prisma.workspace_subscriptions.findUnique({ where: { workspace_id: updated.workspace_id } });
             if (sub) {
-                const base = sub.starts_at ?? new Date();
+                const base = parsedStartDate ?? sub.starts_at ?? new Date();
                 const newExpiresAt = new Date(base.getTime() + updated.duration_days * 86400000);
                 await prisma.workspace_subscriptions.update({
                     where: { workspace_id: updated.workspace_id },
@@ -1019,6 +1026,7 @@ export async function updatePayment(req: Request, res: Response, next: NextFunct
                         variation_id:         targetVariationId,
                         locked_price_monthly: updated.amount,
                         locked_currency:      updated.currency,
+                        starts_at:            base,
                         expires_at:           newExpiresAt,
                     },
                 });
