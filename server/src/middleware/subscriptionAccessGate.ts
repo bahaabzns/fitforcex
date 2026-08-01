@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 
-const READONLY_GRACE_DAYS = 3;
+// Exported so anywhere that needs to classify a workspace's status in bulk (e.g. the admin
+// workspace list's status column/filter) uses the exact same threshold as the gate, instead
+// of a second hardcoded copy that could drift.
+export const READONLY_GRACE_DAYS = 3;
 
 /**
  * Founder decision: payments are the only source of truth for whether a workspace's

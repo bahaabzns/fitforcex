@@ -10,6 +10,12 @@ import { Chip } from '@heroui/react/chip';
 import { Avatar } from '@heroui/react/avatar';
 import { Modal } from '@heroui/react/modal';
 
+const ACCESS_STATUS_DISPLAY = {
+    active:           { label: 'Active',           className: 'bg-green-500/15 text-green-700' },
+    read_only:        { label: 'Read-only',        className: 'bg-red-500/15 text-red-700' },
+    no_subscription:  { label: 'No subscription',  className: 'bg-secondary text-muted-foreground' },
+};
+
 function useDebounce(value, delay = 350) {
     const [debounced, setDebounced] = useState(value);
     useEffect(() => {
@@ -458,6 +464,7 @@ export default function AdminWorkspacesPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [planFilter, setPlanFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -469,15 +476,15 @@ export default function AdminWorkspacesPage() {
 
     const fetchWorkspaces = useCallback(() => {
         setLoading(true);
-        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, plan: planFilter, archived: showArchived, page, limit } })
+        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, plan: planFilter, status: statusFilter, archived: showArchived, page, limit } })
             .then(res => { setWorkspaces(res.data.workspaces); setTotal(res.data.total); })
             .catch(() => setError('Failed to load workspaces'))
             .finally(() => setLoading(false));
-    }, [debouncedSearch, planFilter, showArchived, page]);
+    }, [debouncedSearch, planFilter, statusFilter, showArchived, page]);
 
     useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
     useEffect(() => { api.get('/api/admin/plans').then(res => setPlans(res.data)); }, []);
-    useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, showArchived]);
+    useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, statusFilter, showArchived]);
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -505,6 +512,16 @@ export default function AdminWorkspacesPage() {
                     <option value="">All plans</option>
                     {plans.map(p => <option key={p.id} value={p.name}>{p.display_name}</option>)}
                 </select>
+                <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                >
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="read_only">Read-only (expired)</option>
+                    <option value="no_subscription">No subscription</option>
+                </select>
                 <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
                     <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded" />
                     Show archived
@@ -515,10 +532,11 @@ export default function AdminWorkspacesPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
+                    <span>Status</span>
                     <span className="text-center">Members</span>
                     <span className="text-center">Clients</span>
                     <span>Created</span>
@@ -531,11 +549,13 @@ export default function AdminWorkspacesPage() {
                 ) : workspaces.length === 0 ? (
                     <div className="py-14 text-center text-sm text-muted-foreground border-t border-border">No workspaces found.</div>
                 ) : (
-                    workspaces.map((w, idx) => (
+                    workspaces.map((w, idx) => {
+                        const statusDisplay = ACCESS_STATUS_DISPLAY[w.access_status] ?? ACCESS_STATUS_DISPLAY.no_subscription;
+                        return (
                         <button
                             key={w.id}
                             onClick={() => setSelectedId(w.id)}
-                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>
@@ -548,13 +568,15 @@ export default function AdminWorkspacesPage() {
                                 <p className="text-xs text-muted-foreground truncate">{w.owner_email}</p>
                             </div>
                             <Chip size="sm" className="bg-primary/10 text-primary">{w.plan_display}</Chip>
+                            <Chip size="sm" className={statusDisplay.className}>{statusDisplay.label}</Chip>
                             <span className="text-sm text-foreground text-center w-16">{w.member_count}</span>
                             <span className="text-sm text-foreground text-center w-16">{w.client_count}</span>
                             <span className="text-xs text-muted-foreground shrink-0">
                                 {formatDate(w.created_at)}
                             </span>
                         </button>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

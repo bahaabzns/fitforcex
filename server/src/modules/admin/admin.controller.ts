@@ -9,6 +9,7 @@ import { prisma } from '../../lib/prisma';
 import { normalizeEmail } from '../../utils/email';
 import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
 import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
+import { READONLY_GRACE_DAYS } from '../../middleware/subscriptionAccessGate';
 
 type Row = Record<string, unknown>;
 
@@ -266,8 +267,28 @@ export async function getUserById(req: Request, res: Response, next: NextFunctio
 
 // ── Workspaces ────────────────────────────────────────────────────────────────
 
+// Same classification subscriptionAccessGate.ts enforces with, expressed as SQL — "flat" reads
+// ws.* directly (workspace_subscriptions is one-to-one per workspace, safe outside a GROUP BY),
+// "agg" wraps in MAX() so it's usable inside a query that also aggregates member/client counts.
+const ACCESS_STATUS_CASE_FLAT = `
+    CASE
+        WHEN ws.id IS NULL THEN 'no_subscription'
+        WHEN ws.expires_at IS NULL THEN 'active'
+        WHEN ws.expires_at + INTERVAL '${READONLY_GRACE_DAYS} days' > NOW() THEN 'active'
+        ELSE 'read_only'
+    END
+`;
+const ACCESS_STATUS_CASE_AGG = `
+    CASE
+        WHEN MAX(ws.id) IS NULL THEN 'no_subscription'
+        WHEN MAX(ws.expires_at) IS NULL THEN 'active'
+        WHEN MAX(ws.expires_at) + INTERVAL '${READONLY_GRACE_DAYS} days' > NOW() THEN 'active'
+        ELSE 'read_only'
+    END
+`;
+
 export async function getWorkspaces(req: Request, res: Response, next: NextFunction) {
-    const { search = '', plan = '', archived = 'false', page = 1, limit = 20 } = req.query as Record<string, string>;
+    const { search = '', plan = '', status = '', archived = 'false', page = 1, limit = 20 } = req.query as Record<string, string>;
     const offset       = (parseInt(page as string) - 1) * parseInt(limit as string);
     const showArchived = archived === 'true';
 
@@ -282,12 +303,19 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
         }
         const where = conditions.join(' AND ');
 
+        let statusParamIndex = -1;
+        if (status) {
+            params.push(status);
+            statusParamIndex = params.length;
+        }
+
         const [rows, countRows] = await Promise.all([
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at,
                        u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                        COALESCE(p.name, 'none') AS plan, COALESCE(p.display_name, 'No Plan') AS plan_display,
-                       COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count
+                       COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count,
+                       ${ACCESS_STATUS_CASE_AGG} AS access_status
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
                 LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
@@ -296,6 +324,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                 LEFT JOIN clients c ON c.workspace_id = w.id
                 WHERE ${where}
                 GROUP BY w.id, u.id, p.id
+                ${statusParamIndex > 0 ? `HAVING ${ACCESS_STATUS_CASE_AGG} = $${statusParamIndex}` : ''}
                 ORDER BY w.created_at DESC
                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}
             `, ...params, parseInt(limit as string), offset),
@@ -305,6 +334,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                 LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
                 LEFT JOIN plans p ON p.id = ws.plan_id
                 WHERE ${where}
+                ${statusParamIndex > 0 ? `AND ${ACCESS_STATUS_CASE_FLAT} = $${statusParamIndex}` : ''}
             `, ...params),
         ]);
 
