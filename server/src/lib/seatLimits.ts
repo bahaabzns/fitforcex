@@ -23,6 +23,22 @@ async function getActiveAddonUnits(workspaceId: string, dimension: string): Prom
     return parseInt((rows[0] as { total_units: string }).total_units);
 }
 
+/** A one-time legacy import (scripts/migrate.ts) backfilled every pre-existing workspace
+ *  owner as their own workspace_members row; workspaces created through the current
+ *  registration/create-workspace flow never do this — the owner only exists via
+ *  workspaces.owner_id. Seat-count math needs a virtual "+1" for the owner ONLY when they're
+ *  not already represented as a member row, or a legacy-imported owner gets counted twice. */
+async function ownerNeedsVirtualSeat(workspaceId: string): Promise<number> {
+    const { rows } = await pool.query(`
+        SELECT EXISTS (
+            SELECT 1 FROM workspace_members wm
+            JOIN workspaces w ON w.id = wm.workspace_id
+            WHERE wm.workspace_id = $1 AND wm.user_id = w.owner_id AND wm.is_active = TRUE
+        ) AS owner_is_member
+    `, [workspaceId]);
+    return (rows[0] as { owner_is_member: boolean }).owner_is_member ? 0 : 1;
+}
+
 export async function checkSeatLimit(workspaceId: string): Promise<void> {
     const { rows } = await pool.query(`
         SELECT COALESCE(pv.max_team_seats, p.max_team_seats) AS max_team_seats,
@@ -39,9 +55,12 @@ export async function checkSeatLimit(workspaceId: string): Promise<void> {
     const { max_team_seats, active_members, pending_invitations } = rows[0] as Record<string, string | null>;
     if (max_team_seats === null) return;
 
-    const addonUnits = await getActiveAddonUnits(workspaceId, 'team_seats');
+    const [addonUnits, ownerSeat] = await Promise.all([
+        getActiveAddonUnits(workspaceId, 'team_seats'),
+        ownerNeedsVirtualSeat(workspaceId),
+    ]);
     const effectiveMax = parseInt(max_team_seats) + addonUnits;
-    const used = parseInt(active_members ?? '0') + parseInt(pending_invitations ?? '0') + 1;
+    const used = parseInt(active_members ?? '0') + parseInt(pending_invitations ?? '0') + ownerSeat;
     if (used >= effectiveMax) {
         throw { status: 403, message: `Your plan allows ${effectiveMax} team seat(s). Upgrade or buy a team-member add-on to add more.` };
     }
@@ -103,17 +122,20 @@ export async function getEffectiveLimits(workspaceId: string): Promise<{
 export async function getWorkspaceUsageCounts(workspaceId: string): Promise<{
     clientCount: number; seatCount: number;
 }> {
-    const { rows } = await pool.query(`
-        SELECT
-            (SELECT COUNT(*) FROM clients c WHERE c.workspace_id = $1 AND c.deleted_at IS NULL) AS client_count,
-            (SELECT COUNT(DISTINCT wm.id) FROM workspace_members wm WHERE wm.workspace_id = $1 AND wm.is_active = TRUE)
-                + (SELECT COUNT(DISTINCT wi.id) FROM workspace_invitations wi WHERE wi.workspace_id = $1 AND wi.status = 'pending')
-                + 1 AS seat_count
-    `, [workspaceId]);
+    const [{ rows }, ownerSeat] = await Promise.all([
+        pool.query(`
+            SELECT
+                (SELECT COUNT(*) FROM clients c WHERE c.workspace_id = $1 AND c.deleted_at IS NULL) AS client_count,
+                (SELECT COUNT(DISTINCT wm.id) FROM workspace_members wm WHERE wm.workspace_id = $1 AND wm.is_active = TRUE)
+                    + (SELECT COUNT(DISTINCT wi.id) FROM workspace_invitations wi WHERE wi.workspace_id = $1 AND wi.status = 'pending')
+                    AS member_seat_count
+        `, [workspaceId]),
+        ownerNeedsVirtualSeat(workspaceId),
+    ]);
 
     const row = rows[0] as Record<string, string>;
     return {
         clientCount: parseInt(row.client_count),
-        seatCount:   parseInt(row.seat_count),
+        seatCount:   parseInt(row.member_seat_count) + ownerSeat,
     };
 }
