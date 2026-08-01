@@ -31,21 +31,15 @@ async function backfillVariations() {
 
         await prisma.plan_variations.create({
             data: {
-                id:                createId(),
-                plan_id:           plan.id,
-                max_clients:       plan.max_clients,
-                max_team_seats:    plan.max_team_seats,
-                max_workspaces:    plan.max_workspaces,
-                price_monthly:     plan.price_monthly,
-                currency:          plan.currency,
-                payment_link:      plan.payment_link,
-                has_team_counter:  plan.has_team_counter,
-                price_per_seat:    plan.price_per_seat,
-                min_seat_count:    plan.min_seat_count,
-                max_seat_count:    plan.max_seat_count,
-                is_default:        true,
-                is_active:         true,
-                sort_order:        0,
+                id:            createId(),
+                plan_id:       plan.id,
+                max_clients:   plan.max_clients,
+                price_monthly: plan.price_monthly,
+                currency:      plan.currency,
+                payment_link:  plan.payment_link,
+                is_default:    true,
+                is_active:     true,
+                sort_order:    0,
             },
         });
         created++;

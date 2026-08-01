@@ -66,43 +66,6 @@ function VariationDropdown({ variations, selectedId, onSelect }) {
     );
 }
 
-function TeamMemberCounter({ value, onChange, min, max, pricePerSeat, currency }) {
-    const extraSeats = Math.max(0, value - min);
-    const extraCost  = pricePerSeat ? extraSeats * Number(pricePerSeat) : 0;
-
-    return (
-        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-            <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground/70">Team Members</span>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => onChange(Math.max(min, value - 1))}
-                        className="h-7 w-7 rounded-full border border-white/15 bg-white/5 text-foreground/60 hover:bg-white/10 hover:text-foreground flex items-center justify-center font-bold transition-colors disabled:opacity-30"
-                        disabled={value <= min}
-                        aria-label="Decrease team members"
-                    >
-                        −
-                    </button>
-                    <span className="w-5 text-center font-bold text-foreground">{value}</span>
-                    <button
-                        onClick={() => onChange(Math.min(max, value + 1))}
-                        className="h-7 w-7 rounded-full border border-white/15 bg-white/5 text-foreground/60 hover:bg-white/10 hover:text-foreground flex items-center justify-center font-bold transition-colors disabled:opacity-30"
-                        disabled={value >= max}
-                        aria-label="Increase team members"
-                    >
-                        +
-                    </button>
-                </div>
-            </div>
-            {pricePerSeat && (
-                <p className="text-xs text-foreground/40">
-                    Base includes {min} seat{min !== 1 ? 's' : ''}. +{Number(pricePerSeat).toLocaleString('en-EG')} {currency} / mo per extra seat.
-                </p>
-            )}
-        </div>
-    );
-}
-
 export default function LandingPricing({ onCtaClick, currentPlanId, isInline = false }) {
     const t = useTranslations("landing.pricing");
     const tNav = useTranslations("landing.nav");
@@ -116,8 +79,6 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
     // Which variation is selected per plan (planId -> variationId) — the dropdown on each
     // card. Defaults to the variation the admin marked `is_default`.
     const [selectedVariations, setSelectedVariations] = useState({});
-    // Per-variation team member counts, keyed by variation id
-    const [seatCounts, setSeatCounts] = useState({});
 
     useEffect(() => {
         const plansUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/plans${isInline ? '?billing=true' : ''}`;
@@ -141,10 +102,6 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
         .catch(() => setError(true))
         .finally(() => setLoading(false));
     }, []);
-
-    function setSeats(variationId, val) {
-        setSeatCounts(s => ({ ...s, [variationId]: val }));
-    }
 
     const discount     = selectedPeriod?.discount_percent ?? 0;
     const months       = selectedPeriod?.months ?? 1;
@@ -202,10 +159,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                     + (periodKey ? `&period=${encodeURIComponent(periodKey)}` : '')
                                     + (variation ? `&variation=${encodeURIComponent(variation.id)}` : '');
                                 const base       = variation?.price_monthly ? Number(variation.price_monthly) : null;
-                                const teamCount  = variation ? (seatCounts[variation.id] ?? (variation.min_seat_count ?? 1)) : 1;
-                                const extraSeats = variation ? Math.max(0, teamCount - (variation.min_seat_count ?? 1)) : 0;
-                                const seatAdd    = variation?.price_per_seat ? extraSeats * Number(variation.price_per_seat) : 0;
-                                const effective  = base != null ? Math.round((base + seatAdd) * (1 - discount / 100)) : null;
+                                const effective  = base != null ? Math.round(base * (1 - discount / 100)) : null;
                                 const periodTotal= effective != null ? effective * months : null;
                                 const priceDisplay = effective != null ? effective.toLocaleString('en-EG') : null;
                                 const periodLabel  = months > 1 && periodTotal != null
@@ -277,13 +231,6 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                             <span className="text-3xl font-bold text-foreground leading-none">Custom pricing</span>
                                                         )}
                                                     </div>
-                                                    {variation?.has_team_counter && priceDisplay && (
-                                                        <p className="text-xs text-foreground/35 font-medium">
-                                                            {extraSeats > 0
-                                                                ? `Total for ${teamCount} seats`
-                                                                : `Base price for ${teamCount} seat${teamCount !== 1 ? 's' : ''}`}
-                                                        </p>
-                                                    )}
                                                     {periodLabel && (
                                                         <p className="text-xs text-foreground/30">{periodLabel}</p>
                                                     )}
@@ -292,17 +239,6 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
 
                                             <Card.Content className="flex flex-col gap-4 flex-1">
                                                 <Separator />
-
-                                                {variation?.has_team_counter && (
-                                                    <TeamMemberCounter
-                                                        value={teamCount}
-                                                        onChange={val => setSeats(variation.id, val)}
-                                                        min={variation.min_seat_count ?? 1}
-                                                        max={variation.max_seat_count ?? 20}
-                                                        pricePerSeat={variation.price_per_seat}
-                                                        currency={variation.currency}
-                                                    />
-                                                )}
 
                                                 <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
                                                     {plan.features_header}

@@ -25,9 +25,8 @@ function formatVariationLabel(v) {
 function emptyVariation(isDefault = false) {
     return {
         id: null,
-        max_clients: '', max_team_seats: '', max_workspaces: '',
+        max_clients: '',
         price_monthly: '', currency: 'LE', payment_link: '',
-        has_team_counter: false, price_per_seat: '', min_seat_count: 1, max_seat_count: 20,
         is_default: isDefault, is_active: true,
     };
 }
@@ -35,18 +34,12 @@ function emptyVariation(isDefault = false) {
 function variationFromServer(v) {
     return {
         id: v.id,
-        max_clients:      v.max_clients ?? '',
-        max_team_seats:   v.max_team_seats ?? '',
-        max_workspaces:   v.max_workspaces ?? '',
-        price_monthly:    v.price_monthly ?? '',
-        currency:         v.currency ?? 'LE',
-        payment_link:     v.payment_link ?? '',
-        has_team_counter: v.has_team_counter ?? false,
-        price_per_seat:   v.price_per_seat ?? '',
-        min_seat_count:   v.min_seat_count ?? 1,
-        max_seat_count:   v.max_seat_count ?? 20,
-        is_default:       v.is_default ?? false,
-        is_active:        v.is_active ?? true,
+        max_clients:   v.max_clients ?? '',
+        price_monthly: v.price_monthly ?? '',
+        currency:      v.currency ?? 'LE',
+        payment_link:  v.payment_link ?? '',
+        is_default:    v.is_default ?? false,
+        is_active:     v.is_active ?? true,
     };
 }
 
@@ -54,6 +47,7 @@ const EMPTY_FORM = {
     name: '', display_name: '',
     subtitle: '',
     trial_days: '',
+    max_team_seats: '',
     is_active: true, is_default: false,
     is_popular: false, show_on_landing: true,
     cta_text: "Get Started – It's FREE!", cta_variant: 'outline',
@@ -62,13 +56,14 @@ const EMPTY_FORM = {
     features: [],
     period_links: {}, // { period_key: payment_link }
     variations: [emptyVariation(true)],
+    addon_rules: [],
 };
 
 const INPUT_CLS = 'w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const INPUT_SM_CLS = 'px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const SECTION_LABEL_CLS = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground pt-2';
 
-function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
+function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
     const isEdit = !!plan;
     const [form, setForm] = useState(
         isEdit
@@ -76,6 +71,7 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 display_name:      plan.display_name,
                 subtitle:          plan.subtitle ?? '',
                 trial_days:        plan.trial_days ?? '',
+                max_team_seats:    plan.max_team_seats ?? '',
                 is_active:         plan.is_active,
                 is_default:        plan.is_default,
                 is_popular:        plan.is_popular ?? false,
@@ -90,6 +86,9 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 variations:        Array.isArray(plan.variations) && plan.variations.length > 0
                     ? plan.variations.map(variationFromServer)
                     : [emptyVariation(true)],
+                addon_rules:       Array.isArray(plan.addon_rules)
+                    ? plan.addon_rules.map(r => ({ addon_id: r.addon_id, max_units: r.max_units ?? '' }))
+                    : [],
               }
             : EMPTY_FORM
     );
@@ -113,6 +112,22 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
         setForm(f => ({ ...f, variations: f.variations.filter((_, i) => i !== index) }));
     }
 
+    function toggleAddon(addonId, enabled) {
+        setForm(f => ({
+            ...f,
+            addon_rules: enabled
+                ? [...f.addon_rules, { addon_id: addonId, max_units: '' }]
+                : f.addon_rules.filter(r => r.addon_id !== addonId),
+        }));
+    }
+
+    function setAddonMaxUnits(addonId, val) {
+        setForm(f => ({
+            ...f,
+            addon_rules: f.addon_rules.map(r => (r.addon_id === addonId ? { ...r, max_units: val } : r)),
+        }));
+    }
+
     function parseOptInt(v) { const n = parseInt(v); return isNaN(n) ? null : n; }
     function parseOptFloat(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
 
@@ -123,6 +138,7 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
             const payload = {
                 display_name:       form.display_name.trim() || undefined,
                 trial_days:         parseOptInt(form.trial_days),
+                max_team_seats:     parseOptInt(form.max_team_seats),
                 is_active:          form.is_active,
                 is_default:         form.is_default,
                 features:           form.features.filter(f => f.trim() !== ''),
@@ -136,19 +152,17 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 show_on_landing:    form.show_on_landing,
                 period_links:       form.period_links,
                 variations: form.variations.map(v => ({
-                    id:               v.id || undefined,
-                    max_clients:      parseOptInt(v.max_clients),
-                    max_team_seats:   parseOptInt(v.max_team_seats),
-                    max_workspaces:   parseOptInt(v.max_workspaces),
-                    price_monthly:    parseOptFloat(v.price_monthly),
-                    currency:         v.currency.trim() || 'LE',
-                    payment_link:     v.payment_link.trim() || null,
-                    has_team_counter: v.has_team_counter,
-                    price_per_seat:   parseOptFloat(v.price_per_seat),
-                    min_seat_count:   parseOptInt(v.min_seat_count) ?? 1,
-                    max_seat_count:   parseOptInt(v.max_seat_count) ?? 20,
-                    is_default:       v.is_default,
-                    is_active:        v.is_active,
+                    id:            v.id || undefined,
+                    max_clients:   parseOptInt(v.max_clients),
+                    price_monthly: parseOptFloat(v.price_monthly),
+                    currency:      v.currency.trim() || 'LE',
+                    payment_link:  v.payment_link.trim() || null,
+                    is_default:    v.is_default,
+                    is_active:     v.is_active,
+                })),
+                addon_rules: form.addon_rules.map(r => ({
+                    addon_id:  r.addon_id,
+                    max_units: parseOptInt(r.max_units),
                 })),
             };
             if (isEdit) {
@@ -186,11 +200,19 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     </TextField>
                 </div>
 
-                <div className="flex flex-col gap-1.5 max-w-56">
-                    <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no trial, shared by all variations)</span></FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
-                        <Input type="number" min="1" inputMode="numeric" placeholder="—" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no trial, shared by all variations)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="—" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Team seats included <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Team seats included" value={form.max_team_seats} onChange={(val) => set('max_team_seats', val)}>
+                            <Input type="number" min="0" inputMode="numeric" placeholder="∞" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -201,8 +223,8 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 {/* ── Variations ── */}
                 <p className={SECTION_LABEL_CLS}>Variations</p>
                 <p className="text-xs text-muted-foreground -mt-2">
-                    Every plan needs at least one. Each variation has its own limits, price, and payment link —
-                    the coach picks one via a dropdown on the pricing card; the feature list above is shared by all.
+                    Every plan needs at least one. Variations differ only by client limit and price — the coach picks
+                    one via a dropdown on the pricing card. Team seats (above) and the feature list are shared by all.
                 </p>
 
                 <div className="flex flex-col gap-3">
@@ -231,21 +253,11 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div className="flex flex-col gap-1">
                                     <FieldLabel>Max clients <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
                                     <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
                                         value={v.max_clients} onChange={e => setVariation(i, 'max_clients', e.target.value)} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Max seats <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
-                                    <input type="number" min="0" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
-                                        value={v.max_team_seats} onChange={e => setVariation(i, 'max_team_seats', e.target.value)} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Max workspaces <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
-                                    <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
-                                        value={v.max_workspaces} onChange={e => setVariation(i, 'max_workspaces', e.target.value)} />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <FieldLabel>Price / mo <span className="text-muted-foreground">(blank = TBD)</span></FieldLabel>
@@ -266,31 +278,6 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                                         value={v.payment_link} onChange={e => setVariation(i, 'payment_link', e.target.value)} />
                                 </div>
                             </div>
-
-                            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                                <input type="checkbox" checked={v.has_team_counter} onChange={e => setVariation(i, 'has_team_counter', e.target.checked)} className="rounded" />
-                                Let the coach buy extra seats beyond the limit above
-                            </label>
-
-                            {v.has_team_counter && (
-                                <div className="grid grid-cols-3 gap-2 ml-5">
-                                    <div className="flex flex-col gap-1">
-                                        <FieldLabel>Price / extra seat</FieldLabel>
-                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" className={INPUT_SM_CLS}
-                                            value={v.price_per_seat} onChange={e => setVariation(i, 'price_per_seat', e.target.value)} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <FieldLabel>Min seats</FieldLabel>
-                                        <input type="number" min="1" inputMode="numeric" placeholder="1" className={INPUT_SM_CLS}
-                                            value={v.min_seat_count} onChange={e => setVariation(i, 'min_seat_count', e.target.value)} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <FieldLabel>Max seats</FieldLabel>
-                                        <input type="number" min="1" inputMode="numeric" placeholder="20" className={INPUT_SM_CLS}
-                                            value={v.max_seat_count} onChange={e => setVariation(i, 'max_seat_count', e.target.value)} />
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     ))}
 
@@ -299,6 +286,36 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                         Add variation
                     </Button>
                 </div>
+
+                {addons?.length > 0 && (
+                    <>
+                        <p className={SECTION_LABEL_CLS}>Add-ons</p>
+                        <p className="text-xs text-muted-foreground -mt-2">
+                            Which add-ons this plan may buy, and an optional cap on how many units of each
+                            (blank = unlimited). An add-on with no cap and enabled here can be bought any number of times.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            {addons.map(a => {
+                                const rule = form.addon_rules.find(r => r.addon_id === a.id);
+                                return (
+                                    <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-secondary/20">
+                                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer flex-1">
+                                            <input type="checkbox" checked={!!rule} onChange={e => toggleAddon(a.id, e.target.checked)} className="rounded" />
+                                            {a.label} <span className="text-muted-foreground">({a.dimension}, +{a.units})</span>
+                                        </label>
+                                        {rule && (
+                                            <div className="flex items-center gap-1.5">
+                                                <FieldLabel>Max units</FieldLabel>
+                                                <input type="number" min="1" inputMode="numeric" placeholder="∞" className={`${INPUT_SM_CLS} w-20`}
+                                                    value={rule.max_units} onChange={e => setAddonMaxUnits(a.id, e.target.value)} />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
@@ -376,7 +393,7 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.is_popular} onChange={e => set('is_popular', e.target.checked)} className="rounded" />
-                    Show "Most Popular" badge
+                    Show &quot;Most Popular&quot; badge
                 </label>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -485,6 +502,175 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
     );
 }
 
+function AddonModal({ addon, onClose, onSaved }) {
+    const isEdit = !!addon;
+    const [form, setForm] = useState({
+        key:           addon?.key ?? '',
+        label:         addon?.label ?? '',
+        dimension:     addon?.dimension ?? 'clients',
+        units:         addon?.units ?? '',
+        price_monthly: addon?.price_monthly ?? '',
+        currency:      addon?.currency ?? 'LE',
+        payment_link:  addon?.payment_link ?? '',
+        is_active:     addon?.is_active ?? true,
+        sort_order:    addon?.sort_order ?? 0,
+    });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    function set(key, val) { setForm(f => ({ ...f, [key]: val })); }
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            const payload = {
+                label:         form.label.trim(),
+                dimension:     form.dimension.trim(),
+                units:         parseInt(form.units) || 0,
+                price_monthly: parseFloat(form.price_monthly) || 0,
+                currency:      form.currency.trim() || 'LE',
+                payment_link:  form.payment_link.trim() || null,
+                is_active:     form.is_active,
+                sort_order:    parseInt(form.sort_order) || 0,
+            };
+            if (isEdit) {
+                await api.put(`/api/admin/addons/${addon.id}`, payload);
+            } else {
+                await api.post('/api/admin/addons', { ...payload, key: form.key.trim() });
+            }
+            onSaved();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to save');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <AppModal open onClose={onClose} title={isEdit ? 'Edit Add-on' : 'New Add-on'}>
+            <div className="flex flex-col gap-4">
+                {!isEdit && (
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Internal key <span className="text-muted-foreground">(e.g. clients_plus_10)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Internal key" value={form.key} onChange={(val) => set('key', val)}>
+                            <Input type="text" placeholder="clients_plus_10" />
+                        </TextField>
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Label</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Label" value={form.label} onChange={(val) => set('label', val)}>
+                        <Input type="text" placeholder="+10 Clients" />
+                    </TextField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Dimension</FieldLabel>
+                        <Select variant="secondary" fullWidth aria-label="Dimension" value={form.dimension} onChange={(key) => set('dimension', key)}>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    <ListBox.Item id="clients" textValue="Clients">Clients<ListBox.ItemIndicator /></ListBox.Item>
+                                    <ListBox.Item id="team_seats" textValue="Team seats">Team seats<ListBox.ItemIndicator /></ListBox.Item>
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Units per purchase</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Units per purchase" value={form.units} onChange={(val) => set('units', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="10" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Price / mo</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Price per month" value={form.price_monthly} onChange={(val) => set('price_monthly', val)}>
+                            <Input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Currency</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Currency" value={form.currency} onChange={(val) => set('currency', val)}>
+                            <Input type="text" placeholder="LE" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Fawaterak payment link</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Fawaterak payment link" value={form.payment_link} onChange={(val) => set('payment_link', val)}>
+                        <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
+                    </TextField>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
+                    Active
+                </label>
+
+                <FieldErrorText msg={error} />
+
+                <ModalFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </ModalFooter>
+            </div>
+        </AppModal>
+    );
+}
+
+function DeleteAddonConfirmModal({ addon, onClose, onConfirm, error }) {
+    const [deleting, setDeleting] = useState(false);
+
+    async function handleDelete() {
+        setDeleting(true);
+        await onConfirm(addon);
+        setDeleting(false);
+    }
+
+    return (
+        <AlertDialog isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <AlertDialog.Backdrop>
+                <AlertDialog.Container>
+                    <AlertDialog.Dialog>
+                        <AlertDialog.Header>
+                            <AlertDialog.Heading>Delete Add-on</AlertDialog.Heading>
+                        </AlertDialog.Header>
+                        <AlertDialog.Body>
+                            <p className="text-sm text-muted-foreground">
+                                Are you sure you want to delete <span className="font-semibold text-foreground">{addon.label}</span>? This cannot be undone.
+                            </p>
+                            {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+                        </AlertDialog.Body>
+                        <AlertDialog.Footer>
+                            <Button variant="ghost" isDisabled={deleting} onClick={onClose}>Cancel</Button>
+                            <Button
+                                isDisabled={deleting}
+                                onClick={handleDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                {deleting ? 'Deleting…' : 'Delete'}
+                            </Button>
+                        </AlertDialog.Footer>
+                    </AlertDialog.Dialog>
+                </AlertDialog.Container>
+            </AlertDialog.Backdrop>
+        </AlertDialog>
+    );
+}
+
 function DeleteConfirmModal({ plan, onClose, onDeleted }) {
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState('');
@@ -544,6 +730,15 @@ export default function AdminPlansPage() {
     const [discountsLoading, setDiscountsLoading] = useState(true);
     const [editingDiscount, setEditingDiscount] = useState(null);
 
+    const [addons, setAddons] = useState([]);
+    const [addonsLoading, setAddonsLoading] = useState(true);
+    const [addonModal, setAddonModal] = useState(null);
+    const [deleteAddonTarget, setDeleteAddonTarget] = useState(null);
+    const [addonError, setAddonError] = useState('');
+
+    const [trialSettings, setTrialSettings] = useState(null);
+    const [trialSaving, setTrialSaving] = useState(false);
+
     function load() {
         setLoading(true);
         api.get('/api/admin/plans')
@@ -559,7 +754,36 @@ export default function AdminPlansPage() {
             .finally(() => setDiscountsLoading(false));
     }
 
-    useEffect(() => { load(); loadDiscounts(); }, []);
+    function loadAddons() {
+        setAddonsLoading(true);
+        api.get('/api/admin/addons')
+            .then(res => setAddons(res.data))
+            .finally(() => setAddonsLoading(false));
+    }
+
+    function loadTrialSettings() {
+        api.get('/api/admin/trial-settings').then(res => setTrialSettings(res.data));
+    }
+
+    function saveTrialSettings(next) {
+        setTrialSaving(true);
+        api.put('/api/admin/trial-settings', next)
+            .then(res => setTrialSettings(res.data))
+            .finally(() => setTrialSaving(false));
+    }
+
+    async function handleDeleteAddon(addon) {
+        setAddonError('');
+        try {
+            await api.delete(`/api/admin/addons/${addon.id}`);
+            setDeleteAddonTarget(null);
+            loadAddons();
+        } catch (err) {
+            setAddonError(err.response?.data?.message || 'Failed to delete add-on');
+        }
+    }
+
+    useEffect(() => { load(); loadDiscounts(); loadAddons(); loadTrialSettings(); }, []);
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -698,12 +922,100 @@ export default function AdminPlansPage() {
                 )}
             </div>
 
+            {/* ── Add-ons ── */}
+            <div className="rounded-xl border border-border overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-secondary/50 border-b border-border">
+                    <div>
+                        <h2 className="text-sm font-semibold text-foreground">Add-ons</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Purchasable extras (+10 clients, +1 team member, …). Enable per-plan in each plan&apos;s edit modal.
+                        </p>
+                    </div>
+                    <Button variant="ghost" onClick={() => setAddonModal('new')}>
+                        <Plus size={14} className="mr-1.5" />
+                        New add-on
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <span>Label</span>
+                    <span className="w-24">Dimension</span>
+                    <span className="w-14 text-center">Units</span>
+                    <span className="w-24 text-right">Price/mo</span>
+                    <span className="w-16">Active</span>
+                    <span></span>
+                </div>
+
+                {addonsLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 border-t border-border rounded-none" />
+                    ))
+                ) : addons.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-muted-foreground border-t border-border">No add-ons yet.</div>
+                ) : (
+                    addons.map((a, idx) => (
+                        <div key={a.id} className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!a.is_active ? 'opacity-40' : ''}`}>
+                            <span className="text-sm font-medium text-foreground">{a.label} <span className="text-xs text-muted-foreground font-mono">({a.key})</span></span>
+                            <span className="text-sm text-muted-foreground w-24">{a.dimension}</span>
+                            <span className="text-sm text-foreground w-14 text-center">+{a.units}</span>
+                            <span className="text-sm text-foreground w-24 text-right">{Number(a.price_monthly).toLocaleString('en-EG')} {a.currency}</span>
+                            <span className={`text-xs font-medium w-16 ${a.is_active ? 'text-green-500' : 'text-muted-foreground'}`}>{a.is_active ? 'On' : 'Off'}</span>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => setAddonModal(a)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors" title="Edit add-on">
+                                    <Pencil size={14} />
+                                </button>
+                                <button onClick={() => setDeleteAddonTarget(a)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors" title="Delete add-on">
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* ── Trial Settings ── */}
+            {trialSettings && (
+                <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="px-4 py-3 bg-secondary/50 border-b border-border">
+                        <h2 className="text-sm font-semibold text-foreground">Trial Settings</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            When enabled, every new workspace starts on a OneForce trial and reverts to Free once it expires.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-6 px-4 py-3">
+                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={trialSettings.trial_enabled}
+                                onChange={e => saveTrialSettings({ ...trialSettings, trial_enabled: e.target.checked })}
+                                className="rounded"
+                            />
+                            Trial enabled
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <FieldLabel>Trial duration (days)</FieldLabel>
+                            <input
+                                type="number" min="1" inputMode="numeric"
+                                className="w-20 px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none"
+                                value={trialSettings.trial_duration_days}
+                                onChange={e => setTrialSettings(s => ({ ...s, trial_duration_days: e.target.value }))}
+                                onBlur={e => saveTrialSettings({ ...trialSettings, trial_duration_days: parseInt(e.target.value) || 14 })}
+                            />
+                        </div>
+                        {trialSaving && <span className="text-xs text-muted-foreground">Saving…</span>}
+                    </div>
+                </div>
+            )}
+
             {modal && (
                 <PlanModal
                     plan={modal === 'new' ? null : modal}
                     onClose={() => setModal(null)}
                     onSaved={load}
                     billingPeriods={discounts}
+                    addons={addons}
                 />
             )}
 
@@ -712,6 +1024,23 @@ export default function AdminPlansPage() {
                     plan={deleteTarget}
                     onClose={() => setDeleteTarget(null)}
                     onDeleted={load}
+                />
+            )}
+
+            {addonModal && (
+                <AddonModal
+                    addon={addonModal === 'new' ? null : addonModal}
+                    onClose={() => setAddonModal(null)}
+                    onSaved={loadAddons}
+                />
+            )}
+
+            {deleteAddonTarget && (
+                <DeleteAddonConfirmModal
+                    addon={deleteAddonTarget}
+                    error={addonError}
+                    onClose={() => { setDeleteAddonTarget(null); setAddonError(''); }}
+                    onConfirm={handleDeleteAddon}
                 />
             )}
         </div>

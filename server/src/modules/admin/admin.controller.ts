@@ -34,19 +34,13 @@ async function upsertPlanVariations(tx: Prisma.TransactionClient, planId: string
 
         const data: Prisma.plan_variationsUncheckedCreateInput = {
             id, plan_id: planId,
-            max_clients:      (v.max_clients as number | null | undefined) ?? null,
-            max_team_seats:   (v.max_team_seats as number | null | undefined) ?? null,
-            max_workspaces:   (v.max_workspaces as number | null | undefined) ?? null,
-            price_monthly:    (v.price_monthly as number | null | undefined) ?? null,
-            currency:         (v.currency as string | undefined)?.trim() || 'LE',
-            payment_link:     (v.payment_link as string | undefined)?.trim() || null,
-            has_team_counter: (v.has_team_counter as boolean | undefined) ?? false,
-            price_per_seat:   (v.price_per_seat as number | null | undefined) ?? null,
-            min_seat_count:   (v.min_seat_count as number | undefined) ?? 1,
-            max_seat_count:   (v.max_seat_count as number | undefined) ?? 20,
-            is_default:       (v.is_default as boolean | undefined) ?? false,
-            is_active:        (v.is_active as boolean | undefined) ?? true,
-            sort_order:       index,
+            max_clients:   (v.max_clients as number | null | undefined) ?? null,
+            price_monthly: (v.price_monthly as number | null | undefined) ?? null,
+            currency:      (v.currency as string | undefined)?.trim() || 'LE',
+            payment_link:  (v.payment_link as string | undefined)?.trim() || null,
+            is_default:    (v.is_default as boolean | undefined) ?? false,
+            is_active:     (v.is_active as boolean | undefined) ?? true,
+            sort_order:    index,
         };
         return { id, isNew: !isExisting, data };
     });
@@ -76,6 +70,28 @@ async function upsertPlanVariations(tx: Prisma.TransactionClient, planId: string
     const toCreate = rows.filter(r => r.isNew).map(r => r.data);
     if (toCreate.length > 0) {
         await tx.plan_variations.createMany({ data: toCreate });
+    }
+}
+
+/** Which add-ons a plan may buy, and each one's optional unit cap (e.g. OneForce's admin-
+ *  configured "max 3 client add-ons"). Unlike variations, nothing references a
+ *  plan_addon_rules row by id (workspace_addons points at addons directly), so a plain
+ *  delete-and-recreate on every save is safe — no id-preservation needed. */
+async function upsertPlanAddonRules(tx: Prisma.TransactionClient, planId: string, addonRules: unknown): Promise<void> {
+    if (!Array.isArray(addonRules)) return;
+
+    await tx.plan_addon_rules.deleteMany({ where: { plan_id: planId } });
+    const rows = addonRules
+        .map(raw => raw as Record<string, unknown>)
+        .filter(r => typeof r.addon_id === 'string' && r.addon_id)
+        .map(r => ({
+            id:        createId(),
+            plan_id:   planId,
+            addon_id:  r.addon_id as string,
+            max_units: (r.max_units as number | null | undefined) ?? null,
+        }));
+    if (rows.length > 0) {
+        await tx.plan_addon_rules.createMany({ data: rows });
     }
 }
 
@@ -345,7 +361,7 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
 
     try {
         const [plan, variation, workspace] = await Promise.all([
-            prisma.plans.findFirst({ where: { id: planId }, select: { id: true } }),
+            prisma.plans.findFirst({ where: { id: planId }, select: { id: true, max_team_seats: true } }),
             prisma.plan_variations.findFirst({ where: { id: variationId, plan_id: planId } }),
             prisma.workspaces.findFirst({ where: { id: req.params.id as string }, select: { id: true, owner_id: true } }),
         ]);
@@ -357,7 +373,10 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
         // only when explicitly forced, so a workspace never lands over its new limits by
         // accident.
         if (!force) {
-            await checkVariationSwitchAllowed(workspace.id, workspace.owner_id, variation);
+            await checkVariationSwitchAllowed(workspace.id, {
+                max_clients:    variation.max_clients,
+                max_team_seats: plan.max_team_seats,
+            });
         }
 
         await prisma.workspace_subscriptions.updateMany({
@@ -450,7 +469,7 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
         if (plans.length === 0) return res.json([]);
 
         const planIds = plans.map((p: Row) => p.id as string);
-        const [links, variations] = await Promise.all([
+        const [links, variations, addonRules] = await Promise.all([
             prisma.$queryRaw<Row[]>`
                 SELECT ppl.plan_id, bd.period_key, ppl.payment_link
                 FROM plan_period_links ppl
@@ -460,6 +479,10 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
             prisma.plan_variations.findMany({
                 where:   { plan_id: { in: planIds } },
                 orderBy: { sort_order: 'asc' },
+            }),
+            prisma.plan_addon_rules.findMany({
+                where:   { plan_id: { in: planIds } },
+                include: { addons: true },
             }),
         ]);
 
@@ -474,10 +497,16 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
             (variationMap[v.plan_id] ??= []).push({ ...v, label: formatPlanVariationLabel(v) });
         }
 
+        const addonRuleMap: Record<string, Row[]> = {};
+        for (const r of addonRules) {
+            (addonRuleMap[r.plan_id] ??= []).push({ addon_id: r.addon_id, max_units: r.max_units, addon: r.addons });
+        }
+
         res.json(plans.map((p: Row) => ({
             ...p,
             period_links: linkMap[p.id as string] ?? {},
             variations:   variationMap[p.id as string] ?? [],
+            addon_rules:  addonRuleMap[p.id as string] ?? [],
         })));
     } catch (err) {
         next(err);
@@ -486,9 +515,9 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
 
 export async function createPlan(req: Request, res: Response, next: NextFunction) {
     const {
-        name, display_name, features, trial_days,
+        name, display_name, features, trial_days, max_team_seats,
         subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
-        sort_order, show_on_landing, period_links, variations,
+        sort_order, show_on_landing, period_links, variations, addon_rules,
     } = req.body as Record<string, unknown>;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
@@ -502,6 +531,7 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
                     display_name:        (display_name as string).trim(),
                     features:            features ? (features as Prisma.InputJsonValue) : ([] as Prisma.InputJsonValue),
                     trial_days:          (trial_days as number | undefined) ?? null,
+                    max_team_seats:      (max_team_seats as number | null | undefined) ?? null,
                     subtitle:            (subtitle as string | undefined)?.trim() || null,
                     is_popular:          (is_popular as boolean | undefined) ?? false,
                     cta_text:            (cta_text as string | undefined)?.trim() || 'Get Started',
@@ -514,6 +544,7 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
             }) as unknown as Row;
             await upsertPlanVariations(tx, createdPlan!.id as string, variations);
             await upsertPeriodLinks(tx, createdPlan!.id as string, period_links);
+            await upsertPlanAddonRules(tx, createdPlan!.id as string, addon_rules);
         });
         res.status(201).json(createdPlan);
     } catch (err) {
@@ -528,9 +559,9 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
 
 export async function updatePlan(req: Request, res: Response, next: NextFunction) {
     const {
-        display_name, features, is_active, is_default, trial_days,
+        display_name, features, is_active, is_default, trial_days, max_team_seats,
         subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
-        sort_order, show_on_landing, period_links, variations,
+        sort_order, show_on_landing, period_links, variations, addon_rules,
     } = req.body as Record<string, unknown>;
 
     try {
@@ -551,6 +582,7 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
                     is_active:          is_active  !== undefined ? (is_active  as boolean) : undefined,
                     is_default:         is_default !== undefined ? (is_default as boolean) : undefined,
                     trial_days:         trial_days !== undefined ? ((trial_days as number | null) ?? null) : undefined,
+                    max_team_seats:     max_team_seats !== undefined ? ((max_team_seats as number | null) ?? null) : undefined,
                     subtitle:           subtitle          !== undefined ? ((subtitle as string | undefined)?.trim() || null) : undefined,
                     is_popular:         is_popular        !== undefined ? (is_popular  as boolean)    : undefined,
                     cta_text:           cta_text          !== undefined ? ((cta_text as string | undefined)?.trim() || undefined) : undefined,
@@ -564,6 +596,7 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
 
             if (variations !== undefined) await upsertPlanVariations(tx, req.params.id as string, variations);
             await upsertPeriodLinks(tx, req.params.id as string, period_links);
+            if (addon_rules !== undefined) await upsertPlanAddonRules(tx, req.params.id as string, addon_rules);
         });
 
         res.json(updatedPlan);
@@ -597,6 +630,88 @@ export async function deletePlan(req: Request, res: Response, next: NextFunction
         await prisma.plans.delete({ where: { id: req.params.id as string } });
         res.status(204).end();
     } catch (err) {
+        next(err);
+    }
+}
+
+// ── Add-ons ───────────────────────────────────────────────────────────────────
+
+export async function getAddons(_req: Request, res: Response, next: NextFunction) {
+    try {
+        const addons = await prisma.addons.findMany({ orderBy: { sort_order: 'asc' } });
+        res.json(addons);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function createAddon(req: Request, res: Response, next: NextFunction) {
+    const { key, label, dimension, units, price_monthly, currency, payment_link, sort_order } = req.body as Record<string, unknown>;
+    if (!key || !label || !dimension || !units) {
+        return res.status(400).json({ message: 'key, label, dimension and units are required' });
+    }
+
+    try {
+        const addon = await prisma.addons.create({
+            data: {
+                id:            createId(),
+                key:           (key as string).trim(),
+                label:         (label as string).trim(),
+                dimension:     (dimension as string).trim(),
+                units:         units as number,
+                price_monthly: (price_monthly as number | undefined) ?? 0,
+                currency:      (currency as string | undefined)?.trim() || 'LE',
+                payment_link:  (payment_link as string | undefined)?.trim() || null,
+                sort_order:    (sort_order as number | undefined) ?? 0,
+            },
+        });
+        res.status(201).json(addon);
+    } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+            return res.status(409).json({ message: 'An add-on with this key already exists' });
+        }
+        next(err);
+    }
+}
+
+export async function updateAddon(req: Request, res: Response, next: NextFunction) {
+    const { label, dimension, units, price_monthly, currency, payment_link, is_active, sort_order } = req.body as Record<string, unknown>;
+    try {
+        const updated = await prisma.addons.update({
+            where: { id: req.params.id as string },
+            data: {
+                label:         (label as string | undefined)?.trim() || undefined,
+                dimension:     (dimension as string | undefined)?.trim() || undefined,
+                units:         units !== undefined ? (units as number) : undefined,
+                price_monthly: price_monthly !== undefined ? (price_monthly as number) : undefined,
+                currency:      (currency as string | undefined)?.trim() || undefined,
+                payment_link:  payment_link !== undefined ? ((payment_link as string | undefined)?.trim() || null) : undefined,
+                is_active:     is_active !== undefined ? (is_active as boolean) : undefined,
+                sort_order:    sort_order !== undefined ? (sort_order as number) : undefined,
+            },
+        });
+        res.json(updated);
+    } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+            return res.status(404).json({ message: 'Add-on not found' });
+        }
+        next(err);
+    }
+}
+
+export async function deleteAddon(req: Request, res: Response, next: NextFunction) {
+    try {
+        const purchased = await prisma.workspace_addons.count({ where: { addon_id: req.params.id as string, status: 'active' } });
+        if (purchased > 0) {
+            return res.status(409).json({ message: `Cannot delete: ${purchased} workspace(s) have this add-on active. Deactivate it instead.` });
+        }
+
+        await prisma.addons.delete({ where: { id: req.params.id as string } });
+        res.status(204).end();
+    } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+            return res.status(404).json({ message: 'Add-on not found' });
+        }
         next(err);
     }
 }
@@ -751,6 +866,46 @@ export async function updatePaymentStatus(req: Request, res: Response, next: Nex
         }
 
         res.json({ message: `Payment status updated to ${status}` });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ── Trial settings ────────────────────────────────────────────────────────────
+// Global, admin-controlled — not a per-plan `trial_days` value (decision 10). When enabled,
+// new workspaces start on OneForce's trial variation instead of Free (see auth.controller.ts);
+// an expiry sweep moves them to Free afterward unless they've upgraded (see trialSweep.ts).
+
+export async function getTrialSettings(_req: Request, res: Response, next: NextFunction) {
+    try {
+        const settings = await prisma.trial_settings.upsert({
+            where:  { id: 'singleton' },
+            update: {},
+            create: { id: 'singleton' },
+        });
+        res.json(settings);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateTrialSettings(req: Request, res: Response, next: NextFunction) {
+    const { trial_enabled, trial_duration_days } = req.body as { trial_enabled?: boolean; trial_duration_days?: number };
+    try {
+        const settings = await prisma.trial_settings.upsert({
+            where:  { id: 'singleton' },
+            update: {
+                trial_enabled:       trial_enabled !== undefined ? trial_enabled : undefined,
+                trial_duration_days: trial_duration_days !== undefined ? trial_duration_days : undefined,
+                updated_at:          new Date(),
+            },
+            create: {
+                id: 'singleton',
+                trial_enabled:       trial_enabled ?? false,
+                trial_duration_days: trial_duration_days ?? 14,
+            },
+        });
+        res.json(settings);
     } catch (err) {
         next(err);
     }

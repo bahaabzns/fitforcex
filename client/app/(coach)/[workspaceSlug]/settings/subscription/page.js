@@ -44,6 +44,8 @@ export default function SubscriptionPage() {
     const [iframeUrl, setIframeUrl] = useState(null);
     const [iframePayId, setIframePayId] = useState(null);
     const [payStatus, setPayStatus] = useState(null);
+    const [availableAddons, setAvailableAddons] = useState([]);
+    const [buyingAddon, setBuyingAddon] = useState(null);
 
     const loadBilling = useCallback(() => {
         return api.get("/api/billing/subscription").then(res => {
@@ -52,20 +54,26 @@ export default function SubscriptionPage() {
           .finally(() => setLoading(false));
     }, [t]);
 
+    const loadAddons = useCallback(() => {
+        return api.get("/api/billing/addons").then(res => setAvailableAddons(res.data)).catch(() => {});
+    }, []);
+
     useEffect(() => {
         loadBilling();
-    }, [loadBilling]);
+        loadAddons();
+    }, [loadBilling, loadAddons]);
 
     useEffect(() => {
         function onMessage(e) {
             if (e.data === 'payment_confirmed') {
                 setPayStatus('confirmed');
                 loadBilling();
+                loadAddons();
             }
         }
         window.addEventListener('message', onMessage);
         return () => window.removeEventListener('message', onMessage);
-    }, []);
+    }, [loadBilling, loadAddons]);
 
     useEffect(() => {
         if (!iframePayId) return;
@@ -77,6 +85,7 @@ export default function SubscriptionPage() {
                     clearInterval(id);
                     setPayStatus("confirmed");
                     loadBilling();
+                    loadAddons();
                 } else if (attempts++ > 60) {
                     clearInterval(id);
                     setPayStatus("processing");
@@ -84,7 +93,7 @@ export default function SubscriptionPage() {
             } catch { /* keep polling */ }
         }, 3000);
         return () => clearInterval(id);
-    }, [iframePayId]);
+    }, [iframePayId, loadBilling, loadAddons]);
 
     function closeIframe() {
         setIframeUrl(null);
@@ -102,16 +111,33 @@ export default function SubscriptionPage() {
             setPayStatus(null);
         } catch (err) {
             const message = err.response?.data?.error || "";
-            const limitMatch = message.match(/^(client|seat|workspace)_limit_exceeded:(\d+)$/);
+            const limitMatch = message.match(/^(client|seat)_limit_exceeded:(\d+)$/);
             if (limitMatch) {
                 const [, kind, limit] = limitMatch;
-                const kindLabel = kind === "client" ? "clients" : kind === "seat" ? "team seats" : "workspaces";
+                const kindLabel = kind === "client" ? "clients" : "team seats";
                 setError(`You currently have more ${kindLabel} than this plan allows (max ${limit}). Reduce usage before switching.`);
             } else {
                 setError(message || t("paymentFailed"));
             }
         } finally {
             setPaying(false);
+        }
+    }
+
+    async function handleBuyAddon(addonId) {
+        setBuyingAddon(addonId);
+        setError("");
+        try {
+            const res = await api.post("/api/billing/create-addon-invoice", { addonId });
+            setIframeUrl(res.data.paymentUrl);
+            setIframePayId(res.data.paymentId);
+            setPayStatus(null);
+        } catch (err) {
+            const message = err.response?.data?.error || "";
+            const capMatch = message.match(/^addon_limit_reached:(\d+)$/);
+            setError(capMatch ? `You've reached the maximum of ${capMatch[1]} for this add-on.` : (message || t("paymentFailed")));
+        } finally {
+            setBuyingAddon(null);
         }
     }
 
@@ -257,6 +283,41 @@ export default function SubscriptionPage() {
             />
 
             {error && <ErrorMsg msg={error} />}
+
+            {availableAddons.length > 0 && (
+                <div className="flex flex-col gap-3">
+                    <h2 className="text-lg font-semibold text-foreground">Add-ons</h2>
+                    {data?.addons?.length > 0 && (
+                        <div className="flex flex-col gap-1.5 mb-1">
+                            {data.addons.map(a => (
+                                <p key={a.id} className="text-sm text-muted-foreground">
+                                    ✓ {a.label} <span className="text-xs">(active since {formatDate(a.purchasedAt)})</span>
+                                </p>
+                            ))}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {availableAddons.map(a => (
+                            <div key={a.id} className="rounded-lg border border-border bg-secondary/20 px-4 py-3 flex flex-col gap-2">
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">{a.label}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {Number(a.priceMonthly).toLocaleString()} {a.currency} / mo
+                                        {a.maxUnits != null && ` · ${a.unitsOwned}/${a.maxUnits} bought`}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => handleBuyAddon(a.id)}
+                                    disabled={a.atCap || buyingAddon === a.id}
+                                    className="button button--outline button--sm self-start disabled:opacity-40 disabled:pointer-events-none"
+                                >
+                                    {buyingAddon === a.id ? "…" : a.atCap ? "Max reached" : "Buy"}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <Separator className="bg-border" />
 

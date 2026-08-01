@@ -252,6 +252,74 @@ router.put('/billing-discounts/:id',   adminAuthMiddleware, adminController.upda
 
 /**
  * @openapi
+ * /admin/addons:
+ *   get:
+ *     summary: List all add-ons (catalog)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of add-ons
+ *   post:
+ *     summary: Create an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201:
+ *         description: Add-on created
+ *
+ * /admin/addons/{id}:
+ *   put:
+ *     summary: Update an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Add-on updated
+ *   delete:
+ *     summary: Delete an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       204:
+ *         description: Add-on deleted
+ *
+ * /admin/trial-settings:
+ *   get:
+ *     summary: Get the global trial toggle/duration
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial settings
+ *   put:
+ *     summary: Update the global trial toggle/duration
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial settings updated
+ */
+router.get('/addons',           adminAuthMiddleware, adminController.getAddons);
+router.post('/addons',          adminAuthMiddleware, adminController.createAddon);
+router.put('/addons/:id',       adminAuthMiddleware, adminController.updateAddon);
+router.delete('/addons/:id',    adminAuthMiddleware, adminController.deleteAddon);
+
+router.get('/trial-settings',   adminAuthMiddleware, adminController.getTrialSettings);
+router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrialSettings);
+
+/**
+ * @openapi
  * /admin/payments/stats:
  *   get:
  *     summary: Get payment aggregate stats

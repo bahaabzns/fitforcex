@@ -18,6 +18,7 @@ import { prisma } from './lib/prisma';
 import {
     scheduleFormDispatcher,
     scheduleSubscriptionExpiry,
+    scheduleTrialExpiry,
     scheduleSessionCleanup,
     scheduleClientStatusSync,
     scheduleCheckInDispatch,
@@ -56,6 +57,7 @@ import pdfExportRouter from './modules/pdfExport/index';
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
     scheduleSubscriptionExpiry();
+    scheduleTrialExpiry();
     scheduleSessionCleanup();
     scheduleClientStatusSync();
     scheduleCheckInDispatch();

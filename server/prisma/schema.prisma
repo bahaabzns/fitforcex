@@ -957,23 +957,19 @@ model plan_period_links {
   @@unique([plan_id, billing_discount_id])
 }
 
-/// Deprecated: max_clients/max_team_seats/max_workspaces/price_monthly/currency/payment_link
-/// are being superseded by plan_variations (each plan now has >=1 variation carrying these
-/// values). Kept in place until every read/write path is migrated; see the plan-variations
-/// implementation plan for the removal follow-up.
+/// Deprecated: max_clients/price_monthly/currency/payment_link on `plans` are being superseded
+/// by plan_variations (each plan now has >=1 variation carrying these values). Kept in place
+/// until every read/write path is migrated. Variations differ ONLY by client limit + price —
+/// team-seat count is a flat per-plan allotment (plans.max_team_seats) topped up by add-ons,
+/// and there is no per-plan/per-variation workspace limit (every workspace has its own
+/// independent subscription).
 model plan_variations {
   id                      String                    @id
   plan_id                 String
   max_clients             Int?
-  max_team_seats          Int?
-  max_workspaces          Int?
   price_monthly           Decimal?                  @db.Decimal(10, 2)
   currency                String                    @default("LE")
   payment_link            String?
-  has_team_counter        Boolean                   @default(false)
-  price_per_seat          Decimal?                  @db.Decimal(10, 2)
-  min_seat_count          Int                       @default(1)
-  max_seat_count          Int                       @default(20)
   is_default              Boolean                   @default(false)
   is_active               Boolean                   @default(true)
   sort_order              Int                       @default(0)
@@ -991,7 +987,6 @@ model plans {
   name                    String                    @unique
   display_name            String
   max_team_seats          Int?
-  max_workspaces          Int?
   features                Json                      @default("{}")
   price_monthly           Decimal?                  @db.Decimal(10, 2)
   is_active               Boolean                   @default(true)
@@ -1006,18 +1001,82 @@ model plans {
   cta_variant             String                    @default("outline")
   features_header         String                    @default("What's included:")
   features_subheader      String?
-  has_team_counter        Boolean                   @default(false)
   sort_order              Int                       @default(0)
   currency                String                    @default("LE")
   show_on_landing         Boolean                   @default(true)
-  price_per_seat          Decimal?                  @db.Decimal(10, 2)
-  min_seat_count          Int                       @default(1)
-  max_seat_count          Int                       @default(20)
   max_clients             Int?
+  plan_addon_rules        plan_addon_rules[]
   plan_period_links       plan_period_links[]
   plan_variations         plan_variations[]
   workspace_payments      workspace_payments[]
   workspace_subscriptions workspace_subscriptions[]
+}
+
+/// Catalog of purchasable add-ons (e.g. "+10 Clients", "+1 Team Member"). Add-ons only ever
+/// raise a numeric usage limit (`dimension`) — never unlock a feature.
+model addons {
+  id                 String               @id
+  key                String               @unique
+  label              String
+  dimension          String
+  units               Int
+  price_monthly      Decimal              @db.Decimal(10, 2)
+  currency           String               @default("LE")
+  payment_link       String?
+  is_active          Boolean              @default(true)
+  sort_order         Int                  @default(0)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  plan_addon_rules   plan_addon_rules[]
+  workspace_addons   workspace_addons[]
+  workspace_payments workspace_payments[]
+}
+
+/// Which add-ons a plan may buy, and an optional admin-configured cap (e.g. OneForce's
+/// "max 3 client add-ons") — keyed by plan, never by hardcoded plan name in business logic.
+model plan_addon_rules {
+  id         String   @id
+  plan_id    String
+  addon_id   String
+  max_units  Int?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  plans      plans    @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  addons     addons   @relation(fields: [addon_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([plan_id, addon_id])
+  @@index([plan_id])
+}
+
+/// A workspace's purchased add-on units. `dimension`/`units`/`unit_price_locked` are
+/// snapshotted at purchase time so later catalog edits (or deleting the `addons` row) never
+/// change what's already been bought and is actively counted toward the workspace's limits.
+model workspace_addons {
+  id                   String              @id
+  workspace_id         String
+  addon_id             String?
+  dimension            String
+  units                Int
+  quantity             Int                 @default(1)
+  unit_price_locked    Decimal             @db.Decimal(10, 2)
+  currency             String              @default("LE")
+  status               String              @default("active")
+  workspace_payment_id String?
+  purchased_at         DateTime            @default(now()) @db.Timestamptz(6)
+  canceled_at          DateTime?           @db.Timestamptz(6)
+  workspaces           workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  addons               addons?             @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspace_payments   workspace_payments? @relation(fields: [workspace_payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id])
+  @@index([workspace_id, status])
+}
+
+/// Global trial toggle (founder decision: admin-controlled on/off + duration, not per-plan).
+/// Single row, fixed id — read/written as a singleton.
+model trial_settings {
+  id                  String   @id @default("singleton")
+  trial_enabled       Boolean  @default(false)
+  trial_duration_days Int      @default(14)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
 }
 
 model subscription_freezes {
@@ -1253,27 +1312,31 @@ model workspace_members {
 }
 
 model workspace_payments {
-  id                    String           @id
+  id                    String             @id
   workspace_id          String
   plan_id               String
   variation_id          String?
-  amount                Decimal          @db.Decimal(10, 2)
-  currency              String           @default("EGP")
+  addon_id              String?
+  amount                Decimal            @db.Decimal(10, 2)
+  currency              String             @default("EGP")
   duration_days         Int
   fawaterak_invoice_id  String?
   fawaterak_payment_url String?
-  fawaterak_status      String           @default("pending")
+  fawaterak_status      String             @default("pending")
   fawaterak_raw_webhook Json?
   notes                 String?
-  paid_at               DateTime?        @db.Timestamptz(6)
-  created_at            DateTime         @default(now()) @db.Timestamptz(6)
-  plans                 plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  plan_variations       plan_variations? @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  workspaces            workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paid_at               DateTime?          @db.Timestamptz(6)
+  created_at            DateTime           @default(now()) @db.Timestamptz(6)
+  plans                 plans              @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan_variations       plan_variations?   @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  addons                addons?            @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspaces            workspaces         @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_addons       workspace_addons[]
 
   @@index([fawaterak_invoice_id])
   @@index([workspace_id])
   @@index([variation_id])
+  @@index([addon_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1337,6 +1400,7 @@ model workspaces {
   workspace_invitations                        workspace_invitations[]
   workspace_members                            workspace_members[]
   workspace_payments                           workspace_payments[]
+  workspace_addons                             workspace_addons[]
   workspace_subscriptions                      workspace_subscriptions?
   users_workspaces_owner_idTousers             users                          @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
 

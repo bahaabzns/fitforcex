@@ -53,7 +53,7 @@ router.use((req, res, next) => {
  *
  * /billing/create-invoice:
  *   post:
- *     summary: Create a payment invoice for a subscription upgrade
+ *     summary: Create a payment invoice for a subscription plan/variation switch
  *     tags: [Billing]
  *     security:
  *       - cookieAuth: []
@@ -63,10 +63,39 @@ router.use((req, res, next) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [planId]
+ *             required: [planId, variationId]
  *             properties:
- *               planId:    { type: string }
- *               discountId: { type: string }
+ *               planId:      { type: string }
+ *               variationId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Invoice created with payment URL
+ *
+ * /billing/addons:
+ *   get:
+ *     summary: List add-ons the workspace's current plan may buy
+ *     tags: [Billing]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of purchasable add-ons with current usage/cap
+ *
+ * /billing/create-addon-invoice:
+ *   post:
+ *     summary: Create a payment invoice for an add-on purchase
+ *     tags: [Billing]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [addonId]
+ *             properties:
+ *               addonId: { type: string }
  *     responses:
  *       200:
  *         description: Invoice created with payment URL
@@ -86,6 +115,8 @@ router.use((req, res, next) => {
 router.get('/subscription',              billingController.getSubscription);
 router.get('/plans',                     billingController.getPlans);
 router.post('/create-invoice',           billingController.createInvoice);
+router.get('/addons',                    billingController.getAvailableAddons);
+router.post('/create-addon-invoice',     billingController.createAddonInvoice);
 router.get('/payment-status/:paymentId', billingController.getPaymentStatus);
 
 export default router;

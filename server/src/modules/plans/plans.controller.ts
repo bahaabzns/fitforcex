@@ -8,7 +8,7 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
             where: { is_active: true, show_on_landing: true },
             select: {
                 id: true, name: true, display_name: true, subtitle: true,
-                is_popular: true,
+                is_popular: true, max_team_seats: true,
                 cta_text: true, cta_variant: true,
                 features_header: true, features_subheader: true,
                 features: true, trial_days: true,
@@ -32,9 +32,8 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
                 where:  { plan_id: { in: planIds }, is_active: true },
                 select: {
                     id: true, plan_id: true,
-                    max_clients: true, max_team_seats: true, max_workspaces: true,
+                    max_clients: true,
                     price_monthly: true, currency: true,
-                    has_team_counter: true, price_per_seat: true, min_seat_count: true, max_seat_count: true,
                     is_default: true,
                 },
                 orderBy: { sort_order: 'asc' },
