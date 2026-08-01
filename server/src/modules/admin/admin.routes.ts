@@ -391,11 +391,37 @@ router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrial
  *     responses:
  *       200:
  *         description: Status updated
+ *
+ * /admin/payments/{id}:
+ *   put:
+ *     summary: Correct a payment record's fields after the fact
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:             { type: number }
+ *               currency:           { type: string }
+ *               durationDays:       { type: integer }
+ *               notes:              { type: string }
+ *               planId:             { type: string }
+ *               variationId:        { type: string, nullable: true }
+ *               resyncSubscription: { type: boolean, description: "Also push the corrected values onto the workspace's live subscription" }
+ *     responses:
+ *       200:
+ *         description: Payment updated
  */
 router.get('/payments/stats',              adminAuthMiddleware, adminController.getPaymentStats);
 router.get('/payments',                    adminAuthMiddleware, adminController.getPayments);
 router.post('/payments/:id/mark-paid',     adminAuthMiddleware, adminController.markPaymentPaid);
 router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.updatePaymentStatus);
+router.put('/payments/:id',                adminAuthMiddleware, adminController.updatePayment);
 
 /**
  * @openapi

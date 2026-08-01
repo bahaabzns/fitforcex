@@ -315,6 +315,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                        u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                        COALESCE(p.name, 'none') AS plan, COALESCE(p.display_name, 'No Plan') AS plan_display,
                        COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count,
+                       MAX(ws.expires_at) AS expires_at,
                        ${ACCESS_STATUS_CASE_AGG} AS access_status
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
@@ -874,7 +875,8 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT
                     wp.id, wp.amount, wp.currency, wp.duration_days, wp.fawaterak_status,
-                    wp.fawaterak_invoice_id, wp.created_at, wp.paid_at,
+                    wp.fawaterak_invoice_id, wp.created_at, wp.paid_at, wp.notes,
+                    wp.plan_id, wp.variation_id, wp.addon_id,
                     w.id AS workspace_id, w.name AS workspace_name, w.slug AS workspace_slug,
                     p.display_name AS plan_display,
                     u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email
@@ -950,6 +952,81 @@ export async function updatePaymentStatus(req: Request, res: Response, next: Nex
         }
 
         res.json({ message: `Payment status updated to ${status}` });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/** Corrects a payment record after the fact (wrong amount typed in, wrong plan picked, a typo
+ *  in the notes) — always safe on its own, since it only edits the workspace_payments row
+ *  itself, never the workspace's live subscription. `resyncSubscription` is a separate,
+ *  explicit opt-in (mirrors the "force" pattern already used for the subscription-override
+ *  action): only when checked does this ALSO push the corrected plan/variation/price/expiry
+ *  onto workspace_subscriptions, computed from the same starts_at the subscription already
+ *  has (or now, if it never had one) + the corrected duration — i.e. "pretend this payment,
+ *  with its corrected values, is what's currently in effect." Not offered for add-on payments
+ *  (payment.addon_id set) — those would need the billing-cycle-extension math re-run, out of
+ *  scope here. */
+export async function updatePayment(req: Request, res: Response, next: NextFunction) {
+    const { amount, currency, durationDays, notes, planId, variationId, resyncSubscription } = req.body as {
+        amount?: number; currency?: string; durationDays?: number; notes?: string;
+        planId?: string; variationId?: string | null; resyncSubscription?: boolean;
+    };
+
+    try {
+        const payment = await prisma.workspace_payments.findFirst({ where: { id: req.params.id as string } });
+        if (!payment) return res.status(404).json({ message: 'Payment not found' });
+
+        const data: Prisma.workspace_paymentsUncheckedUpdateInput = {};
+        if (amount != null) data.amount = amount;
+        if (currency) data.currency = currency.trim();
+        if (durationDays != null) data.duration_days = durationDays;
+        if (notes !== undefined) data.notes = notes;
+
+        let targetPlanId = payment.plan_id;
+        let targetVariationId = payment.variation_id;
+
+        if (planId && !payment.addon_id) {
+            const plan = await prisma.plans.findFirst({ where: { id: planId } });
+            if (!plan) return res.status(404).json({ message: 'Plan not found' });
+            data.plan_id = planId;
+            targetPlanId = planId;
+        }
+        if (variationId !== undefined && !payment.addon_id) {
+            if (variationId) {
+                const variation = await prisma.plan_variations.findFirst({ where: { id: variationId, plan_id: targetPlanId } });
+                if (!variation) return res.status(404).json({ message: 'Plan variation not found' });
+                data.variation_id = variationId;
+                targetVariationId = variationId;
+            } else {
+                data.variation_id = null;
+                targetVariationId = null;
+            }
+        }
+
+        const updated = await prisma.workspace_payments.update({ where: { id: payment.id }, data });
+
+        let resynced = false;
+        if (resyncSubscription && !updated.addon_id && updated.fawaterak_status === 'paid') {
+            const sub = await prisma.workspace_subscriptions.findUnique({ where: { workspace_id: updated.workspace_id } });
+            if (sub) {
+                const base = sub.starts_at ?? new Date();
+                const newExpiresAt = new Date(base.getTime() + updated.duration_days * 86400000);
+                await prisma.workspace_subscriptions.update({
+                    where: { workspace_id: updated.workspace_id },
+                    data: {
+                        plan_id:              targetPlanId,
+                        variation_id:         targetVariationId,
+                        locked_price_monthly: updated.amount,
+                        locked_currency:      updated.currency,
+                        expires_at:           newExpiresAt,
+                    },
+                });
+                resynced = true;
+            }
+        }
+
+        res.json({ message: resynced ? 'Payment updated and subscription resynced' : 'Payment updated', resynced });
     } catch (err) {
         next(err);
     }

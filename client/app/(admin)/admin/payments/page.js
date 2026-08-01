@@ -5,7 +5,8 @@ import api from '@/lib/axios';
 import { useDateFormatter } from '@/utils/useDateFormatter';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Modal } from '@heroui/react/modal';
+import { ChevronLeft, ChevronRight, Search, Pencil } from 'lucide-react';
 
 const STATUS_STYLES = {
     paid:     'bg-green-500/15 text-green-700 border-green-300',
@@ -26,6 +27,158 @@ function StatCard({ label, value, sub, accent }) {
     );
 }
 
+function EditPaymentModal({ payment, plans, onClose, onSaved }) {
+    const isAddon = !!payment.addon_id;
+    const [planId, setPlanId] = useState(payment.plan_id);
+    const [variationId, setVariationId] = useState(payment.variation_id ?? '');
+    const [amount, setAmount] = useState(String(payment.amount));
+    const [currency, setCurrency] = useState(payment.currency);
+    const [durationDays, setDurationDays] = useState(String(payment.duration_days));
+    const [notes, setNotes] = useState(payment.notes ?? '');
+    const [resync, setResync] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const variations = plans.find(p => p.id === planId)?.variations ?? [];
+    const canResync = payment.fawaterak_status === 'paid' && !isAddon;
+
+    function handlePlanChange(newPlanId) {
+        setPlanId(newPlanId);
+        const newVariations = plans.find(p => p.id === newPlanId)?.variations ?? [];
+        setVariationId(newVariations.find(v => v.is_default)?.id ?? newVariations[0]?.id ?? '');
+    }
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            await api.put(`/api/admin/payments/${payment.id}`, {
+                amount:       amount === '' ? undefined : Number(amount),
+                currency:     currency.trim() || undefined,
+                durationDays: durationDays === '' ? undefined : parseInt(durationDays),
+                notes,
+                ...(isAddon ? {} : { planId, variationId: variationId || null }),
+                resyncSubscription: canResync && resync,
+            });
+            onSaved();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update payment');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>Edit Payment</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            <p className="text-sm text-muted-foreground">{payment.workspace_name}</p>
+
+                            {isAddon ? (
+                                <p className="text-xs text-muted-foreground -mt-2">
+                                    This is an add-on payment — plan/variation aren&apos;t editable here.
+                                </p>
+                            ) : (
+                                <>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground">Plan</label>
+                                        <select
+                                            value={planId}
+                                            onChange={e => handlePlanChange(e.target.value)}
+                                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                        >
+                                            {plans.map(p => (
+                                                <option key={p.id} value={p.id}>{p.display_name} ({p.name})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground">Variation</label>
+                                        <select
+                                            value={variationId}
+                                            onChange={e => setVariationId(e.target.value)}
+                                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                        >
+                                            {variations.map(v => (
+                                                <option key={v.id} value={v.id}>{v.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Amount</label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                                    <input
+                                        type="text"
+                                        value={currency}
+                                        onChange={e => setCurrency(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Days</label>
+                                    <input
+                                        type="number" min="1"
+                                        value={durationDays}
+                                        onChange={e => setDurationDays(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                                <input
+                                    type="text"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            {canResync && (
+                                <label className="flex items-start gap-2 text-xs text-foreground cursor-pointer">
+                                    <input type="checkbox" checked={resync} onChange={e => setResync(e.target.checked)} className="rounded mt-0.5" />
+                                    <span>
+                                        Also update this workspace&apos;s current subscription to match (price, plan/variation, and
+                                        expiry recomputed from these corrected values). Leave unchecked to only fix this record.
+                                    </span>
+                                </label>
+                            )}
+
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                                {saving ? 'Saving…' : 'Save'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+    );
+}
+
 export default function AdminPaymentsPage() {
     const { formatDate } = useDateFormatter();
     const [payments, setPayments]   = useState([]);
@@ -37,6 +190,8 @@ export default function AdminPaymentsPage() {
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState('');
     const [changingStatus, setChangingStatus] = useState(null);
+    const [plans, setPlans]         = useState([]);
+    const [editingPayment, setEditingPayment] = useState(null);
 
     const limit      = 25;
     const totalPages = Math.ceil(total / limit);
@@ -55,6 +210,7 @@ export default function AdminPaymentsPage() {
             .then(res => setStats(res.data))
             .catch(() => {});
     }, []);
+    useEffect(() => { api.get('/api/admin/plans').then(res => setPlans(res.data)); }, []);
     useEffect(() => { setPage(1); }, [statusFilter, search]);
 
     async function handleStatusChange(paymentId, newStatus) {
@@ -118,13 +274,14 @@ export default function AdminPaymentsPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
                     <span className="text-right">Amount</span>
                     <span>Status</span>
                     <span>Date</span>
+                    <span></span>
                 </div>
 
                 {loading ? (
@@ -139,7 +296,7 @@ export default function AdminPaymentsPage() {
                     payments.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{p.workspace_name}</p>
@@ -166,6 +323,13 @@ export default function AdminPaymentsPage() {
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                                 {formatDate(p.created_at)}
                             </span>
+                            <button
+                                onClick={() => setEditingPayment(p)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors justify-self-end"
+                                title="Edit payment"
+                            >
+                                <Pencil size={14} />
+                            </button>
                         </div>
                     ))
                 )}
@@ -184,6 +348,15 @@ export default function AdminPaymentsPage() {
                         </Button>
                     </div>
                 </div>
+            )}
+
+            {editingPayment && (
+                <EditPaymentModal
+                    payment={editingPayment}
+                    plans={plans}
+                    onClose={() => setEditingPayment(null)}
+                    onSaved={fetchPayments}
+                />
             )}
         </div>
     );

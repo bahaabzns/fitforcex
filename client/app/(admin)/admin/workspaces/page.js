@@ -532,13 +532,14 @@ export default function AdminWorkspacesPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
                     <span>Status</span>
                     <span className="text-center">Members</span>
                     <span className="text-center">Clients</span>
+                    <span>Expires</span>
                     <span>Created</span>
                 </div>
 
@@ -555,7 +556,7 @@ export default function AdminWorkspacesPage() {
                         <button
                             key={w.id}
                             onClick={() => setSelectedId(w.id)}
-                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>
@@ -571,6 +572,9 @@ export default function AdminWorkspacesPage() {
                             <Chip size="sm" className={statusDisplay.className}>{statusDisplay.label}</Chip>
                             <span className="text-sm text-foreground text-center w-16">{w.member_count}</span>
                             <span className="text-sm text-foreground text-center w-16">{w.client_count}</span>
+                            <span className={`text-xs whitespace-nowrap ${w.access_status === 'read_only' ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                                {w.expires_at ? formatDate(w.expires_at) : 'Never'}
+                            </span>
                             <span className="text-xs text-muted-foreground shrink-0">
                                 {formatDate(w.created_at)}
                             </span>
