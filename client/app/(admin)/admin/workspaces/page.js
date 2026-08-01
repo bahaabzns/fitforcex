@@ -120,11 +120,158 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
     );
 }
 
+function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
+    const [planId, setPlanId] = useState(workspace.plan_id);
+    const [variationId, setVariationId] = useState(workspace.variation_id);
+    const [amount, setAmount] = useState('');
+    const [currency, setCurrency] = useState('');
+    const [durationDays, setDurationDays] = useState('');
+    const [notes, setNotes] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const variations = plans.find(p => p.id === planId)?.variations ?? [];
+    const selectedVariation = variations.find(v => v.id === variationId);
+
+    function handlePlanChange(newPlanId) {
+        setPlanId(newPlanId);
+        const newVariations = plans.find(p => p.id === newPlanId)?.variations ?? [];
+        setVariationId(newVariations.find(v => v.is_default)?.id ?? newVariations[0]?.id ?? '');
+    }
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            await api.post(`/api/admin/workspaces/${workspace.id}/manual-payment`, {
+                planId, variationId,
+                amount:       amount === '' ? undefined : Number(amount),
+                currency:     currency.trim() || undefined,
+                durationDays: durationDays === '' ? undefined : parseInt(durationDays),
+                notes,
+            });
+            onSaved();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to record payment');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>Record Manual Payment</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                            <p className="text-xs text-muted-foreground -mt-2">
+                                For a payment that happened outside Fawaterak (bank transfer, cash, a one-off deal).
+                                Activates immediately, the same way a real payment would.
+                            </p>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Plan</label>
+                                <select
+                                    value={planId}
+                                    onChange={e => handlePlanChange(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {plans.map(p => (
+                                        <option key={p.id} value={p.id}>{p.display_name} ({p.name})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Variation</label>
+                                <select
+                                    value={variationId}
+                                    onChange={e => setVariationId(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {variations.map(v => (
+                                        <option key={v.id} value={v.id}>
+                                            {v.label} — {v.price_monthly != null ? `${v.price_monthly} ${v.currency}` : 'Custom'}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Amount <span className="opacity-60">(blank = variation price)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        placeholder={selectedVariation?.price_monthly ?? '0.00'}
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                                    <input
+                                        type="text"
+                                        placeholder={selectedVariation?.currency ?? 'EGP'}
+                                        value={currency}
+                                        onChange={e => setCurrency(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Days <span className="opacity-60">(blank = plan default)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="1"
+                                        placeholder="30"
+                                        value={durationDays}
+                                        onChange={e => setDurationDays(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. bank transfer ref #1234, agreed by phone"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                                {saving ? 'Recording…' : 'Record & Activate'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+    );
+}
+
 function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
     const { formatDate } = useDateFormatter();
     const [workspace, setWorkspace] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showSubModal, setShowSubModal] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState('');
 
@@ -247,6 +394,9 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                     <Button variant="outline" className="w-full" onClick={() => setShowSubModal(true)}>
                                         Override Subscription Plan
                                     </Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setShowPaymentModal(true)}>
+                                        Record Manual Payment
+                                    </Button>
                                     {workspace.archived_at ? (
                                         <Button variant="outline" className="w-full" isDisabled={actionLoading} onClick={handleRestore}>
                                             <ArchiveRestore size={14} className="mr-1.5" />
@@ -270,6 +420,15 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                     workspace={workspace}
                     plans={plans}
                     onClose={() => setShowSubModal(false)}
+                    onSaved={() => { onRefresh(); load(); }}
+                />
+            )}
+
+            {showPaymentModal && workspace && (
+                <ManualPaymentModal
+                    workspace={workspace}
+                    plans={plans}
+                    onClose={() => setShowPaymentModal(false)}
                     onSaved={() => { onRefresh(); load(); }}
                 />
             )}

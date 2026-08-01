@@ -380,6 +380,10 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
             });
         }
 
+        // Deliberately does not touch status/expires_at — payments are the only source of
+        // truth for whether a workspace is in good standing (subscriptionAccessGate.ts).
+        // This action only reassigns WHICH plan/variation a workspace is on; recording that
+        // they've actually paid is a separate, explicit action (manual payment entry).
         await prisma.workspace_subscriptions.updateMany({
             where: { workspace_id: workspace.id },
             data: {
@@ -388,7 +392,6 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
                 locked_price_monthly: variation.price_monthly,
                 locked_currency:      variation.currency,
                 notes:                notes || null,
-                status:               'active',
             },
         });
 
@@ -396,6 +399,50 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
     } catch (err) {
         const httpErr = err as { status?: number; message?: string };
         if (httpErr.status) return res.status(httpErr.status).json({ message: httpErr.message });
+        next(err);
+    }
+}
+
+/** Records a payment that happened outside Fawaterak (bank transfer, cash, a manually-agreed
+ *  deal) and immediately applies it — the workspace_payments row + applyPayment call are the
+ *  exact same path a real Fawaterak webhook takes, so this is genuinely "payments are the
+ *  only source of truth" and not a side-channel that bypasses it. Amount/currency/duration
+ *  default from the chosen variation/plan but are editable for a one-off arrangement. */
+export async function createManualPayment(req: Request, res: Response, next: NextFunction) {
+    const { planId, variationId, amount, currency, durationDays, notes } = req.body as {
+        planId?: string; variationId?: string; amount?: number; currency?: string;
+        durationDays?: number; notes?: string;
+    };
+    if (!planId || !variationId) return res.status(400).json({ message: 'planId and variationId are required' });
+
+    try {
+        const [plan, variation, workspace] = await Promise.all([
+            prisma.plans.findFirst({ where: { id: planId } }),
+            prisma.plan_variations.findFirst({ where: { id: variationId, plan_id: planId } }),
+            prisma.workspaces.findFirst({ where: { id: req.params.id as string }, select: { id: true } }),
+        ]);
+        if (!plan) return res.status(404).json({ message: 'Plan not found' });
+        if (!variation) return res.status(404).json({ message: 'Plan variation not found' });
+        if (!workspace) return res.status(404).json({ message: 'Workspace not found' });
+
+        const paymentId = createId();
+        await prisma.workspace_payments.create({
+            data: {
+                id:               paymentId,
+                workspace_id:     workspace.id,
+                plan_id:          plan.id,
+                variation_id:     variation.id,
+                amount:           amount != null ? amount : (variation.price_monthly ?? 0),
+                currency:         currency?.trim() || variation.currency,
+                duration_days:    durationDays != null ? durationDays : plan.duration_days,
+                fawaterak_status: 'pending',
+                notes:            `Manual payment recorded by admin${notes?.trim() ? ': ' + notes.trim() : ''}`,
+            },
+        });
+
+        await applyPayment(paymentId, workspace.id);
+        res.status(201).json({ message: 'Manual payment recorded and subscription activated', paymentId });
+    } catch (err) {
         next(err);
     }
 }

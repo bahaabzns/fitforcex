@@ -170,10 +170,37 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *     responses:
  *       200:
  *         description: Locked price resynced
+ *
+ * /admin/workspaces/{id}/manual-payment:
+ *   post:
+ *     summary: Record a payment that happened outside Fawaterak and activate it immediately
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [planId, variationId]
+ *             properties:
+ *               planId:      { type: string }
+ *               variationId: { type: string }
+ *               amount:       { type: number }
+ *               currency:     { type: string }
+ *               durationDays: { type: integer }
+ *               notes:        { type: string }
+ *     responses:
+ *       201:
+ *         description: Payment recorded and subscription activated
  */
 router.get('/workspaces',                     adminAuthMiddleware, adminController.getWorkspaces);
 router.get('/workspaces/:id',                 adminAuthMiddleware, adminController.getWorkspaceById);
 router.put('/workspaces/:id/subscription',    adminAuthMiddleware, adminController.updateWorkspaceSubscription);
+router.post('/workspaces/:id/manual-payment', adminAuthMiddleware, adminController.createManualPayment);
 router.post('/workspaces/:id/resync-price',   adminAuthMiddleware, adminController.resyncSubscriptionPrice);
 router.post('/workspaces/:id/restore',        adminAuthMiddleware, adminController.restoreWorkspace);
 router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminController.archiveWorkspace);
