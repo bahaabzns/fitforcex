@@ -60,7 +60,7 @@ const PLANS: PlanSeed[] = [
     {
         name: 'oneforce', display_name: 'OneForce', subtitle: 'Perfect for solo coaches',
         max_team_seats: 1, is_default: false, is_popular: true, show_on_landing: true,
-        cta_text: 'Start Free Trial', sort_order: 1, features: FEATURES_STARTER,
+        cta_text: 'Subscribe Now', sort_order: 1, features: FEATURES_STARTER,
         variations: [{ max_clients: 100, max_team_seats: 1, price_monthly: 1000, is_default: true }],
     },
     {
@@ -106,7 +106,9 @@ const ADDON_RULES: { plan: string; addon: string; max_units: number | null }[] =
     { plan: 'teamforce',  addon: 'team_member_plus_1', max_units: null },
 ];
 
-const TRIAL_SETTINGS = { trial_enabled: true, trial_duration_days: 14 };
+// No free trials — every paid plan's CTA leads straight to checkout. Trial stays admin-
+// toggleable (the settings row/UI still exist) in case that changes later.
+const TRIAL_SETTINGS = { trial_enabled: false, trial_duration_days: 14 };
 
 async function seedPlans() {
     const planIdByName: Record<string, string> = {};

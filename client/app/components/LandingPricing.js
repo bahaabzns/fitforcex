@@ -291,7 +291,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                         {plan.cta_text}
                                                     </Link>
                                                 )}
-                                                {priceDisplay && (
+                                                {effective === 0 && (
                                                     <p className="text-center text-xs text-foreground/40">
                                                         ✓ {tHero("noCreditCard")}
                                                     </p>

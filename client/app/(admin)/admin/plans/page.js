@@ -810,12 +810,13 @@ export default function AdminPlansPage() {
 
             {/* ── Plans table ── */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Name</span>
                     <span>Display</span>
                     <span>Variations</span>
                     <span>Price range</span>
-                    <span>Trial days</span>
+                    <span>Team seats</span>
+                    <span>Add-ons</span>
                     <span>Workspaces Using</span>
                     <span>Default</span>
                     <span></span>
@@ -837,17 +838,36 @@ export default function AdminPlansPage() {
                             : Math.min(...prices) === Math.max(...prices)
                                 ? `${Math.min(...prices).toLocaleString('en-EG')} ${currency}`.trim()
                                 : `${Math.min(...prices).toLocaleString('en-EG')}–${Math.max(...prices).toLocaleString('en-EG')} ${currency}`.trim();
+
+                        // Each variation inherits the plan's flat seat count when it doesn't carry
+                        // its own (mirrors the COALESCE(pv.max_team_seats, p.max_team_seats) the
+                        // server enforces with) — shown as a range since TeamForce's tiers vary.
+                        const effectiveSeats = variations.length > 0
+                            ? variations.map(v => v.max_team_seats ?? p.max_team_seats)
+                            : [p.max_team_seats];
+                        const numericSeats = effectiveSeats.filter(s => s != null);
+                        const seatsRange = numericSeats.length === 0
+                            ? 'Unlimited'
+                            : numericSeats.length === effectiveSeats.length && Math.min(...numericSeats) === Math.max(...numericSeats)
+                                ? `${numericSeats[0]}`
+                                : numericSeats.length === effectiveSeats.length
+                                    ? `${Math.min(...numericSeats)}–${Math.max(...numericSeats)}`
+                                    : `${Math.min(...numericSeats)}–Unlimited`;
+
+                        const addonCount = Array.isArray(p.addon_rules) ? p.addon_rules.length : 0;
+
                         return (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
+                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
                         >
                             <span className="text-sm font-mono text-muted-foreground w-20">{p.name}</span>
                             <span className="text-sm font-medium text-foreground">{p.display_name}</span>
                             <span className="text-sm text-foreground w-20 text-center">{variations.length}</span>
                             <span className="text-sm text-foreground w-32 text-right">{priceRange}</span>
+                            <span className="text-sm text-foreground w-24 text-center">{seatsRange}</span>
                             <span className="text-sm text-foreground w-20 text-center">
-                                {p.trial_days != null ? `${p.trial_days}d` : '—'}
+                                {addonCount > 0 ? addonCount : '—'}
                             </span>
                             <span className="text-sm text-foreground w-24 text-center">{p.workspace_count}</span>
                             <span className="w-16 flex justify-center">
