@@ -810,15 +810,15 @@ export default function AdminPlansPage() {
 
             {/* ── Plans table ── */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[90px_1fr_90px_130px_90px_80px_130px_70px_70px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Name</span>
                     <span>Display</span>
-                    <span>Variations</span>
-                    <span>Price range</span>
-                    <span>Team seats</span>
-                    <span>Add-ons</span>
-                    <span>Workspaces Using</span>
-                    <span>Default</span>
+                    <span className="text-center">Variations</span>
+                    <span className="text-right">Price range</span>
+                    <span className="text-center">Team seats</span>
+                    <span className="text-center">Add-ons</span>
+                    <span className="text-center">Workspaces Using</span>
+                    <span className="text-center">Default</span>
                     <span></span>
                 </div>
 
@@ -859,21 +859,21 @@ export default function AdminPlansPage() {
                         return (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
+                            className={`grid grid-cols-[90px_1fr_90px_130px_90px_80px_130px_70px_70px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
                         >
-                            <span className="text-sm font-mono text-muted-foreground w-20">{p.name}</span>
-                            <span className="text-sm font-medium text-foreground">{p.display_name}</span>
-                            <span className="text-sm text-foreground w-20 text-center">{variations.length}</span>
-                            <span className="text-sm text-foreground w-32 text-right">{priceRange}</span>
-                            <span className="text-sm text-foreground w-24 text-center">{seatsRange}</span>
-                            <span className="text-sm text-foreground w-20 text-center">
+                            <span className="text-sm font-mono text-muted-foreground block w-full truncate">{p.name}</span>
+                            <span className="text-sm font-medium text-foreground block w-full truncate">{p.display_name}</span>
+                            <span className="text-sm text-foreground block w-full text-center">{variations.length}</span>
+                            <span className="text-sm text-foreground block w-full text-right truncate">{priceRange}</span>
+                            <span className="text-sm text-foreground block w-full text-center truncate">{seatsRange}</span>
+                            <span className="text-sm text-foreground block w-full text-center">
                                 {addonCount > 0 ? addonCount : '—'}
                             </span>
-                            <span className="text-sm text-foreground w-24 text-center">{p.workspace_count}</span>
-                            <span className="w-16 flex justify-center">
+                            <span className="text-sm text-foreground block w-full text-center">{p.workspace_count}</span>
+                            <span className="w-full flex justify-center">
                                 {p.is_default && <Star size={14} className="text-yellow-500" title="Default plan for new registrations" />}
                             </span>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 justify-center">
                                 <button
                                     onClick={() => setModal(p)}
                                     className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors"

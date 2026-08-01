@@ -291,7 +291,7 @@ export default function AdminPaymentsPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_120px_120px_110px_90px_32px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
@@ -313,7 +313,7 @@ export default function AdminPaymentsPage() {
                     payments.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`grid grid-cols-[1fr_1fr_120px_120px_110px_90px_32px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{p.workspace_name}</p>
@@ -323,7 +323,7 @@ export default function AdminPaymentsPage() {
                                 <p className="text-sm text-foreground truncate">{p.owner_fname} {p.owner_lname}</p>
                                 <p className="text-xs text-muted-foreground truncate">{p.owner_email}</p>
                             </div>
-                            <span className="text-sm text-foreground whitespace-nowrap">{p.plan_display}</span>
+                            <span className="text-sm text-foreground min-w-0 truncate">{p.plan_display}</span>
                             <span className="text-sm font-semibold text-foreground text-right whitespace-nowrap">
                                 {Number(p.amount).toLocaleString()} {p.currency}
                             </span>
