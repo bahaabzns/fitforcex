@@ -358,7 +358,13 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
 
 // Idempotent: FOR UPDATE + paid_at IS NULL guard prevents double-application.
 // Kept as raw pool because: SELECT FOR UPDATE row locking + interval/balance arithmetic.
-export async function applyPayment(paymentId: string, workspaceId: string): Promise<void> {
+//
+// `startDate` is an admin-only override (manual payment entry, see admin.controller.ts:
+// createManualPayment) for backdating/scheduling a subscription's effective start — real
+// payments (webhook/poll-confirmed) never pass it and keep the existing NOW()-based, renewal-
+// safe behavior (starts_at only ever set once via COALESCE, expires_at extends from whichever
+// is later: now or the current expiry).
+export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date): Promise<void> {
     const dbClient = await pool.connect();
     try {
         await dbClient.query('BEGIN');
@@ -382,6 +388,15 @@ export async function applyPayment(paymentId: string, workspaceId: string): Prom
 
         if (payment.addon_id) {
             await applyAddonPurchase(dbClient, payment, workspaceId);
+        } else if (startDate) {
+            await dbClient.query(`
+                UPDATE workspace_subscriptions
+                SET plan_id   = $1, variation_id = $2, locked_price_monthly = $3, locked_currency = $4,
+                    status = 'active',
+                    starts_at = $5,
+                    expires_at = $5::timestamptz + ($6 || ' days')::INTERVAL
+                WHERE workspace_id = $7
+            `, [payment.plan_id, payment.variation_id, payment.amount, payment.currency, startDate, payment.duration_days, workspaceId]);
         } else {
             await dbClient.query(`
                 UPDATE workspace_subscriptions

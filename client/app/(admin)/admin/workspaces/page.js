@@ -127,6 +127,7 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
     const [currency, setCurrency] = useState('');
     const [durationDays, setDurationDays] = useState('');
     const [notes, setNotes] = useState('');
+    const [startDate, setStartDate] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
@@ -149,6 +150,7 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
                 currency:     currency.trim() || undefined,
                 durationDays: durationDays === '' ? undefined : parseInt(durationDays),
                 notes,
+                startDate:    startDate || undefined,
             });
             onSaved();
             onClose();
@@ -238,6 +240,18 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
                                         className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                                     />
                                 </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    Start date <span className="opacity-60">(blank = today — backdate or schedule ahead)</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
                             </div>
 
                             <div className="flex flex-col gap-1.5">

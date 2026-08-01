@@ -409,11 +409,17 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
  *  only source of truth" and not a side-channel that bypasses it. Amount/currency/duration
  *  default from the chosen variation/plan but are editable for a one-off arrangement. */
 export async function createManualPayment(req: Request, res: Response, next: NextFunction) {
-    const { planId, variationId, amount, currency, durationDays, notes } = req.body as {
+    const { planId, variationId, amount, currency, durationDays, notes, startDate } = req.body as {
         planId?: string; variationId?: string; amount?: number; currency?: string;
-        durationDays?: number; notes?: string;
+        durationDays?: number; notes?: string; startDate?: string;
     };
     if (!planId || !variationId) return res.status(400).json({ message: 'planId and variationId are required' });
+
+    let parsedStartDate: Date | undefined;
+    if (startDate) {
+        parsedStartDate = new Date(startDate);
+        if (isNaN(parsedStartDate.getTime())) return res.status(400).json({ message: 'startDate is not a valid date' });
+    }
 
     try {
         const [plan, variation, workspace] = await Promise.all([
@@ -440,7 +446,7 @@ export async function createManualPayment(req: Request, res: Response, next: Nex
             },
         });
 
-        await applyPayment(paymentId, workspace.id);
+        await applyPayment(paymentId, workspace.id, parsedStartDate);
         res.status(201).json({ message: 'Manual payment recorded and subscription activated', paymentId });
     } catch (err) {
         next(err);

@@ -193,6 +193,7 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *               currency:     { type: string }
  *               durationDays: { type: integer }
  *               notes:        { type: string }
+ *               startDate:    { type: string, format: date, description: "Backdate/schedule the subscription's effective start; defaults to now" }
  *     responses:
  *       201:
  *         description: Payment recorded and subscription activated
