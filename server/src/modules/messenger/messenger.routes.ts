@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import { attachmentUploader } from '../../lib/messageAttachments';
 import * as messengerController from './messenger.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 
 /**
  * @openapi

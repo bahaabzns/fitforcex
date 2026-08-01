@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import { makeUploader } from '../../lib/storage';
 import * as controller from './pdfExport.controller';
@@ -20,7 +21,7 @@ const coverImageUploader = multer({
     },
 });
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 router.use((req: Request, res: Response, next: NextFunction) => {
     const action = req.method === 'GET' ? 'read' : 'write';
     requirePermission('pdfExport', action)(req, res, next);

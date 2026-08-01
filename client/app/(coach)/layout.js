@@ -27,6 +27,7 @@ import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
 import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import InsightBanner from "@/app/components/insights/InsightBanner";
+import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 
@@ -209,6 +210,7 @@ function WorkspaceContent({ children }) {
         <div className="flex h-screen overflow-hidden">
             <Sidebar collapsed={collapsed} />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
+                <SubscriptionReadOnlyBanner />
                 {!headerCollapsed && (
                     <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
                         <Button

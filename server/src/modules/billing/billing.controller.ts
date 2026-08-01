@@ -8,6 +8,7 @@ import pool from '../../db';
 import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
 import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
 import { getEffectiveLimits } from '../../lib/seatLimits';
+import { getWorkspaceAccessStatus } from '../../middleware/subscriptionAccessGate';
 
 export async function handleCallback(req: Request, res: Response) {
     const { p: paymentId, sig } = req.query as { p?: string; sig?: string };
@@ -55,7 +56,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
         const expiresAt     = sub.expires_at ? new Date(sub.expires_at) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
 
-        const [payments, addons, effectiveLimits] = await Promise.all([
+        const [payments, addons, effectiveLimits, accessStatus] = await Promise.all([
             prisma.workspace_payments.findMany({
                 where: { workspace_id: req.user!.workspaceId },
                 select: {
@@ -74,6 +75,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 orderBy: { purchased_at: 'asc' },
             }),
             getEffectiveLimits(req.user!.workspaceId),
+            getWorkspaceAccessStatus(req.user!.workspaceId),
         ]);
 
         const plan      = sub.plans;
@@ -81,6 +83,13 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
         res.json({
             subscription: {
                 status:         sub.status,
+                // inGoodStanding/isReadOnly are computed live from expires_at (payments are
+                // the only source of truth) — the same computation subscriptionAccessGate.ts
+                // enforces with. `status` above is legacy display text; these two drive actual
+                // UI behavior (banners, disabling actions) and always agree with the backend.
+                inGoodStanding: accessStatus.inGoodStanding,
+                isReadOnly:     accessStatus.isReadOnly,
+                readOnlyAt:     accessStatus.readOnlyAt,
                 planId:         plan.id,
                 planName:       plan.name,
                 planDisplay:    plan.display_name,
