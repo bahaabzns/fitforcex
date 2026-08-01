@@ -286,12 +286,151 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
     );
 }
 
-function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
+function AddAddonModal({ workspace, addons, onClose, onSaved }) {
+    const [addonId, setAddonId] = useState(addons[0]?.id ?? '');
+    const [quantity, setQuantity] = useState('1');
+    const [amount, setAmount] = useState('');
+    const [currency, setCurrency] = useState('');
+    const [durationDays, setDurationDays] = useState('');
+    const [notes, setNotes] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const selectedAddon = addons.find(a => a.id === addonId);
+    const qty = parseInt(quantity) || 1;
+    const defaultAmount = selectedAddon ? Number(selectedAddon.price_monthly) * qty : 0;
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            await api.post(`/api/admin/workspaces/${workspace.id}/manual-addon`, {
+                addonId,
+                quantity:     qty,
+                amount:       amount === '' ? undefined : Number(amount),
+                currency:     currency.trim() || undefined,
+                durationDays: durationDays === '' ? undefined : parseInt(durationDays),
+                notes,
+            });
+            onSaved();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to add add-on');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>Add Add-on</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                            <p className="text-xs text-muted-foreground -mt-2">
+                                Grants this add-on outside Fawaterak — applies the same way a real purchase would
+                                (billing-cycle extension included). Set amount to 0 for a free/comped grant.
+                            </p>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Add-on</label>
+                                <select
+                                    value={addonId}
+                                    onChange={e => setAddonId(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {addons.map(a => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label} — {Number(a.price_monthly).toLocaleString()} {a.currency}/mo
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+                                    <input
+                                        type="number" min="1"
+                                        value={quantity}
+                                        onChange={e => setQuantity(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Amount <span className="opacity-60">(total)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        placeholder={defaultAmount.toLocaleString()}
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                                    <input
+                                        type="text"
+                                        placeholder={selectedAddon?.currency ?? 'EGP'}
+                                        value={currency}
+                                        onChange={e => setCurrency(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    Billing cycle length (days) <span className="opacity-60">(blank = workspace&apos;s plan default)</span>
+                                </label>
+                                <input
+                                    type="number" min="1"
+                                    value={durationDays}
+                                    onChange={e => setDurationDays(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. comped for a support issue"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving || !addonId} onClick={handleSave}>
+                                {saving ? 'Adding…' : 'Add'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+    );
+}
+
+function WorkspaceDrawer({ workspaceId, plans, addons, onClose, onRefresh }) {
     const { formatDate } = useDateFormatter();
     const [workspace, setWorkspace] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showSubModal, setShowSubModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showAddonModal, setShowAddonModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState('');
 
@@ -408,6 +547,27 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                     </div>
                                 )}
 
+                                {workspace.addons?.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-foreground mb-2">Active Add-ons</h4>
+                                        <div className="rounded-xl border border-border overflow-hidden">
+                                            {workspace.addons.map((a, idx) => (
+                                                <div key={a.id} className={`flex items-center justify-between gap-2 px-3 py-2.5 ${idx < workspace.addons.length - 1 ? 'border-b border-border' : ''}`}>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-medium text-foreground truncate">
+                                                            {a.quantity > 1 ? `${a.quantity}× ` : ''}{a.label}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {a.priceMonthly != null ? `${Number(a.priceMonthly).toLocaleString()} ${a.currency}/mo each` : 'Free'} · since {formatDate(a.purchasedAt)}
+                                                        </p>
+                                                    </div>
+                                                    <Chip size="sm" className="bg-secondary text-muted-foreground shrink-0">+{a.units * a.quantity} {a.dimension}</Chip>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {actionError && <p className="text-sm text-red-500">{actionError}</p>}
 
                                 <div className="flex flex-col gap-2 pt-2 border-t border-border">
@@ -417,6 +577,11 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                     <Button variant="outline" className="w-full" onClick={() => setShowPaymentModal(true)}>
                                         Record Manual Payment
                                     </Button>
+                                    {addons?.length > 0 && (
+                                        <Button variant="outline" className="w-full" onClick={() => setShowAddonModal(true)}>
+                                            Add Add-on
+                                        </Button>
+                                    )}
                                     {workspace.archived_at ? (
                                         <Button variant="outline" className="w-full" isDisabled={actionLoading} onClick={handleRestore}>
                                             <ArchiveRestore size={14} className="mr-1.5" />
@@ -452,6 +617,15 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                     onSaved={() => { onRefresh(); load(); }}
                 />
             )}
+
+            {showAddonModal && workspace && (
+                <AddAddonModal
+                    workspace={workspace}
+                    addons={addons}
+                    onClose={() => setShowAddonModal(false)}
+                    onSaved={() => { onRefresh(); load(); }}
+                />
+            )}
         </>
     );
 }
@@ -461,6 +635,7 @@ export default function AdminWorkspacesPage() {
     const [workspaces, setWorkspaces] = useState([]);
     const [total, setTotal] = useState(0);
     const [plans, setPlans] = useState([]);
+    const [addons, setAddons] = useState([]);
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [planFilter, setPlanFilter] = useState('');
@@ -484,6 +659,7 @@ export default function AdminWorkspacesPage() {
 
     useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
     useEffect(() => { api.get('/api/admin/plans').then(res => setPlans(res.data)); }, []);
+    useEffect(() => { api.get('/api/admin/addons').then(res => setAddons(res.data.filter(a => a.is_active))); }, []);
     useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, statusFilter, showArchived]);
 
     return (
@@ -603,6 +779,7 @@ export default function AdminWorkspacesPage() {
                 <WorkspaceDrawer
                     workspaceId={selectedId}
                     plans={plans}
+                    addons={addons}
                     onClose={() => setSelectedId(null)}
                     onRefresh={fetchWorkspaces}
                 />

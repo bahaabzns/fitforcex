@@ -350,7 +350,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
 
 export async function getWorkspaceById(req: Request, res: Response, next: NextFunction) {
     try {
-        const [detailRows, members] = await Promise.all([
+        const [detailRows, members, addons] = await Promise.all([
             prisma.$queryRaw<Row[]>`
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at, w.slug_customized,
                        u.id AS owner_id, u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
@@ -376,10 +376,23 @@ export async function getWorkspaceById(req: Request, res: Response, next: NextFu
                 WHERE wm.workspace_id = ${req.params.id}
                 ORDER BY wm.joined_at
             `,
+            prisma.workspace_addons.findMany({
+                where:   { workspace_id: req.params.id as string, status: 'active' },
+                select:  { id: true, dimension: true, units: true, quantity: true, unit_price_locked: true, currency: true, purchased_at: true, addons: { select: { label: true } } },
+                orderBy: { purchased_at: 'desc' },
+            }),
         ]);
 
         if (!detailRows.length) return res.status(404).json({ message: 'Workspace not found' });
-        res.json({ ...detailRows[0], members });
+        res.json({
+            ...detailRows[0],
+            members,
+            addons: addons.map(a => ({
+                id: a.id, label: a.addons?.label ?? `+${a.units} ${a.dimension}`,
+                dimension: a.dimension, units: a.units, quantity: a.quantity,
+                priceMonthly: a.unit_price_locked, currency: a.currency, purchasedAt: a.purchased_at,
+            })),
+        });
     } catch (err) {
         next(err);
     }
@@ -479,6 +492,55 @@ export async function createManualPayment(req: Request, res: Response, next: Nex
 
         await applyPayment(paymentId, workspace.id, parsedStartDate);
         res.status(201).json({ message: 'Manual payment recorded and subscription activated', paymentId });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/** Add-on counterpart to createManualPayment — mirrors the self-serve createAddonInvoice/
+ *  applyAddonPurchase path exactly (same billing-cycle-extension math, same workspace_addons
+ *  row shape), just admin-triggered instead of Fawaterak-confirmed. Deliberately does not
+ *  check plan_addon_rules' cap — an admin explicitly granting an add-on is a trusted, one-off
+ *  decision, not a self-serve purchase that needs the configured limit enforced. */
+export async function createManualAddonPayment(req: Request, res: Response, next: NextFunction) {
+    const { addonId, quantity, amount, currency, durationDays, notes } = req.body as {
+        addonId?: string; quantity?: number; amount?: number; currency?: string;
+        durationDays?: number; notes?: string;
+    };
+    if (!addonId) return res.status(400).json({ message: 'addonId is required' });
+    const units = quantity != null && quantity > 0 ? quantity : 1;
+
+    try {
+        const [addon, workspace] = await Promise.all([
+            prisma.addons.findFirst({ where: { id: addonId } }),
+            prisma.workspaces.findFirst({ where: { id: req.params.id as string }, select: { id: true } }),
+        ]);
+        if (!addon) return res.status(404).json({ message: 'Add-on not found' });
+        if (!workspace) return res.status(404).json({ message: 'Workspace not found' });
+
+        const sub = await prisma.workspace_subscriptions.findUnique({
+            where:  { workspace_id: workspace.id },
+            select: { plan_id: true, plans: { select: { duration_days: true } } },
+        });
+        if (!sub) return res.status(409).json({ message: 'Workspace has no subscription to attach this add-on to' });
+
+        const paymentId = createId();
+        await prisma.workspace_payments.create({
+            data: {
+                id:               paymentId,
+                workspace_id:     workspace.id,
+                plan_id:          sub.plan_id,
+                addon_id:         addon.id,
+                amount:           amount != null ? amount : Number(addon.price_monthly) * units,
+                currency:         currency?.trim() || addon.currency,
+                duration_days:    durationDays != null ? durationDays : sub.plans.duration_days,
+                fawaterak_status: 'pending',
+                notes:            `Manual add-on payment recorded by admin${notes?.trim() ? ': ' + notes.trim() : ''}`,
+            },
+        });
+
+        await applyPayment(paymentId, workspace.id, undefined, units);
+        res.status(201).json({ message: `Add-on recorded and applied (${units}x ${addon.label})`, paymentId });
     } catch (err) {
         next(err);
     }

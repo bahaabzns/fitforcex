@@ -197,11 +197,38 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *     responses:
  *       201:
  *         description: Payment recorded and subscription activated
+ *
+ * /admin/workspaces/{id}/manual-addon:
+ *   post:
+ *     summary: Grant an add-on to a workspace outside Fawaterak and apply it immediately
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [addonId]
+ *             properties:
+ *               addonId:      { type: string }
+ *               quantity:     { type: integer, description: "Units of this add-on to grant at once; defaults to 1" }
+ *               amount:       { type: number, description: "Total price for all units; defaults to the add-on's catalog price × quantity" }
+ *               currency:     { type: string }
+ *               durationDays: { type: integer }
+ *               notes:        { type: string }
+ *     responses:
+ *       201:
+ *         description: Add-on recorded and applied
  */
 router.get('/workspaces',                     adminAuthMiddleware, adminController.getWorkspaces);
 router.get('/workspaces/:id',                 adminAuthMiddleware, adminController.getWorkspaceById);
 router.put('/workspaces/:id/subscription',    adminAuthMiddleware, adminController.updateWorkspaceSubscription);
 router.post('/workspaces/:id/manual-payment', adminAuthMiddleware, adminController.createManualPayment);
+router.post('/workspaces/:id/manual-addon',   adminAuthMiddleware, adminController.createManualAddonPayment);
 router.post('/workspaces/:id/resync-price',   adminAuthMiddleware, adminController.resyncSubscriptionPrice);
 router.post('/workspaces/:id/restore',        adminAuthMiddleware, adminController.restoreWorkspace);
 router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminController.archiveWorkspace);

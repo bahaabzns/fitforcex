@@ -363,8 +363,10 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
 // createManualPayment) for backdating/scheduling a subscription's effective start — real
 // payments (webhook/poll-confirmed) never pass it and keep the existing NOW()-based, renewal-
 // safe behavior (starts_at only ever set once via COALESCE, expires_at extends from whichever
-// is later: now or the current expiry).
-export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date): Promise<void> {
+// is later: now or the current expiry). `addonQuantity` is likewise admin-only (manual add-on
+// grants of more than one unit in a single purchase) — self-serve always buys one unit per
+// payment row and leaves it at the default.
+export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date, addonQuantity: number = 1): Promise<void> {
     const dbClient = await pool.connect();
     try {
         await dbClient.query('BEGIN');
@@ -387,7 +389,7 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
         );
 
         if (payment.addon_id) {
-            await applyAddonPurchase(dbClient, payment, workspaceId);
+            await applyAddonPurchase(dbClient, payment, workspaceId, addonQuantity);
         } else if (startDate) {
             await dbClient.query(`
                 UPDATE workspace_subscriptions
@@ -430,6 +432,7 @@ async function applyAddonPurchase(
     dbClient: import('pg').PoolClient,
     payment: Record<string, unknown>,
     workspaceId: string,
+    quantity: number = 1,
 ): Promise<void> {
     const { rows } = await dbClient.query(`
         SELECT locked_price_monthly, expires_at FROM workspace_subscriptions
@@ -451,12 +454,13 @@ async function applyAddonPurchase(
     const newRemainingDays = dailyRateNew > 0 ? newBalance / dailyRateNew : 0;
     const newExpiresAt     = new Date(now + newRemainingDays * 86400000);
 
+    // unit_price_locked is per-unit — payment.amount is the total for `quantity` units.
     await dbClient.query(`
         INSERT INTO workspace_addons
             (id, workspace_id, addon_id, dimension, units, quantity, unit_price_locked, currency, status, workspace_payment_id)
-        SELECT $1, $2, id, dimension, units, 1, $3, currency, 'active', $4
+        SELECT $1, $2, id, dimension, units, $6, $3, currency, 'active', $4
         FROM addons WHERE id = $5
-    `, [createId(), workspaceId, payment.amount, payment.id, payment.addon_id]);
+    `, [createId(), workspaceId, addonPrice / quantity, payment.id, payment.addon_id, quantity]);
 
     await dbClient.query(`
         UPDATE workspace_subscriptions
