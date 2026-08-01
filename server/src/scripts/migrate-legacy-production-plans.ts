@@ -38,10 +38,23 @@ async function cleanupLegacyPlans() {
     });
     console.info(`[Cutover] deactivated 5 dead legacy plans: ${deactivated.count} row(s)`);
 
-    const deleted = await prisma.plans.deleteMany({
-        where: { name: { in: ['testing', 'custom-4-months', 'custom-3-months', '3-months-team'] } },
-    });
-    console.info(`[Cutover] deleted 4 zero-usage plans: ${deleted.count} row(s)`);
+    // "Zero-usage" was checked against workspace_subscriptions only — a plan can still have
+    // workspace_payments history (an old payment attempt) with no live subscription. Delete
+    // where truly untouched, deactivate instead where payment history exists (preserves the
+    // record, matches how the FK is set up — never silently drop payment history).
+    for (const name of ['testing', 'custom-4-months', 'custom-3-months', '3-months-team']) {
+        const plan = await prisma.plans.findUnique({ where: { name }, select: { id: true } });
+        if (!plan) { console.info(`[Cutover] "${name}" already gone, skipping`); continue; }
+
+        const paymentsInUse = await prisma.workspace_payments.count({ where: { plan_id: plan.id } });
+        if (paymentsInUse > 0) {
+            await prisma.plans.update({ where: { id: plan.id }, data: { is_active: false } });
+            console.info(`[Cutover] "${name}" has ${paymentsInUse} payment record(s) — deactivated instead of deleted`);
+        } else {
+            await prisma.plans.delete({ where: { id: plan.id } });
+            console.info(`[Cutover] deleted "${name}" (no payment history)`);
+        }
+    }
 }
 
 // ── 2. Workspace-level migrations ──────────────────────────────────────────────
