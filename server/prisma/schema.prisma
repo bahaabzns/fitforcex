@@ -957,16 +957,17 @@ model plan_period_links {
   @@unique([plan_id, billing_discount_id])
 }
 
-/// Deprecated: max_clients/price_monthly/currency/payment_link on `plans` are being superseded
-/// by plan_variations (each plan now has >=1 variation carrying these values). Kept in place
-/// until every read/write path is migrated. Variations differ ONLY by client limit + price —
-/// team-seat count is a flat per-plan allotment (plans.max_team_seats) topped up by add-ons,
-/// and there is no per-plan/per-variation workspace limit (every workspace has its own
-/// independent subscription).
+/// Deprecated: max_clients/max_team_seats/price_monthly/currency/payment_link on `plans` are
+/// being superseded by plan_variations (each plan now has >=1 variation carrying these
+/// values). Kept in place as a fallback for single-variation plans until every read/write path
+/// is migrated. Variations differ by client limit, included team seats, and price — extra
+/// team seats beyond a variation's allotment are sold as an add-on. There is no per-plan/
+/// per-variation workspace limit (every workspace has its own independent subscription).
 model plan_variations {
   id                      String                    @id
   plan_id                 String
   max_clients             Int?
+  max_team_seats          Int?
   price_monthly           Decimal?                  @db.Decimal(10, 2)
   currency                String                    @default("LE")
   payment_link            String?

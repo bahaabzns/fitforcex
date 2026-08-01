@@ -37,12 +37,17 @@ const FEATURES_ENTERPRISE = [
     'White-label mobile app', 'Custom feature development', 'All future FitForce features',
 ];
 
+type VariationSeed = {
+    max_clients: number | null; max_team_seats: number | null;
+    price_monthly: number | null; is_default: boolean;
+};
+
 type PlanSeed = {
     name: string; display_name: string; subtitle: string;
     max_team_seats: number | null; is_default: boolean; is_popular: boolean;
     show_on_landing: boolean; cta_text: string; sort_order: number;
     features: string[];
-    variations: { max_clients: number | null; price_monthly: number | null; is_default: boolean }[];
+    variations: VariationSeed[];
 };
 
 const PLANS: PlanSeed[] = [
@@ -50,30 +55,36 @@ const PLANS: PlanSeed[] = [
         name: 'free', display_name: 'Free', subtitle: 'Try FitForce with up to 3 clients',
         max_team_seats: 1, is_default: true, is_popular: false, show_on_landing: true,
         cta_text: 'Get Started', sort_order: 0, features: FEATURES_STARTER,
-        variations: [{ max_clients: 3, price_monthly: 0, is_default: true }],
+        variations: [{ max_clients: 3, max_team_seats: 1, price_monthly: 0, is_default: true }],
     },
     {
         name: 'oneforce', display_name: 'OneForce', subtitle: 'Perfect for solo coaches',
         max_team_seats: 1, is_default: false, is_popular: true, show_on_landing: true,
         cta_text: 'Start Free Trial', sort_order: 1, features: FEATURES_STARTER,
-        variations: [{ max_clients: 100, price_monthly: 900, is_default: true }],
+        variations: [{ max_clients: 100, max_team_seats: 1, price_monthly: 1000, is_default: true }],
     },
     {
+        // Team seats scale with client tier (founder decision revision) — each variation
+        // carries its own seat count instead of a flat per-plan number.
         name: 'teamforce', display_name: 'TeamForce', subtitle: 'Built for growing coaching businesses',
         max_team_seats: 3, is_default: false, is_popular: false, show_on_landing: true,
         cta_text: 'Upgrade', sort_order: 2, features: FEATURES_TEAM,
         variations: [
-            { max_clients: 150, price_monthly: 2000, is_default: true },
-            { max_clients: 250, price_monthly: 3000, is_default: false },
-            { max_clients: 500, price_monthly: 5000, is_default: false },
-            { max_clients: 1000, price_monthly: 7000, is_default: false },
+            { max_clients: 150,   max_team_seats: 3,    price_monthly: 2000,  is_default: true },
+            { max_clients: 250,   max_team_seats: 3,    price_monthly: 3000,  is_default: false },
+            { max_clients: 500,   max_team_seats: 3,    price_monthly: 5000,  is_default: false },
+            { max_clients: 1000,  max_team_seats: 3,    price_monthly: 7000,  is_default: false },
+            { max_clients: 2000,  max_team_seats: 10,   price_monthly: 10000, is_default: false },
+            { max_clients: 5000,  max_team_seats: 20,   price_monthly: 15000, is_default: false },
+            { max_clients: 10000, max_team_seats: 30,   price_monthly: 18000, is_default: false },
+            { max_clients: null,  max_team_seats: null, price_monthly: 20000, is_default: false },
         ],
     },
     {
         name: 'enterprise', display_name: 'Enterprise', subtitle: 'Custom solution for large coaching organizations',
         max_team_seats: null, is_default: false, is_popular: false, show_on_landing: true,
         cta_text: 'Contact Sales', sort_order: 3, features: FEATURES_ENTERPRISE,
-        variations: [{ max_clients: null, price_monthly: null, is_default: true }],
+        variations: [{ max_clients: null, max_team_seats: null, price_monthly: null, is_default: true }],
     },
 ];
 
@@ -146,15 +157,15 @@ async function seedVariationsForPlan(
         if (match) {
             await prisma.plan_variations.update({
                 where: { id: match.id },
-                data:  { price_monthly: v.price_monthly, is_default: v.is_default, is_active: true, sort_order: index },
+                data:  { max_team_seats: v.max_team_seats, price_monthly: v.price_monthly, currency: 'EGP', is_default: v.is_default, is_active: true, sort_order: index },
             });
             keptIds.add(match.id);
         } else {
             const created = await prisma.plan_variations.create({
                 data: {
                     id: createId(), plan_id: planId,
-                    max_clients: v.max_clients, price_monthly: v.price_monthly,
-                    currency: 'LE', is_default: v.is_default, is_active: true, sort_order: index,
+                    max_clients: v.max_clients, max_team_seats: v.max_team_seats, price_monthly: v.price_monthly,
+                    currency: 'EGP', is_default: v.is_default, is_active: true, sort_order: index,
                 },
             });
             keptIds.add(created.id);

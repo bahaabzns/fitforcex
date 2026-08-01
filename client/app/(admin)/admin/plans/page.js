@@ -17,15 +17,16 @@ import { ListBox } from '@heroui/react/list-box';
 // mirrors server/src/lib/planVariationLabel.ts so the admin preview never drifts from
 // what the public landing page actually shows.
 function formatVariationLabel(v) {
-    return v.max_clients === '' || v.max_clients == null
-        ? 'Unlimited clients'
-        : `Up to ${v.max_clients} clients`;
+    const clients = v.max_clients === '' || v.max_clients == null ? 'Unlimited clients' : `Up to ${v.max_clients} clients`;
+    if (v.max_team_seats === '' || v.max_team_seats == null) return clients;
+    const seats = Number(v.max_team_seats) === 0 ? null : `${v.max_team_seats} team seat${Number(v.max_team_seats) === 1 ? '' : 's'}`;
+    return seats ? `${clients} · ${seats}` : clients;
 }
 
 function emptyVariation(isDefault = false) {
     return {
         id: null,
-        max_clients: '',
+        max_clients: '', max_team_seats: '',
         price_monthly: '', currency: 'LE', payment_link: '',
         is_default: isDefault, is_active: true,
     };
@@ -34,12 +35,13 @@ function emptyVariation(isDefault = false) {
 function variationFromServer(v) {
     return {
         id: v.id,
-        max_clients:   v.max_clients ?? '',
-        price_monthly: v.price_monthly ?? '',
-        currency:      v.currency ?? 'LE',
-        payment_link:  v.payment_link ?? '',
-        is_default:    v.is_default ?? false,
-        is_active:     v.is_active ?? true,
+        max_clients:    v.max_clients ?? '',
+        max_team_seats: v.max_team_seats ?? '',
+        price_monthly:  v.price_monthly ?? '',
+        currency:       v.currency ?? 'LE',
+        payment_link:   v.payment_link ?? '',
+        is_default:     v.is_default ?? false,
+        is_active:      v.is_active ?? true,
     };
 }
 
@@ -152,13 +154,14 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                 show_on_landing:    form.show_on_landing,
                 period_links:       form.period_links,
                 variations: form.variations.map(v => ({
-                    id:            v.id || undefined,
-                    max_clients:   parseOptInt(v.max_clients),
-                    price_monthly: parseOptFloat(v.price_monthly),
-                    currency:      v.currency.trim() || 'LE',
-                    payment_link:  v.payment_link.trim() || null,
-                    is_default:    v.is_default,
-                    is_active:     v.is_active,
+                    id:             v.id || undefined,
+                    max_clients:    parseOptInt(v.max_clients),
+                    max_team_seats: parseOptInt(v.max_team_seats),
+                    price_monthly:  parseOptFloat(v.price_monthly),
+                    currency:       v.currency.trim() || 'LE',
+                    payment_link:   v.payment_link.trim() || null,
+                    is_default:     v.is_default,
+                    is_active:      v.is_active,
                 })),
                 addon_rules: form.addon_rules.map(r => ({
                     addon_id:  r.addon_id,
@@ -223,8 +226,8 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                 {/* ── Variations ── */}
                 <p className={SECTION_LABEL_CLS}>Variations</p>
                 <p className="text-xs text-muted-foreground -mt-2">
-                    Every plan needs at least one. Variations differ only by client limit and price — the coach picks
-                    one via a dropdown on the pricing card. Team seats (above) and the feature list are shared by all.
+                    Every plan needs at least one. The coach picks one via a dropdown on the pricing card. Leave a
+                    variation&apos;s team seats blank to inherit the plan-level default above; the feature list is always shared by all.
                 </p>
 
                 <div className="flex flex-col gap-3">
@@ -253,11 +256,16 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 <div className="flex flex-col gap-1">
                                     <FieldLabel>Max clients <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
                                     <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
                                         value={v.max_clients} onChange={e => setVariation(i, 'max_clients', e.target.value)} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <FieldLabel>Team seats <span className="text-muted-foreground">(plan default if blank)</span></FieldLabel>
+                                    <input type="number" min="0" inputMode="numeric" placeholder="—" className={INPUT_SM_CLS}
+                                        value={v.max_team_seats} onChange={e => setVariation(i, 'max_team_seats', e.target.value)} />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <FieldLabel>Price / mo <span className="text-muted-foreground">(blank = TBD)</span></FieldLabel>

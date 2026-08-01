@@ -234,6 +234,11 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                     {periodLabel && (
                                                         <p className="text-xs text-foreground/30">{periodLabel}</p>
                                                     )}
+                                                    {(() => {
+                                                        const seats = variation?.max_team_seats ?? plan.max_team_seats;
+                                                        if (seats == null) return <p className="text-xs text-foreground/40">Unlimited team seats</p>;
+                                                        return <p className="text-xs text-foreground/40">{seats} team seat{seats === 1 ? '' : 's'} included</p>;
+                                                    })()}
                                                 </div>
                                             </Card.Header>
 

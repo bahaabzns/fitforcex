@@ -32,7 +32,7 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
                 where:  { plan_id: { in: planIds }, is_active: true },
                 select: {
                     id: true, plan_id: true,
-                    max_clients: true,
+                    max_clients: true, max_team_seats: true,
                     price_monthly: true, currency: true,
                     is_default: true,
                 },

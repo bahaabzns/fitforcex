@@ -45,7 +45,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                     select: { id: true, name: true, display_name: true, duration_days: true, trial_days: true },
                 },
                 plan_variations: {
-                    select: { id: true, max_clients: true, price_monthly: true },
+                    select: { id: true, max_clients: true, max_team_seats: true, price_monthly: true },
                 },
             },
         });
@@ -62,7 +62,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                     id: true, amount: true, currency: true, duration_days: true,
                     fawaterak_status: true, created_at: true, paid_at: true,
                     plans: { select: { display_name: true } },
-                    plan_variations: { select: { max_clients: true } },
+                    plan_variations: { select: { max_clients: true, max_team_seats: true } },
                     addons: { select: { label: true } },
                 },
                 orderBy: { created_at: 'desc' },
@@ -185,7 +185,7 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
 
         await checkVariationSwitchAllowed(req.user!.workspaceId, {
             max_clients:    variation.max_clients,
-            max_team_seats: plan.max_team_seats,
+            max_team_seats: variation.max_team_seats ?? plan.max_team_seats,
         });
 
         const paymentLink = variation.payment_link || plan.payment_link;

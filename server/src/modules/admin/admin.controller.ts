@@ -34,8 +34,9 @@ async function upsertPlanVariations(tx: Prisma.TransactionClient, planId: string
 
         const data: Prisma.plan_variationsUncheckedCreateInput = {
             id, plan_id: planId,
-            max_clients:   (v.max_clients as number | null | undefined) ?? null,
-            price_monthly: (v.price_monthly as number | null | undefined) ?? null,
+            max_clients:    (v.max_clients as number | null | undefined) ?? null,
+            max_team_seats: (v.max_team_seats as number | null | undefined) ?? null,
+            price_monthly:  (v.price_monthly as number | null | undefined) ?? null,
             currency:      (v.currency as string | undefined)?.trim() || 'LE',
             payment_link:  (v.payment_link as string | undefined)?.trim() || null,
             is_default:    (v.is_default as boolean | undefined) ?? false,
@@ -375,7 +376,7 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
         if (!force) {
             await checkVariationSwitchAllowed(workspace.id, {
                 max_clients:    variation.max_clients,
-                max_team_seats: plan.max_team_seats,
+                max_team_seats: variation.max_team_seats ?? plan.max_team_seats,
             });
         }
 

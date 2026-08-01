@@ -31,10 +31,11 @@ async function backfillVariations() {
 
         await prisma.plan_variations.create({
             data: {
-                id:            createId(),
-                plan_id:       plan.id,
-                max_clients:   plan.max_clients,
-                price_monthly: plan.price_monthly,
+                id:             createId(),
+                plan_id:        plan.id,
+                max_clients:    plan.max_clients,
+                max_team_seats: plan.max_team_seats,
+                price_monthly:  plan.price_monthly,
                 currency:      plan.currency,
                 payment_link:  plan.payment_link,
                 is_default:    true,

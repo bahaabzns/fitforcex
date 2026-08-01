@@ -1,11 +1,10 @@
 import pool from '../db';
 
 // Every workspace_subscriptions row is backfilled with a variation_id (see
-// backfill-plan-variations.ts), so pv.max_clients is the live source of truth for the client
-// limit. The COALESCE onto p.max_clients is a defensive fallback for the (expected-empty)
-// window before that backfill has run against a given environment. Team-seat count is a flat
-// per-plan allotment (plans.max_team_seats) — variations no longer carry it (see founder
-// pricing decisions: TeamForce variations differ only by client limit + price).
+// backfill-plan-variations.ts), so pv.max_clients/pv.max_team_seats are the live source of
+// truth. The COALESCE onto p.max_* is a defensive fallback for the (expected-empty) window
+// before that backfill has run against a given environment, and for single-variation plans
+// whose variation intentionally leaves a limit null to inherit the plan's flat value.
 const LIMIT_JOIN = `
     FROM workspace_subscriptions ws
     JOIN plans p ON p.id = ws.plan_id
@@ -26,14 +25,14 @@ async function getActiveAddonUnits(workspaceId: string, dimension: string): Prom
 
 export async function checkSeatLimit(workspaceId: string): Promise<void> {
     const { rows } = await pool.query(`
-        SELECT p.max_team_seats,
+        SELECT COALESCE(pv.max_team_seats, p.max_team_seats) AS max_team_seats,
                COUNT(DISTINCT wm.id) FILTER (WHERE wm.is_active = TRUE) AS active_members,
                COUNT(DISTINCT wi.id) FILTER (WHERE wi.status = 'pending')  AS pending_invitations
         ${LIMIT_JOIN}
         LEFT JOIN workspace_members wm     ON wm.workspace_id = $1
         LEFT JOIN workspace_invitations wi ON wi.workspace_id = $1
         WHERE ws.workspace_id = $1
-        GROUP BY p.max_team_seats
+        GROUP BY pv.max_team_seats, p.max_team_seats
     `, [workspaceId]);
 
     if (!rows.length) throw { status: 500, message: 'Subscription not found for workspace' };
@@ -78,7 +77,8 @@ export async function getEffectiveLimits(workspaceId: string): Promise<{
     maxClients: number | null; maxTeamSeats: number | null;
 }> {
     const { rows } = await pool.query(`
-        SELECT COALESCE(pv.max_clients, p.max_clients) AS max_clients, p.max_team_seats
+        SELECT COALESCE(pv.max_clients, p.max_clients) AS max_clients,
+               COALESCE(pv.max_team_seats, p.max_team_seats) AS max_team_seats
         ${LIMIT_JOIN}
         WHERE ws.workspace_id = $1
     `, [workspaceId]);
