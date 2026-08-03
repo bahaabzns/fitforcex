@@ -939,6 +939,10 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
                     wp.id, wp.amount, wp.currency, wp.duration_days, wp.fawaterak_status,
                     wp.fawaterak_invoice_id, wp.created_at, wp.paid_at, wp.notes,
                     wp.plan_id, wp.variation_id, wp.addon_id,
+                    wp.paid_at AS period_start,
+                    CASE WHEN wp.paid_at IS NOT NULL
+                         THEN wp.paid_at + (wp.duration_days || ' days')::interval
+                         ELSE NULL END AS period_end,
                     w.id AS workspace_id, w.name AS workspace_name, w.slug AS workspace_slug,
                     p.display_name AS plan_display,
                     u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email

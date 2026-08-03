@@ -291,13 +291,14 @@ export default function AdminPaymentsPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_120px_120px_110px_90px_32px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_110px_110px_100px_95px_95px_32px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
                     <span className="text-right">Amount</span>
                     <span>Status</span>
-                    <span>Date</span>
+                    <span>Start</span>
+                    <span>End</span>
                     <span></span>
                 </div>
 
@@ -313,7 +314,7 @@ export default function AdminPaymentsPage() {
                     payments.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[1fr_1fr_120px_120px_110px_90px_32px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`grid grid-cols-[1fr_1fr_110px_110px_100px_95px_95px_32px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{p.workspace_name}</p>
@@ -338,7 +339,10 @@ export default function AdminPaymentsPage() {
                                 ))}
                             </select>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {formatDate(p.created_at)}
+                                {p.period_start ? formatDate(p.period_start) : '—'}
+                            </span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {p.period_end ? formatDate(p.period_end) : '—'}
                             </span>
                             <button
                                 onClick={() => setEditingPayment(p)}
