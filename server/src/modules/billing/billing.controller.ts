@@ -207,11 +207,36 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
         // variation/plan always uses the target's current public price.
         const currentSub = await prisma.workspace_subscriptions.findUnique({
             where:  { workspace_id: req.user!.workspaceId },
-            select: { variation_id: true, locked_price_monthly: true, locked_currency: true },
+            select: {
+                plan_id: true, variation_id: true, locked_price_monthly: true, locked_currency: true, expires_at: true,
+                plans: { select: { duration_days: true } },
+            },
         });
         const isRenewal = currentSub?.variation_id === variation.id && currentSub.locked_price_monthly != null;
         const amount    = isRenewal ? Number(currentSub!.locked_price_monthly) : (Number(variation.price_monthly) || 0);
         const currency  = isRenewal ? (currentSub!.locked_currency || variation.currency) : variation.currency;
+
+        // Tier change (different plan or variation) with unused value left on the current
+        // subscription: credit it against the new price rather than banking it silently at
+        // whatever tier ends up active (the bug this feature fixes — see
+        // docs/billing-architecture-audit.md finding F-04). No credit for a plain renewal,
+        // a workspace with no prior subscription, or one that's already expired.
+        let creditApplied: number | null = null;
+        let finalAmount = amount;
+        const now = new Date();
+        if (!isRenewal && currentSub?.locked_price_monthly != null && currentSub.expires_at && new Date(currentSub.expires_at) > now) {
+            if (currentSub.locked_currency && currentSub.locked_currency !== variation.currency) {
+                return res.status(400).json({ error: 'Cannot switch to a plan priced in a different currency' });
+            }
+            const remainingCredit = computeRemainingCreditValue(
+                Number(currentSub.locked_price_monthly),
+                currentSub.plans.duration_days,
+                new Date(currentSub.expires_at),
+                now
+            );
+            creditApplied = Math.round(Math.min(remainingCredit, amount) * 100) / 100;
+            finalAmount   = Math.round(Math.max(0, amount - creditApplied) * 100) / 100;
+        }
 
         const paymentId = createId();
         await prisma.workspace_payments.create({
@@ -220,10 +245,11 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
                 workspace_id:     req.user!.workspaceId,
                 plan_id:          plan.id,
                 variation_id:     variation.id,
-                amount,
+                amount:           finalAmount,
                 currency,
                 duration_days:    plan.duration_days,
                 fawaterak_status: 'pending',
+                credit_applied:   creditApplied,
             },
         });
 
@@ -237,7 +263,15 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
             data:  { fawaterak_payment_url: paymentUrl },
         });
 
-        res.json({ paymentUrl, paymentId });
+        res.json({
+            paymentUrl, paymentId,
+            creditApplied,
+            amountCharged:  finalAmount,
+            listPrice:      creditApplied != null ? amount : null,
+            currency,
+            planDisplay:    plan.display_name,
+            variationLabel: formatPlanVariationLabel(variation),
+        });
     } catch (err) {
         const httpErr = err as { status?: number; message?: string };
         if (httpErr.status) return res.status(httpErr.status).json({ error: httpErr.message });
@@ -360,13 +394,21 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
 // Kept as raw pool because: SELECT FOR UPDATE row locking + interval/balance arithmetic.
 //
 // `startDate` is an admin-only override (manual payment entry, see admin.controller.ts:
-// createManualPayment) for backdating/scheduling a subscription's effective start — real
-// payments (webhook/poll-confirmed) never pass it and keep the existing NOW()-based, renewal-
-// safe behavior (starts_at only ever set once via COALESCE, expires_at extends from whichever
-// is later: now or the current expiry). `addonQuantity` is likewise admin-only (manual add-on
-// grants of more than one unit in a single purchase) — self-serve always buys one unit per
-// payment row and leaves it at the default.
-export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date, addonQuantity: number = 1): Promise<void> {
+// createManualPayment) for backdating/scheduling a subscription's effective start. `addonQuantity`
+// is likewise admin-only (manual add-on grants of more than one unit in a single purchase) —
+// self-serve always buys one unit per payment row and leaves it at the default.
+//
+// Both the self-serve and admin-manual branches now special-case a TIER CHANGE (payment's
+// plan/variation differs from whatever the subscription is currently on): re-derived here at
+// activation time, not trusted from invoice-creation time, so it reflects reality even if the
+// workspace's plan changed again in between. A plain renewal (same plan+variation) keeps the
+// original behavior unchanged in both branches: starts_at set once via COALESCE and never
+// updated again, expires_at extends from whichever is later — now or the current expiry.
+export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date, addonQuantity: number = 1, actorLabel?: string): Promise<void> {
+    // Either signal implies an admin-triggered application — startDate (backdating, only
+    // admin manual payments pass it) or an explicit actorLabel (admin manual add-ons, which
+    // have no startDate concept of their own). Self-serve (webhook/callback/poll) passes neither.
+    const actorType: 'admin' | 'coach' = (startDate || actorLabel) ? 'admin' : 'coach';
     const dbClient = await pool.connect();
     try {
         await dbClient.query('BEGIN');
@@ -389,25 +431,100 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
         );
 
         if (payment.addon_id) {
-            await applyAddonPurchase(dbClient, payment, workspaceId, addonQuantity);
+            await applyAddonPurchase(dbClient, payment, workspaceId, addonQuantity, actorType, actorLabel);
         } else if (startDate) {
-            await dbClient.query(`
+            // Admin manual payment. Read the current subscription (joined to its plan's cycle
+            // length) to detect a tier change and credit any unused value as EXTRA DAYS — there's
+            // no "list price" here to discount from (the admin typed in whatever amount was
+            // actually collected), unlike the self-serve branch below.
+            const { rows: subRows } = await dbClient.query(`
+                SELECT ws.plan_id, ws.variation_id, ws.locked_price_monthly, ws.expires_at, p.duration_days AS old_cycle_days
+                FROM workspace_subscriptions ws JOIN plans p ON p.id = ws.plan_id
+                WHERE ws.workspace_id = $1 FOR UPDATE
+            `, [workspaceId]);
+            const oldSub = subRows[0] as Record<string, unknown> | undefined;
+            const isTierChange = !!oldSub && (oldSub.plan_id !== payment.plan_id || oldSub.variation_id !== payment.variation_id) && oldSub.locked_price_monthly != null;
+
+            let extraDays = 0;
+            if (isTierChange) {
+                const remainingCredit = computeRemainingCreditValue(
+                    Number(oldSub!.locked_price_monthly),
+                    Number(oldSub!.old_cycle_days),
+                    oldSub!.expires_at ? new Date(oldSub!.expires_at as string) : null,
+                    startDate
+                );
+                const newDailyRate = Number(payment.duration_days) > 0 ? Number(payment.amount) / Number(payment.duration_days) : 0;
+                extraDays = newDailyRate > 0 ? remainingCredit / newDailyRate : 0;
+            }
+
+            const { rows: updatedRows } = await dbClient.query(`
                 UPDATE workspace_subscriptions
                 SET plan_id   = $1, variation_id = $2, locked_price_monthly = $3, locked_currency = $4,
                     status = 'active',
                     starts_at = $5,
-                    expires_at = $5::timestamptz + ($6 || ' days')::INTERVAL
-                WHERE workspace_id = $7
-            `, [payment.plan_id, payment.variation_id, payment.amount, payment.currency, startDate, payment.duration_days, workspaceId]);
+                    expires_at = $5::timestamptz + (($6::float8 + $7::float8) || ' days')::INTERVAL
+                WHERE workspace_id = $8
+                RETURNING plan_id, variation_id, locked_price_monthly, locked_currency, starts_at, expires_at
+            `, [payment.plan_id, payment.variation_id, payment.amount, payment.currency, startDate, payment.duration_days, extraDays, workspaceId]);
+            await logSubscriptionEvent(dbClient, {
+                workspaceId, paymentId, eventType: 'admin_manual', actorType: 'admin', actorLabel,
+                previousExpiresAt: oldSub?.expires_at ? new Date(oldSub.expires_at as string) : null,
+                result: updatedRows[0] as Record<string, unknown>,
+            });
         } else {
-            await dbClient.query(`
-                UPDATE workspace_subscriptions
-                SET plan_id   = $1, variation_id = $2, locked_price_monthly = $3, locked_currency = $4,
-                    status = 'active',
-                    starts_at = COALESCE(starts_at, NOW()),
-                    expires_at = GREATEST(NOW(), COALESCE(expires_at, NOW())) + ($5 || ' days')::INTERVAL
-                WHERE workspace_id = $6
-            `, [payment.plan_id, payment.variation_id, payment.amount, payment.currency, payment.duration_days, workspaceId]);
+            // Self-serve. Detect a tier change against the CURRENT subscription (re-derived here,
+            // not trusted from invoice-creation time — see the function doc comment above).
+            const { rows: subRows } = await dbClient.query(`
+                SELECT plan_id, variation_id, expires_at FROM workspace_subscriptions WHERE workspace_id = $1 FOR UPDATE
+            `, [workspaceId]);
+            const oldSub = subRows[0] as Record<string, unknown> | undefined;
+            const isTierChange = !!oldSub && (oldSub.plan_id !== payment.plan_id || oldSub.variation_id !== payment.variation_id);
+            const previousExpiresAt = oldSub?.expires_at ? new Date(oldSub.expires_at as string) : null;
+
+            if (isTierChange) {
+                // Immediate upgrade (Option A): fresh cycle starting now — no extra days, since
+                // createInvoice already applied the credit as a cash discount on `payment.amount`
+                // before checkout; banking bonus days too would double-credit the same value.
+                // `locked_price_monthly` is re-derived from the catalog (like resyncSubscriptionPrice
+                // does at admin.controller.ts:561-566), NOT `payment.amount` — the ongoing
+                // recurring rate is the new variation's real price, not this one-time discounted charge.
+                const { rows: variationRows } = await dbClient.query(`
+                    SELECT price_monthly, currency FROM plan_variations WHERE id = $1
+                `, [payment.variation_id]);
+                const newVariation = variationRows[0] as Record<string, unknown> | undefined;
+                const lockedPrice = newVariation ? newVariation.price_monthly : payment.amount;
+                const lockedCurrency = newVariation ? newVariation.currency : payment.currency;
+
+                const { rows: updatedRows } = await dbClient.query(`
+                    UPDATE workspace_subscriptions
+                    SET plan_id   = $1, variation_id = $2, locked_price_monthly = $3, locked_currency = $4,
+                        status = 'active',
+                        starts_at = NOW(),
+                        expires_at = NOW() + ($5 || ' days')::INTERVAL
+                    WHERE workspace_id = $6
+                    RETURNING plan_id, variation_id, locked_price_monthly, locked_currency, starts_at, expires_at
+                `, [payment.plan_id, payment.variation_id, lockedPrice, lockedCurrency, payment.duration_days, workspaceId]);
+                await logSubscriptionEvent(dbClient, {
+                    workspaceId, paymentId, eventType: 'plan_changed', actorType, actorLabel,
+                    previousExpiresAt,
+                    result: updatedRows[0] as Record<string, unknown>,
+                });
+            } else {
+                const { rows: updatedRows } = await dbClient.query(`
+                    UPDATE workspace_subscriptions
+                    SET plan_id   = $1, variation_id = $2, locked_price_monthly = $3, locked_currency = $4,
+                        status = 'active',
+                        starts_at = COALESCE(starts_at, NOW()),
+                        expires_at = GREATEST(NOW(), COALESCE(expires_at, NOW())) + ($5 || ' days')::INTERVAL
+                    WHERE workspace_id = $6
+                    RETURNING plan_id, variation_id, locked_price_monthly, locked_currency, starts_at, expires_at
+                `, [payment.plan_id, payment.variation_id, payment.amount, payment.currency, payment.duration_days, workspaceId]);
+                await logSubscriptionEvent(dbClient, {
+                    workspaceId, paymentId, eventType: 'renewed', actorType, actorLabel,
+                    previousExpiresAt,
+                    result: updatedRows[0] as Record<string, unknown>,
+                });
+            }
         }
 
         await dbClient.query('COMMIT');
@@ -417,6 +534,48 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
     } finally {
         dbClient.release();
     }
+}
+
+// Appends a row to workspace_subscription_events recording the ACTUAL resulting period a
+// write to workspace_subscriptions just produced — see admin.controller.ts:getPayments, which
+// joins against this instead of guessing a payment's period from paid_at + duration_days (that
+// guess disagrees with reality for renewals and admin overrides, since both extend/override
+// from whatever the subscription's prior state was, not from the payment's own paid_at).
+async function logSubscriptionEvent(
+    dbClient: import('pg').PoolClient,
+    opts: {
+        workspaceId: string;
+        paymentId: string | null;
+        eventType: string;
+        actorType: 'coach' | 'admin' | 'system';
+        actorLabel?: string;
+        previousExpiresAt: Date | null;
+        result: Record<string, unknown>;
+    }
+): Promise<void> {
+    await dbClient.query(`
+        INSERT INTO workspace_subscription_events
+            (id, workspace_id, payment_id, event_type, plan_id, variation_id, locked_price_monthly,
+             locked_currency, starts_at, expires_at, previous_expires_at, actor_type, actor_label)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `, [
+        createId(), opts.workspaceId, opts.paymentId, opts.eventType,
+        opts.result.plan_id, opts.result.variation_id, opts.result.locked_price_monthly,
+        opts.result.locked_currency, opts.result.starts_at, opts.result.expires_at,
+        opts.previousExpiresAt, opts.actorType, opts.actorLabel ?? null,
+    ]);
+}
+
+// The currency value of whatever time is left, unused, on a subscription at its OLD
+// (locked) rate. Shared by self-serve tier-change invoicing (createInvoice), admin
+// manual tier-change payments (applyPayment's startDate branch), and add-on purchases
+// (applyAddonPurchase) — the three places that need to bank unused value rather than
+// silently forfeiting it (self-serve/manual) or ignoring it (a manual tier change today).
+function computeRemainingCreditValue(oldPriceMonthly: number, oldCycleDays: number, expiresAt: Date | null, asOf: Date): number {
+    if (!expiresAt) return 0;
+    const remainingDays = Math.max(0, (expiresAt.getTime() - asOf.getTime()) / 86400000);
+    const dailyRate = oldCycleDays > 0 ? oldPriceMonthly / oldCycleDays : 0;
+    return dailyRate * remainingDays;
 }
 
 // Billing-cycle extension (founder decision 12, in place of proration): the add-on is charged
@@ -433,6 +592,8 @@ async function applyAddonPurchase(
     payment: Record<string, unknown>,
     workspaceId: string,
     quantity: number = 1,
+    actorType: 'coach' | 'admin' = 'coach',
+    actorLabel?: string,
 ): Promise<void> {
     const { rows } = await dbClient.query(`
         SELECT locked_price_monthly, expires_at FROM workspace_subscriptions
@@ -445,9 +606,7 @@ async function applyAddonPurchase(
     const addonPrice       = Number(payment.amount);
     const oldPrice         = Number(sub.locked_price_monthly ?? 0);
     const now              = Date.now();
-    const remainingDays    = sub.expires_at ? Math.max(0, (new Date(sub.expires_at).getTime() - now) / 86400000) : 0;
-    const dailyRateOld     = oldPrice / cycleDays;
-    const remainingBalance = dailyRateOld * remainingDays;
+    const remainingBalance = computeRemainingCreditValue(oldPrice, cycleDays, sub.expires_at ? new Date(sub.expires_at) : null, new Date(now));
     const newPrice         = oldPrice + addonPrice;
     const newBalance       = remainingBalance + addonPrice;
     const dailyRateNew     = newPrice / cycleDays;
@@ -462,9 +621,16 @@ async function applyAddonPurchase(
         FROM addons WHERE id = $5
     `, [createId(), workspaceId, addonPrice / quantity, payment.id, payment.addon_id, quantity]);
 
-    await dbClient.query(`
+    const { rows: updatedRows } = await dbClient.query(`
         UPDATE workspace_subscriptions
         SET locked_price_monthly = $1, expires_at = $2
         WHERE workspace_id = $3
+        RETURNING plan_id, variation_id, locked_price_monthly, locked_currency, starts_at, expires_at
     `, [newPrice, newExpiresAt, workspaceId]);
+
+    await logSubscriptionEvent(dbClient, {
+        workspaceId, paymentId: payment.id as string, eventType: 'addon_purchased', actorType, actorLabel,
+        previousExpiresAt: sub.expires_at ? new Date(sub.expires_at) : null,
+        result: updatedRows[0] as Record<string, unknown>,
+    });
 }

@@ -1338,16 +1338,40 @@ model workspace_payments {
   notes                 String?
   paid_at               DateTime?          @db.Timestamptz(6)
   created_at            DateTime           @default(now()) @db.Timestamptz(6)
+  credit_applied        Decimal?           @db.Decimal(10, 2)
   plans                 plans              @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   plan_variations       plan_variations?   @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   addons                addons?            @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   workspaces            workspaces         @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   workspace_addons       workspace_addons[]
+  workspace_subscription_events workspace_subscription_events[]
 
   @@index([fawaterak_invoice_id])
   @@index([workspace_id])
   @@index([variation_id])
   @@index([addon_id])
+}
+
+model workspace_subscription_events {
+  id                    String              @id
+  workspace_id          String
+  payment_id            String?
+  event_type            String
+  plan_id               String?
+  variation_id          String?
+  locked_price_monthly  Decimal?            @db.Decimal(10, 2)
+  locked_currency       String?
+  starts_at             DateTime?           @db.Timestamptz(6)
+  expires_at            DateTime?           @db.Timestamptz(6)
+  previous_expires_at   DateTime?           @db.Timestamptz(6)
+  actor_type            String
+  actor_label           String?
+  created_at            DateTime            @default(now()) @db.Timestamptz(6)
+  workspaces            workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_payments    workspace_payments? @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([workspace_id, created_at])
+  @@index([payment_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1413,6 +1437,7 @@ model workspaces {
   workspace_payments                           workspace_payments[]
   workspace_addons                             workspace_addons[]
   workspace_subscriptions                      workspace_subscriptions?
+  workspace_subscription_events                workspace_subscription_events[]
   users_workspaces_owner_idTousers             users                          @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
 
   @@index([owner_id], map: "idx_workspaces_owner")

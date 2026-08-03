@@ -46,6 +46,7 @@ export default function SubscriptionPage() {
     const [payStatus, setPayStatus] = useState(null);
     const [availableAddons, setAvailableAddons] = useState([]);
     const [buyingAddon, setBuyingAddon] = useState(null);
+    const [pendingUpgrade, setPendingUpgrade] = useState(null);
 
     const loadBilling = useCallback(() => {
         return api.get("/api/billing/subscription").then(res => {
@@ -106,9 +107,15 @@ export default function SubscriptionPage() {
         setError("");
         try {
             const res = await api.post("/api/billing/create-invoice", { planId, variationId });
-            setIframeUrl(res.data.paymentUrl);
-            setIframePayId(res.data.paymentId);
-            setPayStatus(null);
+            if (res.data.creditApplied != null) {
+                // Tier change with unused value to credit — confirm the discounted amount
+                // before opening the Fawaterak iframe. A plain renewal skips this entirely.
+                setPendingUpgrade(res.data);
+            } else {
+                setIframeUrl(res.data.paymentUrl);
+                setIframePayId(res.data.paymentId);
+                setPayStatus(null);
+            }
         } catch (err) {
             const message = err.response?.data?.error || "";
             const limitMatch = message.match(/^(client|seat)_limit_exceeded:(\d+)$/);
@@ -122,6 +129,19 @@ export default function SubscriptionPage() {
         } finally {
             setPaying(false);
         }
+    }
+
+    function confirmUpgrade() {
+        setIframeUrl(pendingUpgrade.paymentUrl);
+        setIframePayId(pendingUpgrade.paymentId);
+        setPayStatus(null);
+        setPendingUpgrade(null);
+    }
+
+    function cancelUpgrade() {
+        // The already-created workspace_payments row is simply left pending and never
+        // activated — same as any other abandoned Fawaterak checkout today.
+        setPendingUpgrade(null);
     }
 
     async function handleBuyAddon(addonId) {
@@ -332,6 +352,60 @@ export default function SubscriptionPage() {
                     defaultSortDirection="desc"
                 />
             </div>
+
+            {/* Upgrade confirmation overlay — shown only for a tier change with credit to apply */}
+            {pendingUpgrade && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                    <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-md p-6 gap-4">
+                        <p className="text-base font-semibold text-foreground">{t("confirmUpgradeTitle")}</p>
+
+                        <div className="flex flex-col gap-2 text-sm">
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">{t("currentPlanLabel")}</span>
+                                <span className="font-medium text-foreground">
+                                    {subscription?.planDisplay}{subscription?.variationLabel ? ` · ${subscription.variationLabel}` : ""}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">{t("newPlanLabel")}</span>
+                                <span className="font-medium text-foreground">
+                                    {pendingUpgrade.planDisplay}{pendingUpgrade.variationLabel ? ` · ${pendingUpgrade.variationLabel}` : ""}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">{t("creditAppliedLabel")}</span>
+                                <span className="font-medium text-foreground">
+                                    -{Number(pendingUpgrade.creditApplied).toLocaleString()} {pendingUpgrade.currency ?? ""}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">{t("amountToPayLabel")}</span>
+                                <span className="font-bold text-foreground">
+                                    {Number(pendingUpgrade.amountCharged).toLocaleString()} {pendingUpgrade.currency ?? ""}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                            <button
+                                onClick={cancelUpgrade}
+                                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary transition-colors"
+                            >
+                                {t("cancelButton")}
+                            </button>
+                            <button
+                                onClick={confirmUpgrade}
+                                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                            >
+                                {t("confirmUpgradeButton")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Payment iframe overlay */}
             {iframeUrl && (

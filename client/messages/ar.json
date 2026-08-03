@@ -1282,7 +1282,14 @@
     "paymentFailed": "فشل في بدء الدفع. يرجى المحاولة مرة أخرى.",
     "statusActive": "نشط",
     "statusInactive": "غير نشط",
-    "statusUnknown": "غير معروف"
+    "statusUnknown": "غير معروف",
+    "confirmUpgradeTitle": "تأكيد تغيير الخطة",
+    "currentPlanLabel": "الخطة الحالية",
+    "newPlanLabel": "الخطة الجديدة",
+    "creditAppliedLabel": "الرصيد المطبّق",
+    "amountToPayLabel": "المبلغ المطلوب دفعه اليوم",
+    "confirmUpgradeButton": "تأكيد والدفع",
+    "cancelButton": "إلغاء"
   },
   "workspaceSettings": {
     "pageTitle": "مساحة العمل",

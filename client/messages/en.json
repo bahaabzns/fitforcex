@@ -1282,7 +1282,14 @@
     "paymentFailed": "Failed to start payment. Please try again.",
     "statusActive": "Active",
     "statusInactive": "Inactive",
-    "statusUnknown": "Unknown"
+    "statusUnknown": "Unknown",
+    "confirmUpgradeTitle": "Confirm Plan Change",
+    "currentPlanLabel": "Current plan",
+    "newPlanLabel": "New plan",
+    "creditAppliedLabel": "Credit applied",
+    "amountToPayLabel": "Amount to pay today",
+    "confirmUpgradeButton": "Confirm & Pay",
+    "cancelButton": "Cancel"
   },
   "workspaceSettings": {
     "pageTitle": "Workspace",

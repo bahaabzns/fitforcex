@@ -490,7 +490,7 @@ export async function createManualPayment(req: Request, res: Response, next: Nex
             },
         });
 
-        await applyPayment(paymentId, workspace.id, parsedStartDate);
+        await applyPayment(paymentId, workspace.id, parsedStartDate, 1, req.admin!.adminId as string);
         res.status(201).json({ message: 'Manual payment recorded and subscription activated', paymentId });
     } catch (err) {
         next(err);
@@ -539,7 +539,7 @@ export async function createManualAddonPayment(req: Request, res: Response, next
             },
         });
 
-        await applyPayment(paymentId, workspace.id, undefined, units);
+        await applyPayment(paymentId, workspace.id, undefined, units, req.admin!.adminId as string);
         res.status(201).json({ message: `Add-on recorded and applied (${units}x ${addon.label})`, paymentId });
     } catch (err) {
         next(err);
@@ -939,10 +939,17 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
                     wp.id, wp.amount, wp.currency, wp.duration_days, wp.fawaterak_status,
                     wp.fawaterak_invoice_id, wp.created_at, wp.paid_at, wp.notes,
                     wp.plan_id, wp.variation_id, wp.addon_id,
-                    wp.paid_at AS period_start,
-                    CASE WHEN wp.paid_at IS NOT NULL
-                         THEN wp.paid_at + (wp.duration_days || ' days')::interval
-                         ELSE NULL END AS period_end,
+                    -- Real period this payment produced, from its subscription-event row
+                    -- (recorded at the moment it was applied) — falls back to a nominal
+                    -- paid_at/duration_days estimate only for payments predating that log
+                    -- (renewals/admin edits extend or override from whatever the subscription's
+                    -- prior state was, not from this payment's own paid_at, so the nominal
+                    -- estimate can disagree with reality; the event row is the ground truth).
+                    COALESCE(wse.starts_at, wp.paid_at) AS period_start,
+                    COALESCE(wse.expires_at,
+                        CASE WHEN wp.paid_at IS NOT NULL
+                             THEN wp.paid_at + (wp.duration_days || ' days')::interval
+                             ELSE NULL END) AS period_end,
                     w.id AS workspace_id, w.name AS workspace_name, w.slug AS workspace_slug,
                     p.display_name AS plan_display,
                     u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email
@@ -950,6 +957,10 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
                 JOIN workspaces w ON w.id = wp.workspace_id
                 JOIN plans p      ON p.id = wp.plan_id
                 JOIN users u      ON u.id = w.owner_id
+                LEFT JOIN LATERAL (
+                    SELECT starts_at, expires_at FROM workspace_subscription_events
+                    WHERE payment_id = wp.id ORDER BY created_at DESC LIMIT 1
+                ) wse ON true
                 WHERE ${where}
                 ORDER BY wp.created_at DESC
                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -1094,6 +1105,25 @@ export async function updatePayment(req: Request, res: Response, next: NextFunct
                         locked_currency:      updated.currency,
                         starts_at:            base,
                         expires_at:           newExpiresAt,
+                    },
+                });
+                // This is the resync flow the audit flags as actively dangerous (F-20 — can
+                // silently rewind expires_at into the past) — recording it here matters most.
+                await prisma.workspace_subscription_events.create({
+                    data: {
+                        id:                  createId(),
+                        workspace_id:        updated.workspace_id,
+                        payment_id:          updated.id,
+                        event_type:          'admin_resync',
+                        plan_id:             targetPlanId,
+                        variation_id:        targetVariationId,
+                        locked_price_monthly: updated.amount,
+                        locked_currency:     updated.currency,
+                        starts_at:           base,
+                        expires_at:          newExpiresAt,
+                        previous_expires_at: sub.expires_at,
+                        actor_type:          'admin',
+                        actor_label:         req.admin!.adminId as string,
                     },
                 });
                 resynced = true;

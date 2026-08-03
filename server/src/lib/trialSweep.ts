@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import { prisma } from './prisma';
 
 /**
@@ -10,7 +11,7 @@ import { prisma } from './prisma';
 export async function runTrialExpirySweep(): Promise<number> {
     const expiredTrials = await prisma.workspace_subscriptions.findMany({
         where:  { status: 'trialing', expires_at: { lt: new Date() } },
-        select: { id: true, workspace_id: true },
+        select: { id: true, workspace_id: true, expires_at: true },
     });
     if (!expiredTrials.length) return 0;
 
@@ -36,6 +37,21 @@ export async function runTrialExpirySweep(): Promise<number> {
                     locked_currency:      variation?.currency ?? null,
                     status:               'active',
                     expires_at:           null,
+                },
+            });
+            await prisma.workspace_subscription_events.create({
+                data: {
+                    id:                   createId(),
+                    workspace_id:         sub.workspace_id,
+                    event_type:           'trial_ended',
+                    plan_id:              freePlan.id,
+                    variation_id:         variation?.id ?? null,
+                    locked_price_monthly: variation?.price_monthly ?? null,
+                    locked_currency:      variation?.currency ?? null,
+                    expires_at:           null,
+                    previous_expires_at:  sub.expires_at,
+                    actor_type:           'system',
+                    actor_label:          'trial-sweep',
                 },
             });
             reverted++;
