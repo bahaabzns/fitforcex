@@ -500,3 +500,12 @@ Format:
 **Effort:** Medium (already spent) — follow-up above is Small–Medium per call site.
 **Priority:** High (resolved) / Medium (follow-up)
 **Priority:** High (blocks this feature from being production-ready, not just a nice-to-have)
+
+---
+
+## 2026-08-03 — LoadPlanModal / workspace-library endpoints (fetch-everything-every-open, no server-side filtering)
+**Type:** Shortcut
+**What:** Coaches reported the "Load Plan" picker (`client/app/components/LoadPlanModal.js`) taking a long time to open. Root cause: `getWorkspaceLibrary` (`nutrition.controller.ts` and `training.controller.ts`) is a nested-LATERAL query that recomputes real macros/day-exercise-set counts for *every* plan in the whole workspace on *every* modal open, and the frontend then does all search/filter/pagination client-side over that full payload — nothing is server-side paginated or filtered by search/creator/client/macro-range. The immediate cause (missing indexes on every FK the nutrition query joins through — `nutrition_plans.workspace_id`/`client_id`, `nutrition_cycles.plan_id`, `nutrition_meals.cycle_id`, `nutrition_meal_items.meal_id`/`food_item_id`/`original_food_item_id`) was fixed today via migration `073_nutrition_fk_indexes.js` (training's equivalent FKs were already indexed, which is why only the nutrition picker was reported as slow). That fix should resolve today's complaint, but the "compute the entire workspace library on every open" pattern itself doesn't scale indefinitely — a workspace with a few hundred clients × several plans each will eventually feel slow again even with the missing indexes fixed.
+**Why it matters:** As a workspace's plan history grows, this endpoint's cost grows with total plan/cycle/meal count for the *whole workspace*, not with what's actually displayed (10 plans per page after client-side pagination). Eventually this becomes slow again regardless of indexing.
+**Effort:** Large — move search/creator/client/macro-range filtering and pagination into the query (`WHERE`/`LIMIT`/`OFFSET` server-side, debounced requests from `LoadPlanModal.js`), likely also worth caching or precomputing cycle-level macro aggregates instead of recomputing from meal items on every read.
+**Priority:** Medium — not urgent post-index-fix, but worth planning before the next workspace-scale complaint.

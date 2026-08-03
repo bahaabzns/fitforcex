@@ -526,6 +526,8 @@ model nutrition_cycles {
   note            String?
   nutrition_plans nutrition_plans?  @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nutrition_meals nutrition_meals[]
+
+  @@index([plan_id])
 }
 
 model nutrition_meal_item_alternatives {
@@ -555,6 +557,10 @@ model nutrition_meal_items {
   nutrition_meals                                                   nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   original_food_item                                                food_items?                        @relation("nutrition_meal_items_original_food_item_idTofood_items", fields: [original_food_item_id], references: [id], onUpdate: NoAction)
   swapped_by_client                                                 clients?                           @relation(fields: [swapped_by_client_id], references: [id], onUpdate: NoAction)
+
+  @@index([meal_id])
+  @@index([food_item_id])
+  @@index([original_food_item_id])
 }
 
 model nutrition_meals {
@@ -565,6 +571,8 @@ model nutrition_meals {
   note                 String?
   nutrition_meal_items nutrition_meal_items[]
   nutrition_cycles     nutrition_cycles?      @relation(fields: [cycle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([cycle_id])
 }
 
 model nutrition_plans {
@@ -589,6 +597,8 @@ model nutrition_plans {
   last_editor        users?             @relation("nutrition_plans_last_edited_by", fields: [last_edited_by], references: [id], onUpdate: NoAction)
 
   @@index([last_edited_by], map: "nutrition_plans_last_edited_by_index")
+  @@index([workspace_id])
+  @@index([client_id])
 }
 
 model package_variations {
