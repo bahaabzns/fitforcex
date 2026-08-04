@@ -127,6 +127,7 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
 }
 
 function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
+    const { formatDate } = useDateFormatter();
     const [planId, setPlanId] = useState(workspace.plan_id);
     const [variationId, setVariationId] = useState(workspace.variation_id);
     const [amount, setAmount] = useState('');
@@ -136,6 +137,7 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
     const [startDate, setStartDate] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
 
     const variations = plans.find(p => p.id === planId)?.variations ?? [];
     const selectedVariation = variations.find(v => v.id === variationId);
@@ -150,7 +152,7 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
         setSaving(true);
         setError('');
         try {
-            await api.post(`/api/admin/workspaces/${workspace.id}/manual-payment`, {
+            const res = await api.post(`/api/admin/workspaces/${workspace.id}/manual-payment`, {
                 planId, variationId,
                 amount:       amount === '' ? undefined : Number(amount),
                 currency:     currency.trim() || undefined,
@@ -158,13 +160,52 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
                 notes,
                 startDate:    startDate || undefined,
             });
+            // Confirm the resulting renewal date before closing — don't just assume
+            // it landed where expected (start-date backdating + credited extra days
+            // both shift it in ways worth a coach/admin double-checking).
+            setResult(res.data);
             onSaved();
-            onClose();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to record payment');
         } finally {
             setSaving(false);
         }
+    }
+
+    if (result) {
+        return (
+            <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+                <Modal.Backdrop>
+                    <Modal.Container>
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>Payment Recorded</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body className="flex flex-col gap-3">
+                                <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                                <div className="rounded-lg border border-green-600/30 bg-green-500/5 px-4 py-3 flex flex-col gap-1">
+                                    <p className="text-sm font-medium text-foreground">
+                                        {result.planDisplay}{result.variationLabel ? ` · ${result.variationLabel}` : ''}
+                                    </p>
+                                    <p className="text-sm text-green-600 font-semibold">
+                                        Now active until {result.expiresAt ? formatDate(result.expiresAt) : '—'}
+                                    </p>
+                                    {result.startsAt && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Cycle started {formatDate(result.startsAt)}
+                                        </p>
+                                    )}
+                                </div>
+                            </Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="primary" onClick={onClose}>Done</Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
+        );
     }
 
     return (
@@ -287,6 +328,7 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
 }
 
 function AddAddonModal({ workspace, addons, onClose, onSaved }) {
+    const { formatDate } = useDateFormatter();
     const [addonId, setAddonId] = useState(addons[0]?.id ?? '');
     const [quantity, setQuantity] = useState('1');
     const [amount, setAmount] = useState('');
@@ -295,6 +337,7 @@ function AddAddonModal({ workspace, addons, onClose, onSaved }) {
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
 
     const selectedAddon = addons.find(a => a.id === addonId);
     const qty = parseInt(quantity) || 1;
@@ -304,7 +347,7 @@ function AddAddonModal({ workspace, addons, onClose, onSaved }) {
         setSaving(true);
         setError('');
         try {
-            await api.post(`/api/admin/workspaces/${workspace.id}/manual-addon`, {
+            const res = await api.post(`/api/admin/workspaces/${workspace.id}/manual-addon`, {
                 addonId,
                 quantity:     qty,
                 amount:       amount === '' ? undefined : Number(amount),
@@ -312,13 +355,44 @@ function AddAddonModal({ workspace, addons, onClose, onSaved }) {
                 durationDays: durationDays === '' ? undefined : parseInt(durationDays),
                 notes,
             });
+            // Add-ons extend the cycle by a computed number of days (not a flat
+            // duration) — worth confirming exactly where that landed.
+            setResult(res.data);
             onSaved();
-            onClose();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to add add-on');
         } finally {
             setSaving(false);
         }
+    }
+
+    if (result) {
+        return (
+            <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+                <Modal.Backdrop>
+                    <Modal.Container>
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>Add-on Applied</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body className="flex flex-col gap-3">
+                                <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                                <div className="rounded-lg border border-green-600/30 bg-green-500/5 px-4 py-3">
+                                    <p className="text-sm text-foreground">{result.message}</p>
+                                    <p className="text-sm text-green-600 font-semibold mt-1">
+                                        Subscription now renews {result.expiresAt ? formatDate(result.expiresAt) : '—'}
+                                    </p>
+                                </div>
+                            </Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="primary" onClick={onClose}>Done</Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
+        );
     }
 
     return (

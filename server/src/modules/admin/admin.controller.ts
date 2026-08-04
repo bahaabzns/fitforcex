@@ -491,7 +491,19 @@ export async function createManualPayment(req: Request, res: Response, next: Nex
         });
 
         await applyPayment(paymentId, workspace.id, parsedStartDate, 1, req.admin!.adminId as string);
-        res.status(201).json({ message: 'Manual payment recorded and subscription activated', paymentId });
+
+        const updatedSub = await prisma.workspace_subscriptions.findUnique({
+            where:   { workspace_id: workspace.id },
+            include: { plans: { select: { display_name: true } }, plan_variations: true },
+        });
+        res.status(201).json({
+            message: 'Manual payment recorded and subscription activated',
+            paymentId,
+            planDisplay:    updatedSub?.plans.display_name ?? null,
+            variationLabel: updatedSub?.plan_variations ? formatPlanVariationLabel(updatedSub.plan_variations) : null,
+            startsAt:       updatedSub?.starts_at ?? null,
+            expiresAt:      updatedSub?.expires_at ?? null,
+        });
     } catch (err) {
         next(err);
     }
@@ -540,7 +552,16 @@ export async function createManualAddonPayment(req: Request, res: Response, next
         });
 
         await applyPayment(paymentId, workspace.id, undefined, units, req.admin!.adminId as string);
-        res.status(201).json({ message: `Add-on recorded and applied (${units}x ${addon.label})`, paymentId });
+
+        const updatedSub = await prisma.workspace_subscriptions.findUnique({
+            where:  { workspace_id: workspace.id },
+            select: { expires_at: true },
+        });
+        res.status(201).json({
+            message: `Add-on recorded and applied (${units}x ${addon.label})`,
+            paymentId,
+            expiresAt: updatedSub?.expires_at ?? null,
+        });
     } catch (err) {
         next(err);
     }

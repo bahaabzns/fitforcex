@@ -1275,6 +1275,7 @@
     "completePayment": "إتمام الدفع",
     "paymentConfirmed": "تم تأكيد الدفع!",
     "subscriptionActivated": "تم تفعيل اشتراكك.",
+    "renewedUntil": "نشط حتى {date}",
     "done": "تم",
     "paymentProcessing": "جارٍ معالجة الدفع",
     "subscriptionActivatingSoon": "سيتم تفعيل اشتراكك قريباً.",

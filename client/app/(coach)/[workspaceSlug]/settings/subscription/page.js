@@ -426,6 +426,11 @@ export default function SubscriptionPage() {
                                 <div>
                                     <p className="text-xl font-bold text-foreground">{t("paymentConfirmed")}</p>
                                     <p className="text-sm text-muted-foreground mt-1">{t("subscriptionActivated")}</p>
+                                    {subscription?.expiresAt && (
+                                        <p className="text-sm font-semibold text-green-600 mt-2">
+                                            {t("renewedUntil", { date: formatDate(subscription.expiresAt) })}
+                                        </p>
+                                    )}
                                 </div>
                                 <button
                                     onClick={closeIframe}

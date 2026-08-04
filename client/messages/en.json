@@ -1275,6 +1275,7 @@
     "completePayment": "Complete Payment",
     "paymentConfirmed": "Payment Confirmed!",
     "subscriptionActivated": "Your subscription has been activated.",
+    "renewedUntil": "Active until {date}",
     "done": "Done",
     "paymentProcessing": "Payment Processing",
     "subscriptionActivatingSoon": "Your subscription will activate shortly.",
