@@ -43,6 +43,7 @@ const DEFAULT_NUTRITION_PDF_SETTINGS: Omit<nutrition_pdf_settings, 'id' | 'works
     show_cover_title:               true,
     show_cover_subtitle:            true,
     show_cover_client_name:         true,
+    body_text_color:                '#1A1A1A',
 };
 
 const DEFAULT_TRAINING_PDF_SETTINGS: Omit<training_pdf_settings, 'id' | 'workspace_id' | 'updated_at'> = {
@@ -76,6 +77,9 @@ const DEFAULT_TRAINING_PDF_SETTINGS: Omit<training_pdf_settings, 'id' | 'workspa
     show_cover_title:               true,
     show_cover_subtitle:            true,
     show_cover_client_name:         true,
+    body_text_color:                '#1A1A1A',
+    show_exercise_thumbnail:        true,
+    exercise_thumbnail_size:        'medium',
 };
 
 export async function getOrDefaultNutritionPdfSettings(workspaceId: string): Promise<nutrition_pdf_settings> {

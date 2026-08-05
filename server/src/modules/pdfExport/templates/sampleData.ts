@@ -63,6 +63,11 @@ export const SAMPLE_TRAINING_PLAN = {
             exercises: [
                 {
                     name: 'Barbell Bench Press', equipment: 'Barbell', notes: 'Control the eccentric.',
+                    // A self-contained data: URI (a simple barbell glyph), not a hotlinked
+                    // external image — the settings-page preview renders this on every
+                    // debounced keystroke, so it can't depend on outbound network access.
+                    thumbnail_path: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTQwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE0MCIgZmlsbD0iIzNhNGE1YyIvPjxnIHN0cm9rZT0iI2M5ZDNkYyIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxsaW5lIHgxPSI1NSIgeTE9IjcwIiB4Mj0iMTQ1IiB5Mj0iNzAiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjcwIiByPSIxNiIgZmlsbD0iI2M5ZDNkYyIgc3Ryb2tlPSJub25lIi8+PGNpcmNsZSBjeD0iMTUwIiBjeT0iNzAiIHI9IjE2IiBmaWxsPSIjYzlkM2RjIiBzdHJva2U9Im5vbmUiLz48L2c+PC9zdmc+',
+                    youtube_url: 'https://www.youtube.com/watch?v=rT7DgCr-3pg',
                     sets: [
                         { reps: '8', rest_seconds: 90, tempo: '2010', rir: 2 },
                         { reps: '8', rest_seconds: 90, tempo: '2010', rir: 2 },

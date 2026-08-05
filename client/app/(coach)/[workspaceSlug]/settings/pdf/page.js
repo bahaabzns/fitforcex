@@ -33,7 +33,7 @@ const EDITABLE_FIELDS_BY_TYPE = {
         "show_cover_header", "show_cover_title", "show_cover_subtitle", "show_cover_client_name",
         "show_notes", "show_alternatives", "show_macros_summary", "show_cycle_totals", "show_meal_totals",
         "show_food_calories", "show_food_macros", "show_cycle_summary_page", "show_meal_summary_page",
-        "max_meals_per_page",
+        "max_meals_per_page", "body_text_color",
     ],
     training: [
         "coach_name", "footer_text", "primary_color", "header_text_color",
@@ -42,7 +42,7 @@ const EDITABLE_FIELDS_BY_TYPE = {
         "show_cover_page", "show_back_cover_page", "show_plan_summary_page",
         "show_cover_header", "show_cover_title", "show_cover_subtitle", "show_cover_client_name",
         "show_notes", "show_exercise_notes", "show_exercise_equipment", "show_sets_detail", "show_day_summary_page",
-        "max_exercises_per_page",
+        "max_exercises_per_page", "body_text_color", "show_exercise_thumbnail", "exercise_thumbnail_size",
     ],
 };
 
@@ -514,6 +514,7 @@ export default function PdfExportSettingsPage() {
                         <ColorField label={t("branding.headerTextColor")} value={settings.header_text_color} onChange={(v) => update({ header_text_color: v })} />
                         <ColorField label={t("branding.tableHeaderColor")} value={settings.table_header_bg_color} onChange={(v) => update({ table_header_bg_color: v })} />
                         <ColorField label={t("branding.tableAltColor")} value={settings.table_alt_bg_color} onChange={(v) => update({ table_alt_bg_color: v })} />
+                        <ColorField label={t("branding.bodyTextColor")} value={settings.body_text_color} onChange={(v) => update({ body_text_color: v })} />
                     </div>
                     <ImageDropZone
                         label={t("branding.logo")}
@@ -522,6 +523,15 @@ export default function PdfExportSettingsPage() {
                         onRemove={handleLogoRemove}
                         uploading={uploadingSlot === "logo"}
                         removing={removingSlot === "logo"}
+                    />
+                    <ImageDropZone
+                        label={t("branding.pageBackground")}
+                        imageUrl={settings.page_bg_image_url}
+                        onFile={(file) => handleBackgroundUpload("page", file)}
+                        onRemove={() => handleBackgroundRemove("page")}
+                        uploading={uploadingSlot === "page"}
+                        removing={removingSlot === "page"}
+                        hint={t("branding.pageBackgroundHint")}
                     />
                 </Card.Content>
             </Card>
@@ -622,12 +632,33 @@ export default function PdfExportSettingsPage() {
                     {[
                         ["show_exercise_notes", "showExerciseNotes"], ["show_exercise_equipment", "showExerciseEquipment"],
                         ["show_sets_detail", "showSetsDetail"], ["show_day_summary_page", "showDaySummaryPage"],
+                        ["show_exercise_thumbnail", "showExerciseThumbnail"],
                     ].map(([field, key], index) => (
                         <div key={field}>
                             {index > 0 && <Separator />}
                             <ToggleRow label={t(`training.${key}`)} checked={settings[field]} onChange={(v) => update({ [field]: v })} />
                         </div>
                     ))}
+                    {settings.show_exercise_thumbnail && (
+                        <>
+                            <Separator />
+                            <div className="py-3">
+                                <span className="text-sm text-foreground mb-1.5 block">{t("training.thumbnailSize")}</span>
+                                <div className="flex gap-1 self-start rounded-lg border border-border p-1">
+                                    {["small", "medium", "large"].map((size) => (
+                                        <Button
+                                            key={size}
+                                            size="sm"
+                                            variant={settings.exercise_thumbnail_size === size ? "primary" : "ghost"}
+                                            onClick={() => update({ exercise_thumbnail_size: size })}
+                                        >
+                                            {t(`training.thumbnailSize${size[0].toUpperCase()}${size.slice(1)}`)}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
                     <Separator />
                     <div className="py-3">
                         <NumberField

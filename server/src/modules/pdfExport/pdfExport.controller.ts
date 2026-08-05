@@ -189,6 +189,7 @@ const updateNutritionSettingsSchema = z.object({
     show_cover_title:              z.boolean().optional(),
     show_cover_subtitle:           z.boolean().optional(),
     show_cover_client_name:        z.boolean().optional(),
+    body_text_color:               hexColor.optional(),
 });
 
 const updateTrainingSettingsSchema = z.object({
@@ -217,6 +218,9 @@ const updateTrainingSettingsSchema = z.object({
     show_cover_title:                 z.boolean().optional(),
     show_cover_subtitle:              z.boolean().optional(),
     show_cover_client_name:           z.boolean().optional(),
+    body_text_color:                  hexColor.optional(),
+    show_exercise_thumbnail:          z.boolean().optional(),
+    exercise_thumbnail_size:          z.enum(['small', 'medium', 'large']).optional(),
 });
 
 export async function updateNutritionSettings(req: Request, res: Response, next: NextFunction) {

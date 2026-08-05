@@ -34,20 +34,55 @@ export type PageSettings = {
     page_bg_image_url: string | null;
     page_width: number;
     page_height: number;
+    body_text_color: string;
+    // Optional: only training_pdf_settings has this column — nutrition's
+    // settings object simply won't have the property, which is fine since
+    // exerciseThumbSize() below falls back to 'medium' when it's absent.
+    exercise_thumbnail_size?: string;
 };
 
 export function pageBreak(): string {
     return '<div class="page-break"></div>';
 }
 
+// Preset sizes (points) for the exercise thumbnail in trainingPlan.ts —
+// fixed width:height ratio (~1.4545:1) across all three so the image never
+// looks stretched, whichever size a coach picks.
+const EXERCISE_THUMB_SIZES: Record<string, { width: number; height: number }> = {
+    small:  { width: 48, height: 33 },
+    medium: { width: 64, height: 44 },
+    large:  { width: 96, height: 66 },
+};
+
+export function exerciseThumbSize(size: string | undefined): { width: number; height: number } {
+    return EXERCISE_THUMB_SIZES[size ?? 'medium'] ?? EXERCISE_THUMB_SIZES.medium;
+}
+
 // Shared print CSS + header/footer chrome, driven entirely by pdf_settings —
 // never hardcode a brand color/text here, or two coaches' exports would look
 // identical regardless of their settings.
 export function renderShell(settings: PageSettings, bodyHtml: string): string {
+    // Applied per `.page` div, not on `<body>` — the body is one continuous
+    // element spanning every page's content concatenated together, so a
+    // body-level `background-size: cover` scales the image to the *whole*
+    // multi-page document's height, leaving every page after the first
+    // showing just an arbitrary cropped sliver of it. Scoping it to `.page`
+    // (with `min-height: page_height` so short pages still get full
+    // coverage) makes each physical PDF page show its own independent,
+    // correctly-scaled copy of the image instead.
     const bgImage = settings.page_bg_image_url
-        ? `background-image: url('${escapeHtml(settings.page_bg_image_url)}'); background-size: cover;`
+        ? `background-image: url('${escapeHtml(settings.page_bg_image_url)}'); background-size: cover; background-position: center; background-repeat: no-repeat;`
         : '';
+    const thumbSize = exerciseThumbSize(settings.exercise_thumbnail_size);
 
+    // `.section` (below, in the stylesheet) gets `page-break-inside: avoid` —
+    // `.page` has no max-height, only `min-height`, so when a day/cycle's
+    // content is taller than one physical page, Chromium's print engine
+    // paginates the overflow across additional physical pages on its own.
+    // Without that rule, it doesn't know a `.section` — one exercise
+    // (training) or one meal (nutrition) — is meant to stay together, and
+    // happily splits it mid-table between two pages; with it, an overflowing
+    // section is pushed to the next page whole instead.
     return `<!doctype html>
 <html>
 <head>
@@ -57,16 +92,15 @@ export function renderShell(settings: PageSettings, bodyHtml: string): string {
   body {
     margin: 0;
     font-family: 'Helvetica Neue', Arial, sans-serif;
-    color: #1a1a1a;
+    color: ${escapeHtml(settings.body_text_color)};
     font-size: 11pt;
-    ${bgImage}
   }
-  .page { padding: 32pt 36pt; position: relative; }
+  .page { padding: 32pt 36pt; position: relative; min-height: ${settings.page_height}pt; ${bgImage} }
   .page-break { page-break-after: always; }
   h1, h2, h3 { margin: 0 0 8pt 0; }
   h1 { font-size: 24pt; color: ${escapeHtml(settings.primary_color)}; }
   h2 { font-size: 16pt; color: ${escapeHtml(settings.primary_color)}; }
-  h3 { font-size: 12pt; }
+  h3 { font-size: 12pt; color: ${escapeHtml(settings.primary_color)}; }
   table { width: 100%; border-collapse: collapse; margin: 8pt 0 16pt 0; }
   th {
     background: ${escapeHtml(settings.table_header_bg_color)};
@@ -81,10 +115,15 @@ export function renderShell(settings: PageSettings, bodyHtml: string): string {
   .header { display: flex; align-items: center; gap: 12pt; margin-bottom: 20pt; border-bottom: 1pt solid #eee; padding-bottom: 12pt; }
   .header img { height: 32pt; }
   .header .brand { font-size: 13pt; font-weight: bold; color: ${escapeHtml(settings.primary_color)}; }
-  .footer { position: absolute; bottom: 12pt; left: 36pt; right: 36pt; font-size: 8pt; color: #888; display: flex; justify-content: space-between; }
-  .notes { font-size: 9.5pt; color: #555; font-style: italic; margin-top: 4pt; }
-  .section { margin-bottom: 20pt; }
-  .badge { display: inline-block; padding: 2pt 8pt; border-radius: 10pt; background: ${escapeHtml(settings.table_header_bg_color)}; font-size: 9pt; margin-right: 6pt; }
+  .footer { position: absolute; bottom: 12pt; left: 36pt; right: 36pt; font-size: 8pt; display: flex; justify-content: space-between; }
+  .notes { font-size: 9.5pt; font-style: italic; margin-top: 4pt; }
+  .section { margin-bottom: 20pt; page-break-inside: avoid; break-inside: avoid; }
+  .badge { display: inline-block; padding: 2pt 8pt; border-radius: 10pt; background: ${escapeHtml(settings.table_header_bg_color)}; color: ${escapeHtml(settings.header_text_color)}; font-size: 9pt; margin-right: 6pt; }
+  .exercise-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12pt; }
+  .exercise-head-text { flex: 1; min-width: 0; }
+  .exercise-thumb { display: block; position: relative; width: ${thumbSize.width}pt; height: ${thumbSize.height}pt; flex-shrink: 0; border-radius: 4pt; overflow: hidden; text-decoration: none; color: inherit; }
+  .exercise-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .exercise-thumb-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 18pt; height: 18pt; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; font-size: 8pt; display: flex; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>

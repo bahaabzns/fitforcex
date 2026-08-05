@@ -192,6 +192,7 @@ model exercise_library {
   updated_at                     DateTime                         @default(now()) @db.Timestamptz(6)
   name_ar                        String?
   instructions_ar                String?
+  tracking_type                  String                           @default("reps_weight")
   client_observations            client_observations[]
   workspaces                     workspaces                       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_library_workspace")
   observation_relations          observation_relations[]
@@ -271,6 +272,7 @@ model master_exercise_library {
   instructions_ar String?
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  tracking_type   String   @default("reps_weight")
 
   @@index([name_en])
   @@index([muscle_group])
@@ -907,6 +909,7 @@ model nutrition_pdf_settings {
   show_cover_title              Boolean   @default(true)
   show_cover_subtitle           Boolean   @default(true)
   show_cover_client_name        Boolean   @default(true)
+  body_text_color               String    @default("#1A1A1A")
   workspaces                    workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -946,6 +949,9 @@ model training_pdf_settings {
   show_cover_title                 Boolean   @default(true)
   show_cover_subtitle              Boolean   @default(true)
   show_cover_client_name           Boolean   @default(true)
+  body_text_color                  String    @default("#1A1A1A")
+  show_exercise_thumbnail           Boolean   @default(true)
+  exercise_thumbnail_size           String    @default("medium")
   updated_at                       DateTime? @default(now()) @db.Timestamp(6)
   workspaces                       workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
@@ -1185,6 +1191,10 @@ model training_sets {
   rest_seconds       Int?
   tempo              String?
   rir                Int?
+  duration_seconds   Int?
+  distance_km        Decimal?           @db.Decimal(6, 2)
+  incline_percent    Decimal?           @db.Decimal(4, 1)
+  speed_kmh          Decimal?           @db.Decimal(5, 2)
   training_exercises training_exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([exercise_id], map: "idx_training_sets_exercise")
