@@ -1,4 +1,11 @@
+/// <reference lib="dom" />
+// The reference above pulls in DOM types (document, HTMLElement, ...) for
+// type-checking *this file only* — needed because measureBlockHeights()'s
+// page.evaluate() callback runs inside a real browser page, not Node. It
+// doesn't add "dom" to the project's tsconfig globally, so it can't shadow
+// Node/Express globals (Buffer, Request, Response, ...) used elsewhere.
 import type { Browser } from 'puppeteer';
+import { ptToPx } from '../modules/pdfExport/templates/pagination';
 
 // Loaded lazily (not a static top-level import): puppeteer ships as a pure
 // ESM package ("type": "module", no CJS build). A static `import` here gets
@@ -67,6 +74,47 @@ export async function renderHtmlToPdf(
             printBackground: true,
         });
         return Buffer.from(pdf);
+    } finally {
+        await page.close();
+    }
+}
+
+// Measures the real rendered height (pt) of each `[data-measure-block]`
+// element in `html`, in document order — used by trainingPlan.ts/
+// nutritionPlan.ts to pre-chunk a day's exercises / a cycle's meals into
+// page-sized groups instead of letting one page stretch across several
+// physical pages and rely on Chromium's native (and, for our custom
+// per-page background/padding, unreliable — see templates/pagination.ts)
+// print fragmentation.
+//
+// JS stays enabled on this page (unlike renderHtmlToPdf's final render,
+// which disables it for security) because `page.evaluate` requires it. This
+// is only safe because templates/layout.ts, trainingPlan.ts, and
+// nutritionPlan.ts are and must stay script-free — if any of them ever grows
+// real client-side layout logic, a JS-enabled measurement and the
+// JS-disabled final print render could disagree, and these measured heights
+// would silently stop matching reality.
+export async function measureBlockHeights(html: string, pageWidthPt: number): Promise<number[]> {
+    const browser = await getBrowser();
+    const page = await browser.newPage();
+    try {
+        // Tall enough that nothing wraps into its own pagination during
+        // measurement itself — this page is never printed, only measured.
+        await page.setViewport({ width: ptToPx(pageWidthPt), height: 20000 });
+        await page.setContent(html, { waitUntil: 'load' });
+        return await page.evaluate(() => {
+            const blocks = Array.from(document.querySelectorAll<HTMLElement>('[data-measure-block]'));
+            // offsetTop deltas (not getBoundingClientRect().height) so each
+            // block's measured "slot" naturally includes the CSS margin
+            // between it and the next block — hardcoding that margin as a
+            // separate constant would silently drift out of sync with the
+            // stylesheet the moment `.section`'s margin-bottom changes.
+            return blocks.map((el, i) => (
+                i < blocks.length - 1
+                    ? blocks[i + 1].offsetTop - el.offsetTop
+                    : document.body.scrollHeight - el.offsetTop
+            ));
+        });
     } finally {
         await page.close();
     }

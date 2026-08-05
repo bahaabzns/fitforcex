@@ -24,14 +24,14 @@ async function main() {
 
     const savedNutrition = await getOrDefaultNutritionPdfSettings(wsRow.id);
     const nutritionDraft = { ...savedNutrition, primary_color: '#E91E63', coach_name: 'Preview Test Coach' };
-    const nutritionHtml = renderNutritionPlanHtml(SAMPLE_NUTRITION_PLAN, SAMPLE_CLIENT_NAME, nutritionDraft);
+    const nutritionHtml = await renderNutritionPlanHtml(SAMPLE_NUTRITION_PLAN, SAMPLE_CLIENT_NAME, nutritionDraft);
     const nutritionPdf = await renderHtmlToPdf(nutritionHtml, { width: nutritionDraft.page_width, height: nutritionDraft.page_height });
     fs.writeFileSync(path.join(OUT_DIR, 'preview-nutrition.pdf'), nutritionPdf);
     console.log('[smoke] wrote preview-nutrition.pdf,', nutritionPdf.length, 'bytes');
 
     const savedTraining = await getOrDefaultTrainingPdfSettings(wsRow.id);
     const trainingDraft = { ...savedTraining, primary_color: '#E91E63', coach_name: 'Preview Test Coach' };
-    const trainingHtml = renderTrainingPlanHtml(SAMPLE_TRAINING_PLAN, SAMPLE_CLIENT_NAME, trainingDraft);
+    const trainingHtml = await renderTrainingPlanHtml(SAMPLE_TRAINING_PLAN, SAMPLE_CLIENT_NAME, trainingDraft);
     const trainingPdf = await renderHtmlToPdf(trainingHtml, { width: trainingDraft.page_width, height: trainingDraft.page_height });
     fs.writeFileSync(path.join(OUT_DIR, 'preview-training.pdf'), trainingPdf);
     console.log('[smoke] wrote preview-training.pdf,', trainingPdf.length, 'bytes');

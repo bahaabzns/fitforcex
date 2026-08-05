@@ -75,7 +75,7 @@ export async function exportNutritionPlan(req: Request, res: Response, next: Nex
             getOrDefaultNutritionPdfSettings(workspaceId),
         ]);
 
-        const html = renderNutritionPlanHtml(plan as Row, clientName, settings);
+        const html = await renderNutritionPlanHtml(plan as Row, clientName, settings);
         const pdfBuffer = await renderHtmlToPdf(html, { width: settings.page_width, height: settings.page_height });
 
         res.setHeader('Content-Type', 'application/pdf');
@@ -95,7 +95,7 @@ export async function exportTrainingPlan(req: Request, res: Response, next: Next
             getOrDefaultTrainingPdfSettings(workspaceId),
         ]);
 
-        const html = renderTrainingPlanHtml(plan as Row, clientName, settings);
+        const html = await renderTrainingPlanHtml(plan as Row, clientName, settings);
         const pdfBuffer = await renderHtmlToPdf(html, { width: settings.page_width, height: settings.page_height });
 
         res.setHeader('Content-Type', 'application/pdf');
@@ -137,7 +137,7 @@ export async function previewSettings(req: Request, res: Response, next: NextFun
         if (type === 'training') {
             const saved = await getOrDefaultTrainingPdfSettings(workspaceId);
             const draft = { ...saved, ...(req.body && typeof req.body === 'object' ? req.body : {}) };
-            const html = renderTrainingPlanHtml(SAMPLE_TRAINING_PLAN, SAMPLE_CLIENT_NAME, draft);
+            const html = await renderTrainingPlanHtml(SAMPLE_TRAINING_PLAN, SAMPLE_CLIENT_NAME, draft);
             const pdfBuffer = await renderHtmlToPdf(html, { width: draft.page_width, height: draft.page_height });
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');
@@ -146,7 +146,7 @@ export async function previewSettings(req: Request, res: Response, next: NextFun
 
         const saved = await getOrDefaultNutritionPdfSettings(workspaceId);
         const draft = { ...saved, ...(req.body && typeof req.body === 'object' ? req.body : {}) };
-        const html = renderNutritionPlanHtml(SAMPLE_NUTRITION_PLAN, SAMPLE_CLIENT_NAME, draft);
+        const html = await renderNutritionPlanHtml(SAMPLE_NUTRITION_PLAN, SAMPLE_CLIENT_NAME, draft);
         const pdfBuffer = await renderHtmlToPdf(html, { width: draft.page_width, height: draft.page_height });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');

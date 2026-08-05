@@ -509,3 +509,12 @@ Format:
 **Why it matters:** As a workspace's plan history grows, this endpoint's cost grows with total plan/cycle/meal count for the *whole workspace*, not with what's actually displayed (10 plans per page after client-side pagination). Eventually this becomes slow again regardless of indexing.
 **Effort:** Large — move search/creator/client/macro-range filtering and pagination into the query (`WHERE`/`LIMIT`/`OFFSET` server-side, debounced requests from `LoadPlanModal.js`), likely also worth caching or precomputing cycle-level macro aggregates instead of recomputing from meal items on every read.
 **Priority:** Medium — not urgent post-index-fix, but worth planning before the next workspace-scale complaint.
+
+---
+
+## 2026-08-05 — server/src/modules/pdfExport (summary-page tables still unbounded)
+**Type:** Shortcut
+**What:** Fixed the reported bug where a training day's (or nutrition cycle's) exercise/meal *content* pages would silently stretch a `.page` div past one physical page when `max_exercises_per_page`/`max_meals_per_page` was `0` ("no limit") — Chromium's native print pagination would then fragment that div across extra physical pages with no background (cut off to white) and no top padding on the continuation. Fixed via real Puppeteer-measured auto-chunking (`templates/pagination.ts`'s `chunkByHeight`, wired into `trainingPlan.ts`/`nutritionPlan.ts`). That fix does **not** cover `renderDaySummaryPage`/`renderPlanSummaryPage` (training) or `renderCycleSummaryPage`/`renderPlanSummaryPage` (nutrition) — each is still exactly one `<div class="page">` with a table that has zero chunking logic. A plan with enough days/exercises (or cycles/meals) that one of *those* tables alone overflows a page would hit the identical background/padding bug, unfixed.
+**Why it matters:** Same bug shape, just triggered by row count instead of exercise/meal count — would resurface as a "new" bug report on a large enough plan before anyone connects it to this fix.
+**Effort:** Medium — the same `measureBlockHeights`/`chunkByHeight` machinery this fix introduced could be extended to `<tr>`-level chunking for these four summary tables; row heights are more uniform (no thumbnails/notes/badges) than exercise/meal blocks, so a simpler static per-row-height estimate might even suffice here without a full measurement pass.
+**Priority:** Low — requires an unusually large plan to trigger; not reported yet.

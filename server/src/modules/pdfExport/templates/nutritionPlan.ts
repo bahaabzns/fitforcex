@@ -1,7 +1,13 @@
 import { nutrition_pdf_settings } from '@prisma/client';
 import { escapeHtml, formatNumber, pageBreak, renderShell, renderHeader, renderFooter, renderCoverPage, renderBackCoverPage } from './layout';
+import { chunkByHeight } from './pagination';
+import { measureBlockHeights } from '../../../lib/pdfRenderer';
 
 type Row = Record<string, unknown>;
+
+// `.page`'s own top+bottom padding (layout.ts) — subtracted from page_height
+// to get the height actually available for a cycle's meal content.
+const PAGE_PADDING_PT = 32 * 2;
 
 // Actual macro/calorie contribution of a serving amount, scaled from the food
 // item's per-serving values — mirrors the ratio used by
@@ -68,6 +74,10 @@ function renderMeal(meal: Row, settings: nutrition_pdf_settings): string {
 </div>`;
 }
 
+// DEBT: unlike the per-cycle meal-content pages below, this table has no
+// chunking at all — a cycle with enough meals for this table alone to
+// overflow one physical page would hit the same background/padding bug the
+// auto-fit chunking in renderNutritionPlanHtml() exists to fix (see DEBT.md).
 function renderCycleSummaryPage(cycle: Row, settings: nutrition_pdf_settings, pageLabel: string): string {
     return `<div class="page">
   ${renderHeader(settings)}
@@ -86,6 +96,8 @@ function renderCycleSummaryPage(cycle: Row, settings: nutrition_pdf_settings, pa
 </div>`;
 }
 
+// DEBT: same unchunked-table limitation as renderCycleSummaryPage above, just
+// triggered by cycle count instead of meal count (see DEBT.md).
 function renderPlanSummaryPage(plan: Row, settings: nutrition_pdf_settings): string {
     const cycles = (plan.cycles as Row[]) ?? [];
     return `<div class="page">
@@ -105,7 +117,60 @@ function renderPlanSummaryPage(plan: Row, settings: nutrition_pdf_settings): str
 </div>`;
 }
 
-export function renderNutritionPlanHtml(plan: Row, clientName: string, settings: nutrition_pdf_settings): string {
+type CycleGroups = Row[][];
+
+// Splits a cycle's meals by a coach-set fixed count — today's exact
+// pre-existing behavior, kept byte-for-byte unchanged when a coach has
+// deliberately chosen a manual limit (no measurement pass runs at all).
+function chunkByFixedCount(meals: Row[], maxPerPage: number): CycleGroups {
+    const groups: CycleGroups = [];
+    for (let i = 0; i < meals.length; i += maxPerPage) {
+        groups.push(meals.slice(i, i + maxPerPage));
+    }
+    return groups;
+}
+
+// Measures every cycle's heading and meals in one Puppeteer round-trip for
+// the whole plan, then chunks each cycle's meals to what actually fits a
+// physical page — mirrors trainingPlan.ts's measureDayGroups(); see
+// templates/pagination.ts and DEBT.md for why this exists.
+async function measureCycleGroups(cycles: Row[], settings: nutrition_pdf_settings): Promise<CycleGroups[]> {
+    const blocks: string[] = [];
+    blocks.push(renderHeader(settings));                 // index 0
+    const longestCycleName = cycles.reduce((longest, cycle) => (
+        String(cycle.name ?? '').length > longest.length ? String(cycle.name ?? '') : longest
+    ), '');
+    blocks.push(renderFooter(settings, escapeHtml(longestCycleName))); // index 1
+
+    const cycleRanges = cycles.map((cycle) => {
+        const headingIdx = blocks.length;
+        blocks.push(`<h2>${escapeHtml(cycle.name)}</h2>`);
+        const meals = (cycle.meals as Row[]) ?? [];
+        const mealStart = blocks.length;
+        for (const meal of meals) {
+            blocks.push(renderMeal(meal, settings));
+        }
+        return { headingIdx, mealStart, mealCount: meals.length };
+    });
+
+    const measureBody = blocks.map((html) => `<div data-measure-block>${html}</div>`).join('');
+    const heights = await measureBlockHeights(renderShell(settings, measureBody), settings.page_width);
+
+    const footerHeight = heights[1];
+    const usableHeight = settings.page_height - PAGE_PADDING_PT - footerHeight;
+
+    return cycles.map((cycle, cycleIndex) => {
+        const range = cycleRanges[cycleIndex];
+        const meals = (cycle.meals as Row[]) ?? [];
+        if (meals.length === 0) return [];
+
+        const budget = usableHeight - heights[range.headingIdx];
+        const mealHeights = heights.slice(range.mealStart, range.mealStart + range.mealCount);
+        return chunkByHeight(meals, mealHeights, { first: budget, rest: budget });
+    });
+}
+
+export async function renderNutritionPlanHtml(plan: Row, clientName: string, settings: nutrition_pdf_settings): Promise<string> {
     const cycles = (plan.cycles as Row[]) ?? [];
     const pages: string[] = [];
 
@@ -121,27 +186,34 @@ export function renderNutritionPlanHtml(plan: Row, clientName: string, settings:
         pages.push(renderPlanSummaryPage(plan, settings));
     }
 
-    for (const cycle of cycles) {
+    // Manual limit (> 0) keeps today's exact fixed-count chunking, with no
+    // measurement pass at all — auto ("no limit", the default) is the mode
+    // that used to cram every meal into one ever-growing page.
+    const autoFit = !settings.max_meals_per_page || settings.max_meals_per_page <= 0;
+    const autoFitGroups = (autoFit && settings.show_meal_summary_page)
+        ? await measureCycleGroups(cycles, settings)
+        : null;
+
+    cycles.forEach((cycle, cycleIndex) => {
         if (settings.show_cycle_summary_page) {
             pages.push(renderCycleSummaryPage(cycle, settings, escapeHtml(cycle.name)));
         }
         if (settings.show_meal_summary_page) {
             const meals = (cycle.meals as Row[]) ?? [];
-            const maxPerPage = settings.max_meals_per_page && settings.max_meals_per_page > 0
-                ? settings.max_meals_per_page
-                : meals.length || 1;
+            const groups = autoFitGroups
+                ? autoFitGroups[cycleIndex]
+                : chunkByFixedCount(meals, settings.max_meals_per_page as number);
 
-            for (let i = 0; i < meals.length; i += maxPerPage) {
-                const chunk = meals.slice(i, i + maxPerPage);
+            groups.forEach((chunk) => {
                 pages.push(`<div class="page">
   ${renderHeader(settings)}
   <h2>${escapeHtml(cycle.name)}</h2>
   ${chunk.map((meal) => renderMeal(meal, settings)).join('')}
   ${renderFooter(settings, escapeHtml(cycle.name))}
 </div>`);
-            }
+            });
         }
-    }
+    });
 
     if (settings.show_back_cover_page) {
         pages.push(renderBackCoverPage(settings as unknown as Parameters<typeof renderBackCoverPage>[0]));

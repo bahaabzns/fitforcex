@@ -29,7 +29,7 @@ async function main() {
         const plan = await fetchFullNutritionPlan(nutritionRow.id, nutritionRow.workspace_id);
         if (!plan) throw new Error('nutrition plan fetch returned null unexpectedly');
         const settings = await getOrDefaultNutritionPdfSettings(nutritionRow.workspace_id);
-        const html = renderNutritionPlanHtml(plan as Record<string, unknown>, 'Test Client', settings);
+        const html = await renderNutritionPlanHtml(plan as Record<string, unknown>, 'Test Client', settings);
         const pdf = await renderHtmlToPdf(html, { width: settings.page_width, height: settings.page_height });
         fs.writeFileSync(path.join(OUT_DIR, 'nutrition-plan.pdf'), pdf);
         console.log('[smoke] wrote nutrition-plan.pdf,', pdf.length, 'bytes');
@@ -42,7 +42,7 @@ async function main() {
         const plan = await fetchFullTrainingPlan(trainingRow.id, trainingRow.workspace_id);
         if (!plan) throw new Error('training plan fetch returned null unexpectedly');
         const settings = await getOrDefaultTrainingPdfSettings(trainingRow.workspace_id);
-        const html = renderTrainingPlanHtml(plan as Record<string, unknown>, 'Test Client', settings);
+        const html = await renderTrainingPlanHtml(plan as Record<string, unknown>, 'Test Client', settings);
         const pdf = await renderHtmlToPdf(html, { width: settings.page_width, height: settings.page_height });
         fs.writeFileSync(path.join(OUT_DIR, 'training-plan.pdf'), pdf);
         console.log('[smoke] wrote training-plan.pdf,', pdf.length, 'bytes');
