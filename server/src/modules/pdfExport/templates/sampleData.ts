@@ -63,6 +63,8 @@ export const SAMPLE_TRAINING_PLAN = {
             exercises: [
                 {
                     name: 'Barbell Bench Press', equipment: 'Barbell', notes: 'Control the eccentric.',
+                    tracking_type: 'sets_reps',
+                    tracked_metrics: ['tempo', 'rir'],
                     // A self-contained data: URI (a simple barbell glyph), not a hotlinked
                     // external image — the settings-page preview renders this on every
                     // debounced keystroke, so it can't depend on outbound network access.
@@ -76,9 +78,32 @@ export const SAMPLE_TRAINING_PLAN = {
                 },
                 {
                     name: 'Overhead Press', equipment: 'Barbell', notes: '',
+                    tracking_type: 'sets_reps',
+                    tracked_metrics: ['rpe'],
                     sets: [
-                        { reps: '10', rest_seconds: 75, tempo: null, rir: null },
-                        { reps: '10', rest_seconds: 75, tempo: null, rir: null },
+                        { reps: '10', rest_seconds: 75, rpe: 7.5 },
+                        { reps: '10', rest_seconds: 75, rpe: 8 },
+                    ],
+                },
+                {
+                    // Time-based, duration only — exercises the sample data for
+                    // the PDF Settings live preview shows every renderSetsTable
+                    // column set (see trainingPlan.ts's prescribedFieldsFor usage).
+                    name: 'Plank', equipment: 'Bodyweight', notes: 'Hold a straight line from head to heels.',
+                    tracking_type: 'time_based',
+                    tracked_metrics: ['duration_seconds'],
+                    sets: [
+                        { duration_seconds: 45, rest_seconds: 30 },
+                        { duration_seconds: 45, rest_seconds: 30 },
+                        { duration_seconds: 30, rest_seconds: 30 },
+                    ],
+                },
+                {
+                    name: 'Treadmill Run', equipment: 'Machine', notes: 'Steady-state cardio, conversational pace.',
+                    tracking_type: 'time_based',
+                    tracked_metrics: ['duration_seconds', 'distance_km', 'incline_percent', 'speed_kmh'],
+                    sets: [
+                        { duration_seconds: 1200, distance_km: 3.2, incline_percent: 1.5, speed_kmh: 9.5, rest_seconds: null },
                     ],
                 },
             ],

@@ -13,12 +13,63 @@ import ExerciseNotesModal from "./ExerciseNotesModal";
 import ExerciseInstructionsModal from "./ExerciseInstructionsModal";
 import ClientExerciseInsightsModal from "./ClientExerciseInsightsModal";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
-import { hasTempoValue, hasRirValue } from "@/utils/workout";
+import { hasTempoValue, hasRirValue, formatClock } from "@/utils/workout";
+import { categoryOf, loggedFieldsFor, targetOnlyFieldsFor } from "@/utils/exerciseTrackingTypes";
 
-const SET_ROW_COLS_BOTH     = "grid-cols-[24px_1fr_1fr_1fr_32px_40px_28px]";
-const SET_ROW_COLS_NO_TEMPO = "grid-cols-[24px_1fr_1fr_1fr_32px_28px]";
-const SET_ROW_COLS_NO_RIR   = "grid-cols-[24px_1fr_1fr_1fr_40px_28px]";
-const SET_ROW_COLS_NEITHER  = "grid-cols-[24px_1fr_1fr_1fr_28px]";
+// Precomputed Tailwind arbitrary-value grid templates — kept as whole literal
+// strings (rather than built dynamically) so Tailwind's JIT scanner can find
+// them. Every editable/previous column is "1fr"; read-only target columns
+// (tempo/rir/rpe, Sets & Reps only) get a compact fixed width; 24px/28px for
+// the set index/done tick. Sets & Reps has a fixed 2-column editable set
+// (weight, reps) with 0-3 target columns depending on the coach's
+// checklist; Time-Based has 0-4 editable columns and no targets.
+const SET_ROW_COLS_SETS_REPS_BY_TARGET_COUNT = [
+    "grid-cols-[24px_1fr_1fr_1fr_28px]",                     // 0 targets
+    "grid-cols-[24px_1fr_1fr_1fr_36px_28px]",                // 1
+    "grid-cols-[24px_1fr_1fr_1fr_36px_36px_28px]",           // 2
+    "grid-cols-[24px_1fr_1fr_1fr_36px_36px_36px_28px]",      // 3 (tempo + rir + rpe)
+];
+const SET_ROW_COLS_TIME_BASED_BY_COUNT = [
+    "grid-cols-[24px_1fr_28px]",             // 0: coach selected no metrics for this exercise (edge case)
+    "grid-cols-[24px_1fr_1fr_28px]",         // 1
+    "grid-cols-[24px_1fr_1fr_1fr_28px]",     // 2
+    "grid-cols-[24px_1fr_1fr_1fr_1fr_28px]", // 3
+    "grid-cols-[24px_1fr_1fr_1fr_1fr_1fr_28px]", // 4
+];
+
+const FIELD_LABEL_KEY = {
+    weight: "weight",
+    reps: "repsShort",
+    tempo: "tempo",
+    rir: "rir",
+    rpe: "rpe",
+    duration_seconds: "duration",
+    distance_km: "distance",
+    incline_percent: "incline",
+    speed_kmh: "speed",
+};
+
+function hasFieldValue(v) {
+    return v !== null && v !== undefined && v !== "";
+}
+
+// rest_seconds is prescribed (a base field, always) but never a displayed
+// column here — it drives the rest timer elsewhere in session/page.js, not
+// a table cell. targetOnlyFieldsFor() doesn't know that distinction, so it's
+// filtered out at the two call sites below.
+function displayTargetFields(exercise) {
+    return targetOnlyFieldsFor(exercise).filter((field) => field !== "rest_seconds");
+}
+
+// tempo's "not filled in" sentinel is the literal string "-" (see
+// useTrainingPlan.js's defaultSetFor) — hasFieldValue alone would treat that
+// as a real value. rir has its own similar historical helper; rpe has no
+// sentinel, so hasFieldValue is exact for it.
+function hasTargetValue(field, value) {
+    if (field === "tempo") return hasTempoValue(value);
+    if (field === "rir") return hasRirValue(value);
+    return hasFieldValue(value);
+}
 
 // One exercise within a Training Mode session: a lazy video, per-set targets
 // shown alongside each row, and an editable grid of logged sets (previous ·
@@ -34,13 +85,18 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
     const weightRefs = useRef([]);
 
     const prescribed = exercise.prescribed ?? [];
-    const hasNote = Boolean(exercise.note?.trim());
-    const hasTempo = prescribed.some(p => hasTempoValue(p?.tempo));
-    const hasRir   = prescribed.some(p => hasRirValue(p?.rir));
-    const rowCols  = hasTempo && hasRir ? SET_ROW_COLS_BOTH
-        : hasTempo ? SET_ROW_COLS_NO_RIR
-        : hasRir ? SET_ROW_COLS_NO_TEMPO
-        : SET_ROW_COLS_NEITHER;
+    const hasNote    = Boolean(exercise.note?.trim());
+    const category   = categoryOf(exercise);
+    // Column visibility is entirely the coach's choice now (tracked_metrics,
+    // set in the exercise library) — not whether any particular set happens
+    // to have a value yet. editableFields = what the client types in;
+    // targetFields = read-only, from the coach's prescription (tempo/rir/rpe
+    // for Sets & Reps only; Time-Based's metrics are editable, not targets).
+    const editableFields = loggedFieldsFor(exercise);
+    const targetFields   = displayTargetFields(exercise);
+    const rowCols = category === "sets_reps"
+        ? SET_ROW_COLS_SETS_REPS_BY_TARGET_COUNT[targetFields.length]
+        : SET_ROW_COLS_TIME_BASED_BY_COUNT[editableFields.length];
 
     // Moves keyboard focus to the next set's weight field once the set before
     // it is marked done — lets a client log a whole exercise without reaching
@@ -52,13 +108,35 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
 
     function previousFor(setOrder) {
         const match = (previous ?? []).find(p => p.set_order === setOrder);
-        if (!match || match.weight == null || match.reps == null) return null;
-        return `${match.weight}kg × ${match.reps}`;
+        if (!match) return null;
+        if (category === "sets_reps") {
+            if (match.weight == null || match.reps == null) return null;
+            return `${match.weight}kg × ${match.reps}`;
+        }
+        // time_based
+        const parts = [];
+        if (match.duration_seconds != null) parts.push(formatClock(match.duration_seconds));
+        if (match.distance_km != null) parts.push(`${match.distance_km}km`);
+        return parts.length > 0 ? parts.join(" · ") : null;
     }
 
-    function weightPlaceholder(setOrder) {
-        const match = (previous ?? []).find(p => p.set_order === setOrder);
-        return match?.weight != null ? `${match.weight}kg` : "kg";
+    // Weight has no prescribed counterpart (training_sets never had a weight
+    // column) — its placeholder stays "what you did last time". Every other
+    // logged field IS something the coach set a target for on this set, so
+    // showing that target as the placeholder tells the client what to aim
+    // for, same as reps' targetReps below.
+    function placeholderFor(field, setOrder, sIdx) {
+        if (field === "weight") {
+            const match = (previous ?? []).find(p => p.set_order === setOrder);
+            return match?.weight != null ? `${match.weight}kg` : "kg";
+        }
+        const target = prescribed[sIdx]?.[field];
+        if (!hasFieldValue(target)) return "—";
+        if (field === "duration_seconds") return formatClock(target);
+        if (field === "distance_km") return `${target}km`;
+        if (field === "incline_percent") return `${target}%`;
+        if (field === "speed_kmh") return `${target}km/h`;
+        return String(target);
     }
 
     const metaParts = [exercise.muscle_group, exercise.equipment].filter(Boolean);
@@ -142,18 +220,18 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
                 <div className={`grid ${rowCols} gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/50 pb-1`}>
                     <span className="text-center truncate">{t("set")}</span>
                     <span className="text-center truncate">{t("previous")}</span>
-                    <span className="text-center truncate">{t("weight")}</span>
-                    <span className="text-center truncate">{t("repsShort")}</span>
-                    {hasRir && <span className="text-center truncate">{t("rir")}</span>}
-                    {hasTempo && <span className="text-center truncate">{t("tempo")}</span>}
+                    {editableFields.map((field) => (
+                        <span key={field} className="text-center truncate">{t(FIELD_LABEL_KEY[field])}</span>
+                    ))}
+                    {targetFields.map((field) => (
+                        <span key={field} className="text-center truncate">{t(FIELD_LABEL_KEY[field])}</span>
+                    ))}
                     <Check className="w-3.5 h-3.5 mx-auto text-muted-foreground/50" />
                 </div>
 
                 <div className="flex flex-col divide-y divide-border/30">
                     {exercise.sets.map((set, sIdx) => {
-                        const targetReps  = prescribed[sIdx]?.reps ?? null;
-                        const targetRir   = hasRirValue(prescribed[sIdx]?.rir) ? prescribed[sIdx].rir : null;
-                        const targetTempo = hasTempoValue(prescribed[sIdx]?.tempo) ? prescribed[sIdx].tempo : null;
+                        const targetReps = prescribed[sIdx]?.reps ?? null;
                         return (
                             <div
                                 key={sIdx}
@@ -162,24 +240,25 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
                                 <span className="text-xs text-muted-foreground/60 text-center">{sIdx + 1}</span>
                                 <span className="text-[10px] text-muted-foreground/50 text-center truncate">{previousFor(set.set_order) ?? "—"}</span>
 
-                                <TextField value={set.weight} onChange={(v) => onChangeSet(sIdx, "weight", v)} aria-label={t("weight")} variant="secondary" fullWidth>
-                                    <Input
-                                        ref={(el) => { weightRefs.current[sIdx] = el; }}
-                                        inputMode="decimal"
-                                        placeholder={weightPlaceholder(set.set_order)}
-                                        className={`text-center px-1 py-1 text-xs ${set.completed ? "border-transparent bg-transparent shadow-none" : ""}`}
-                                    />
-                                </TextField>
-                                <TextField value={set.reps} onChange={(v) => onChangeSet(sIdx, "reps", v)} aria-label={t("repsShort")} variant="secondary" fullWidth>
-                                    <Input
-                                        inputMode="numeric"
-                                        placeholder={targetReps ?? "—"}
-                                        className={`text-center px-1 py-1 text-xs ${set.completed ? "border-transparent bg-transparent shadow-none" : ""}`}
-                                    />
-                                </TextField>
+                                {editableFields.map((field, fIdx) => (
+                                    <TextField key={field} value={set[field] ?? ""} onChange={(v) => onChangeSet(sIdx, field, v)} aria-label={t(FIELD_LABEL_KEY[field])} variant="secondary" fullWidth>
+                                        <Input
+                                            ref={fIdx === 0 ? (el) => { weightRefs.current[sIdx] = el; } : undefined}
+                                            inputMode={field === "reps" || field === "duration_seconds" ? "numeric" : "decimal"}
+                                            placeholder={field === "reps" ? (targetReps ?? "—") : placeholderFor(field, set.set_order, sIdx)}
+                                            className={`text-center px-1 py-1 text-xs ${set.completed ? "border-transparent bg-transparent shadow-none" : ""}`}
+                                        />
+                                    </TextField>
+                                ))}
 
-                                {hasRir && <span className="text-xs text-muted-foreground text-center">{targetRir ?? "—"}</span>}
-                                {hasTempo && <span className="text-xs text-muted-foreground text-center truncate">{targetTempo ?? "—"}</span>}
+                                {targetFields.map((field) => {
+                                    const raw = prescribed[sIdx]?.[field];
+                                    return (
+                                        <span key={field} className="text-xs text-muted-foreground text-center truncate">
+                                            {hasTargetValue(field, raw) ? raw : "—"}
+                                        </span>
+                                    );
+                                })}
 
                                 <button
                                     type="button"

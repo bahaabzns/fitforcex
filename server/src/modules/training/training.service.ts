@@ -31,7 +31,8 @@ export async function fetchFullTrainingPlan(planId: string, workspaceId: string)
             `SELECT te.*,
                     el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
                     el.instructions_en AS instructions, el.instructions_ar,
-                    el.name_en AS library_name_en, el.name_ar AS library_name_ar
+                    el.name_en AS library_name_en, el.name_ar AS library_name_ar,
+                    el.tracking_type, el.tracked_metrics
              FROM training_exercises te
              LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
              WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,

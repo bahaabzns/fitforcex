@@ -12,6 +12,7 @@ import ExerciseLogCard from "@/app/components/training-mode/ExerciseLogCard";
 import RestTimerBar from "@/app/components/training-mode/RestTimerBar";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { formatDuration, completedSetCount } from "@/utils/workout";
+import { categoryOf, prescribedFieldsFor, loggedFieldsFor } from "@/utils/exerciseTrackingTypes";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { getActiveTrainingSession, saveTrainingSession, clearTrainingSession } from "@/lib/trainingSessionStore";
 
@@ -53,8 +54,10 @@ function buildSession(plan, day, dayIndex) {
         day_name:   day.name,
         started_at: new Date().toISOString(),
         exercises: (day.exercises ?? []).map(ex => {
-            const prescribed = ex.sets ?? [];
-            const setCount   = Math.max(1, prescribed.length);
+            const prescribed   = ex.sets ?? [];
+            const setCount     = Math.max(1, prescribed.length);
+            const prescribedFields = prescribedFieldsFor(ex);
+            const loggedFields     = loggedFieldsFor(ex);
             return {
                 exercise_id:         ex.id,
                 exercise_library_id: ex.exercise_library_id ?? null,
@@ -67,10 +70,18 @@ function buildSession(plan, day, dayIndex) {
                 notes:               ex.notes ?? null,
                 instructions_en:     ex.instructions_en ?? null,
                 instructions_ar:     ex.instructions_ar ?? null,
-                prescribed:          prescribed.map(s => ({ reps: s.reps, rest_seconds: s.rest_seconds, rir: s.rir, tempo: s.tempo })),
+                tracking_type:       categoryOf(ex),
+                tracked_metrics:     ex.tracked_metrics ?? [],
+                prescribed:          prescribed.map(s => Object.fromEntries(prescribedFields.map(f => [f, s[f]]))),
                 note:                "",
                 sets: Array.from({ length: setCount }, (_, i) => ({
-                    set_order: i + 1, weight: "", reps: "", rir: "", rest_seconds: null, completed: false,
+                    set_order: i + 1,
+                    completed: false,
+                    // rest_seconds is auto-measured between completions (see
+                    // toggleSet below), not a coach-selectable metric — every
+                    // other logged field for this exercise starts blank.
+                    rest_seconds: null,
+                    ...Object.fromEntries(loggedFields.map(f => [f, ""])),
                 })),
             };
         }),
@@ -250,13 +261,20 @@ export default function TrainingSessionPage() {
                     exercise_library_id: ex.exercise_library_id,
                     name:                ex.name,
                     note:                ex.note?.trim() || null,
+                    tracking_type:       ex.tracking_type,
+                    tracked_metrics:     ex.tracked_metrics,
                     sets: ex.sets.map(s => ({
-                        set_order:    s.set_order,
-                        weight:       toNumber(s.weight),
-                        reps:         toNumber(s.reps),
-                        rir:          toNumber(s.rir),
-                        rest_seconds: s.rest_seconds,
-                        completed:    s.completed,
+                        set_order:        s.set_order,
+                        weight:           toNumber(s.weight),
+                        reps:             toNumber(s.reps),
+                        rir:              toNumber(s.rir),
+                        rpe:              toNumber(s.rpe),
+                        rest_seconds:     s.rest_seconds,
+                        duration_seconds: toNumber(s.duration_seconds),
+                        distance_km:      toNumber(s.distance_km),
+                        incline_percent:  toNumber(s.incline_percent),
+                        speed_kmh:        toNumber(s.speed_kmh),
+                        completed:        s.completed,
                     })),
                 })),
             });

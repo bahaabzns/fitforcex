@@ -18,8 +18,31 @@ import { prisma } from '../../lib/prisma';
 import { FileBag, fetchFullTrainingPlan } from './training.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
+import { EXERCISE_CATEGORIES, DEFAULT_CATEGORY, CATEGORY_CONFIG, ExerciseCategory } from '../../config/exerciseTrackingTypes';
 
 type Row = Record<string, unknown>;
+
+// Number(null) and Number("") both evaluate to 0 — which Number.isFinite
+// happily accepts — so a bare `Number.isFinite(Number(x)) ? Number(x) : null`
+// silently turns a genuinely blank/unset field into a saved 0 instead of
+// null. Blank must be checked for explicitly, before Number() ever runs.
+function toNullableNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+// Sent as one or more repeated `tracked_metrics` multipart fields — multer
+// gives a single string when the client sent one value, an array when it
+// sent more than one, and undefined when it sent none. Validated against the
+// category's own checklist so a coach can never save a metric that doesn't
+// belong to their exercise's category (e.g. "incline" on a Sets & Reps lift).
+function parseTrackedMetrics(raw: unknown, category: ExerciseCategory): string[] | null {
+    const values = Array.isArray(raw) ? raw : raw !== undefined && raw !== null && raw !== '' ? [raw] : [];
+    const selectable = CATEGORY_CONFIG[category].selectableMetrics as string[];
+    if (!values.every((v) => typeof v === 'string' && selectable.includes(v))) return null;
+    return values as string[];
+}
 
 // ── Muscle Groups ─────────────────────────────────────────────────────────────
 
@@ -157,9 +180,15 @@ export async function getExercises(req: Request, res: Response, next: NextFuncti
 
 export async function createExercise(req: Request, res: Response, next: NextFunction) {
     try {
-        const { name_en, name_ar, muscle_group, equipment, youtube_url, instructions_en, instructions_ar } = req.body as Record<string, string | undefined>;
+        const { name_en, name_ar, muscle_group, equipment, youtube_url, instructions_en, instructions_ar, tracking_type } = req.body as Record<string, string | undefined>;
 
         if (!name_en || !name_en.trim()) return res.status(400).json({ error: 'Exercise name (English) is required' });
+        if (tracking_type && !EXERCISE_CATEGORIES.includes(tracking_type as ExerciseCategory)) {
+            return res.status(400).json({ error: 'Invalid tracking type' });
+        }
+        const category = (tracking_type as ExerciseCategory) || DEFAULT_CATEGORY;
+        const trackedMetrics = parseTrackedMetrics((req.body as Record<string, unknown>).tracked_metrics, category);
+        if (trackedMetrics === null) return res.status(400).json({ error: 'Invalid tracked metric for this tracking type' });
 
         const files     = req.files as FileBag | undefined;
         const videoPath = files?.video?.[0]?.key     ?? null;
@@ -178,6 +207,8 @@ export async function createExercise(req: Request, res: Response, next: NextFunc
                 thumbnail_path:  thumbPath,
                 instructions_en: instructions_en || null,
                 instructions_ar: instructions_ar || null,
+                tracking_type:   category,
+                tracked_metrics: trackedMetrics,
             },
         });
 
@@ -194,6 +225,12 @@ export async function updateExercise(req: Request, res: Response, next: NextFunc
 
         const body = req.body as Record<string, string | undefined>;
         if (!body.name_en || !body.name_en.trim()) return res.status(400).json({ error: 'Exercise name (English) is required' });
+        if (body.tracking_type && !EXERCISE_CATEGORIES.includes(body.tracking_type as ExerciseCategory)) {
+            return res.status(400).json({ error: 'Invalid tracking type' });
+        }
+        const category = (body.tracking_type as ExerciseCategory) || (current.tracking_type as ExerciseCategory);
+        const trackedMetrics = parseTrackedMetrics((req.body as Record<string, unknown>).tracked_metrics, category);
+        if (trackedMetrics === null) return res.status(400).json({ error: 'Invalid tracked metric for this tracking type' });
 
         const files         = req.files as FileBag | undefined;
         const newVideoFile  = files?.video?.[0];
@@ -213,6 +250,8 @@ export async function updateExercise(req: Request, res: Response, next: NextFunc
                 thumbnail_path:  thumbnailPath,
                 instructions_en: body.instructions_en || null,
                 instructions_ar: body.instructions_ar || null,
+                tracking_type:   category,
+                tracked_metrics: trackedMetrics,
                 updated_at:      new Date(),
             },
         });
@@ -362,14 +401,19 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
 
                             for (const set of normalizeOrderedList(exercise.sets as Row[], 'set_order') as Row[]) {
                                 await dbClient.query(
-                                    `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, id)
-                                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                                    `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, rpe, duration_seconds, distance_km, incline_percent, speed_kmh, id)
+                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
                                     [
                                         (insertedExercise.rows[0] as Row).id, set.set_order,
                                         set.reps ?? null,
-                                        Number.isFinite(Number(set.rest_seconds)) ? Number(set.rest_seconds) : null,
+                                        toNullableNumber(set.rest_seconds),
                                         set.tempo ?? null,
-                                        Number.isFinite(Number(set.rir)) ? Number(set.rir) : null,
+                                        toNullableNumber(set.rir),
+                                        toNullableNumber(set.rpe),
+                                        toNullableNumber(set.duration_seconds),
+                                        toNullableNumber(set.distance_km),
+                                        toNullableNumber(set.incline_percent),
+                                        toNullableNumber(set.speed_kmh),
                                         createId(),
                                     ]
                                 );
@@ -495,14 +539,19 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                                     items: exercise.sets as Row[], orderKey: 'set_order',
                                     insert: async (set: Row) => {
                                         await dbClient.query(
-                                            `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, id)
-                                             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                                            `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, rpe, duration_seconds, distance_km, incline_percent, speed_kmh, id)
+                                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
                                             [
                                                 (insertedExercise.rows[0] as Row).id, set.set_order,
                                                 set.reps ?? null,
-                                                Number.isFinite(Number(set.rest_seconds)) ? Number(set.rest_seconds) : null,
+                                                toNullableNumber(set.rest_seconds),
                                                 set.tempo ?? null,
-                                                Number.isFinite(Number(set.rir)) ? Number(set.rir) : null,
+                                                toNullableNumber(set.rir),
+                                                toNullableNumber(set.rpe),
+                                                toNullableNumber(set.duration_seconds),
+                                                toNullableNumber(set.distance_km),
+                                                toNullableNumber(set.incline_percent),
+                                                toNullableNumber(set.speed_kmh),
                                                 createId(),
                                             ]
                                         );

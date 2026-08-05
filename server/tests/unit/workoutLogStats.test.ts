@@ -9,7 +9,7 @@ import {
 } from '../../src/utils/workoutLogStats';
 
 function set(order: number, weight: number | null, reps: number | null, completed = true) {
-    return { set_order: order, weight, reps, rir: null, rest_seconds: null, completed };
+    return { set_order: order, weight, reps, rir: null, rpe: null, rest_seconds: null, completed };
 }
 
 const benchLog: WorkoutLogRow = {
@@ -83,7 +83,7 @@ describe('extractPreviousSets', () => {
     test('returns the most recent prior sets keyed by current exercise id', () => {
         const previous = extractPreviousSets([benchLog], [{ exercise_id: 'current', exercise_library_id: 'lib1', name: 'Bench Press' }]);
         expect(previous.current).toHaveLength(3);
-        expect(previous.current[0]).toEqual({ set_order: 1, weight: 60, reps: 10, rir: null });
+        expect(previous.current[0]).toEqual({ set_order: 1, weight: 60, reps: 10, rir: null, rpe: null });
     });
     test('omits exercises with no prior log', () => {
         const previous = extractPreviousSets([benchLog], [{ exercise_id: 'current', exercise_library_id: 'never', name: 'Deadlift' }]);

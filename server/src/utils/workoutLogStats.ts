@@ -4,12 +4,17 @@
 // and coach (clients) modules. No external dependencies — keep it pure.
 
 export interface LoggedSet {
-    set_order:    number;
-    weight:       number | null;
-    reps:         number | null;
-    rir:          number | null;
-    rest_seconds: number | null;
-    completed:    boolean;
+    set_order:        number;
+    weight:           number | null;
+    reps:             number | null;
+    rir:              number | null;
+    rpe:              number | null;
+    rest_seconds:     number | null;
+    duration_seconds: number | null;
+    distance_km:      number | null;
+    incline_percent:  number | null;
+    speed_kmh:        number | null;
+    completed:        boolean;
 }
 
 export interface LoggedExercise {
@@ -17,6 +22,12 @@ export interface LoggedExercise {
     exercise_library_id: string | null;
     name:                string;
     note:                string | null;
+    // Snapshotted at submission time (see loggedExerciseSchema in
+    // clientPortal.controller.ts) rather than re-derived from the catalog
+    // exercise later, since a coach can change tracking_type/tracked_metrics
+    // after the fact.
+    tracking_type?:      string | null;
+    tracked_metrics?:    string[] | null;
     sets:                LoggedSet[];
 }
 
@@ -44,10 +55,15 @@ export interface ProgressPoint {
 }
 
 export interface PreviousSet {
-    set_order: number;
-    weight:    number | null;
-    reps:      number | null;
-    rir:       number | null;
+    set_order:        number;
+    weight:           number | null;
+    reps:             number | null;
+    rir:              number | null;
+    rpe:              number | null;
+    duration_seconds: number | null;
+    distance_km:      number | null;
+    incline_percent:  number | null;
+    speed_kmh:        number | null;
 }
 
 /** A canonical key to identify "the same exercise" across plans/sessions. */
@@ -342,10 +358,15 @@ export function extractPreviousSets(
             const match = (log.exercises ?? []).find(e => matchesExercise(e, target));
             if (!match) continue;
             previous[target.exercise_id] = (match.sets ?? []).map(s => ({
-                set_order: s.set_order,
-                weight:    s.weight,
-                reps:      s.reps,
-                rir:       s.rir,
+                set_order:        s.set_order,
+                weight:           s.weight,
+                reps:             s.reps,
+                rir:              s.rir,
+                rpe:              s.rpe,
+                duration_seconds: s.duration_seconds,
+                distance_km:      s.distance_km,
+                incline_percent:  s.incline_percent,
+                speed_kmh:        s.speed_kmh,
             }));
             break;
         }

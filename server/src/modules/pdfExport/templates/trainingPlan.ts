@@ -1,7 +1,8 @@
 import { training_pdf_settings } from '@prisma/client';
-import { escapeHtml, formatNumber, pageBreak, renderShell, renderHeader, renderFooter, renderCoverPage, renderBackCoverPage } from './layout';
+import { escapeHtml, formatNumber, formatClock, pageBreak, renderShell, renderHeader, renderFooter, renderCoverPage, renderBackCoverPage } from './layout';
 import { chunkByHeight } from './pagination';
 import { measureBlockHeights } from '../../../lib/pdfRenderer';
+import { prescribedFieldsFor } from '../../../config/exerciseTrackingTypes';
 
 type Row = Record<string, unknown>;
 
@@ -13,30 +14,35 @@ function hasValue(v: unknown): boolean {
     return v !== null && v !== undefined && v !== '';
 }
 
-function renderSetsTable(sets: Row[]): string {
-    // Tempo/RIR are optional per exercise (not every lift is tracked with
-    // them) — showing an all-dashes column for a whole exercise's table adds
-    // visual noise with zero information, so the column is dropped entirely
-    // when none of this exercise's sets have a value for it, rather than
-    // rendering "-" in every row.
-    const hasTempo = sets.some((set) => hasValue(set.tempo));
-    const hasRir = sets.some((set) => hasValue(set.rir));
+const FIELD_LABEL: Record<string, string> = {
+    reps: 'Reps', rest_seconds: 'Rest', tempo: 'Tempo', rir: 'RIR', rpe: 'RPE',
+    duration_seconds: 'Duration', distance_km: 'Distance', incline_percent: 'Incline', speed_kmh: 'Speed',
+};
 
-    const headerCells = ['<th>Set</th>', '<th>Reps</th>', '<th>Rest</th>'];
-    if (hasTempo) headerCells.push('<th>Tempo</th>');
-    if (hasRir) headerCells.push('<th>RIR</th>');
+function formatFieldCell(field: string, value: unknown): string {
+    if (field === 'rest_seconds') return hasValue(value) ? `${formatNumber(value)}s` : '-';
+    if (field === 'duration_seconds') return hasValue(value) ? formatClock(value) : '-';
+    if (field === 'distance_km') return hasValue(value) ? `${formatNumber(value, 2)}km` : '-';
+    if (field === 'incline_percent') return hasValue(value) ? `${formatNumber(value, 1)}%` : '-';
+    if (field === 'speed_kmh') return hasValue(value) ? `${formatNumber(value, 1)}km/h` : '-';
+    if (field === 'rpe') return hasValue(value) ? formatNumber(value, 1) : '-';
+    return escapeHtml((value as string | number | null) ?? '-'); // reps/tempo/rir: free text or plain numbers
+}
+
+// Column set is entirely the coach's choice (tracked_metrics, set in the
+// exercise library) — prescribedFieldsFor() already resolves base fields +
+// the coach's selected metrics in canonical order, so there's no separate
+// "does any set actually have a value" check needed here anymore.
+function renderSetsTable(sets: Row[], exercise: Row): string {
+    const fields = prescribedFieldsFor(exercise as { tracking_type?: string | null; tracked_metrics?: string[] | null });
+
+    const headerCells = ['<th>Set</th>', ...fields.map((field) => `<th>${FIELD_LABEL[field]}</th>`)];
 
     return `<table>
     <thead><tr>${headerCells.join('')}</tr></thead>
     <tbody>
       ${sets.map((set, index) => {
-          const cells = [
-              `<td>${index + 1}</td>`,
-              `<td>${escapeHtml(set.reps ?? '-')}</td>`,
-              `<td>${set.rest_seconds !== null && set.rest_seconds !== undefined ? `${formatNumber(set.rest_seconds)}s` : '-'}</td>`,
-          ];
-          if (hasTempo) cells.push(`<td>${escapeHtml(set.tempo ?? '-')}</td>`);
-          if (hasRir) cells.push(`<td>${escapeHtml(set.rir ?? '-')}</td>`);
+          const cells = [`<td>${index + 1}</td>`, ...fields.map((field) => `<td>${formatFieldCell(field, set[field])}</td>`)];
           return `<tr>${cells.join('')}</tr>`;
       }).join('')}
     </tbody>
@@ -69,7 +75,7 @@ function renderExercise(exercise: Row, settings: training_pdf_settings): string 
     </div>
     ${thumb}
   </div>
-  ${settings.show_sets_detail ? renderSetsTable(sets) : ''}
+  ${settings.show_sets_detail ? renderSetsTable(sets, exercise) : ''}
   ${exercise.notes && settings.show_exercise_notes ? `<div class="notes">${escapeHtml(exercise.notes)}</div>` : ''}
 </div>`;
 }

@@ -127,6 +127,7 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
                 video_path:     toPublicUrl(row.video_path as string | null),
                 youtube_url: row.youtube_url, muscle_group: row.muscle_group,
                 instructions_en: row.instructions_en, instructions_ar: row.instructions_ar,
+                tracking_type: row.tracking_type, tracked_metrics: row.tracked_metrics,
                 sets: [], alternatives: [],
             });
             (daysMap.get(row.day_id as string)!.exercises as unknown[]).push(exercisesMap.get(row.exercise_id as string)!);
@@ -136,7 +137,9 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
             if (!sets?.some(s => s.id === row.set_id)) {
                 sets?.push({
                     id: row.set_id, exercise_id: row.exercise_id, set_order: row.set_order,
-                    reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir,
+                    reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir, rpe: row.rpe,
+                    duration_seconds: row.duration_seconds, distance_km: row.distance_km,
+                    incline_percent: row.incline_percent, speed_kmh: row.speed_kmh,
                 });
             }
         }
@@ -369,8 +372,9 @@ export async function getActiveTrainingPlan(req: Request, res: Response, next: N
                 te.id AS exercise_id, te.day_id AS exercise_day_id, te.name AS exercise_name, te.exercise_order,
                     te.equipment, te.notes AS exercise_notes, te.exercise_library_id,
                 el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
-                    el.instructions_en, el.instructions_ar,
-                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir,
+                    el.instructions_en, el.instructions_ar, el.tracking_type, el.tracked_metrics,
+                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir, ts.rpe,
+                    ts.duration_seconds, ts.distance_km, ts.incline_percent, ts.speed_kmh,
                 tea.id AS alt_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
                 el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
                     el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
@@ -916,12 +920,17 @@ const HISTORY_LIMIT  = 50;   // sessions returned in the history list
 const PROGRESS_LIMIT = 200;  // sessions scanned to build a progress chart
 
 const loggedSetSchema = z.object({
-    set_order:    z.number().int().nonnegative(),
-    weight:       z.number().nullable().default(null),
-    reps:         z.number().nullable().default(null),
-    rir:          z.number().nullable().default(null),
-    rest_seconds: z.number().int().nullable().default(null),
-    completed:    z.boolean().default(false),
+    set_order:        z.number().int().nonnegative(),
+    weight:           z.number().nullable().default(null),
+    reps:             z.number().nullable().default(null),
+    rir:              z.number().nullable().default(null),
+    rpe:              z.number().nullable().default(null),
+    rest_seconds:     z.number().int().nullable().default(null),
+    duration_seconds: z.number().int().nullable().default(null),
+    distance_km:      z.number().nullable().default(null),
+    incline_percent:  z.number().nullable().default(null),
+    speed_kmh:        z.number().nullable().default(null),
+    completed:        z.boolean().default(false),
 });
 
 const loggedExerciseSchema = z.object({
@@ -929,6 +938,13 @@ const loggedExerciseSchema = z.object({
     exercise_library_id: z.string().nullable().default(null),
     name:                z.string().min(1),
     note:                z.string().nullable().default(null),
+    // Snapshotted from the catalog exercise at submission time (like name/
+    // exercise_library_id already are) rather than re-derived later — a coach
+    // could change the exercise's tracking_type/tracked_metrics after a
+    // client logs it, and history/PDF must keep rendering what was actually
+    // prescribed at the time.
+    tracking_type:       z.string().nullable().default(null),
+    tracked_metrics:     z.array(z.string()).nullable().default(null),
     sets:                z.array(loggedSetSchema),
 });
 

@@ -16,8 +16,35 @@ import InlineEditField from "@/app/components/InlineEditField";
 import Typography from "@/app/components/Typography";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
+import { prescribedFieldsFor } from "@/utils/exerciseTrackingTypes";
 
 const SET_INPUT_CLASS = "h-6 px-1.5 py-0 text-sm font-semibold text-center shadow-none w-full !rounded";
+
+// i18n key ('training' namespace) per prescribable set field — see
+// exerciseTrackingTypes.js for the category -> base/selectable field config.
+const SET_FIELD_LABEL_KEY = {
+    reps: "reps",
+    rest_seconds: "rest",
+    tempo: "tempo",
+    rir: "rir",
+    rpe: "rpe",
+    duration_seconds: "duration",
+    distance_km: "distance",
+    incline_percent: "incline",
+    speed_kmh: "speed",
+};
+
+// Unit shown alongside the column header — the builder takes raw numeric
+// input (unlike the client portal, which formats duration as mm:ss for
+// display), so "sec" here means "type seconds", not a formatted clock.
+// Unitless fields (reps/tempo/rir — free text or a plain count) are omitted.
+const SET_FIELD_UNIT = {
+    rest_seconds: "sec",
+    duration_seconds: "sec",
+    distance_km: "km",
+    incline_percent: "%",
+    speed_kmh: "km/h",
+};
 
 function handleSetInputTab(e) {
     if (e.key === 'Enter') { e.target.blur(); return; }
@@ -352,42 +379,41 @@ export default function RightPanel({
                                                     </button>
                                                 </div>
 
-                                            {/* Sets table */}
+                                            {/* Sets table — columns are driven by the exercise's tracking
+                                                type (Reps & Weight / Duration / Duration + Cardio), see
+                                                exerciseTrackingTypes.js for the field list per type. */}
+                                            {(() => {
+                                            const prescribedFields = prescribedFieldsFor(exercise);
+                                            return (
                                             <Table variant="secondary" aria-label="Sets" className="sets-table mb-0">
                                                 <Table.ScrollContainer>
                                                     <Table.Content aria-label="Sets">
                                                         <Table.Header>
                                                             <Table.Column isRowHeader className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">#</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('reps')}</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('rest')}</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('tempo')}</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('rir')}</Table.Column>
+                                                            {prescribedFields.map((field) => (
+                                                                <Table.Column key={field} className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">
+                                                                    {t(SET_FIELD_LABEL_KEY[field])}
+                                                                    {SET_FIELD_UNIT[field] ? ` (${SET_FIELD_UNIT[field]})` : ""}
+                                                                </Table.Column>
+                                                            ))}
                                                             <Table.Column className="p-1.5 text-end"><span className="sr-only">Actions</span></Table.Column>
                                                         </Table.Header>
                                                         <Table.Body>
                                                             {(exercise.sets ?? []).map((set, sIdx) => (
                                                                 <Table.Row key={set.id} id={set.id} className="group/set">
                                                                     <Table.Cell className="p-1.5 text-xs text-muted">{sIdx + 1}</Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
+                                                                    {prescribedFields.map((field) => (
+                                                                        <Table.Cell key={field} className="p-1.5">
+                                                                            <TextField
+                                                                                className="min-w-0"
+                                                                                value={String(set[field] ?? "")}
+                                                                                onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, field, val)}
+                                                                                aria-label={t(SET_FIELD_LABEL_KEY[field])}
+                                                                            >
+                                                                                <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
+                                                                            </TextField>
+                                                                        </Table.Cell>
+                                                                    ))}
                                                                     <Table.Cell className="p-1.5">
                                                                         <div className="flex justify-end gap-0.5">
                                                                             <button
@@ -414,6 +440,8 @@ export default function RightPanel({
                                                     </Table.Content>
                                                 </Table.ScrollContainer>
                                             </Table>
+                                            );
+                                            })()}
 
                                             {/* Exercise notes — secondary section */}
                                             <div className="mt-5 border-t border-border/50" />

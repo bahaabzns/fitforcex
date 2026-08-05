@@ -18,7 +18,47 @@ import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { planKey, setSeenPlanKey } from "@/lib/lastSeenStore";
 import { getActiveTrainingSession } from "@/lib/trainingSessionStore";
-import { formatDuration, hasTempoValue, hasRirValue } from "@/utils/workout";
+import { formatDuration, formatClock, hasTempoValue, hasRirValue } from "@/utils/workout";
+import { categoryOf, prescribedFieldsFor } from "@/utils/exerciseTrackingTypes";
+
+// Which prescribed fields this read-only preview shows — driven entirely by
+// the coach's per-exercise metric checklist (tracked_metrics, set in the
+// exercise library), not by whether any particular set happens to have a
+// value yet. rest_seconds is never shown here (matches the pre-existing
+// behavior, which never showed a rest column either).
+const FIELD_LABEL_KEY = { reps: "reps", tempo: "tempo", rir: "rir", rpe: "rpe", duration_seconds: "duration", distance_km: "distance", incline_percent: "incline", speed_kmh: "speed" };
+function formatFieldValue(field, value) {
+    if (value == null || value === "") return "—";
+    return field === "duration_seconds" ? formatClock(value) : String(value);
+}
+// tempo's "not filled in" sentinel is the literal string "-" (see
+// useTrainingPlan.js's defaultSetFor) — a plain null/blank check alone would
+// treat that as a real value. rir has its own similar existing helper.
+function hasTargetValue(field, value) {
+    if (field === "tempo") return hasTempoValue(value);
+    if (field === "rir") return hasRirValue(value);
+    return value !== null && value !== undefined && value !== "";
+}
+
+// Precomputed whole Tailwind arbitrary-value grid templates — kept as
+// complete literal strings (never built by interpolating a variable into the
+// middle of one) so Tailwind's static scanner can find them. Sets & Reps has
+// a fixed "reps" column (1fr) plus 0-3 narrow target columns (tempo/rir/rpe,
+// coach-selected); Time-Based has 0-4 equal-width columns and no targets —
+// indexed by count either way.
+const GRID_COLS_SETS_REPS_BY_TARGET_COUNT = [
+    "grid-cols-[24px_1fr_1fr]",                 // 0 targets
+    "grid-cols-[24px_1fr_1fr_36px]",             // 1
+    "grid-cols-[24px_1fr_1fr_36px_36px]",        // 2
+    "grid-cols-[24px_1fr_1fr_36px_36px_36px]",   // 3 (tempo + rir + rpe)
+];
+const GRID_COLS_TIME_BASED_BY_COUNT = [
+    "grid-cols-[24px_1fr]",             // 0: coach selected no metrics for this exercise (edge case)
+    "grid-cols-[24px_1fr_1fr]",         // 1
+    "grid-cols-[24px_1fr_1fr_1fr]",     // 2
+    "grid-cols-[24px_1fr_1fr_1fr_1fr]", // 3
+    "grid-cols-[24px_1fr_1fr_1fr_1fr_1fr]", // 4
+];
 
 export default function ClientTrainingPage() {
     const t      = useTranslations('portal.training');
@@ -111,10 +151,17 @@ export default function ClientTrainingPage() {
         return () => { cancelled = true; };
     }, [trainingPlan, activeDayIndex]);
 
-    function previousFor(exerciseId, setOrder) {
+    function previousFor(exerciseId, setOrder, category) {
         const match = (previous[exerciseId] ?? []).find(p => p.set_order === setOrder);
-        if (!match || match.weight == null || match.reps == null) return null;
-        return `${match.weight}kg × ${match.reps}`;
+        if (!match) return null;
+        if (category === "sets_reps") {
+            if (match.weight == null || match.reps == null) return null;
+            return `${match.weight}kg × ${match.reps}`;
+        }
+        const parts = [];
+        if (match.duration_seconds != null) parts.push(formatClock(match.duration_seconds));
+        if (match.distance_km != null) parts.push(`${match.distance_km}km`);
+        return parts.length > 0 ? parts.join(" · ") : null;
     }
 
     function switchDay(i) {
@@ -322,16 +369,16 @@ export default function ClientTrainingPage() {
                                         </div>
 
                                         {(activeDay.exercises ?? []).map((exercise, exIdx) => {
-                                            const hasTempo = (exercise.sets ?? []).some(s => hasTempoValue(s.tempo));
-                                            const hasRir   = (exercise.sets ?? []).some(s => hasRirValue(s.rir));
-                                            // Fixed-width narrow columns for Set/Tempo/RIR, flexible for
-                                            // Previous/Reps — same density as the session grid, rather than
-                                            // Tailwind's equal-fraction grid-cols-N (which reads as centered
-                                            // whitespace instead of a compact table).
-                                            const gridCols = hasTempo && hasRir ? "grid-cols-[24px_1fr_1fr_40px_32px]"
-                                                : hasTempo ? "grid-cols-[24px_1fr_1fr_40px]"
-                                                : hasRir ? "grid-cols-[24px_1fr_1fr_32px]"
-                                                : "grid-cols-[24px_1fr_1fr]";
+                                            const category = categoryOf(exercise);
+                                            // Column set is entirely the coach's choice (tracked_metrics) — not
+                                            // whether a particular set happens to have a value. rest_seconds is
+                                            // prescribed but never shown here (matches pre-existing behavior).
+                                            const fields = prescribedFieldsFor(exercise).filter((f) => f !== "rest_seconds");
+                                            const primaryFields = category === "sets_reps" ? fields.filter((f) => f === "reps") : fields;
+                                            const targetFields  = category === "sets_reps" ? fields.filter((f) => f !== "reps") : [];
+                                            const gridCols = category === "sets_reps"
+                                                ? GRID_COLS_SETS_REPS_BY_TARGET_COUNT[targetFields.length]
+                                                : GRID_COLS_TIME_BASED_BY_COUNT[primaryFields.length];
                                             return (
                                             <div key={exercise.id}>
                                                 {exIdx > 0 && <div className="my-4 border-t border-border/50" />}
@@ -401,18 +448,24 @@ export default function ClientTrainingPage() {
                                                         <div className={`grid ${gridCols} gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/50 pb-1`}>
                                                             <span className="text-center truncate">{t('set')}</span>
                                                             <span className="text-center truncate">{t('previous')}</span>
-                                                            <span className="text-center truncate">{t('reps')}</span>
-                                                            {hasTempo && <span className="text-center truncate">{t('tempo')}</span>}
-                                                            {hasRir && <span className="text-center truncate">{t('rir')}</span>}
+                                                            {primaryFields.map((field) => (
+                                                                <span key={field} className="text-center truncate">{t(FIELD_LABEL_KEY[field])}</span>
+                                                            ))}
+                                                            {targetFields.map((field) => (
+                                                                <span key={field} className="text-center truncate">{t(FIELD_LABEL_KEY[field])}</span>
+                                                            ))}
                                                         </div>
                                                         <div className="flex flex-col divide-y divide-border/30">
                                                             {exercise.sets.map((set, sIdx) => (
                                                                 <div key={set.id} className={`grid ${gridCols} gap-1.5 items-center py-1.5`}>
                                                                     <span className="text-xs text-muted-foreground/60 text-center">{sIdx + 1}</span>
-                                                                    <span className="text-[10px] text-muted-foreground/50 text-center truncate">{previousFor(exercise.id, set.set_order) ?? "—"}</span>
-                                                                    <span className="text-xs text-muted-foreground text-center">{set.reps || "—"}</span>
-                                                                    {hasTempo && <span className="text-xs text-muted-foreground text-center truncate">{hasTempoValue(set.tempo) ? set.tempo : "—"}</span>}
-                                                                    {hasRir && <span className="text-xs text-muted-foreground text-center">{set.rir != null ? set.rir : "—"}</span>}
+                                                                    <span className="text-[10px] text-muted-foreground/50 text-center truncate">{previousFor(exercise.id, set.set_order, category) ?? "—"}</span>
+                                                                    {primaryFields.map((field) => (
+                                                                        <span key={field} className="text-xs text-muted-foreground text-center truncate">{formatFieldValue(field, set[field])}</span>
+                                                                    ))}
+                                                                    {targetFields.map((field) => (
+                                                                        <span key={field} className="text-xs text-muted-foreground text-center truncate">{hasTargetValue(field, set[field]) ? set[field] : "—"}</span>
+                                                                    ))}
                                                                 </div>
                                                             ))}
                                                         </div>

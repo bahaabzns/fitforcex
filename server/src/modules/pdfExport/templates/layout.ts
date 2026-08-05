@@ -18,6 +18,16 @@ export function formatNumber(value: unknown, fractionDigits = 0): string {
     return n.toFixed(fractionDigits);
 }
 
+/** Seconds -> "M:SS" for a duration-tracked set (e.g. a plank hold or a treadmill run). */
+export function formatClock(value: unknown): string {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return '-';
+    const total = Math.round(n);
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 // A plain structural type (not derived from one Prisma model) — both
 // nutrition_pdf_settings and training_pdf_settings have this exact field
 // shape for the concerns shared across plan types, and are fully independent

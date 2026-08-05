@@ -110,6 +110,102 @@ describe('Workout logs — client portal', () => {
         expect(res.status).toBe(404);
     });
 
+    test('saves a time-based session (no weight/reps) — total_sets counts it, volume stays 0', async () => {
+        const res = await request
+            .post('/api/client-portal/workout-logs')
+            .set('Cookie', cookieA)
+            .send(logPayload({
+                exercises: [
+                    {
+                        exercise_id:         'ex2',
+                        exercise_library_id: 'lib3',
+                        name:                'Plank',
+                        note:                null,
+                        tracking_type:       'time_based',
+                        tracked_metrics:     ['duration_seconds'],
+                        sets: [{ set_order: 1, weight: null, reps: null, rir: null, rest_seconds: 30, duration_seconds: 45, completed: true }],
+                    },
+                ],
+            }));
+        expect(res.status).toBe(201);
+        expect(res.body.total_sets).toBe(1);
+        expect(res.body.total_volume).toBe(0);
+
+        const rows = await testPrisma.workout_logs.findMany({ where: { client_id: clientA.id } });
+        const savedExercise = (rows[0].exercises as Array<Record<string, unknown>>)[0];
+        expect(savedExercise.tracking_type).toBe('time_based');
+        expect(savedExercise.tracked_metrics).toEqual(['duration_seconds']);
+        expect((savedExercise.sets as Array<Record<string, unknown>>)[0].duration_seconds).toBe(45);
+    });
+
+    test('saves a time-based cardio session with distance/incline/speed fields', async () => {
+        const res = await request
+            .post('/api/client-portal/workout-logs')
+            .set('Cookie', cookieA)
+            .send(logPayload({
+                exercises: [
+                    {
+                        exercise_id:         'ex3',
+                        exercise_library_id: 'lib4',
+                        name:                'Treadmill Run',
+                        note:                null,
+                        tracking_type:       'time_based',
+                        tracked_metrics:     ['duration_seconds', 'distance_km', 'incline_percent', 'speed_kmh'],
+                        sets: [{
+                            set_order: 1, weight: null, reps: null, rir: null, rest_seconds: null,
+                            duration_seconds: 1200, distance_km: 3.2, incline_percent: 1.5, speed_kmh: 9.5, completed: true,
+                        }],
+                    },
+                ],
+            }));
+        expect(res.status).toBe(201);
+
+        const rows = await testPrisma.workout_logs.findMany({ where: { client_id: clientA.id } });
+        const savedSet = ((rows[0].exercises as Array<Record<string, unknown>>)[0].sets as Array<Record<string, unknown>>)[0];
+        expect(savedSet.distance_km).toBe(3.2);
+        expect(savedSet.incline_percent).toBe(1.5);
+        expect(savedSet.speed_kmh).toBe(9.5);
+    });
+
+    test('saves an rpe value on a Sets & Reps set', async () => {
+        const res = await request
+            .post('/api/client-portal/workout-logs')
+            .set('Cookie', cookieA)
+            .send(logPayload({
+                exercises: [
+                    {
+                        exercise_id:         'ex4',
+                        exercise_library_id: 'lib5',
+                        name:                'Overhead Press',
+                        note:                null,
+                        tracking_type:       'sets_reps',
+                        tracked_metrics:     ['rpe'],
+                        sets: [{ set_order: 1, weight: 40, reps: 8, rir: null, rpe: 8.5, rest_seconds: 90, completed: true }],
+                    },
+                ],
+            }));
+        expect(res.status).toBe(201);
+
+        const rows = await testPrisma.workout_logs.findMany({ where: { client_id: clientA.id } });
+        const savedSet = ((rows[0].exercises as Array<Record<string, unknown>>)[0].sets as Array<Record<string, unknown>>)[0];
+        expect(savedSet.rpe).toBe(8.5);
+    });
+
+    test('rejects a non-numeric duration_seconds with 400', async () => {
+        const res = await request
+            .post('/api/client-portal/workout-logs')
+            .set('Cookie', cookieA)
+            .send(logPayload({
+                exercises: [
+                    {
+                        exercise_id: 'ex2', exercise_library_id: 'lib3', name: 'Plank', note: null,
+                        sets: [{ set_order: 1, weight: null, reps: null, rir: null, rest_seconds: null, duration_seconds: 'forty-five', completed: true }],
+                    },
+                ],
+            }));
+        expect(res.status).toBe(400);
+    });
+
     test('returns progress + logged exercises for a logged exercise', async () => {
         await seedLog(clientA.id, workspaceId);
 
