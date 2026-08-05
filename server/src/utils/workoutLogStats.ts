@@ -95,8 +95,18 @@ export function matchesExercise(a: ExerciseKey, b: ExerciseKey): boolean {
     return false;
 }
 
+// A set only needs `completed` to count toward totals/counts — it must NOT
+// also require weight/reps, or a completed duration/cardio set (weight and
+// reps both null, see exerciseTrackingTypes.ts) is silently dropped from
+// every stat (total_sets, volume, PRs, "previous" hints). Bug fix: this used
+// to require weight/reps here too.
 function completedSets(exercise: LoggedExercise): LoggedSet[] {
-    return (exercise.sets ?? []).filter(s => s.completed && s.weight != null && s.reps != null);
+    return (exercise.sets ?? []).filter(s => s.completed);
+}
+
+/** The subset of completed sets that weight-based stats (volume, 1RM, PRs) can actually be computed from. */
+function completedWeightSets(exercise: LoggedExercise): LoggedSet[] {
+    return completedSets(exercise).filter(s => s.weight != null && s.reps != null);
 }
 
 /** Roll a single logged session up into headline numbers for list views. */
@@ -107,8 +117,11 @@ export function summarizeLog(log: WorkoutLogRow): LogSummary {
 
     for (const exercise of exercises) {
         for (const set of completedSets(exercise)) {
-            totalVolume += (set.weight as number) * (set.reps as number);
-            totalSets   += 1;
+            totalSets += 1;
+            // Volume is weight × reps — skip the math (not the set) when either is absent.
+            if (set.weight != null && set.reps != null) {
+                totalVolume += set.weight * set.reps;
+            }
         }
     }
 
@@ -148,7 +161,11 @@ export function buildExerciseProgress(logs: WorkoutLogRow[], key: ExerciseKey): 
         const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
         if (!exercise) continue;
 
-        const sets = completedSets(exercise);
+        // Weight-based progress (top weight, est. 1RM, volume) only makes
+        // sense for sets that actually have weight/reps — duration/cardio
+        // sessions simply don't contribute a point here (see §7/deferred:
+        // type-aware progress analytics for those types is a later pass).
+        const sets = completedWeightSets(exercise);
         if (sets.length === 0) continue;
 
         let topWeight   = 0;
@@ -252,7 +269,7 @@ export function computePersonalRecords(
     for (const log of logs) {
         const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
         if (!exercise) continue;
-        for (const set of completedSets(exercise)) {
+        for (const set of completedWeightSets(exercise)) {
             const vol = (set.weight as number) * (set.reps as number);
             if (!bestSet || vol > bestSet.weight * bestSet.reps) {
                 bestSet = { weight: set.weight as number, reps: set.reps as number, rir: set.rir, date: toDateString(log.date) };
@@ -323,7 +340,7 @@ export function extractRecentSessions(logs: WorkoutLogRow[], key: ExerciseKey, l
     for (const log of sorted) {
         const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
         if (!exercise) continue;
-        const sets = completedSets(exercise);
+        const sets = completedWeightSets(exercise);
         let bestSet: { weight: number; reps: number; rir: number | null } | null = null;
         for (const set of sets) {
             const vol = (set.weight as number) * (set.reps as number);

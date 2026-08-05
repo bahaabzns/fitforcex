@@ -12,6 +12,12 @@ function set(order: number, weight: number | null, reps: number | null, complete
     return { set_order: order, weight, reps, rir: null, rpe: null, rest_seconds: null, completed };
 }
 
+// A completed duration-tracked set (e.g. a plank hold) has no weight/reps at
+// all — see exerciseTrackingTypes.ts. completedSets() must still count it.
+function durationSet(order: number, durationSeconds: number | null, completed = true) {
+    return { set_order: order, weight: null, reps: null, rir: null, rpe: null, rest_seconds: null, duration_seconds: durationSeconds, completed };
+}
+
 const benchLog: WorkoutLogRow = {
     id:         'log1',
     date:       '2026-06-01',
@@ -57,6 +63,39 @@ describe('summarizeLog', () => {
     test('duration is null when timestamps are missing', () => {
         expect(summarizeLog({ ...benchLog, end_time: null }).duration_seconds).toBeNull();
     });
+
+    // Regression test: completedSets() used to require weight AND reps to be
+    // non-null before a set counted as "completed" at all, which silently
+    // dropped duration/cardio-tracked sets (weight/reps are always null for
+    // those) from total_sets, volume, and every other stat. A completed set
+    // must count toward total_sets/exercise_count regardless of its tracking
+    // type — only the weight×reps volume math is skipped when either is null.
+    test('counts a completed duration-tracked set (no weight/reps) toward total_sets, without crashing on volume', () => {
+        const plankLog: WorkoutLogRow = {
+            id: 'log3', date: '2026-06-15', start_time: null, end_time: null,
+            exercises: [
+                { exercise_id: 'p', exercise_library_id: 'lib3', name: 'Plank', note: null, sets: [durationSet(1, 45), durationSet(2, 45), durationSet(3, 30, false)] },
+            ],
+        };
+        const summary = summarizeLog(plankLog);
+        expect(summary.total_sets).toBe(2);      // 2 completed, 1 not — same "completed only" rule as weight-based sets
+        expect(summary.total_volume).toBe(0);    // no weight/reps to compute volume from
+        expect(summary.exercise_count).toBe(1);
+    });
+
+    test('mixed session: weight-based volume is unaffected by a duration-tracked exercise alongside it', () => {
+        const mixedLog: WorkoutLogRow = {
+            ...benchLog,
+            exercises: [
+                ...benchLog.exercises,
+                { exercise_id: 'p', exercise_library_id: 'lib3', name: 'Plank', note: null, sets: [durationSet(1, 45)] },
+            ],
+        };
+        const summary = summarizeLog(mixedLog);
+        expect(summary.total_volume).toBe(1580); // unchanged from the weight-only benchLog case
+        expect(summary.total_sets).toBe(4);      // 3 weight-based + 1 duration-based completed set
+        expect(summary.exercise_count).toBe(3);
+    });
 });
 
 describe('buildExerciseProgress', () => {
@@ -76,6 +115,13 @@ describe('buildExerciseProgress', () => {
     });
     test('skips sessions without the exercise', () => {
         expect(buildExerciseProgress([benchLog], { exercise_library_id: 'missing' })).toHaveLength(0);
+    });
+    test('skips a session where the only completed sets are duration-tracked (no weight/reps to chart)', () => {
+        const plankOnly: WorkoutLogRow = {
+            id: 'log4', date: '2026-06-20', start_time: null, end_time: null,
+            exercises: [{ exercise_id: 'p', exercise_library_id: 'lib3', name: 'Plank', note: null, sets: [durationSet(1, 45)] }],
+        };
+        expect(buildExerciseProgress([plankOnly], { exercise_library_id: 'lib3' })).toHaveLength(0);
     });
 });
 
