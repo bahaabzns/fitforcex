@@ -510,3 +510,22 @@
   margin-right: 0 !important;
   margin-left: 0.75rem !important;
 }
+
+/* Bug 8 — Modal close trigger: HeroUI pins the X button with physical
+   `right-4`, so it stays glued to the visual right (the reading-start side
+   in RTL) instead of moving to the far corner opposite the title. Mirror it
+   to the left. */
+[dir="rtl"] .modal__close-trigger {
+  right: auto !important;
+  left: 1rem !important;
+}
+
+/* Bug 9 — Tooltip content: HeroUI sets `break-all`, which force-splits
+   individual words (Arabic included) mid-character whenever the tooltip's
+   max-width is narrower than the content, instead of wrapping at the next
+   word boundary. Not RTL-specific — restores normal wrapping either
+   direction, only breaking a single word if it truly has nowhere else to go. */
+.tooltip {
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
