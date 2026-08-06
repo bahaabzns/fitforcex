@@ -650,6 +650,21 @@ async function migrateMissingTrainingPlans() {
   const validWorkspaces = await existingIds('workspaces');
   const validClients = await existingIds('clients');
 
+  // .io's duration/cardio data lives entirely on WorkoutPlanDayItem
+  // (isCardio, durationSeconds, sets), per-usage rather than per-exercise-
+  // definition -- Exercise.isCardio is frequently false even for genuinely
+  // cardio exercises. See backfill-cardio-tracking-type.ts for the
+  // historical fix this complements; this set drives the same "does any
+  // usage mark this exercise as cardio" signal for new exercise_library
+  // inserts below.
+  const { rows: cardioExerciseRows } = await old.query<{ exercise_id: string }>(`
+    SELECT DISTINCT e.id AS exercise_id
+    FROM public."WorkoutPlanDayItem" di
+    JOIN public."Exercise" e ON e.id = di."exerciseId"
+    WHERE di."deletedAt" IS NULL AND di."isCardio" = true AND e."deletedAt" IS NULL
+  `);
+  const cardioExerciseIds = new Set(cardioExerciseRows.map(r => r.exercise_id));
+
   const { rows: plans } = await old.query<{
     id: string; workspaceId: string; clientId: string; title: string; status: string;
     createdAt: string; updatedAt: string; activatedAt: string | null;
@@ -749,6 +764,8 @@ async function migrateMissingTrainingPlans() {
           id: e.id, workspace_id: e.workspaceId, name_en: e.name, name_ar: e.nameArabic ?? undefined,
           muscle_group: e.muscleGroup, equipment: e.equipmentNeeded ?? undefined,
           youtube_url: e.videoUrl ?? undefined, thumbnail_path: e.gifImage ?? undefined,
+          tracking_type: cardioExerciseIds.has(e.id) ? 'time_based' : undefined,
+          tracked_metrics: cardioExerciseIds.has(e.id) ? ['duration_seconds'] : undefined,
           created_at: new Date(e.createdAt), updated_at: new Date(e.createdAt),
         })),
         skipDuplicates: true,
@@ -801,23 +818,54 @@ async function migrateMissingTrainingPlans() {
   const missingSets = sets.filter(s => !existingSets.has(s.id));
   const validSets = missingSets.filter(s => validExerciseIds.has(s.dayItemId));
   log(`training_sets: ${sets.length} total, ${missingSets.length} missing, ${validSets.length} valid`);
-  if (DRY_RUN || validSets.length === 0) return;
-
-  await inBatches(validSets, async (batch) => {
-    await prisma.training_sets.createMany({
-      data: batch.map(s => {
-        const reps = s.repMin !== null && s.repMax !== null && s.repMin !== s.repMax
-          ? `${s.repMin}-${s.repMax}` : s.repMin !== null ? String(s.repMin) : null;
-        return {
-          id: s.id, exercise_id: s.dayItemId, set_order: s.setIndex,
-          reps: reps ?? undefined, rir: s.rir ?? undefined, tempo: s.tempo ?? undefined,
-          rest_seconds: s.restSeconds ?? undefined,
-        };
-      }),
-      skipDuplicates: true,
+  if (!DRY_RUN && validSets.length > 0) {
+    await inBatches(validSets, async (batch) => {
+      await prisma.training_sets.createMany({
+        data: batch.map(s => {
+          const reps = s.repMin !== null && s.repMax !== null && s.repMin !== s.repMax
+            ? `${s.repMin}-${s.repMax}` : s.repMin !== null ? String(s.repMin) : null;
+          return {
+            id: s.id, exercise_id: s.dayItemId, set_order: s.setIndex,
+            reps: reps ?? undefined, rir: s.rir ?? undefined, tempo: s.tempo ?? undefined,
+            rest_seconds: s.restSeconds ?? undefined,
+          };
+        }),
+        skipDuplicates: true,
+      });
     });
+  }
+
+  // Cardio/duration items never have a granular WorkoutPlanSet row in .io at
+  // all -- their prescription lives entirely on the WorkoutPlanDayItem
+  // itself (isCardio, durationSeconds, sets count). Synthesize `sets` rows
+  // of training_sets (duration_seconds only) for any such item that's newly
+  // valid this run and still has zero sets. See
+  // backfill-cardio-tracking-type.ts for the historical equivalent.
+  const { rows: cardioItems } = await old.query<{ id: string; sets: number; durationSeconds: number | null }>(`
+    SELECT id, sets, "durationSeconds" FROM public."WorkoutPlanDayItem"
+    WHERE "deletedAt" IS NULL AND "isCardio" = true AND "durationSeconds" IS NOT NULL AND sets > 0
+  `);
+  const cardioItemsValid = cardioItems.filter(c => validExerciseIds.has(c.id));
+  const hasSets = await prisma.training_sets.findMany({
+    where: { exercise_id: { in: cardioItemsValid.map(c => c.id) } },
+    select: { exercise_id: true },
+    distinct: ['exercise_id'],
   });
-  log(`training_plans chain: inserted ${validPlans.length} plans, ${validDays.length} days, ${validExercisesRows.length} exercises, ${validSets.length} sets`);
+  const hasSetsIds = new Set(hasSets.map(r => r.exercise_id));
+  const cardioToBackfill = cardioItemsValid.filter(c => !hasSetsIds.has(c.id));
+  const cardioSetsToInsert = cardioToBackfill.flatMap(c =>
+    Array.from({ length: c.sets }, (_, i) => ({
+      id: createId(), exercise_id: c.id, set_order: i + 1, duration_seconds: c.durationSeconds,
+    }))
+  );
+  log(`training_sets (cardio): ${cardioToBackfill.length} item(s) needing synthesized sets, ${cardioSetsToInsert.length} set row(s)`);
+  if (!DRY_RUN && cardioSetsToInsert.length > 0) {
+    await inBatches(cardioSetsToInsert, async (batch) => {
+      await prisma.training_sets.createMany({ data: batch, skipDuplicates: true });
+    });
+  }
+
+  log(`training_plans chain: inserted ${validPlans.length} plans, ${validDays.length} days, ${validExercisesRows.length} exercises, ${validSets.length} sets, ${cardioSetsToInsert.length} cardio sets`);
 }
 
 // ─── 10. workout_logs ───────────────────────────────────────────────────────────
