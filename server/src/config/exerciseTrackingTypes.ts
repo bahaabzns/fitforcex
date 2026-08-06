@@ -127,8 +127,14 @@ export function prescribedFieldsFor(exercise: { tracking_type?: string | null; t
 export function loggedFieldsFor(exercise: { tracking_type?: string | null; tracked_metrics?: string[] | null } | null | undefined): TrackingField[] {
     const category = categoryOf(exercise);
     const cfg = CATEGORY_CONFIG[category];
-    const selected = cfg.selectableIsLoggable ? trackedMetricsOf(exercise) : [];
-    return cfg.fieldOrder.filter((field) => cfg.loggedBaseFields.includes(field) || selected.includes(field));
+    // loggedBaseFields can include fields (weight) that aren't in fieldOrder
+    // at all — fieldOrder is the *prescribed* canonical order, and weight has
+    // no prescribed counterpart. Only the selectable-metric portion needs
+    // fieldOrder to preserve display order; the base fields are used as-is.
+    const orderedSelected = cfg.selectableIsLoggable
+        ? cfg.fieldOrder.filter((field) => trackedMetricsOf(exercise).includes(field))
+        : [];
+    return [...cfg.loggedBaseFields, ...orderedSelected];
 }
 
 /** Prescribed fields shown as a read-only target during logging (in prescribedFieldsFor but not editable) — e.g. tempo/rir/rpe. */
