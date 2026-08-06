@@ -529,3 +529,20 @@
   overflow-wrap: break-word !important;
   word-break: normal !important;
 }
+
+/* Bug 10 — Popover/Tooltip stacking above Modal: neither .popover nor
+   .tooltip sets a z-index at all (position is set inline by React Aria for
+   anchoring, but stacking order relies on DOM/portal order only), while
+   Modal sets an explicit z-50 on itself. Per CSS stacking rules, a sibling
+   with a positive z-index always paints above one with z-index:auto,
+   regardless of DOM order — so a Popover/Tooltip opened from inside a Modal
+   (e.g. a "New Feature" hint next to a form field, or a plain Tooltip)
+   rendered BEHIND the modal's own content. That let anything underneath it
+   (a text field, a button) swallow clicks meant for the popover itself —
+   e.g. its "Got it" dismiss button became unclickable. Give both a z-index
+   comfortably above any modal so an overlay opened from within another
+   overlay always wins. */
+.popover,
+.tooltip {
+  z-index: 60;
+}
