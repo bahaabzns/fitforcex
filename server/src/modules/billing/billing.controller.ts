@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
 import { createId } from '@paralleldrive/cuid2';
-import { getInvoiceStatus } from '../../lib/fawaterak';
-import { env } from '../../config/env';
+import * as paymob from '../../lib/paymob';
 import { prisma } from '../../lib/prisma';
 import pool from '../../db';
 import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
@@ -10,21 +8,26 @@ import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
 import { getEffectiveLimits } from '../../lib/seatLimits';
 import { getWorkspaceAccessStatus } from '../../middleware/subscriptionAccessGate';
 
+// Paymob's "Transaction Response Callback" — the browser-side redirect after a card payment,
+// fixed per integration in the Paymob dashboard (unlike Fawaterak's old per-request successUrl).
+// Paymob appends its own flat query params (merchant_order_id, success, hmac, source_data.*, …);
+// `order` arrives as a bare id, not nested, so it's normalized to `{ order: { id } }` to match
+// the shape verifyWebhookHmac expects from the server-to-server webhook body.
 export async function handleCallback(req: Request, res: Response) {
-    const { p: paymentId, sig } = req.query as { p?: string; sig?: string };
-    if (!paymentId || !sig || !env.JWT_SECRET) {
+    const query = req.query as Record<string, string>;
+    const { merchant_order_id: paymentId, success, hmac, order } = query;
+    const normalized = { ...query, order: { id: order } };
+
+    if (!paymentId || !hmac || !paymob.verifyWebhookHmac(normalized, hmac)) {
         return res.status(400).send('<p>Invalid request.</p>');
     }
-    const expected = crypto.createHmac('sha256', env.JWT_SECRET).update(String(paymentId)).digest('hex');
-    if (sig !== expected) {
-        return res.status(400).send('<p>Invalid signature.</p>');
-    }
+
     try {
         const payment = await prisma.workspace_payments.findUnique({
             where: { id: paymentId },
             select: { workspace_id: true },
         });
-        if (payment) {
+        if (payment && success === 'true') {
             await applyPayment(paymentId, payment.workspace_id);
             console.log('[Callback] Payment', paymentId, '→ activated via success redirect');
         }
@@ -61,7 +64,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 where: { workspace_id: req.user!.workspaceId },
                 select: {
                     id: true, amount: true, currency: true, duration_days: true,
-                    fawaterak_status: true, created_at: true, paid_at: true,
+                    gateway_status: true, created_at: true, paid_at: true,
                     plans: { select: { display_name: true } },
                     plan_variations: { select: { max_clients: true, max_team_seats: true } },
                     addons: { select: { label: true } },
@@ -180,27 +183,57 @@ export async function getAvailableAddons(req: Request, res: Response, next: Next
     } catch (err) { next(err); }
 }
 
+type PaymentMethod = 'card' | 'wallet' | 'fawry';
+
+function resolvePaymentMethod(raw: string | undefined): PaymentMethod {
+    return raw === 'wallet' ? 'wallet' : raw === 'fawry' ? 'fawry' : 'card';
+}
+
+// Dispatches to the right Paymob checkout and normalizes the three shapes (iframe URL / wallet
+// redirect URL / Fawry cash reference code) into one result the caller can persist + return
+// without needing to know which method produced it. Shared by createInvoice and
+// createAddonInvoice — both branch on the same three methods.
+async function runCheckout(
+    method: PaymentMethod,
+    checkoutBase: { amount: number; currency: string; merchantOrderId: string; coachName: string; coachEmail: string; coachPhone?: string },
+    walletPhoneNumber?: string
+): Promise<{ orderId: string; paymentUrl?: string; referenceCode?: string }> {
+    if (method === 'wallet') {
+        const { orderId, redirectUrl } = await paymob.createWalletCheckout({ ...checkoutBase, walletPhoneNumber: walletPhoneNumber!.trim() });
+        return { orderId, paymentUrl: redirectUrl };
+    }
+    if (method === 'fawry') {
+        const { orderId, referenceCode } = await paymob.createFawryCheckout(checkoutBase);
+        return { orderId, referenceCode };
+    }
+    const { orderId, iframeUrl } = await paymob.createCardCheckout(checkoutBase);
+    return { orderId, paymentUrl: iframeUrl };
+}
+
 export async function createInvoice(req: Request, res: Response, next: NextFunction) {
-    const { planId, variationId } = req.body as { planId?: string; variationId?: string };
+    const { planId, variationId, paymentMethod, walletPhoneNumber } = req.body as {
+        planId?: string; variationId?: string; paymentMethod?: string; walletPhoneNumber?: string;
+    };
     if (!planId || !variationId) return res.status(400).json({ error: 'planId and variationId are required' });
+    const method = resolvePaymentMethod(paymentMethod);
+    if (method === 'wallet' && !walletPhoneNumber?.trim()) {
+        return res.status(400).json({ error: 'walletPhoneNumber is required for wallet payments' });
+    }
 
     try {
-        const [plan, variation] = await Promise.all([
+        const [plan, variation, coach] = await Promise.all([
             prisma.plans.findFirst({ where: { id: planId, is_active: true } }),
             prisma.plan_variations.findFirst({ where: { id: variationId, plan_id: planId, is_active: true } }),
+            prisma.users.findUnique({ where: { id: req.user!.userId }, select: { fname: true, lname: true, email: true, phone: true } }),
         ]);
         if (!plan) return res.status(404).json({ error: 'Plan not found' });
         if (!variation) return res.status(404).json({ error: 'Plan variation not found' });
+        if (!coach) return res.status(404).json({ error: 'Coach account not found' });
 
         await checkVariationSwitchAllowed(req.user!.workspaceId, {
             max_clients:    variation.max_clients,
             max_team_seats: variation.max_team_seats ?? plan.max_team_seats,
         });
-
-        const paymentLink = variation.payment_link || plan.payment_link;
-        if (!paymentLink) {
-            return res.status(400).json({ error: 'No payment link configured for this variation. Contact support.' });
-        }
 
         // Renewing the same variation charges the workspace's locked-in price, not the
         // variation's current public price (decision 5) — switching to a different
@@ -241,30 +274,35 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
         const paymentId = createId();
         await prisma.workspace_payments.create({
             data: {
-                id:               paymentId,
-                workspace_id:     req.user!.workspaceId,
-                plan_id:          plan.id,
-                variation_id:     variation.id,
-                amount:           finalAmount,
+                id:             paymentId,
+                workspace_id:   req.user!.workspaceId,
+                plan_id:        plan.id,
+                variation_id:   variation.id,
+                amount:         finalAmount,
                 currency,
-                duration_days:    plan.duration_days,
-                fawaterak_status: 'pending',
-                credit_applied:   creditApplied,
+                duration_days:  plan.duration_days,
+                gateway_status: 'pending',
+                payment_method: method,
+                credit_applied: creditApplied,
             },
         });
 
-        const sig = crypto.createHmac('sha256', env.JWT_SECRET).update(String(paymentId)).digest('hex');
-        const callbackUrl = `${env.SERVER_URL}/api/billing/callback?p=${paymentId}&sig=${sig}`;
-        const sep = paymentLink.includes('?') ? '&' : '?';
-        const paymentUrl = `${paymentLink}${sep}customerRef=${paymentId}&successUrl=${encodeURIComponent(callbackUrl)}`;
+        const coachName = `${coach.fname ?? ''} ${coach.lname ?? ''}`.trim() || coach.email;
+        const checkoutBase = { amount: finalAmount, currency, merchantOrderId: paymentId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
+        const checkout = await runCheckout(method, checkoutBase, walletPhoneNumber);
 
+        // Fawry has no URL to store, only a reference code — reuse gateway_payment_url as the
+        // generic "however the customer completes this" display value (DEBT.md notes this is
+        // a repurposed field name, not a schema change).
         await prisma.workspace_payments.update({
             where: { id: paymentId },
-            data:  { fawaterak_payment_url: paymentUrl },
+            data:  { gateway_payment_url: checkout.paymentUrl ?? checkout.referenceCode, gateway_reference_id: checkout.orderId },
         });
 
         res.json({
-            paymentUrl, paymentId,
+            paymentId, paymentMethod: method,
+            paymentUrl:     checkout.paymentUrl ?? null,
+            referenceCode:  checkout.referenceCode ?? null,
             creditApplied,
             amountCharged:  finalAmount,
             listPrice:      creditApplied != null ? amount : null,
@@ -284,12 +322,22 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
 // A plan needs an explicit rule row to buy ANY add-on at all — allowlist, not denylist, so a
 // new plan never accidentally inherits add-on support it wasn't meant to have.
 export async function createAddonInvoice(req: Request, res: Response, next: NextFunction) {
-    const { addonId } = req.body as { addonId?: string };
+    const { addonId, paymentMethod, walletPhoneNumber } = req.body as {
+        addonId?: string; paymentMethod?: string; walletPhoneNumber?: string;
+    };
     if (!addonId) return res.status(400).json({ error: 'addonId is required' });
+    const method = resolvePaymentMethod(paymentMethod);
+    if (method === 'wallet' && !walletPhoneNumber?.trim()) {
+        return res.status(400).json({ error: 'walletPhoneNumber is required for wallet payments' });
+    }
 
     try {
-        const addon = await prisma.addons.findFirst({ where: { id: addonId, is_active: true } });
+        const [addon, coach] = await Promise.all([
+            prisma.addons.findFirst({ where: { id: addonId, is_active: true } }),
+            prisma.users.findUnique({ where: { id: req.user!.userId }, select: { fname: true, lname: true, email: true, phone: true } }),
+        ]);
         if (!addon) return res.status(404).json({ error: 'Add-on not found' });
+        if (!coach) return res.status(404).json({ error: 'Coach account not found' });
 
         const sub = await prisma.workspace_subscriptions.findUnique({
             where:  { workspace_id: req.user!.workspaceId },
@@ -312,39 +360,38 @@ export async function createAddonInvoice(req: Request, res: Response, next: Next
             }
         }
 
-        const paymentLink = addon.payment_link;
-        if (!paymentLink) {
-            return res.status(400).json({ error: 'No payment link configured for this add-on. Contact support.' });
-        }
-
         const paymentId = createId();
         await prisma.workspace_payments.create({
             data: {
-                id:               paymentId,
-                workspace_id:     req.user!.workspaceId,
-                plan_id:          sub.plan_id,
-                addon_id:         addon.id,
-                amount:           Number(addon.price_monthly),
-                currency:         addon.currency,
+                id:             paymentId,
+                workspace_id:   req.user!.workspaceId,
+                plan_id:        sub.plan_id,
+                addon_id:       addon.id,
+                amount:         Number(addon.price_monthly),
+                currency:       addon.currency,
                 // Reused as "billing cycle length" for the extension math on this purchase —
                 // not "days this add-on lasts" (add-ons don't expire independently of the
                 // subscription); see applyPayment's add-on branch.
-                duration_days:    sub.plans.duration_days,
-                fawaterak_status: 'pending',
+                duration_days:  sub.plans.duration_days,
+                gateway_status: 'pending',
+                payment_method: method,
             },
         });
 
-        const sig = crypto.createHmac('sha256', env.JWT_SECRET).update(String(paymentId)).digest('hex');
-        const callbackUrl = `${env.SERVER_URL}/api/billing/callback?p=${paymentId}&sig=${sig}`;
-        const sep = paymentLink.includes('?') ? '&' : '?';
-        const paymentUrl = `${paymentLink}${sep}customerRef=${paymentId}&successUrl=${encodeURIComponent(callbackUrl)}`;
+        const coachName = `${coach.fname ?? ''} ${coach.lname ?? ''}`.trim() || coach.email;
+        const checkoutBase = { amount: Number(addon.price_monthly), currency: addon.currency, merchantOrderId: paymentId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
+        const checkout = await runCheckout(method, checkoutBase, walletPhoneNumber);
 
         await prisma.workspace_payments.update({
             where: { id: paymentId },
-            data:  { fawaterak_payment_url: paymentUrl },
+            data:  { gateway_payment_url: checkout.paymentUrl ?? checkout.referenceCode, gateway_reference_id: checkout.orderId },
         });
 
-        res.json({ paymentUrl, paymentId });
+        res.json({
+            paymentId, paymentMethod: method,
+            paymentUrl: checkout.paymentUrl ?? null,
+            referenceCode: checkout.referenceCode ?? null,
+        });
     } catch (err) {
         const httpErr = err as { status?: number; message?: string };
         if (httpErr.status) return res.status(httpErr.status).json({ error: httpErr.message });
@@ -357,7 +404,7 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
         const paymentRow = await prisma.workspace_payments.findFirst({
             where: { id: req.params.paymentId as string, workspace_id: req.user!.workspaceId },
             select: {
-                id: true, fawaterak_status: true, fawaterak_invoice_id: true,
+                id: true, gateway_status: true, gateway_reference_id: true,
                 amount: true, currency: true, paid_at: true,
                 plans: { select: { display_name: true } },
                 addons: { select: { label: true } },
@@ -366,16 +413,16 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
 
         if (!paymentRow) return res.status(404).json({ error: 'Payment not found' });
 
-        let currentStatus = paymentRow.fawaterak_status;
-        if (currentStatus === 'pending' && paymentRow.fawaterak_invoice_id) {
+        let currentStatus = paymentRow.gateway_status;
+        if (currentStatus === 'pending' && paymentRow.gateway_reference_id) {
             try {
-                const fawData = await getInvoiceStatus(paymentRow.fawaterak_invoice_id) as Record<string, unknown> | null;
-                if (fawData?.status === 'paid') {
+                const txStatus = await paymob.getTransactionStatus(paymentRow.gateway_reference_id);
+                if (txStatus?.success) {
                     await applyPayment(paymentRow.id, req.user!.workspaceId);
                     currentStatus = 'paid';
                 }
             } catch {
-                // Fawaterak unreachable — webhook will arrive shortly
+                // Paymob unreachable — webhook will arrive shortly
             }
         }
 
@@ -426,7 +473,7 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
         const payment = rows[0] as Record<string, unknown>;
 
         await dbClient.query(
-            `UPDATE workspace_payments SET fawaterak_status = 'paid', paid_at = NOW() WHERE id = $1`,
+            `UPDATE workspace_payments SET gateway_status = 'paid', paid_at = NOW() WHERE id = $1`,
             [paymentId]
         );
 

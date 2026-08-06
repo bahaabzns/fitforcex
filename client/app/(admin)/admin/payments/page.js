@@ -41,7 +41,7 @@ function EditPaymentModal({ payment, plans, onClose, onSaved }) {
     const [error, setError] = useState('');
 
     const variations = plans.find(p => p.id === planId)?.variations ?? [];
-    const canResync = payment.fawaterak_status === 'paid' && !isAddon;
+    const canResync = payment.gateway_status === 'paid' && !isAddon;
 
     function handlePlanChange(newPlanId) {
         setPlanId(newPlanId);
@@ -246,7 +246,7 @@ export default function AdminPaymentsPage() {
         <div className="p-8 flex flex-col gap-6">
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Payments</h1>
-                <p className="text-sm text-muted-foreground mt-1">All coach subscription payments via Fawaterak</p>
+                <p className="text-sm text-muted-foreground mt-1">All coach subscription payments via Paymob</p>
             </div>
 
             {/* Stats */}
@@ -329,10 +329,10 @@ export default function AdminPaymentsPage() {
                                 {Number(p.amount).toLocaleString()} {p.currency}
                             </span>
                             <select
-                                value={p.fawaterak_status}
+                                value={p.gateway_status}
                                 disabled={changingStatus === p.id}
                                 onChange={e => handleStatusChange(p.id, e.target.value)}
-                                className={`text-xs font-medium rounded-full px-2.5 py-1 border cursor-pointer outline-none disabled:opacity-50 disabled:cursor-wait ${STATUS_STYLES[p.fawaterak_status] ?? 'bg-secondary text-muted-foreground border-border'}`}
+                                className={`text-xs font-medium rounded-full px-2.5 py-1 border cursor-pointer outline-none disabled:opacity-50 disabled:cursor-wait ${STATUS_STYLES[p.gateway_status] ?? 'bg-secondary text-muted-foreground border-border'}`}
                             >
                                 {STATUSES.map(s => (
                                     <option key={s} value={s}>{s}</option>

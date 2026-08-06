@@ -8,14 +8,14 @@ const router = Router();
  * @openapi
  * /billing/callback:
  *   get:
- *     summary: Payment gateway callback (Fawaterak iframe redirect — no auth)
+ *     summary: Payment gateway callback (Paymob transaction response redirect — no auth)
  *     tags: [Billing]
  *     security: []
  *     responses:
  *       200:
  *         description: Payment result page rendered
  */
-// No authMiddleware — Fawaterak redirects the iframe here after payment.
+// No authMiddleware — Paymob redirects the browser here after payment.
 router.get('/callback', billingController.handleCallback);
 
 router.use(authMiddleware);
@@ -53,7 +53,7 @@ router.use((req, res, next) => {
  *
  * /billing/create-invoice:
  *   post:
- *     summary: Create a payment invoice for a subscription plan/variation switch
+ *     summary: Create a Paymob checkout (card or wallet) for a subscription plan/variation switch
  *     tags: [Billing]
  *     security:
  *       - cookieAuth: []
@@ -65,11 +65,13 @@ router.use((req, res, next) => {
  *             type: object
  *             required: [planId, variationId]
  *             properties:
- *               planId:      { type: string }
- *               variationId: { type: string }
+ *               planId:            { type: string }
+ *               variationId:       { type: string }
+ *               paymentMethod:     { type: string, enum: [card, wallet, fawry], default: card }
+ *               walletPhoneNumber: { type: string, description: Required when paymentMethod is wallet }
  *     responses:
  *       200:
- *         description: Invoice created with payment URL
+ *         description: Checkout created — paymentUrl is a card iframe URL or a wallet redirect URL, or referenceCode is set for Fawry cash payments
  *
  * /billing/addons:
  *   get:
@@ -83,7 +85,7 @@ router.use((req, res, next) => {
  *
  * /billing/create-addon-invoice:
  *   post:
- *     summary: Create a payment invoice for an add-on purchase
+ *     summary: Create a Paymob checkout (card or wallet) for an add-on purchase
  *     tags: [Billing]
  *     security:
  *       - cookieAuth: []
@@ -95,10 +97,12 @@ router.use((req, res, next) => {
  *             type: object
  *             required: [addonId]
  *             properties:
- *               addonId: { type: string }
+ *               addonId:           { type: string }
+ *               paymentMethod:     { type: string, enum: [card, wallet, fawry], default: card }
+ *               walletPhoneNumber: { type: string, description: Required when paymentMethod is wallet }
  *     responses:
  *       200:
- *         description: Invoice created with payment URL
+ *         description: Checkout created — paymentUrl is a card iframe URL or a wallet redirect URL, or referenceCode is set for Fawry cash payments
  *
  * /billing/payment-status/{paymentId}:
  *   get:

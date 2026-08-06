@@ -173,7 +173,7 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *
  * /admin/workspaces/{id}/manual-payment:
  *   post:
- *     summary: Record a payment that happened outside Fawaterak and activate it immediately
+ *     summary: Record a payment that happened outside the payment gateway and activate it immediately
  *     tags: [Admin]
  *     security:
  *       - cookieAuth: []
@@ -200,7 +200,7 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *
  * /admin/workspaces/{id}/manual-addon:
  *   post:
- *     summary: Grant an add-on to a workspace outside Fawaterak and apply it immediately
+ *     summary: Grant an add-on to a workspace outside the payment gateway and apply it immediately
  *     tags: [Admin]
  *     security:
  *       - cookieAuth: []

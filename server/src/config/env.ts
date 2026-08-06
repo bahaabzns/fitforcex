@@ -58,10 +58,17 @@ export const env = {
     S3_BUCKET:            process.env.S3_BUCKET ?? '',
     S3_PUBLIC_URL:        process.env.S3_PUBLIC_URL ?? '',
 
-    // Payments (Fawaterak)
-    FAWATERAK_API_KEY:    process.env.FAWATERAK_API_KEY ?? '',
-    FAWATERAK_BASE_URL:   process.env.FAWATERAK_BASE_URL ?? '',
-    FAWATERAK_SECRET_KEY: process.env.FAWATERAK_SECRET_KEY ?? '',
+    // Payments (Paymob Accept API) — all optional at startup (no hard requireEnv) since
+    // checkout is the only thing that needs them; an unconfigured deploy should still boot
+    // and serve everything else. Left blank, gateway calls fail with a clean user-facing
+    // error rather than a startup crash.
+    PAYMOB_API_KEY:               process.env.PAYMOB_API_KEY ?? '',
+    PAYMOB_INTEGRATION_ID_CARD:   process.env.PAYMOB_INTEGRATION_ID_CARD ?? '',
+    PAYMOB_INTEGRATION_ID_WALLET: process.env.PAYMOB_INTEGRATION_ID_WALLET ?? '',
+    PAYMOB_INTEGRATION_ID_FAWRY:  process.env.PAYMOB_INTEGRATION_ID_FAWRY ?? '',
+    PAYMOB_IFRAME_ID:             process.env.PAYMOB_IFRAME_ID ?? '',
+    PAYMOB_HMAC_SECRET:           process.env.PAYMOB_HMAC_SECRET ?? '',
+    PAYMOB_BASE_URL:              process.env.PAYMOB_BASE_URL ?? 'https://accept.paymob.com',
 
     // Observability
     SENTRY_DSN:           process.env.SENTRY_DSN ?? '',

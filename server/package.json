@@ -9,7 +9,6 @@
     "test:int": "dotenv -e .env.test jest tests/integration --runInBand",
     "test:coverage": "dotenv -e .env.test jest --coverage --runInBand",
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/server.ts",
-    "dev:js": "nodemon server.js",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/server.js",
     "migrate": "node-pg-migrate up",

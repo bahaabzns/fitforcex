@@ -518,3 +518,19 @@ Format:
 **Why it matters:** Same bug shape, just triggered by row count instead of exercise/meal count — would resurface as a "new" bug report on a large enough plan before anyone connects it to this fix.
 **Effort:** Medium — the same `measureBlockHeights`/`chunkByHeight` machinery this fix introduced could be extended to `<tr>`-level chunking for these four summary tables; row heights are more uniform (no thumbnails/notes/badges) than exercise/meal blocks, so a simpler static per-row-height estimate might even suffice here without a full measurement pass.
 **Priority:** Low — requires an unusually large plan to trigger; not reported yet.
+
+---
+
+## 2026-08-06 — plans/plan_variations/addons/plan_period_links (payment_link columns vestigial after Paymob swap)
+**Type:** Shortcut
+**What:** Swapping the payment gateway from Fawaterak to Paymob (`server/src/lib/paymob.ts`) means checkout now creates a real server-side order for the computed amount instead of resolving a static admin-configured link. `plans.payment_link`, `plan_variations.payment_link`, `addons.payment_link`, and the whole `plan_period_links` table (period-specific links, already flagged unused pre-swap per `docs/billing-architecture-audit.md` F-06) are no longer read anywhere. Only the admin UI inputs that edited them were removed (`client/app/(admin)/admin/plans/page.js`) — the columns/table themselves were left in place rather than dropped in the same migration, to keep the gateway-swap migration (`server/migrations/084_paymob_gateway_columns.js`) focused.
+**Why it matters:** Dead columns/table are harmless but misleading to a future reader who doesn't know they're vestigial.
+**Effort:** Small — a follow-up migration to drop the columns + table once nobody needs the old data for reference.
+**Priority:** Low
+
+## 2026-08-06 — server/src/lib/paymob.ts (HMAC field order / transaction-inquiry shape unverified against live Paymob)
+**Type:** Knowledge
+**What:** `verifyWebhookHmac`'s ordered-field-concatenation list and `getTransactionStatus`'s order-inquiry endpoint shape were written from Paymob's Accept API as documented at integration time — no live Paymob credentials exist yet to test against (both `.env` and `.env.example` carry empty `PAYMOB_*` placeholders). Both are flagged in-file with a comment to re-verify against Paymob's current docs (https://developers.paymob.com/egypt) before going live.
+**Why it matters:** A wrong HMAC field order silently breaks webhook signature verification — every real Paymob webhook would fail the check and get rejected (safe-but-broken: payments would only confirm via the slower `payment-status` poll fallback, never instantly via webhook). A wrong inquiry endpoint just fails polling gracefully (falls back to the webhook), lower risk.
+**Effort:** Small — once a Paymob sandbox account exists, send one real test transaction and confirm the computed HMAC matches Paymob's, and confirm the inquiry call returns the expected shape.
+**Priority:** High — block relying on card/wallet checkout in production until verified against a real Paymob webhook payload.

@@ -1344,10 +1344,11 @@ model workspace_payments {
   amount                Decimal            @db.Decimal(10, 2)
   currency              String             @default("EGP")
   duration_days         Int
-  fawaterak_invoice_id  String?
-  fawaterak_payment_url String?
-  fawaterak_status      String             @default("pending")
-  fawaterak_raw_webhook Json?
+  gateway_reference_id  String?
+  gateway_payment_url   String?
+  gateway_status        String             @default("pending")
+  gateway_raw_webhook   Json?
+  payment_method        String             @default("card")
   notes                 String?
   paid_at               DateTime?          @db.Timestamptz(6)
   created_at            DateTime           @default(now()) @db.Timestamptz(6)
@@ -1359,7 +1360,7 @@ model workspace_payments {
   workspace_addons       workspace_addons[]
   workspace_subscription_events workspace_subscription_events[]
 
-  @@index([fawaterak_invoice_id])
+  @@index([gateway_reference_id])
   @@index([workspace_id])
   @@index([variation_id])
   @@index([addon_id])

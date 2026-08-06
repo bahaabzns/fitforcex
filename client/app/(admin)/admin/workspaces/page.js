@@ -220,7 +220,7 @@ function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
                         <Modal.Body className="flex flex-col gap-4">
                             <p className="text-sm text-muted-foreground">{workspace.name}</p>
                             <p className="text-xs text-muted-foreground -mt-2">
-                                For a payment that happened outside Fawaterak (bank transfer, cash, a one-off deal).
+                                For a payment that happened outside the payment gateway (bank transfer, cash, a one-off deal).
                                 Activates immediately, the same way a real payment would.
                             </p>
 
@@ -407,7 +407,7 @@ function AddAddonModal({ workspace, addons, onClose, onSaved }) {
                         <Modal.Body className="flex flex-col gap-4">
                             <p className="text-sm text-muted-foreground">{workspace.name}</p>
                             <p className="text-xs text-muted-foreground -mt-2">
-                                Grants this add-on outside Fawaterak — applies the same way a real purchase would
+                                Grants this add-on outside the payment gateway — applies the same way a real purchase would
                                 (billing-cycle extension included). Set amount to 0 for a free/comped grant.
                             </p>
 

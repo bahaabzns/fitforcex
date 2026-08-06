@@ -447,9 +447,9 @@ export async function updateWorkspaceSubscription(req: Request, res: Response, n
     }
 }
 
-/** Records a payment that happened outside Fawaterak (bank transfer, cash, a manually-agreed
- *  deal) and immediately applies it — the workspace_payments row + applyPayment call are the
- *  exact same path a real Fawaterak webhook takes, so this is genuinely "payments are the
+/** Records a payment that happened outside the payment gateway (bank transfer, cash, a
+ *  manually-agreed deal) and immediately applies it — the workspace_payments row + applyPayment
+ *  call are the exact same path a real Paymob webhook takes, so this is genuinely "payments are the
  *  only source of truth" and not a side-channel that bypasses it. Amount/currency/duration
  *  default from the chosen variation/plan but are editable for a one-off arrangement. */
 export async function createManualPayment(req: Request, res: Response, next: NextFunction) {
@@ -485,7 +485,7 @@ export async function createManualPayment(req: Request, res: Response, next: Nex
                 amount:           amount != null ? amount : (variation.price_monthly ?? 0),
                 currency:         currency?.trim() || variation.currency,
                 duration_days:    durationDays != null ? durationDays : plan.duration_days,
-                fawaterak_status: 'pending',
+                gateway_status:   'pending',
                 notes:            `Manual payment recorded by admin${notes?.trim() ? ': ' + notes.trim() : ''}`,
             },
         });
@@ -511,7 +511,7 @@ export async function createManualPayment(req: Request, res: Response, next: Nex
 
 /** Add-on counterpart to createManualPayment — mirrors the self-serve createAddonInvoice/
  *  applyAddonPurchase path exactly (same billing-cycle-extension math, same workspace_addons
- *  row shape), just admin-triggered instead of Fawaterak-confirmed. Deliberately does not
+ *  row shape), just admin-triggered instead of gateway-confirmed. Deliberately does not
  *  check plan_addon_rules' cap — an admin explicitly granting an add-on is a trusted, one-off
  *  decision, not a self-serve purchase that needs the configured limit enforced. */
 export async function createManualAddonPayment(req: Request, res: Response, next: NextFunction) {
@@ -546,7 +546,7 @@ export async function createManualAddonPayment(req: Request, res: Response, next
                 amount:           amount != null ? amount : Number(addon.price_monthly) * units,
                 currency:         currency?.trim() || addon.currency,
                 duration_days:    durationDays != null ? durationDays : sub.plans.duration_days,
-                fawaterak_status: 'pending',
+                gateway_status:   'pending',
                 notes:            `Manual add-on payment recorded by admin${notes?.trim() ? ': ' + notes.trim() : ''}`,
             },
         });
@@ -924,10 +924,10 @@ export async function getPaymentStats(_req: Request, res: Response, next: NextFu
     try {
         const rows = await prisma.$queryRaw<Row[]>`
             SELECT
-                COUNT(*) FILTER (WHERE fawaterak_status = 'paid')::int    AS total_paid,
-                COUNT(*) FILTER (WHERE fawaterak_status = 'pending')::int AS total_pending,
-                COUNT(*) FILTER (WHERE fawaterak_status = 'failed')::int  AS total_failed,
-                COALESCE(SUM(amount) FILTER (WHERE fawaterak_status = 'paid'), 0) AS total_revenue
+                COUNT(*) FILTER (WHERE gateway_status = 'paid')::int    AS total_paid,
+                COUNT(*) FILTER (WHERE gateway_status = 'pending')::int AS total_pending,
+                COUNT(*) FILTER (WHERE gateway_status = 'failed')::int  AS total_failed,
+                COALESCE(SUM(amount) FILTER (WHERE gateway_status = 'paid'), 0) AS total_revenue
             FROM workspace_payments
         `;
         res.json(rows[0]);
@@ -946,7 +946,7 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
 
         if (status) {
             params.push(status);
-            conditions.push(`wp.fawaterak_status = $${params.length}`);
+            conditions.push(`wp.gateway_status = $${params.length}`);
         }
         if (search) {
             params.push(`%${search}%`);
@@ -957,8 +957,8 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
         const [rows, countRows] = await Promise.all([
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT
-                    wp.id, wp.amount, wp.currency, wp.duration_days, wp.fawaterak_status,
-                    wp.fawaterak_invoice_id, wp.created_at, wp.paid_at, wp.notes,
+                    wp.id, wp.amount, wp.currency, wp.duration_days, wp.gateway_status,
+                    wp.gateway_reference_id, wp.payment_method, wp.created_at, wp.paid_at, wp.notes,
                     wp.plan_id, wp.variation_id, wp.addon_id,
                     -- Real period this payment produced, from its subscription-event row
                     -- (recorded at the moment it was applied) — falls back to a nominal
@@ -1011,10 +1011,10 @@ export async function markPaymentPaid(req: Request, res: Response, next: NextFun
     try {
         const payment = await prisma.workspace_payments.findFirst({
             where:  { id: req.params.id as string },
-            select: { id: true, workspace_id: true, fawaterak_status: true },
+            select: { id: true, workspace_id: true, gateway_status: true },
         });
         if (!payment) return res.status(404).json({ message: 'Payment not found' });
-        if (payment.fawaterak_status === 'paid') return res.status(409).json({ message: 'Already paid' });
+        if (payment.gateway_status === 'paid') return res.status(409).json({ message: 'Already paid' });
 
         await applyPayment(payment.id, payment.workspace_id);
         res.json({ message: 'Payment marked as paid and subscription activated' });
@@ -1034,18 +1034,18 @@ export async function updatePaymentStatus(req: Request, res: Response, next: Nex
     try {
         const payment = await prisma.workspace_payments.findFirst({
             where:  { id: req.params.id as string },
-            select: { id: true, workspace_id: true, fawaterak_status: true },
+            select: { id: true, workspace_id: true, gateway_status: true },
         });
         if (!payment) return res.status(404).json({ message: 'Payment not found' });
 
-        if (payment.fawaterak_status === status) return res.json({ message: 'Status unchanged' });
+        if (payment.gateway_status === status) return res.json({ message: 'Status unchanged' });
 
         if (status === 'paid') {
             await applyPayment(payment.id, payment.workspace_id);
         } else {
             await prisma.workspace_payments.update({
                 where: { id: payment.id },
-                data:  { fawaterak_status: status!, paid_at: null },
+                data:  { gateway_status: status!, paid_at: null },
             });
         }
 
@@ -1112,7 +1112,7 @@ export async function updatePayment(req: Request, res: Response, next: NextFunct
         const updated = await prisma.workspace_payments.update({ where: { id: payment.id }, data });
 
         let resynced = false;
-        if (resyncSubscription && !updated.addon_id && updated.fawaterak_status === 'paid') {
+        if (resyncSubscription && !updated.addon_id && updated.gateway_status === 'paid') {
             const sub = await prisma.workspace_subscriptions.findUnique({ where: { workspace_id: updated.workspace_id } });
             if (sub) {
                 const base = parsedStartDate ?? sub.starts_at ?? new Date();

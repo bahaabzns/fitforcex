@@ -27,7 +27,7 @@ function emptyVariation(isDefault = false) {
     return {
         id: null,
         max_clients: '', max_team_seats: '',
-        price_monthly: '', currency: 'LE', payment_link: '',
+        price_monthly: '', currency: 'LE',
         is_default: isDefault, is_active: true,
     };
 }
@@ -39,7 +39,6 @@ function variationFromServer(v) {
         max_team_seats: v.max_team_seats ?? '',
         price_monthly:  v.price_monthly ?? '',
         currency:       v.currency ?? 'LE',
-        payment_link:   v.payment_link ?? '',
         is_default:     v.is_default ?? false,
         is_active:      v.is_active ?? true,
     };
@@ -56,7 +55,6 @@ const EMPTY_FORM = {
     features_header: "What's included:", features_subheader: '',
     sort_order: 0,
     features: [],
-    period_links: {}, // { period_key: payment_link }
     variations: [emptyVariation(true)],
     addon_rules: [],
 };
@@ -65,7 +63,7 @@ const INPUT_CLS = 'w-full px-3 py-2 text-sm text-foreground bg-card border borde
 const INPUT_SM_CLS = 'px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const SECTION_LABEL_CLS = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground pt-2';
 
-function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
+function PlanModal({ plan, onClose, onSaved, addons }) {
     const isEdit = !!plan;
     const [form, setForm] = useState(
         isEdit
@@ -84,7 +82,6 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                 features_subheader:plan.features_subheader ?? '',
                 sort_order:        plan.sort_order ?? 0,
                 features:          Array.isArray(plan.features) ? plan.features : [],
-                period_links:      plan.period_links ?? {},
                 variations:        Array.isArray(plan.variations) && plan.variations.length > 0
                     ? plan.variations.map(variationFromServer)
                     : [emptyVariation(true)],
@@ -152,14 +149,12 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                 features_subheader: form.features_subheader.trim() || null,
                 sort_order:         parseOptInt(form.sort_order) ?? 0,
                 show_on_landing:    form.show_on_landing,
-                period_links:       form.period_links,
                 variations: form.variations.map(v => ({
                     id:             v.id || undefined,
                     max_clients:    parseOptInt(v.max_clients),
                     max_team_seats: parseOptInt(v.max_team_seats),
                     price_monthly:  parseOptFloat(v.price_monthly),
                     currency:       v.currency.trim() || 'LE',
-                    payment_link:   v.payment_link.trim() || null,
                     is_default:     v.is_default,
                     is_active:      v.is_active,
                 })),
@@ -274,17 +269,10 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Currency</FieldLabel>
-                                    <input type="text" placeholder="LE" className={INPUT_SM_CLS}
-                                        value={v.currency} onChange={e => setVariation(i, 'currency', e.target.value)} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Fawaterak payment link</FieldLabel>
-                                    <input type="url" placeholder="https://app.fawaterak.com/pay/..." className={INPUT_SM_CLS}
-                                        value={v.payment_link} onChange={e => setVariation(i, 'payment_link', e.target.value)} />
-                                </div>
+                            <div className="flex flex-col gap-1 max-w-40">
+                                <FieldLabel>Currency</FieldLabel>
+                                <input type="text" placeholder="LE" className={INPUT_SM_CLS}
+                                    value={v.currency} onChange={e => setVariation(i, 'currency', e.target.value)} />
                             </div>
                         </div>
                     ))}
@@ -409,38 +397,6 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods, addons }) {
                     Show on landing page
                 </label>
 
-                {/* ── Payment links per billing period ── */}
-                {billingPeriods?.length > 0 && (
-                    <>
-                        <p className={SECTION_LABEL_CLS}>Payment Links per Billing Period</p>
-                        <p className="text-xs text-muted-foreground -mt-2">
-                            Each period needs its own Fawaterak link (different billing amount). Leave blank to fall back to each variation&apos;s own payment link above.
-                        </p>
-                        {billingPeriods.map(d => (
-                            <div key={d.period_key} className="flex flex-col gap-1.5">
-                                <FieldLabel>
-                                    <span className="flex items-center gap-2">
-                                        {d.label}
-                                        {d.save_label && (
-                                            <span className="text-xs text-primary font-semibold">{d.save_label}</span>
-                                        )}
-                                        <span className="text-muted-foreground font-normal">({d.months} mo)</span>
-                                    </span>
-                                </FieldLabel>
-                                <TextField
-                                    variant="secondary"
-                                    fullWidth
-                                    aria-label={d.label}
-                                    value={form.period_links?.[d.period_key] ?? ''}
-                                    onChange={(val) => set('period_links', { ...form.period_links, [d.period_key]: val })}
-                                >
-                                    <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
-                                </TextField>
-                            </div>
-                        ))}
-                    </>
-                )}
-
                 <FieldErrorText msg={error} />
 
                 <ModalFooter>
@@ -519,7 +475,6 @@ function AddonModal({ addon, onClose, onSaved }) {
         units:         addon?.units ?? '',
         price_monthly: addon?.price_monthly ?? '',
         currency:      addon?.currency ?? 'LE',
-        payment_link:  addon?.payment_link ?? '',
         is_active:     addon?.is_active ?? true,
         sort_order:    addon?.sort_order ?? 0,
     });
@@ -538,7 +493,6 @@ function AddonModal({ addon, onClose, onSaved }) {
                 units:         parseInt(form.units) || 0,
                 price_monthly: parseFloat(form.price_monthly) || 0,
                 currency:      form.currency.trim() || 'LE',
-                payment_link:  form.payment_link.trim() || null,
                 is_active:     form.is_active,
                 sort_order:    parseInt(form.sort_order) || 0,
             };
@@ -612,13 +566,6 @@ function AddonModal({ addon, onClose, onSaved }) {
                             <Input type="text" placeholder="LE" />
                         </TextField>
                     </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Fawaterak payment link</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Fawaterak payment link" value={form.payment_link} onChange={(val) => set('payment_link', val)}>
-                        <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
-                    </TextField>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -1042,7 +989,6 @@ export default function AdminPlansPage() {
                     plan={modal === 'new' ? null : modal}
                     onClose={() => setModal(null)}
                     onSaved={load}
-                    billingPeriods={discounts}
                     addons={addons}
                 />
             )}

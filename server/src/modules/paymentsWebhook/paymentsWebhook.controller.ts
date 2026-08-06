@@ -1,92 +1,77 @@
 import { Request, Response } from 'express';
-import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { env } from '../../config/env';
+import * as paymob from '../../lib/paymob';
 import { applyPayment } from '../billing/index';
 import { recordEvent, ownerRecipients } from '../../lib/events';
 
+// Paymob's server-to-server "Transaction Processed Callback". Unlike the old Fawaterak
+// handler — which only logged a warning on a bad signature and processed the payment
+// anyway (the flagged gap in docs/billing-architecture-audit.md) — a signature that
+// doesn't verify is rejected outright and the payment is not touched.
 export async function handleWebhook(req: Request, res: Response) {
     try {
         const rawBody = (req.body as Buffer).toString('utf8');
-        let payload: Record<string, unknown>;
+        let payload: { type?: string; obj?: Record<string, unknown> };
 
         try {
             payload = JSON.parse(rawBody);
         } catch {
             console.warn('[Webhook] Received non-JSON body');
-            return res.status(200).send('OK');
+            return res.status(400).send('Invalid payload');
         }
 
-        const headerSig = (
-            req.headers['x-fawaterak-signature'] ||
-            req.headers['x-signature'] ||
-            req.headers['signature'] ||
-            ''
-        ) as string;
-
-        const bodySig   = String(payload.transactionHash || payload.hash || '');
-        const candidate = headerSig || bodySig;
-
-        if (env.FAWATERAK_SECRET_KEY && candidate) {
-            const expected = crypto.createHmac('sha256', env.FAWATERAK_SECRET_KEY).update(rawBody).digest('hex');
-            const candidateBuf = Buffer.from(candidate.replace(/^sha256=/, ''), 'hex');
-            const expectedBuf  = Buffer.from(expected, 'hex');
-
-            if (candidateBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(candidateBuf, expectedBuf)) {
-                console.warn('[Webhook] Signature mismatch', { header: headerSig, bodyHash: bodySig, expected });
-            }
-        } else {
-            console.warn('[Webhook] No signature to verify', { headers: Object.keys(req.headers), bodyKeys: Object.keys(payload) });
+        const obj = payload.obj;
+        const hmac = req.query.hmac as string | undefined;
+        if (!obj || !paymob.verifyWebhookHmac(obj, hmac)) {
+            console.warn('[Webhook] Signature mismatch or missing transaction object — rejected');
+            return res.status(400).send('Invalid signature');
         }
 
-        const invoiceId = String(payload.invoiceId || payload.invoice_id || '');
-        const fawStatus = String(payload.status || '').toLowerCase();
-        const isPaid    = fawStatus === 'paid' || payload.statusCode === 200;
+        const orderId        = String((obj.order as { id?: unknown } | undefined)?.id ?? '');
+        const merchantOrderId = String((obj.order as { merchant_order_id?: unknown } | undefined)?.merchant_order_id ?? '');
+        const success         = obj.success === true;
+        const isVoided        = obj.is_voided === true;
+        const isRefunded       = obj.is_refunded === true;
 
-        console.log('[Webhook] Full payload:', JSON.stringify(payload, null, 2));
-        console.log('[Webhook] Received', { invoiceId, fawStatus, statusCode: payload.statusCode });
+        console.log('[Webhook] Received', { orderId, merchantOrderId, success, isVoided, isRefunded });
 
-        const meta = payload.metaData as Record<string, unknown> | undefined;
-        const customerRef = String(
-            payload.customerRef || payload.customer_ref ||
-            meta?.customerRef  || meta?.reference_id  || ''
-        );
+        // merchant_order_id is the workspace_payments.id we set at checkout creation time
+        // (createInvoice/createAddonInvoice) — the primary lookup. gateway_reference_id
+        // (Paymob's order id) is a fallback for the rare case a merchant_order_id round-trip
+        // gets lost, mirroring the old invoiceId/customerRef dual-lookup.
+        let payment = merchantOrderId
+            ? await prisma.workspace_payments.findFirst({
+                  where:  { id: merchantOrderId },
+                  select: { id: true, workspace_id: true, gateway_reference_id: true, gateway_status: true },
+              })
+            : null;
 
-        let payment: { id: string; workspace_id: string; fawaterak_invoice_id: string | null; fawaterak_status: string } | null = null;
-
-        if (invoiceId) {
+        if (!payment && orderId) {
             payment = await prisma.workspace_payments.findFirst({
-                where: { fawaterak_invoice_id: invoiceId },
-                select: { id: true, workspace_id: true, fawaterak_invoice_id: true, fawaterak_status: true },
-            });
-        }
-
-        if (!payment && customerRef) {
-            payment = await prisma.workspace_payments.findFirst({
-                where: { id: customerRef },
-                select: { id: true, workspace_id: true, fawaterak_invoice_id: true, fawaterak_status: true },
+                where:  { gateway_reference_id: orderId },
+                select: { id: true, workspace_id: true, gateway_reference_id: true, gateway_status: true },
             });
         }
 
         if (!payment) {
-            console.warn('[Webhook] No workspace_payment found', { invoiceId, customerRef });
+            console.warn('[Webhook] No workspace_payment found', { orderId, merchantOrderId });
             return res.status(200).send('OK');
         }
 
-        if (invoiceId && !payment.fawaterak_invoice_id) {
+        if (orderId && !payment.gateway_reference_id) {
             await prisma.workspace_payments.update({
                 where: { id: payment.id },
-                data:  { fawaterak_invoice_id: invoiceId },
+                data:  { gateway_reference_id: orderId },
             });
         }
 
         await prisma.workspace_payments.update({
             where: { id: payment.id },
-            data:  { fawaterak_raw_webhook: payload as Prisma.InputJsonValue },
+            data:  { gateway_raw_webhook: obj as Prisma.InputJsonValue },
         });
 
-        if (isPaid) {
+        if (success) {
             await applyPayment(payment.id, payment.workspace_id);
             console.log('[Webhook] Payment', payment.id, '→ paid, subscription extended');
             await recordEvent({
@@ -97,9 +82,12 @@ export async function handleWebhook(req: Request, res: Response) {
                 actor:       { type: 'system' },
                 entity:      { type: 'workspace_payment', id: payment.id },
             });
-        } else if (['failed', 'expired', 'cancelled'].includes(fawStatus)) {
-            await prisma.workspace_payments.update({ where: { id: payment.id }, data: { fawaterak_status: 'failed' } });
-            console.log('[Webhook] Payment', payment.id, '→ failed');
+        } else if (isRefunded) {
+            await prisma.workspace_payments.update({ where: { id: payment.id }, data: { gateway_status: 'refunded' } });
+            console.log('[Webhook] Payment', payment.id, '→ refunded');
+        } else if (isVoided) {
+            await prisma.workspace_payments.update({ where: { id: payment.id }, data: { gateway_status: 'failed' } });
+            console.log('[Webhook] Payment', payment.id, '→ voided/failed');
             await recordEvent({
                 workspaceId: payment.workspace_id,
                 type:        'billing.payment_failed',
@@ -109,11 +97,8 @@ export async function handleWebhook(req: Request, res: Response) {
                 actor:       { type: 'system' },
                 entity:      { type: 'workspace_payment', id: payment.id },
             });
-        } else if (fawStatus === 'refunded') {
-            await prisma.workspace_payments.update({ where: { id: payment.id }, data: { fawaterak_status: 'refunded' } });
-            console.log('[Webhook] Payment', payment.id, '→ refunded');
         } else {
-            console.log('[Webhook] Unhandled status:', fawStatus, '— no action taken');
+            console.log('[Webhook] Unsuccessful, non-terminal transaction — no action taken');
         }
 
         res.status(200).send('OK');
