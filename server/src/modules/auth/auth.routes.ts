@@ -21,9 +21,10 @@ const router = Router();
  *             type: object
  *             required: [name, email, password]
  *             properties:
- *               name:     { type: string, minLength: 2 }
- *               email:    { type: string, format: email }
- *               password: { type: string, minLength: 8 }
+ *               name:          { type: string, minLength: 2 }
+ *               email:         { type: string, format: email }
+ *               password:      { type: string, minLength: 8 }
+ *               workspaceName: { type: string, description: Optional platform/brand name shown in the checkout wizard; falls back to "{fname}'s Workspace" }
  *     responses:
  *       201:
  *         description: Account created; auth cookie set

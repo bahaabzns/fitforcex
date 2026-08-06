@@ -14,7 +14,7 @@ import {
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
-        const { fname, lname, email, password, phone } = req.body as Record<string, string | undefined>;
+        const { fname, lname, email, password, phone, workspaceName } = req.body as Record<string, string | undefined>;
 
         if (!email || typeof email !== 'string' || !email.trim()) {
             return res.status(400).json({ message: 'Email is required' });
@@ -72,9 +72,12 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                     select: { id: true, fname: true, lname: true, email: true },
                 });
 
+                // Platform/brand name is an optional checkout-wizard field (step 1) — falls
+                // back to the same auto-derived default as before when left blank.
+                const trimmedWorkspaceName = workspaceName?.trim();
                 await tx.workspaces.create({
                     data: {
-                        id: workspaceId, slug, name: `${fname}'s Workspace`,
+                        id: workspaceId, slug, name: trimmedWorkspaceName || `${fname}'s Workspace`,
                         owner_id: newUser.id, slug_customized: false,
                         clone_status: 'pending',
                     },

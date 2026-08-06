@@ -42,11 +42,17 @@ export default function SubscriptionPage() {
     const [paying, setPaying] = useState(false);
     const [error, setError] = useState("");
     const [iframeUrl, setIframeUrl] = useState(null);
+    const [walletRedirectUrl, setWalletRedirectUrl] = useState(null);
+    const [fawryReferenceCode, setFawryReferenceCode] = useState(null);
     const [iframePayId, setIframePayId] = useState(null);
     const [payStatus, setPayStatus] = useState(null);
     const [availableAddons, setAvailableAddons] = useState([]);
     const [buyingAddon, setBuyingAddon] = useState(null);
     const [pendingUpgrade, setPendingUpgrade] = useState(null);
+    // Plan just clicked, awaiting a Card/Wallet choice before create-invoice is called.
+    const [methodChoice, setMethodChoice] = useState(null); // { planId, variationId }
+    const [checkoutMethod, setCheckoutMethod] = useState('card');
+    const [walletPhone, setWalletPhone] = useState('');
 
     const loadBilling = useCallback(() => {
         return api.get("/api/billing/subscription").then(res => {
@@ -96,25 +102,45 @@ export default function SubscriptionPage() {
         return () => clearInterval(id);
     }, [iframePayId, loadBilling, loadAddons]);
 
-    function closeIframe() {
+    function closeCheckout() {
         setIframeUrl(null);
+        setWalletRedirectUrl(null);
+        setFawryReferenceCode(null);
         setIframePayId(null);
         setPayStatus(null);
     }
 
-    async function handlePay(planId, variationId) {
+    // Card opens an embedded iframe overlay; wallet OTP pages generally refuse to render in an
+    // iframe (carrier restriction), so that flow opens a new tab instead and this page just
+    // shows a "waiting for confirmation" panel while the same polling effect runs in the
+    // background. Fawry has no URL at all — just a cash-payment reference code to display.
+    function openCheckout({ paymentUrl, referenceCode, paymentId }, method) {
+        setPayStatus(null);
+        setIframeUrl(null);
+        setWalletRedirectUrl(null);
+        setFawryReferenceCode(null);
+        if (method === 'wallet') {
+            setWalletRedirectUrl(paymentUrl);
+            window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+        } else if (method === 'fawry') {
+            setFawryReferenceCode(referenceCode);
+        } else {
+            setIframeUrl(paymentUrl);
+        }
+        setIframePayId(paymentId);
+    }
+
+    async function handlePay(planId, variationId, method = 'card', walletPhoneNumber) {
         setPaying(planId);
         setError("");
         try {
-            const res = await api.post("/api/billing/create-invoice", { planId, variationId });
+            const res = await api.post("/api/billing/create-invoice", { planId, variationId, paymentMethod: method, walletPhoneNumber });
             if (res.data.creditApplied != null) {
                 // Tier change with unused value to credit — confirm the discounted amount
-                // before opening the Fawaterak iframe. A plain renewal skips this entirely.
-                setPendingUpgrade(res.data);
+                // before opening the checkout. A plain renewal skips this entirely.
+                setPendingUpgrade({ ...res.data, method });
             } else {
-                setIframeUrl(res.data.paymentUrl);
-                setIframePayId(res.data.paymentId);
-                setPayStatus(null);
+                openCheckout(res.data, method);
             }
         } catch (err) {
             const message = err.response?.data?.error || "";
@@ -132,26 +158,24 @@ export default function SubscriptionPage() {
     }
 
     function confirmUpgrade() {
-        setIframeUrl(pendingUpgrade.paymentUrl);
-        setIframePayId(pendingUpgrade.paymentId);
-        setPayStatus(null);
+        openCheckout(pendingUpgrade, pendingUpgrade.method);
         setPendingUpgrade(null);
     }
 
     function cancelUpgrade() {
         // The already-created workspace_payments row is simply left pending and never
-        // activated — same as any other abandoned Fawaterak checkout today.
+        // activated — same as any other abandoned checkout today.
         setPendingUpgrade(null);
     }
 
     async function handleBuyAddon(addonId) {
+        // Add-ons are card-only for now — no wallet method choice for this smaller purchase.
         setBuyingAddon(addonId);
         setError("");
         try {
             const res = await api.post("/api/billing/create-addon-invoice", { addonId });
-            setIframeUrl(res.data.paymentUrl);
-            setIframePayId(res.data.paymentId);
-            setPayStatus(null);
+            setCheckoutMethod('card');
+            openCheckout(res.data, 'card');
         } catch (err) {
             const message = err.response?.data?.error || "";
             const capMatch = message.match(/^addon_limit_reached:(\d+)$/);
@@ -192,14 +216,14 @@ export default function SubscriptionPage() {
             ),
         },
         {
-            key: "fawaterak_status",
+            key: "gateway_status",
             label: t("columnStatus"),
             filterType: "multi",
             options: ["paid", "pending", "failed", "refunded"],
             sortable: true,
             render: (row) => (
-                <Chip size="sm" className={STATUS_CHIP[row.fawaterak_status] ?? "bg-secondary text-muted-foreground"}>
-                    {t(row.fawaterak_status)}
+                <Chip size="sm" className={STATUS_CHIP[row.gateway_status] ?? "bg-secondary text-muted-foreground"}>
+                    {t(row.gateway_status)}
                 </Chip>
             ),
         },
@@ -299,7 +323,7 @@ export default function SubscriptionPage() {
             <LandingPricing
                 isInline={true}
                 currentPlanId={subscription?.planId}
-                onCtaClick={(planId, variationId) => handlePay(planId, variationId)}
+                onCtaClick={(planId, variationId) => { setCheckoutMethod('card'); setWalletPhone(''); setMethodChoice({ planId, variationId }); }}
             />
 
             {error && <ErrorMsg msg={error} />}
@@ -407,13 +431,72 @@ export default function SubscriptionPage() {
                 </div>
             )}
 
-            {/* Payment iframe overlay */}
-            {iframeUrl && (
+            {/* Card/Wallet choice — shown after clicking a plan CTA, before create-invoice runs */}
+            {methodChoice && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                    <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-sm p-6 gap-4">
+                        <p className="text-base font-semibold text-foreground">{t("chooseMethodTitle")}</p>
+
+                        <div className="flex flex-col gap-2">
+                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer p-2.5 rounded-lg border border-border has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                                <input type="radio" name="paymethod" checked={checkoutMethod === 'card'} onChange={() => setCheckoutMethod('card')} />
+                                {t("payWithCard")}
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer p-2.5 rounded-lg border border-border has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                                <input type="radio" name="paymethod" checked={checkoutMethod === 'wallet'} onChange={() => setCheckoutMethod('wallet')} />
+                                {t("payWithWallet")}
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer p-2.5 rounded-lg border border-border has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                                <input type="radio" name="paymethod" checked={checkoutMethod === 'fawry'} onChange={() => setCheckoutMethod('fawry')} />
+                                {t("payWithFawry")}
+                            </label>
+                        </div>
+
+                        {checkoutMethod === 'wallet' && (
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">{t("walletPhoneLabel")}</label>
+                                <input
+                                    type="tel"
+                                    value={walletPhone}
+                                    onChange={(e) => setWalletPhone(e.target.value)}
+                                    placeholder="01xxxxxxxxx"
+                                    className="px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                            <button
+                                onClick={() => setMethodChoice(null)}
+                                className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary transition-colors"
+                            >
+                                {t("cancelButton")}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const { planId, variationId } = methodChoice;
+                                    setMethodChoice(null);
+                                    handlePay(planId, variationId, checkoutMethod, walletPhone.trim());
+                                }}
+                                disabled={checkoutMethod === 'wallet' && !walletPhone.trim()}
+                                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                            >
+                                {t("continueButton")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment overlay — an embedded iframe for card, a "waiting" panel for wallet
+                (wallet OTP pages generally refuse to render inside an iframe), and a plain
+                reference-code display for Fawry (cash payment, no redirect of any kind) */}
+            {(iframeUrl || walletRedirectUrl || fawryReferenceCode) && (
                 <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
                     <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-2xl" style={{ height: "80vh" }}>
                         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
                             <p className="text-sm font-semibold text-foreground">{t("completePayment")}</p>
-                            <button onClick={closeIframe} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">✕</button>
+                            <button onClick={closeCheckout} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">✕</button>
                         </div>
 
                         {payStatus === "confirmed" ? (
@@ -433,7 +516,7 @@ export default function SubscriptionPage() {
                                     )}
                                 </div>
                                 <button
-                                    onClick={closeIframe}
+                                    onClick={closeCheckout}
                                     className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
                                 >
                                     {t("done")}
@@ -451,17 +534,50 @@ export default function SubscriptionPage() {
                                     <p className="text-sm text-muted-foreground mt-1">{t("subscriptionActivatingSoon")}</p>
                                 </div>
                                 <button
-                                    onClick={closeIframe}
+                                    onClick={closeCheckout}
                                     className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
                                 >
                                     {t("close")}
                                 </button>
                             </div>
+                        ) : walletRedirectUrl ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+                                <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-primary animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-bold text-foreground">{t("waitingForWallet")}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{t("waitingForWalletHint")}</p>
+                                </div>
+                                <button
+                                    onClick={() => window.open(walletRedirectUrl, '_blank', 'noopener,noreferrer')}
+                                    className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors"
+                                >
+                                    {t("reopenWalletPage")}
+                                </button>
+                            </div>
+                        ) : fawryReferenceCode ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+                                <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-bold text-foreground">{t("fawryReferenceTitle")}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{t("fawryReferenceHint")}</p>
+                                </div>
+                                <p className="text-3xl font-extrabold text-foreground tracking-widest tabular-nums bg-secondary/40 border border-border rounded-lg px-6 py-3">
+                                    {fawryReferenceCode}
+                                </p>
+                            </div>
                         ) : (
                             <iframe
                                 src={iframeUrl}
                                 className="flex-1 w-full rounded-b-xl border-0"
-                                title="Fawaterak Payment"
+                                title={t("completePayment")}
                             />
                         )}
                     </div>
