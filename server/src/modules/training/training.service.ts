@@ -29,25 +29,30 @@ export async function fetchFullTrainingPlan(planId: string, workspaceId: string)
     const days = await Promise.all((daysResult.rows as Row[]).map(async (day) => {
         const exercisesResult = await pool.query(
             `SELECT te.*,
-                    el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
+                    el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group, emg.name_ar AS muscle_group_ar,
                     el.instructions_en AS instructions, el.instructions_ar,
                     el.name_en AS library_name_en, el.name_ar AS library_name_ar,
-                    el.tracking_type, el.tracked_metrics
+                    el.tracking_type, el.tracked_metrics, ee.name_ar AS equipment_ar
              FROM training_exercises te
              LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
+             LEFT JOIN exercise_muscle_groups emg ON emg.workspace_id = $2 AND emg.name_en = el.muscle_group
+             LEFT JOIN exercise_equipments ee ON ee.workspace_id = $2 AND ee.name_en = te.equipment
              WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,
-            [day.id]
+            [day.id, workspaceId]
         );
 
         const exercises = await Promise.all((exercisesResult.rows as Row[]).map(async (exercise) => {
             const [setsResult, alternativesResult] = await Promise.all([
                 pool.query('SELECT * FROM training_sets WHERE exercise_id = $1 ORDER BY set_order ASC', [exercise.id]),
                 pool.query(
-                    `SELECT tea.*, el.name_en AS name, el.name_ar, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
+                    `SELECT tea.*, el.name_en AS name, el.name_ar, el.muscle_group, emg.name_ar AS muscle_group_ar,
+                            el.equipment, ee.name_ar AS equipment_ar, el.thumbnail_path, el.youtube_url, el.video_path
                      FROM training_exercise_alternatives tea
                      JOIN exercise_library el ON el.id = tea.exercise_library_id
+                     LEFT JOIN exercise_muscle_groups emg ON emg.workspace_id = $2 AND emg.name_en = el.muscle_group
+                     LEFT JOIN exercise_equipments ee ON ee.workspace_id = $2 AND ee.name_en = el.equipment
                      WHERE tea.exercise_id = $1 ORDER BY tea.alt_order ASC`,
-                    [exercise.id]
+                    [exercise.id, workspaceId]
                 ),
             ]);
 

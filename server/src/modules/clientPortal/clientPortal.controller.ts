@@ -121,11 +121,12 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
         if (row.exercise_id && !exercisesMap.has(row.exercise_id as string)) {
             exercisesMap.set(row.exercise_id as string, {
                 id: row.exercise_id, day_id: row.day_id, name: row.exercise_name,
-                exercise_order: row.exercise_order, equipment: row.equipment,
+                library_name_en: row.library_name_en, library_name_ar: row.library_name_ar,
+                exercise_order: row.exercise_order, equipment: row.equipment, equipment_ar: row.equipment_ar,
                 notes: row.exercise_notes, exercise_library_id: row.exercise_library_id,
                 thumbnail_path: toPublicUrl(row.thumbnail_path as string | null),
                 video_path:     toPublicUrl(row.video_path as string | null),
-                youtube_url: row.youtube_url, muscle_group: row.muscle_group,
+                youtube_url: row.youtube_url, muscle_group: row.muscle_group, muscle_group_ar: row.muscle_group_ar,
                 instructions_en: row.instructions_en, instructions_ar: row.instructions_ar,
                 tracking_type: row.tracking_type, tracked_metrics: row.tracked_metrics,
                 sets: [], alternatives: [],
@@ -150,7 +151,8 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
                     id: row.alt_id, exercise_id: row.exercise_id,
                     exercise_library_id: row.alt_exercise_library_id, alt_order: row.alt_order,
                     name_en: row.alt_name_en, name_ar: row.alt_name_ar,
-                    muscle_group: row.alt_muscle_group, equipment: row.alt_equipment,
+                    muscle_group: row.alt_muscle_group, muscle_group_ar: row.alt_muscle_group_ar,
+                    equipment: row.alt_equipment, equipment_ar: row.alt_equipment_ar,
                     thumbnail_path: toPublicUrl(row.alt_thumbnail_path as string | null),
                     youtube_url:    row.alt_youtube_url,
                     video_path:     toPublicUrl(row.alt_video_path as string | null),
@@ -372,20 +374,27 @@ export async function getActiveTrainingPlan(req: Request, res: Response, next: N
                 te.id AS exercise_id, te.day_id AS exercise_day_id, te.name AS exercise_name, te.exercise_order,
                     te.equipment, te.notes AS exercise_notes, te.exercise_library_id,
                 el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
+                    el.name_en AS library_name_en, el.name_ar AS library_name_ar,
                     el.instructions_en, el.instructions_ar, el.tracking_type, el.tracked_metrics,
+                    emg.name_ar AS muscle_group_ar, ee.name_ar AS equipment_ar,
                 ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir, ts.rpe,
                     ts.duration_seconds, ts.distance_km, ts.incline_percent, ts.speed_kmh,
                 tea.id AS alt_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
                 el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
                     el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
+                    emg2.name_ar AS alt_muscle_group_ar, ee2.name_ar AS alt_equipment_ar,
                     el2.thumbnail_path AS alt_thumbnail_path, el2.youtube_url AS alt_youtube_url, el2.video_path AS alt_video_path
             FROM training_plans tp
             LEFT JOIN training_days td ON td.plan_id = tp.id
             LEFT JOIN training_exercises te ON te.day_id = td.id
             LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
+            LEFT JOIN exercise_muscle_groups emg ON emg.workspace_id = ${req.client!.workspaceId} AND emg.name_en = el.muscle_group
+            LEFT JOIN exercise_equipments ee ON ee.workspace_id = ${req.client!.workspaceId} AND ee.name_en = te.equipment
             LEFT JOIN training_sets ts ON ts.exercise_id = te.id
             LEFT JOIN training_exercise_alternatives tea ON tea.exercise_id = te.id
             LEFT JOIN exercise_library el2 ON el2.id = tea.exercise_library_id
+            LEFT JOIN exercise_muscle_groups emg2 ON emg2.workspace_id = ${req.client!.workspaceId} AND emg2.name_en = el2.muscle_group
+            LEFT JOIN exercise_equipments ee2 ON ee2.workspace_id = ${req.client!.workspaceId} AND ee2.name_en = el2.equipment
             WHERE tp.id = ${plan.id}
             ORDER BY td.day_order, te.exercise_order, ts.set_order, tea.alt_order
         `;
@@ -937,6 +946,8 @@ const loggedExerciseSchema = z.object({
     exercise_id:         z.string().min(1),
     exercise_library_id: z.string().nullable().default(null),
     name:                z.string().min(1),
+    library_name_en:     z.string().nullable().default(null),
+    library_name_ar:     z.string().nullable().default(null),
     note:                z.string().nullable().default(null),
     // Snapshotted from the catalog exercise at submission time (like name/
     // exercise_library_id already are) rather than re-derived later — a coach

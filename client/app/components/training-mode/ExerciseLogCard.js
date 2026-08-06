@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { LineChart as ProgressIcon, BookOpen, NotebookPen, Check } from "lucide-react";
 import { Chip } from "@heroui/react/chip";
 import { Button } from "@heroui/react/button";
@@ -79,6 +79,8 @@ function hasTargetValue(field, value) {
 // mobile app's Training Mode, which deliberately dropped card chrome here).
 export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isFirstExercise, onChangeSet, onToggleSet, onChangeNote }) {
     const t = useTranslations("portal.training");
+    const isRTL = useLocale() === 'ar';
+    const exerciseName = (isRTL && exercise.library_name_ar) || exercise.library_name_en || exercise.name;
     const [insightsOpen, setInsightsOpen] = useState(false);
     const [instructionsOpen, setInstructionsOpen] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
@@ -139,7 +141,10 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
         return String(target);
     }
 
-    const metaParts = [exercise.muscle_group, exercise.equipment].filter(Boolean);
+    const metaParts = [
+        (isRTL && exercise.muscle_group_ar) || exercise.muscle_group,
+        (isRTL && exercise.equipment_ar) || exercise.equipment,
+    ].filter(Boolean);
 
     return (
         <div className="flex flex-col">
@@ -149,7 +154,7 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
                         youtubeUrl={exercise.youtube_url}
                         videoPath={exercise.video_path}
                         thumbnailPath={exercise.thumbnail_path}
-                        name={exercise.name}
+                        name={exerciseName}
                         watchLabel={t("watchVideo")}
                         watchOnYoutubeLabel={t("watchOnYoutube")}
                     />
@@ -159,7 +164,7 @@ export default function ExerciseLogCard({ exercise, previous, focusSetIndex, isF
             {/* Header */}
             <div className="flex items-start gap-1">
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{exercise.name}</p>
+                    <p className="text-sm font-semibold text-foreground">{exerciseName}</p>
                     {metaParts.length > 0 && (
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                             {metaParts.map(part => (

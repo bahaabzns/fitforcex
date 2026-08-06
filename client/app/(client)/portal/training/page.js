@@ -379,6 +379,9 @@ export default function ClientTrainingPage() {
                                             const gridCols = category === "sets_reps"
                                                 ? GRID_COLS_SETS_REPS_BY_TARGET_COUNT[targetFields.length]
                                                 : GRID_COLS_TIME_BASED_BY_COUNT[primaryFields.length];
+                                            const exerciseName = (isRTL && exercise.library_name_ar) || exercise.library_name_en || exercise.name;
+                                            const muscleGroup  = (isRTL && exercise.muscle_group_ar) || exercise.muscle_group;
+                                            const equipment    = (isRTL && exercise.equipment_ar) || exercise.equipment;
                                             return (
                                             <div key={exercise.id}>
                                                 {exIdx > 0 && <div className="my-4 border-t border-border/50" />}
@@ -389,7 +392,7 @@ export default function ClientTrainingPage() {
                                                             youtubeUrl={exercise.youtube_url}
                                                             videoPath={exercise.video_path}
                                                             thumbnailPath={exercise.thumbnail_path}
-                                                            name={exercise.name}
+                                                            name={exerciseName}
                                                             watchLabel={t('watchVideo')}
                                                             watchOnYoutubeLabel={t('watchOnYoutube')}
                                                         />
@@ -399,10 +402,10 @@ export default function ClientTrainingPage() {
                                                 {/* Exercise header */}
                                                 <div className="flex items-start gap-1">
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-semibold text-foreground">{exercise.name}</p>
-                                                        {(exercise.muscle_group || exercise.equipment) && (
+                                                        <p className="text-sm font-semibold text-foreground">{exerciseName}</p>
+                                                        {(muscleGroup || equipment) && (
                                                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                                                                {[exercise.muscle_group, exercise.equipment].filter(Boolean).map(part => (
+                                                                {[muscleGroup, equipment].filter(Boolean).map(part => (
                                                                     <Chip key={part} size="sm" variant="soft">{part}</Chip>
                                                                 ))}
                                                             </div>

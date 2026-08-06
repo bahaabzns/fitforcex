@@ -66,6 +66,14 @@ export async function searchSwapAlternatives(req: Request, res: Response, next: 
             take:    50,
         });
 
+        // food_items.food_category stores the category's name_en as a plain
+        // string (not a foreign key) — look up its Arabic counterpart so the
+        // client portal can render the category in the active locale.
+        const categories = await prisma.food_categories.findMany({
+            where: { workspace_id: req.client!.workspaceId },
+        });
+        const categoryNameAr = new Map(categories.map((c) => [c.name_en, c.name_ar]));
+
         const sourceAmount = Number(item.amount);
         const sourceServingSize = Number(item.serving_size);
         const sourceCalories = Number(item.calories_per_serving);
@@ -85,6 +93,7 @@ export async function searchSwapAlternatives(req: Request, res: Response, next: 
                     nameAr:          food.name_ar,
                     servingUnit:     food.serving_unit,
                     foodCategory:    food.food_category,
+                    foodCategoryAr:  food.food_category ? categoryNameAr.get(food.food_category) ?? null : null,
                     calculatedAmount,
                     calories:        round1(ratio * Number(food.calories_per_serving)),
                     protein:         round1(ratio * Number(food.protein_per_serving)),

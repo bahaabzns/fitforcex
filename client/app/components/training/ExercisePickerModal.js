@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import ExerciseFormModal from "@/app/components/training/ExerciseFormModal";
@@ -20,9 +20,18 @@ const PAGE_SIZE = 10;
 export default function ExercisePickerModal({ open, onClose, onAddExercises, single = false, title, confirmLabel }) {
     const t = useTranslations('training');
     const tFilter = useTranslations('filter');
+    const isRTL = useLocale() === 'ar';
+    const localizedExerciseName = (item) => (isRTL && item?.name_ar) || item?.name_en || item?.name_ar || '';
     const [items, setItems] = useState([]);
     const [muscleGroups, setMuscleGroups] = useState([]);
     const [equipments, setEquipments] = useState([]);
+    // exercise_library.muscle_group/equipment store the lookup's name_en as a
+    // plain string (not a FK) — translate for display via these maps while
+    // keeping the underlying value (and filter keys) in English.
+    const muscleGroupNameAr = new Map(muscleGroups.map(g => [g.name_en, g.name_ar]));
+    const equipmentNameAr = new Map(equipments.map(e => [e.name_en, e.name_ar]));
+    const localizedMuscleGroup = (name) => (isRTL && muscleGroupNameAr.get(name)) || name || '';
+    const localizedEquipment = (name) => (isRTL && equipmentNameAr.get(name)) || name || '';
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [filterGroup, setFilterGroup] = useState("");
@@ -89,7 +98,13 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
     };
 
     const handleConfirm = () => {
-        const selectedItems = items.filter((item) => selectedIds.has(String(item.id)));
+        const selectedItems = items
+            .filter((item) => selectedIds.has(String(item.id)))
+            .map((item) => ({
+                ...item,
+                muscle_group_ar: item.muscle_group ? muscleGroupNameAr.get(item.muscle_group) ?? null : null,
+                equipment_ar:    item.equipment ? equipmentNameAr.get(item.equipment) ?? null : null,
+            }));
         onAddExercises(selectedItems);
     };
 
@@ -138,7 +153,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                 </ListBox.Item>
                                 {muscleGroups.map(g => (
                                     <ListBox.Item key={g.name_en} id={g.name_en} textValue={g.name_en}>
-                                        {g.name_en}
+                                        {localizedMuscleGroup(g.name_en)}
                                         <ListBox.ItemIndicator />
                                     </ListBox.Item>
                                 ))}
@@ -165,7 +180,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                 </ListBox.Item>
                                 {equipments.map(e => (
                                     <ListBox.Item key={e.name_en} id={e.name_en} textValue={e.name_en}>
-                                        {e.name_en}
+                                        {localizedEquipment(e.name_en)}
                                         <ListBox.ItemIndicator />
                                     </ListBox.Item>
                                 ))}
@@ -227,7 +242,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                         >
                                             <Table.Cell className="p-2">
                                                 <Checkbox
-                                                    aria-label={`Select ${item.name_en}`}
+                                                    aria-label={`Select ${localizedExerciseName(item)}`}
                                                     slot="selection"
                                                 >
                                                     <Checkbox.Control>
@@ -244,19 +259,19 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                                         {item.thumbnail_path && (
                                                             <img
                                                                 src={item.thumbnail_path}
-                                                                alt={item.name_en}
+                                                                alt={localizedExerciseName(item)}
                                                                 className="absolute inset-0 w-full h-full object-cover"
                                                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                                             />
                                                         )}
                                                     </div>
-                                                    {item.name_en}
+                                                    {localizedExerciseName(item)}
                                                 </div>
                                             </Table.Cell>
                                             <Table.Cell className="p-2">
                                                 {item.muscle_group ? (
                                                     <Chip size="sm" variant="soft" color="default">
-                                                        <Chip.Label>{item.muscle_group}</Chip.Label>
+                                                        <Chip.Label>{localizedMuscleGroup(item.muscle_group)}</Chip.Label>
                                                     </Chip>
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>
@@ -265,7 +280,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                             <Table.Cell className="p-2">
                                                 {item.equipment ? (
                                                     <Chip size="sm" variant="soft" color="secondary">
-                                                        <Chip.Label>{item.equipment}</Chip.Label>
+                                                        <Chip.Label>{localizedEquipment(item.equipment)}</Chip.Label>
                                                     </Chip>
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>

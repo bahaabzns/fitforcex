@@ -2,18 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart, X, Minus, Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
-function buildShoppingList(cycles, cycleDays) {
+function buildShoppingList(cycles, cycleDays, isRTL) {
     const totals = {};
     for (const cycle of cycles) {
         const days = cycleDays[cycle.id] ?? 0;
         if (days === 0) continue;
         for (const meal of (cycle.meals ?? [])) {
             for (const item of (meal.items ?? [])) {
-                const key = `${item.name}||${item.serving_unit}`;
+                const name = (isRTL && item.name_ar) || item.name || item.name_ar || '';
+                const key = `${name}||${item.serving_unit}`;
                 if (!totals[key]) {
-                    totals[key] = { name: item.name, serving_unit: item.serving_unit, amount: 0 };
+                    totals[key] = { name, serving_unit: item.serving_unit, amount: 0 };
                 }
                 totals[key].amount += item.amount * days;
             }
@@ -26,6 +27,7 @@ function buildShoppingList(cycles, cycleDays) {
 
 export default function ShoppingListDrawer({ plan, isOpen, onClose }) {
     const t = useTranslations('portal.shoppingList');
+    const isRTL = useLocale() === 'ar';
 
     const [cycleDays, setCycleDays] = useState({});
 
@@ -53,8 +55,8 @@ export default function ShoppingListDrawer({ plan, isOpen, onClose }) {
     }
 
     const shoppingList = useMemo(
-        () => (plan?.cycles ? buildShoppingList(plan.cycles, cycleDays) : []),
-        [plan, cycleDays]
+        () => (plan?.cycles ? buildShoppingList(plan.cycles, cycleDays, isRTL) : []),
+        [plan, cycleDays, isRTL]
     );
 
     if (!plan) return null;

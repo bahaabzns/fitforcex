@@ -87,7 +87,9 @@ export default function WorkoutLogDetailPage() {
                     <Card.Content className="px-4 py-3 flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-primary">#{exIdx + 1}</span>
-                            <span className="font-semibold text-sm text-foreground">{exercise.name}</span>
+                            <span className="font-semibold text-sm text-foreground">
+                                {(isRTL && exercise.library_name_ar) || exercise.library_name_en || exercise.name}
+                            </span>
                         </div>
 
                         <div className={`grid ${gridCols} gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60`}>

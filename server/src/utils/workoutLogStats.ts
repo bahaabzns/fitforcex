@@ -21,6 +21,8 @@ export interface LoggedExercise {
     exercise_id:         string;
     exercise_library_id: string | null;
     name:                string;
+    library_name_en?:    string | null;
+    library_name_ar?:    string | null;
     note:                string | null;
     // Snapshotted at submission time (see loggedExerciseSchema in
     // clientPortal.controller.ts) rather than re-derived from the catalog

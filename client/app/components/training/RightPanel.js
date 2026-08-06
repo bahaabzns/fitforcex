@@ -133,6 +133,7 @@ export default function RightPanel({
 }) {
     const t = useTranslations('training');
     const locale = useLocale();
+    const isRTL = locale === 'ar';
     const [showPicker, setShowPicker] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises", "notes"]));
     const [videoModalId, setVideoModalId] = useState(null);
@@ -302,7 +303,11 @@ export default function RightPanel({
                                                         {exerciseName}
                                                     </p>
                                                     <p className="text-xs leading-5 text-muted truncate">
-                                                        {exercise.muscle_group ? `${exercise.muscle_group} · ` : ""}{exercise.equipment ? `${exercise.equipment} · ` : ""}{setCount} sets
+                                                        {(() => {
+                                                            const muscleGroup = (isRTL && exercise.muscle_group_ar) || exercise.muscle_group;
+                                                            const equipment   = (isRTL && exercise.equipment_ar) || exercise.equipment;
+                                                            return <>{muscleGroup ? `${muscleGroup} · ` : ""}{equipment ? `${equipment} · ` : ""}{setCount} sets</>;
+                                                        })()}
                                                     </p>
                                                 </div>
                                                 {/* Actions */}

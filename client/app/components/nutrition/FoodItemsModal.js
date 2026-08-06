@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import FoodForm from "@/app/components/nutrition/FoodForm";
@@ -19,6 +19,8 @@ const PAGE_SIZE = 10;
 
 export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
     const t = useTranslations("nutrition");
+    const isRTL = useLocale() === 'ar';
+    const localizedFoodName = (food) => (isRTL && food?.name_ar) || food?.name_en || food?.name_ar || '';
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [categoryFilter, setCategoryFilter] = useState(lockedCategory || '');
     const [extraItems, setExtraItems] = useState([]);
@@ -30,12 +32,23 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
     const [createError, setCreateError] = useState('');
     const [formCategories, setFormCategories] = useState([]);
     const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+    const categoryNameAr = new Map(formCategories.map(c => [c.name_en, c.name_ar]));
+    const localizedCategory = (category) => (isRTL && categoryNameAr.get(category)) || category || '';
 
     useEffect(() => { if (!open) { setExtraItems([]); setSelectedIds(new Set()); setCreateError(''); setPage(1); setCreateModalOpen(false); } }, [open]);
     // Reset to first page whenever search or category changes
     useEffect(() => { setPage(1); }, [foodSearchQuery, categoryFilter]);
 
-    const openCreateModal = async () => {
+    // Load categories (for Arabic category labels) as soon as the modal opens,
+    // not only when the create-food sub-modal is used.
+    useEffect(() => {
+        if (!open || categoriesLoaded) return;
+        api.get('/api/nutrition/food-categories')
+            .then(res => { setFormCategories(res.data); setCategoriesLoaded(true); })
+            .catch(() => {});
+    }, [open, categoriesLoaded]);
+
+    const openCreateModal = () => {
         setCreateFormData({
             name_en: (foodSearchQuery || '').trim(),
             name_ar: '',
@@ -48,13 +61,6 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
             fats_per_serving: '',
         });
         setCreateError('');
-        if (!categoriesLoaded) {
-            try {
-                const res = await api.get('/api/nutrition/food-categories');
-                setFormCategories(res.data);
-                setCategoriesLoaded(true);
-            } catch {}
-        }
         setCreateModalOpen(true);
     };
 
@@ -149,7 +155,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                     </ListBox.Item>
                                     {categories.map(cat => (
                                         <ListBox.Item key={cat} id={cat} textValue={cat}>
-                                            {cat}
+                                            {localizedCategory(cat)}
                                             <ListBox.ItemIndicator />
                                         </ListBox.Item>
                                     ))}
@@ -160,7 +166,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
 
                     {lockedCategory && (
                         <Chip size="sm" color="primary" variant="solid">
-                            <Chip.Label>{lockedCategory}</Chip.Label>
+                            <Chip.Label>{localizedCategory(lockedCategory)}</Chip.Label>
                         </Chip>
                     )}
 
@@ -226,7 +232,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                         >
                                             <Table.Cell className="p-2">
                                                 <Checkbox
-                                                    aria-label={`Select ${fi.name_en || fi.name_ar}`}
+                                                    aria-label={`Select ${localizedFoodName(fi)}`}
                                                     slot="selection"
                                                 >
                                                     <Checkbox.Control>
@@ -235,12 +241,12 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                                 </Checkbox>
                                             </Table.Cell>
                                             <Table.Cell className="p-2 font-medium">
-                                                {fi.name_en || fi.name_ar}
+                                                {localizedFoodName(fi)}
                                             </Table.Cell>
                                             <Table.Cell className="p-2">
                                                 {fi.food_category ? (
                                                     <Chip size="sm" variant="soft" color="default">
-                                                        <Chip.Label>{fi.food_category}</Chip.Label>
+                                                        <Chip.Label>{localizedCategory(fi.food_category)}</Chip.Label>
                                                     </Chip>
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>
