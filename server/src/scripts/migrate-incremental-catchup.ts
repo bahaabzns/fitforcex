@@ -735,9 +735,9 @@ async function migrateMissingTrainingPlans() {
   const { rows: libraryExercises } = await old.query<{
     id: string; workspaceId: string; name: string; nameArabic: string | null;
     muscleGroup: string; equipmentNeeded: string | null; videoUrl: string | null;
-    createdAt: string;
+    gifImage: string | null; createdAt: string;
   }>(`
-    SELECT id, "workspaceId", name, "nameArabic", "muscleGroup", "equipmentNeeded", "videoUrl", "createdAt"
+    SELECT id, "workspaceId", name, "nameArabic", "muscleGroup", "equipmentNeeded", "videoUrl", "gifImage", "createdAt"
     FROM public."Exercise" WHERE "deletedAt" IS NULL
   `);
   const missingLibrary = libraryExercises.filter(e => !existingLibrary.has(e.id) && validWorkspaces.has(e.workspaceId));
@@ -748,7 +748,7 @@ async function migrateMissingTrainingPlans() {
         data: batch.map(e => ({
           id: e.id, workspace_id: e.workspaceId, name_en: e.name, name_ar: e.nameArabic ?? undefined,
           muscle_group: e.muscleGroup, equipment: e.equipmentNeeded ?? undefined,
-          youtube_url: e.videoUrl ?? undefined,
+          youtube_url: e.videoUrl ?? undefined, thumbnail_path: e.gifImage ?? undefined,
           created_at: new Date(e.createdAt), updated_at: new Date(e.createdAt),
         })),
         skipDuplicates: true,
