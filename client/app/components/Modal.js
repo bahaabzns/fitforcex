@@ -28,7 +28,17 @@ export default function AppModal({ open, onClose, title, children, footer, wide,
     const dialogClass = dialogClassName || (size === "xl" ? "max-w-4xl" : wide ? "max-w-2xl" : "max-w-lg");
     return (
         <Modal isOpen={open} onOpenChange={(o) => !o && onClose()}>
-            <Modal.Backdrop>
+            <Modal.Backdrop
+                shouldCloseOnInteractOutside={(element) =>
+                    // A Popover/Tooltip triggered from inside this modal (e.g.
+                    // NewFeatureTooltip, InfoTooltip) portals to its own separate
+                    // DOM branch, which React Aria doesn't recognize as "inside"
+                    // the modal. Without this, clicking its content — e.g. a
+                    // "Got it" dismiss button — reads as an outside interaction
+                    // and closes the whole modal along with it.
+                    !element.closest(".popover, .tooltip")
+                }
+            >
                 <Modal.Container size={isCover ? "cover" : undefined}>
                     <Modal.Dialog className={isCover ? dialogClassName : dialogClass}>
                         <Modal.Header>
