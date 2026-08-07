@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../../lib/prisma';
-import { calculateEquivalentAmount } from '../nutrition/nutrition.service';
+import { resolveSwapAmount } from '../nutrition/nutrition.service';
 
 type Row = Record<string, unknown>;
 
@@ -62,8 +62,11 @@ export async function searchSwapAlternatives(req: Request, res: Response, next: 
                     ] }
                     : {}),
             },
+            // No cap: a coach's category must show every alternative it has,
+            // not just the alphabetically-first slice. Categories are
+            // curated/scoped by the coach, not user-generated, so unbounded
+            // growth here isn't a realistic concern.
             orderBy: { name_en: 'asc' },
-            take:    50,
         });
 
         // food_items.food_category stores the category's name_en as a plain
@@ -80,12 +83,16 @@ export async function searchSwapAlternatives(req: Request, res: Response, next: 
 
         const alternatives = candidates
             .map((food) => {
-                const calculatedAmount = calculateEquivalentAmount(
+                // Foods with no calorie data, or genuinely 0 kcal/serving (water,
+                // black coffee, spices), can't be calorie-matched — offer them at
+                // their own serving size instead of hiding them from the category.
+                const resolved = resolveSwapAmount(
                     { amount: sourceAmount, servingSize: sourceServingSize, caloriesPerServing: sourceCalories },
                     { servingSize: Number(food.serving_size), caloriesPerServing: Number(food.calories_per_serving) }
                 );
-                if (calculatedAmount == null) return null;
+                if (resolved == null) return null;
 
+                const { amount: calculatedAmount, isCalorieMatched } = resolved;
                 const ratio = calculatedAmount / Number(food.serving_size);
                 return {
                     foodItemId:      food.id,
@@ -95,6 +102,7 @@ export async function searchSwapAlternatives(req: Request, res: Response, next: 
                     foodCategory:    food.food_category,
                     foodCategoryAr:  food.food_category ? categoryNameAr.get(food.food_category) ?? null : null,
                     calculatedAmount,
+                    isCalorieMatched,
                     calories:        round1(ratio * Number(food.calories_per_serving)),
                     protein:         round1(ratio * Number(food.protein_per_serving)),
                     carbs:           round1(ratio * Number(food.carbs_per_serving)),
@@ -144,13 +152,14 @@ export async function swapMealItemFood(req: Request, res: Response, next: NextFu
             return res.status(422).json({ message: 'Alternative must be from the same food category' });
         }
 
-        const calculatedAmount = calculateEquivalentAmount(
+        const resolved = resolveSwapAmount(
             { amount: Number(item.amount), servingSize: Number(item.serving_size), caloriesPerServing: Number(item.calories_per_serving) },
             { servingSize: Number(altFood.serving_size), caloriesPerServing: Number(altFood.calories_per_serving) }
         );
-        if (calculatedAmount == null) {
+        if (resolved == null) {
             return res.status(422).json({ message: 'Cannot compute an equivalent amount for this food' });
         }
+        const { amount: calculatedAmount } = resolved;
 
         const fromFoodItemId = item.food_item_id as string;
         const fromAmount = Number(item.amount);

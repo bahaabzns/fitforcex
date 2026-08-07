@@ -113,6 +113,9 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
                                         </Chip>
                                     )}
                                 </div>
+                                {alt.isCalorieMatched === false && (
+                                    <p className="text-xs text-warning mt-0.5">{t("notCalorieMatched")}</p>
+                                )}
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1" dir="ltr">
                                     <span>{alt.calculatedAmount}{alt.servingUnit}</span>
                                     <span>{alt.calories} {t("kcal")}</span>

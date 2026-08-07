@@ -101,3 +101,24 @@ export function calculateEquivalentAmount(
     const targetCalories = (source.amount / source.servingSize) * source.caloriesPerServing;
     return Math.round((targetCalories / target.caloriesPerServing) * target.servingSize * 10) / 10;
 }
+
+/**
+ * Wraps calculateEquivalentAmount with a fallback for foods whose library
+ * entry is missing calorie data or genuinely has 0 kcal/serving (water,
+ * black coffee, spices) — calorie-matching is mathematically undefined for
+ * those, but the food is still a legitimate same-category swap target.
+ * Falls back to "1 serving" of the target instead of dropping it outright.
+ * Only returns null when the target has no serving_size at all, i.e. there
+ * is no quantity we could offer in the first place (a data-entry gap, not a
+ * math edge case).
+ */
+export function resolveSwapAmount(
+    source: { amount: number; servingSize: number; caloriesPerServing: number },
+    target: { servingSize: number; caloriesPerServing: number }
+): { amount: number; isCalorieMatched: boolean } | null {
+    const equivalent = calculateEquivalentAmount(source, target);
+    if (equivalent != null) return { amount: equivalent, isCalorieMatched: true };
+
+    if (!target.servingSize) return null;
+    return { amount: target.servingSize, isCalorieMatched: false };
+}
