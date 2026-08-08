@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { redirectToDashboard, redirectToWorkspace } from "@/lib/coachSlug";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { pickLocalized } from "@/lib/utils";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
@@ -15,9 +16,10 @@ import { SearchField } from "@heroui/react/search-field";
 import { ListBox } from "@heroui/react/list-box";
 import { useFilter } from "@heroui/react/rac";
 import { Skeleton } from "@heroui/react/skeleton";
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePageTitle } from "@/hooks/usePageTitle";
 import Stepper from "@/app/components/Stepper";
+import ManualPaymentPanel from "@/app/components/ManualPaymentPanel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const COUNTRY_CODES = [
@@ -54,18 +56,10 @@ const COUNTRY_CODES = [
     { code: "+263", name: "Zimbabwe" },
 ];
 
-// Checkmark / clock icons shared by the confirmation step — same markup used by
-// settings/subscription's payment overlay, kept local here since this is the only other
-// place that needs them.
-function CheckmarkBadge() {
-    return (
-        <div className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
-            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-        </div>
-    );
-}
+// Clock icon for the "verification pending" confirmation step — manual payments never reach
+// an automatic "confirmed" state here (that only happens once an admin verifies it, see
+// admin.controller.ts), so unlike settings/subscription's Paymob overlay this page only ever
+// needs the pending variant.
 function ClockBadge() {
     return (
         <div className="w-16 h-16 rounded-full bg-yellow-500/15 flex items-center justify-center">
@@ -80,12 +74,15 @@ export default function RegisterPage() {
     const t = useTranslations('auth');
     const tCheckout = useTranslations('checkout');
     const tCommon = useTranslations('common');
+    const locale = useLocale();
     const searchParams = useSearchParams();
     const router = useRouter();
     const planSlug = searchParams.get('plan');
     const periodKey = searchParams.get('period');
     const variationIdParam = searchParams.get('variation');
     const isNarrow = useMediaQuery("(max-width: 639px)");
+    const isRTL = locale === 'ar';
+    const BackChevron = isRTL ? ChevronRight : ChevronLeft;
 
     // Wizard step (only meaningful while planSlug is set — a plain/no-plan signup never
     // advances past the details form). 0 = details, 1 = payment, 2 = confirmation.
@@ -101,7 +98,7 @@ export default function RegisterPage() {
     const [checkingAuth, setCheckingAuth] = useState(true);
     const { contains } = useFilter({ sensitivity: "base" });
 
-    const [registered, setRegistered] = useState(null); // { slug } — set once step 0 succeeds
+    const [registered, setRegistered] = useState(null); // { slug } — set once handleCheckout registers the account
 
     // Plan/variation resolved from the query string for the payment step's summary card —
     // same lookup LandingPricing.js/the old checkout page used against the public /api/plans.
@@ -110,15 +107,11 @@ export default function RegisterPage() {
     const [variation, setVariation] = useState(null);
     const [period, setPeriod] = useState(null);
 
-    const [checkoutMethod, setCheckoutMethod] = useState('card');
-    const [walletPhone, setWalletPhone] = useState('');
     const [paying, setPaying] = useState(false);
     const [payError, setPayError] = useState('');
-    const [iframeUrl, setIframeUrl] = useState(null);
-    const [walletRedirectUrl, setWalletRedirectUrl] = useState(null);
-    const [fawryReferenceCode, setFawryReferenceCode] = useState(null);
-    const [paymentId, setPaymentId] = useState(null);
-    const [payStatus, setPayStatus] = useState(null); // null | 'confirmed' | 'processing'
+    // Card/Wallet/Fawry are shown but disabled until real Paymob credentials exist (see
+    // DEBT.md) — manual transfer is the only method that actually calls create-invoice today.
+    const [manualPayment, setManualPayment] = useState(null); // create-invoice's manualPayment payload
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -162,36 +155,6 @@ export default function RegisterPage() {
     // missing/stale, in which case registration behaves exactly like a plain signup.
     const hasPlan = !!(planSlug && plan && variation);
 
-    useEffect(() => {
-        function onMessage(e) { if (e.data === 'payment_confirmed') setPayStatus('confirmed'); }
-        window.addEventListener('message', onMessage);
-        return () => window.removeEventListener('message', onMessage);
-    }, []);
-
-    useEffect(() => {
-        if (!paymentId) return;
-        let attempts = 0;
-        const id = setInterval(async () => {
-            try {
-                const res = await api.get(`/api/billing/payment-status/${paymentId}`);
-                if (res.data.status === "paid") {
-                    clearInterval(id);
-                    setPayStatus("confirmed");
-                } else if (attempts++ > 60) {
-                    clearInterval(id);
-                    setPayStatus("processing");
-                }
-            } catch { /* keep polling */ }
-        }, 3000);
-        return () => clearInterval(id);
-    }, [paymentId]);
-
-    // Once the checkout resolves (confirmed, or given up and left to the webhook), advance to
-    // the confirmation step — nothing left to do on the payment step itself.
-    useEffect(() => {
-        if (payStatus === 'confirmed' || payStatus === 'processing') setStep(2);
-    }, [payStatus]);
-
     const set = (field) => (val) => setFormData(prev => ({ ...prev, [field]: val }));
 
     async function handleDetailsSubmit(e) {
@@ -201,6 +164,25 @@ export default function RegisterPage() {
             setError(t('phoneRequired'));
             return;
         }
+
+        // With a plan selected, the account isn't created here — only once the coach clicks
+        // "Checkout" on the payment step (see handleCheckout), so nothing exists until they've
+        // actually gone through checkout. Still worth catching a bad/duplicate email or phone
+        // now rather than at the very end of checkout, so validate-only (no account write) here.
+        if (hasPlan) {
+            setLoading(true);
+            const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
+            try {
+                await api.post('/api/auth/check-availability', { email: formData.email, phone });
+                setStep(1);
+            } catch (err) {
+                setError(err.response?.data?.message || t('registrationFailed'));
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         setLoading(true);
         const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
         try {
@@ -213,16 +195,6 @@ export default function RegisterPage() {
             });
             const slug = res.data?.workspace_slug;
             if (!slug) { router.push('/login'); return; }
-
-            if (hasPlan) {
-                // Register auto-logs the coach in via an httpOnly cookie scoped to the API
-                // host — every subsequent /api call (billing included) already authenticates
-                // with it regardless of which frontend host is displayed, so payment can stay
-                // right here instead of redirecting into the workspace first.
-                setRegistered({ slug });
-                setStep(1);
-                return;
-            }
             redirectToWorkspace(slug, 'dashboard?welcome=1');
         } catch (err) {
             setError(err.response?.data?.message || t('registrationFailed'));
@@ -231,32 +203,36 @@ export default function RegisterPage() {
         }
     }
 
-    async function handlePay() {
-        if (checkoutMethod === 'wallet' && !walletPhone.trim()) return;
+    // Creates the account and immediately requests the manual-payment instructions for it, as
+    // one combined action — this is the first moment anything is actually written to the
+    // database for this coach; abandoning the wizard before this point leaves no trace.
+    async function handleCheckout() {
         setPaying(true);
         setPayError('');
         try {
-            const res = await api.post('/api/billing/create-invoice', {
+            const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
+            const registerRes = await api.post('/api/auth/register', {
+                fname: formData.fname,
+                lname: formData.lname,
+                email: formData.email,
+                password: formData.password,
+                phone,
+            });
+            const slug = registerRes.data?.workspace_slug;
+            if (!slug) {
+                setPayError(t('registrationFailed'));
+                return;
+            }
+            setRegistered({ slug });
+
+            const invoiceRes = await api.post('/api/billing/create-invoice', {
                 planId: plan.id,
                 variationId: variation.id,
-                paymentMethod: checkoutMethod,
-                walletPhoneNumber: checkoutMethod === 'wallet' ? walletPhone.trim() : undefined,
+                paymentMethod: 'manual',
             });
-            setPayStatus(null);
-            setIframeUrl(null);
-            setWalletRedirectUrl(null);
-            setFawryReferenceCode(null);
-            if (checkoutMethod === 'wallet') {
-                setWalletRedirectUrl(res.data.paymentUrl);
-                window.open(res.data.paymentUrl, '_blank', 'noopener,noreferrer');
-            } else if (checkoutMethod === 'fawry') {
-                setFawryReferenceCode(res.data.referenceCode);
-            } else {
-                setIframeUrl(res.data.paymentUrl);
-            }
-            setPaymentId(res.data.paymentId);
+            setManualPayment(invoiceRes.data.manualPayment);
         } catch (err) {
-            setPayError(err.response?.data?.error || tCheckout('payFailed'));
+            setPayError(err.response?.data?.message || err.response?.data?.error || tCheckout('payFailed'));
         } finally {
             setPaying(false);
         }
@@ -348,7 +324,9 @@ export default function RegisterPage() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" color="primary" fullWidth isDisabled={loading} className="mt-2">
-                {loading ? t('creatingAccount') : hasPlan ? t('continueToPayment') : t('register')}
+                {loading
+                    ? (hasPlan ? t('checkingDetails') : t('creatingAccount'))
+                    : (hasPlan ? t('continueToPayment') : t('register'))}
             </Button>
             {!planSlug && (
                 <p className="auth-link">
@@ -387,7 +365,7 @@ export default function RegisterPage() {
         <div className="auth-wrapper py-10">
             <div className="w-full max-w-3xl px-4 flex flex-col sm:flex-row gap-6 sm:gap-8">
                 <div className="w-full sm:w-48 sm:shrink-0 sm:pt-2">
-                    <Stepper steps={STEPS} current={step} orientation={isNarrow ? "horizontal" : "vertical"} />
+                    <Stepper steps={STEPS} current={step} orientation={isNarrow ? "horizontal" : "vertical"} onStepClick={setStep} />
                 </div>
 
                 <div className="auth-card max-w-none flex-1 min-w-0">
@@ -398,7 +376,7 @@ export default function RegisterPage() {
                                 <Skeleton className="h-5 w-40 rounded mx-auto mb-4" />
                             ) : (
                                 <p className="mb-4 text-sm text-primary/70 text-center">
-                                    {t('selectedPlan', { plan: plan?.display_name ?? planSlug })}
+                                    {t('selectedPlan', { plan: (plan && pickLocalized(locale, plan.display_name, plan.display_name_ar)) ?? planSlug })}
                                 </p>
                             )}
                             {detailsForm}
@@ -407,12 +385,24 @@ export default function RegisterPage() {
 
                     {step === 1 && (
                         <div className="flex flex-col gap-5">
+                            <button
+                                type="button"
+                                onClick={() => setStep(0)}
+                                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+                            >
+                                <BackChevron className="h-4 w-4" />
+                                {t('back')}
+                            </button>
                             <h1 className="auth-title mb-0!">{tCheckout('title')}</h1>
 
                             <div className="rounded-lg border border-border bg-secondary/20 px-4 py-3 flex flex-col gap-1">
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-foreground">
-                                        {plan.display_name}{variation.label ? ` · ${variation.label}` : ''}
+                                        {pickLocalized(locale, plan.display_name, plan.display_name_ar)}
+                                        {(() => {
+                                            const variationLabel = pickLocalized(locale, variation.label_en, variation.label_ar);
+                                            return variationLabel ? ` · ${variationLabel}` : '';
+                                        })()}
                                     </span>
                                     <span className="text-lg font-bold text-foreground">
                                         {effective != null ? (
@@ -425,98 +415,79 @@ export default function RegisterPage() {
                                 )}
                             </div>
 
-                            {!(iframeUrl || walletRedirectUrl || fawryReferenceCode) ? (
-                                <>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer p-2.5 rounded-lg border border-border has-checked:border-primary has-checked:bg-primary/5">
-                                            <input type="radio" name="checkoutMethod" checked={checkoutMethod === 'card'} onChange={() => setCheckoutMethod('card')} />
-                                            {tCheckout('payWithCard')}
+                            {!manualPayment && (
+                                <div className="flex flex-col gap-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{tCheckout('paymentMethod')}</p>
+                                    {['payWithCard', 'payWithWallet', 'payWithFawry'].map((key) => (
+                                        <label key={key} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
+                                            <span className="flex items-center gap-2 text-sm text-foreground">
+                                                <input type="radio" disabled />
+                                                {tCheckout(key)}
+                                            </span>
+                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground whitespace-nowrap">
+                                                {tCheckout('currentlyUnavailable')}
+                                            </span>
                                         </label>
-                                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer p-2.5 rounded-lg border border-border has-checked:border-primary has-checked:bg-primary/5">
-                                            <input type="radio" name="checkoutMethod" checked={checkoutMethod === 'wallet'} onChange={() => setCheckoutMethod('wallet')} />
-                                            {tCheckout('payWithWallet')}
-                                        </label>
-                                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer p-2.5 rounded-lg border border-border has-checked:border-primary has-checked:bg-primary/5">
-                                            <input type="radio" name="checkoutMethod" checked={checkoutMethod === 'fawry'} onChange={() => setCheckoutMethod('fawry')} />
-                                            {tCheckout('payWithFawry')}
-                                        </label>
-                                    </div>
-
-                                    {checkoutMethod === 'wallet' && (
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-medium text-muted-foreground">{tCheckout('walletPhoneLabel')}</label>
-                                            <input
-                                                type="tel"
-                                                value={walletPhone}
-                                                onChange={(e) => setWalletPhone(e.target.value)}
-                                                placeholder="01xxxxxxxxx"
-                                                className="px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
-                                            />
-                                        </div>
-                                    )}
+                                    ))}
+                                    <label className="flex items-center gap-2 p-2.5 rounded-lg border border-primary bg-primary/5 cursor-default">
+                                        <input type="radio" checked readOnly />
+                                        <span className="flex flex-col items-start gap-0.5">
+                                            <span className="text-sm text-foreground font-medium">{tCheckout('payManually')}</span>
+                                            <span className="text-xs text-muted-foreground">{tCheckout('payManuallyHint')}</span>
+                                        </span>
+                                    </label>
 
                                     {payError && <p className="text-sm text-destructive">{payError}</p>}
 
-                                    <Button
-                                        color="primary" fullWidth
-                                        isDisabled={paying || (checkoutMethod === 'wallet' && !walletPhone.trim())}
-                                        onClick={handlePay}
-                                    >
-                                        {paying ? tCheckout('processing') : tCheckout('payNow')}
+                                    <Button color="primary" fullWidth isDisabled={paying} onClick={handleCheckout} className="mt-1">
+                                        {paying ? tCheckout('processing') : tCheckout('checkoutButton')}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {manualPayment && (
+                                <>
+                                    <ManualPaymentPanel info={manualPayment} t={tCheckout} />
+                                    <Button color="primary" fullWidth onClick={() => setStep(2)} className="mt-1">
+                                        {tCheckout('continueButton')}
                                     </Button>
                                 </>
-                            ) : iframeUrl ? (
-                                <iframe src={iframeUrl} className="w-full rounded-lg border border-border" style={{ height: 480 }} title={tCheckout('completePayment')} />
-                            ) : walletRedirectUrl ? (
-                                <div className="flex flex-col items-center gap-3 text-center py-6">
-                                    <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center">
-                                        <svg className="w-7 h-7 text-primary animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                    <p className="text-base font-semibold text-foreground">{tCheckout('waitingForWallet')}</p>
-                                    <p className="text-sm text-muted-foreground">{tCheckout('waitingForWalletHint')}</p>
-                                    <button
-                                        onClick={() => window.open(walletRedirectUrl, '_blank', 'noopener,noreferrer')}
-                                        className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-secondary transition-colors"
-                                    >
-                                        {tCheckout('reopenWalletPage')}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center gap-3 text-center py-6">
-                                    <p className="text-base font-semibold text-foreground">{tCheckout('fawryReferenceTitle')}</p>
-                                    <p className="text-sm text-muted-foreground">{tCheckout('fawryReferenceHint')}</p>
-                                    <p className="text-3xl font-extrabold text-foreground tracking-widest tabular-nums bg-secondary/40 border border-border rounded-lg px-6 py-3">
-                                        {fawryReferenceCode}
-                                    </p>
-                                </div>
                             )}
                         </div>
                     )}
 
                     {step === 2 && (
-                        <div className="flex flex-col items-center gap-4 text-center py-6">
-                            {payStatus === 'confirmed' ? (
-                                <>
-                                    <CheckmarkBadge />
-                                    <div>
-                                        <p className="text-xl font-bold text-foreground">{tCheckout('paymentConfirmed')}</p>
-                                        <p className="text-sm text-muted-foreground mt-1">{tCheckout('subscriptionActivated')}</p>
+                        <div className="flex flex-col gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+                            >
+                                <BackChevron className="h-4 w-4" />
+                                {t('back')}
+                            </button>
+
+                            <div className="flex flex-col items-center gap-4 text-center py-2">
+                                <ClockBadge />
+                                <div>
+                                    <p className="text-xl font-bold text-foreground">{tCheckout('manualPendingTitle')}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{tCheckout('manualPendingHint')}</p>
+                                </div>
+                                {manualPayment && (
+                                    <div className="rounded-lg border border-border bg-secondary/20 px-4 py-3 w-full flex items-center justify-between gap-2">
+                                        <div className="text-start">
+                                            <p className="text-xs text-muted-foreground">{tCheckout('referenceCodeLabel')}</p>
+                                            <p className="text-base font-bold tracking-widest text-foreground">{manualPayment.referenceCode}</p>
+                                        </div>
+                                        <a href={manualPayment.whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline whitespace-nowrap">
+                                            {tCheckout('sendProofWhatsApp')}
+                                        </a>
                                     </div>
-                                </>
-                            ) : (
-                                <>
-                                    <ClockBadge />
-                                    <div>
-                                        <p className="text-xl font-bold text-foreground">{tCheckout('paymentProcessing')}</p>
-                                        <p className="text-sm text-muted-foreground mt-1">{tCheckout('subscriptionActivatingSoon')}</p>
-                                    </div>
-                                </>
-                            )}
-                            <Button color="primary" fullWidth onClick={goToWorkspace}>
-                                {t('enterWorkspace')}
-                            </Button>
+                                )}
+                                <Button color="primary" fullWidth onClick={goToWorkspace}>
+                                    {t('enterWorkspace')}
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>
