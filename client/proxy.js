@@ -10,6 +10,22 @@ const RESERVED = new Set(['my', 'admin', 'www', 'api', 'mail', 'smtp']);
 // plain dev, 'lvh.me' for subdomain smoke-testing (see client/.env.local).
 const LOCAL_DEV_ROOT_DOMAINS = new Set(['localhost', 'lvh.me']);
 
+// Landing page and the checkout/signup wizard default to Arabic for a first-time visitor —
+// every other route keeps the app's normal English default (see i18n/request.js). Only
+// kicks in when no NEXT_LOCALE cookie exists yet; an explicit language choice (via
+// LanguageSwitcher.js) always wins, since the cookie is checked before this header there.
+const ARABIC_DEFAULT_PATHS = new Set(['/', '/register']);
+
+function withDefaultLocale(request) {
+    const { pathname } = request.nextUrl;
+    if (request.cookies.has('NEXT_LOCALE') || !ARABIC_DEFAULT_PATHS.has(pathname)) {
+        return NextResponse.next();
+    }
+    const headers = new Headers(request.headers);
+    headers.set('x-default-locale', 'ar');
+    return NextResponse.next({ request: { headers } });
+}
+
 export function proxy(request) {
     const host = request.headers.get('host') || '';
     const hostname = host.split(':')[0]; // strip port if present
@@ -46,7 +62,7 @@ export function proxy(request) {
             url.port = LOCAL_DEV_ROOT_DOMAINS.has(ROOT_DOMAIN) ? url.port : '';
             return NextResponse.redirect(url);
         }
-        return NextResponse.next();
+        return withDefaultLocale(request);
     }
 
     // Block /admin on non-admin subdomains → redirect to admin.ROOT_DOMAIN
