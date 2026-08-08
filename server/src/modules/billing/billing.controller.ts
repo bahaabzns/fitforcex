@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
+import { Prisma } from '@prisma/client';
 import * as paymob from '../../lib/paymob';
+import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import pool from '../../db';
 import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
@@ -46,7 +48,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             where: { workspace_id: req.user!.workspaceId },
             include: {
                 plans: {
-                    select: { id: true, name: true, display_name: true, duration_days: true, trial_days: true },
+                    select: { id: true, name: true, display_name: true, display_name_ar: true, duration_days: true, trial_days: true },
                 },
                 plan_variations: {
                     select: { id: true, max_clients: true, max_team_seats: true, price_monthly: true },
@@ -65,16 +67,16 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 select: {
                     id: true, amount: true, currency: true, duration_days: true,
                     gateway_status: true, created_at: true, paid_at: true,
-                    plans: { select: { display_name: true } },
+                    plans: { select: { display_name: true, display_name_ar: true } },
                     plan_variations: { select: { max_clients: true, max_team_seats: true } },
-                    addons: { select: { label: true } },
+                    addons: { select: { label: true, label_ar: true } },
                 },
                 orderBy: { created_at: 'desc' },
                 take: 20,
             }),
             prisma.workspace_addons.findMany({
                 where:  { workspace_id: req.user!.workspaceId, status: 'active' },
-                select: { id: true, dimension: true, units: true, quantity: true, unit_price_locked: true, currency: true, purchased_at: true, addons: { select: { label: true } } },
+                select: { id: true, dimension: true, units: true, quantity: true, unit_price_locked: true, currency: true, purchased_at: true, addons: { select: { label: true, label_ar: true } } },
                 orderBy: { purchased_at: 'asc' },
             }),
             getEffectiveLimits(req.user!.workspaceId),
@@ -96,8 +98,10 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 planId:         plan.id,
                 planName:       plan.name,
                 planDisplay:    plan.display_name,
+                planDisplayAr:  plan.display_name_ar,
                 variationId:    variation?.id ?? null,
-                variationLabel: variation ? formatPlanVariationLabel(variation) : null,
+                variationLabel:   variation ? formatPlanVariationLabel(variation, 'en') : null,
+                variationLabelAr: variation ? formatPlanVariationLabel(variation, 'ar') : null,
                 // Locked price = what this workspace actually pays, snapshotted at checkout —
                 // deliberately not the live plan_variations.price_monthly (see decision 5:
                 // editing a variation's public price never retroactively reprices existing
@@ -114,6 +118,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             addons: addons.map(a => ({
                 id:           a.id,
                 label:        a.addons?.label ?? `+${a.units} ${a.dimension}`,
+                labelAr:      a.addons?.label_ar ?? null,
                 dimension:    a.dimension,
                 units:        a.units,
                 quantity:     a.quantity,
@@ -124,7 +129,9 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             payments: payments.map(p => ({
                 ...p,
                 plan_display:      p.addons ? p.addons.label : p.plans.display_name,
-                variation_label:   p.plan_variations ? formatPlanVariationLabel(p.plan_variations) : null,
+                plan_display_ar:   p.addons ? p.addons.label_ar : p.plans.display_name_ar,
+                variation_label:     p.plan_variations ? formatPlanVariationLabel(p.plan_variations, 'en') : null,
+                variation_label_ar:  p.plan_variations ? formatPlanVariationLabel(p.plan_variations, 'ar') : null,
                 plans:             undefined,
                 plan_variations:   undefined,
                 addons:            undefined,
@@ -172,6 +179,7 @@ export async function getAvailableAddons(req: Request, res: Response, next: Next
             id:            r.addons.id,
             key:           r.addons.key,
             label:         r.addons.label,
+            labelAr:       r.addons.label_ar,
             dimension:     r.addons.dimension,
             units:         r.addons.units,
             priceMonthly:  r.addons.price_monthly,
@@ -183,10 +191,68 @@ export async function getAvailableAddons(req: Request, res: Response, next: Next
     } catch (err) { next(err); }
 }
 
-type PaymentMethod = 'card' | 'wallet' | 'fawry';
+type PaymentMethod = 'card' | 'wallet' | 'fawry' | 'manual';
 
 function resolvePaymentMethod(raw: string | undefined): PaymentMethod {
-    return raw === 'wallet' ? 'wallet' : raw === 'fawry' ? 'fawry' : 'card';
+    if (raw === 'wallet') return 'wallet';
+    if (raw === 'fawry')  return 'fawry';
+    if (raw === 'manual') return 'manual';
+    return 'card';
+}
+
+// No 0/O/1/I/L — a reference code a coach has to read aloud or type into WhatsApp shouldn't
+// be ambiguous. 6 chars from a 32-symbol alphabet is ~1-in-a-billion collision odds per pair,
+// and the retry loop below covers the rest.
+const REF_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function generateReferenceCode(): string {
+    let code = '';
+    for (let i = 0; i < 6; i++) code += REF_CODE_ALPHABET[Math.floor(Math.random() * REF_CODE_ALPHABET.length)];
+    return code;
+}
+
+// Manual-transfer (InstaPay/wallet) has no gateway of its own — this short code is what the
+// coach mentions when sending payment proof over WhatsApp, and what an admin searches for to
+// match it back to this row before confirming it (admin.controller.ts::updatePaymentStatus /
+// createManualPayment already handle the "mark paid, activate subscription" half). Retries on
+// the rare unique-constraint collision — same pattern as transactions.controller.ts's
+// nextTransactionCode.
+async function assignManualReferenceCode(paymentId: string): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const referenceCode = generateReferenceCode();
+        try {
+            await prisma.workspace_payments.update({ where: { id: paymentId }, data: { reference_code: referenceCode } });
+            return referenceCode;
+        } catch (err) {
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' && attempt < 4) continue;
+            throw err;
+        }
+    }
+    throw new Error('Failed to generate a unique reference code');
+}
+
+function buildWhatsAppUrl(referenceCode: string, planLabel: string, amount: number, currency: string): string {
+    const message = `Hi! I've sent a manual payment for FitForce.\nPlan: ${planLabel}\nAmount: ${amount} ${currency}\nReference: ${referenceCode}\n\n(Attaching my payment screenshot.)`;
+    return `https://wa.me/${env.WHATSAPP_VERIFICATION_NUMBER}?text=${encodeURIComponent(message)}`;
+}
+
+// All the info the manual-checkout screen needs in one place — every contact/account value is
+// env-configured (§12: no admin-panel settings UI for these yet, deliberately, per DEBT.md-style
+// scope call); a blank one is simply omitted rather than shown as an empty field.
+function buildManualPaymentInfo(referenceCode: string, amount: number, currency: string, planLabel: string) {
+    return {
+        amount, currency,
+        instapayHandle:  env.INSTAPAY_HANDLE || null,
+        beneficiaryName: env.MANUAL_PAYMENT_BENEFICIARY_NAME || null,
+        wallets: [
+            { provider: 'vodafone_cash', number: env.WALLET_VODAFONE_CASH },
+            { provider: 'etisalat_cash', number: env.WALLET_ETISALAT_CASH },
+            { provider: 'orange_cash',   number: env.WALLET_ORANGE_CASH },
+            { provider: 'we_pay',        number: env.WALLET_WE_PAY },
+        ].filter((w): w is { provider: string; number: string } => !!w.number),
+        referenceCode,
+        whatsappUrl: buildWhatsAppUrl(referenceCode, planLabel, amount, currency),
+    };
 }
 
 // Dispatches to the right Paymob checkout and normalizes the three shapes (iframe URL / wallet
@@ -287,6 +353,26 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
             },
         });
 
+        // Manual transfer has no gateway to call — just a reference code and the static
+        // payment instructions; the payment sits 'pending' until an admin confirms it
+        // (see admin.controller.ts).
+        if (method === 'manual') {
+            const referenceCode = await assignManualReferenceCode(paymentId);
+            return res.json({
+                paymentId, paymentMethod: method,
+                paymentUrl: null, referenceCode: null,
+                manualPayment:  buildManualPaymentInfo(referenceCode, finalAmount, currency, plan.display_name),
+                creditApplied,
+                amountCharged:  finalAmount,
+                listPrice:      creditApplied != null ? amount : null,
+                currency,
+                planDisplay:      plan.display_name,
+                planDisplayAr:    plan.display_name_ar,
+                variationLabel:   formatPlanVariationLabel(variation, 'en'),
+                variationLabelAr: formatPlanVariationLabel(variation, 'ar'),
+            });
+        }
+
         const coachName = `${coach.fname ?? ''} ${coach.lname ?? ''}`.trim() || coach.email;
         const checkoutBase = { amount: finalAmount, currency, merchantOrderId: paymentId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
         const checkout = await runCheckout(method, checkoutBase, walletPhoneNumber);
@@ -303,12 +389,15 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
             paymentId, paymentMethod: method,
             paymentUrl:     checkout.paymentUrl ?? null,
             referenceCode:  checkout.referenceCode ?? null,
+            manualPayment:  null,
             creditApplied,
             amountCharged:  finalAmount,
             listPrice:      creditApplied != null ? amount : null,
             currency,
-            planDisplay:    plan.display_name,
-            variationLabel: formatPlanVariationLabel(variation),
+            planDisplay:      plan.display_name,
+            planDisplayAr:    plan.display_name_ar,
+            variationLabel:   formatPlanVariationLabel(variation, 'en'),
+            variationLabelAr: formatPlanVariationLabel(variation, 'ar'),
         });
     } catch (err) {
         const httpErr = err as { status?: number; message?: string };
@@ -378,6 +467,15 @@ export async function createAddonInvoice(req: Request, res: Response, next: Next
             },
         });
 
+        if (method === 'manual') {
+            const referenceCode = await assignManualReferenceCode(paymentId);
+            return res.json({
+                paymentId, paymentMethod: method,
+                paymentUrl: null, referenceCode: null,
+                manualPayment: buildManualPaymentInfo(referenceCode, Number(addon.price_monthly), addon.currency, addon.label),
+            });
+        }
+
         const coachName = `${coach.fname ?? ''} ${coach.lname ?? ''}`.trim() || coach.email;
         const checkoutBase = { amount: Number(addon.price_monthly), currency: addon.currency, merchantOrderId: paymentId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
         const checkout = await runCheckout(method, checkoutBase, walletPhoneNumber);
@@ -391,6 +489,7 @@ export async function createAddonInvoice(req: Request, res: Response, next: Next
             paymentId, paymentMethod: method,
             paymentUrl: checkout.paymentUrl ?? null,
             referenceCode: checkout.referenceCode ?? null,
+            manualPayment: null,
         });
     } catch (err) {
         const httpErr = err as { status?: number; message?: string };
@@ -406,8 +505,8 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
             select: {
                 id: true, gateway_status: true, gateway_reference_id: true,
                 amount: true, currency: true, paid_at: true,
-                plans: { select: { display_name: true } },
-                addons: { select: { label: true } },
+                plans: { select: { display_name: true, display_name_ar: true } },
+                addons: { select: { label: true, label_ar: true } },
             },
         });
 
@@ -429,7 +528,8 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
         res.json({
             paymentId:   paymentRow.id,
             status:      currentStatus,
-            planDisplay: paymentRow.addons ? paymentRow.addons.label : paymentRow.plans.display_name,
+            planDisplay:   paymentRow.addons ? paymentRow.addons.label : paymentRow.plans.display_name,
+            planDisplayAr: paymentRow.addons ? paymentRow.addons.label_ar : paymentRow.plans.display_name_ar,
             amount:      paymentRow.amount,
             currency:    paymentRow.currency,
             paidAt:      paymentRow.paid_at,

@@ -70,6 +70,21 @@ export const env = {
     PAYMOB_HMAC_SECRET:           process.env.PAYMOB_HMAC_SECRET ?? '',
     PAYMOB_BASE_URL:              process.env.PAYMOB_BASE_URL ?? 'https://accept.paymob.com',
 
+    // Manual-transfer payment method — InstaPay/mobile wallet paid outside any gateway,
+    // verified by an admin over WhatsApp within 24h (see billing.controller.ts's 'manual'
+    // branch). All contact/account info a coach needs is shown from these — no admin-panel
+    // settings UI for them yet; change here + redeploy if a number changes.
+    INSTAPAY_HANDLE:                  process.env.INSTAPAY_HANDLE ?? '',
+    WALLET_VODAFONE_CASH:             process.env.WALLET_VODAFONE_CASH ?? '',
+    WALLET_ETISALAT_CASH:             process.env.WALLET_ETISALAT_CASH ?? '',
+    WALLET_ORANGE_CASH:               process.env.WALLET_ORANGE_CASH ?? '',
+    WALLET_WE_PAY:                    process.env.WALLET_WE_PAY ?? '',
+    MANUAL_PAYMENT_BENEFICIARY_NAME:  process.env.MANUAL_PAYMENT_BENEFICIARY_NAME ?? '',
+    // Same number LandingWhatsAppButton.js already hardcodes for general contact — kept as
+    // its own env var (not read by the client) since payment-proof messages are built
+    // server-side with plan/amount/reference details baked into the pre-filled text.
+    WHATSAPP_VERIFICATION_NUMBER:     process.env.WHATSAPP_VERIFICATION_NUMBER ?? '201501233314',
+
     // Observability
     SENTRY_DSN:           process.env.SENTRY_DSN ?? '',
 } as const;

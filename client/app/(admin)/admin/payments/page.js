@@ -17,6 +17,13 @@ const STATUS_STYLES = {
 
 const STATUSES = ['paid', 'pending', 'failed', 'refunded'];
 
+const METHOD_LABELS = {
+    card:   'Card',
+    wallet: 'Wallet',
+    fawry:  'Fawry',
+    manual: 'Manual',
+};
+
 function StatCard({ label, value, sub, accent }) {
     return (
         <div className={`rounded-xl border p-4 flex flex-col gap-1 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
@@ -269,7 +276,7 @@ export default function AdminPaymentsPage() {
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                         className="w-full pl-8 pr-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
-                        placeholder="Search workspace or email…"
+                        placeholder="Search workspace, email, or reference code…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
@@ -291,10 +298,11 @@ export default function AdminPaymentsPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_110px_110px_100px_95px_95px_32px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_110px_120px_110px_100px_95px_95px_32px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
+                    <span>Method</span>
                     <span className="text-right">Amount</span>
                     <span>Status</span>
                     <span>Start</span>
@@ -314,7 +322,7 @@ export default function AdminPaymentsPage() {
                     payments.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[1fr_1fr_110px_110px_100px_95px_95px_32px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`grid grid-cols-[1fr_1fr_110px_120px_110px_100px_95px_95px_32px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{p.workspace_name}</p>
@@ -325,6 +333,18 @@ export default function AdminPaymentsPage() {
                                 <p className="text-xs text-muted-foreground truncate">{p.owner_email}</p>
                             </div>
                             <span className="text-sm text-foreground min-w-0 truncate">{p.plan_display}</span>
+                            <div className="min-w-0">
+                                <p className="text-sm text-foreground truncate">{METHOD_LABELS[p.payment_method] ?? p.payment_method ?? '—'}</p>
+                                {p.payment_method === 'manual' && p.reference_code && (
+                                    <p
+                                        className="text-xs text-muted-foreground truncate font-mono tracking-wide cursor-pointer hover:text-foreground"
+                                        title="Click to copy"
+                                        onClick={() => navigator.clipboard?.writeText(p.reference_code)}
+                                    >
+                                        {p.reference_code}
+                                    </p>
+                                )}
+                            </div>
                             <span className="text-sm font-semibold text-foreground text-right whitespace-nowrap">
                                 {Number(p.amount).toLocaleString()} {p.currency}
                             </span>

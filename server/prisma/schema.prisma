@@ -20,7 +20,9 @@ model billing_discounts {
   id                String              @id
   period_key        String              @unique
   label             String
+  label_ar          String?
   save_label        String?
+  save_label_ar     String?
   discount_percent  Int                 @default(0)
   months            Int                 @default(1)
   sort_order        Int                 @default(0)
@@ -1005,8 +1007,10 @@ model plans {
   id                      String                    @id
   name                    String                    @unique
   display_name            String
+  display_name_ar         String?
   max_team_seats          Int?
   features                Json                      @default("{}")
+  features_ar             Json?
   price_monthly           Decimal?                  @db.Decimal(10, 2)
   is_active               Boolean                   @default(true)
   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
@@ -1015,11 +1019,15 @@ model plans {
   duration_days           Int                       @default(30)
   payment_link            String?
   subtitle                String?
+  subtitle_ar             String?
   is_popular              Boolean                   @default(false)
   cta_text                String                    @default("Get Started")
+  cta_text_ar             String?
   cta_variant             String                    @default("outline")
   features_header         String                    @default("What's included:")
+  features_header_ar      String?
   features_subheader      String?
+  features_subheader_ar   String?
   sort_order              Int                       @default(0)
   currency                String                    @default("LE")
   show_on_landing         Boolean                   @default(true)
@@ -1037,6 +1045,7 @@ model addons {
   id                 String               @id
   key                String               @unique
   label              String
+  label_ar           String?
   dimension          String
   units               Int
   price_monthly      Decimal              @db.Decimal(10, 2)
@@ -1349,6 +1358,7 @@ model workspace_payments {
   gateway_status        String             @default("pending")
   gateway_raw_webhook   Json?
   payment_method        String             @default("card")
+  reference_code        String?            @unique
   notes                 String?
   paid_at               DateTime?          @db.Timestamptz(6)
   created_at            DateTime           @default(now()) @db.Timestamptz(6)

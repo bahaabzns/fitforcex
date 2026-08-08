@@ -67,7 +67,7 @@ router.use((req, res, next) => {
  *             properties:
  *               planId:            { type: string }
  *               variationId:       { type: string }
- *               paymentMethod:     { type: string, enum: [card, wallet, fawry], default: card }
+ *               paymentMethod:     { type: string, enum: [card, wallet, fawry, manual], default: card }
  *               walletPhoneNumber: { type: string, description: Required when paymentMethod is wallet }
  *     responses:
  *       200:
@@ -98,7 +98,7 @@ router.use((req, res, next) => {
  *             required: [addonId]
  *             properties:
  *               addonId:           { type: string }
- *               paymentMethod:     { type: string, enum: [card, wallet, fawry], default: card }
+ *               paymentMethod:     { type: string, enum: [card, wallet, fawry, manual], default: card }
  *               walletPhoneNumber: { type: string, description: Required when paymentMethod is wallet }
  *     responses:
  *       200:

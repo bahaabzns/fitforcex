@@ -683,8 +683,9 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
 
 export async function createPlan(req: Request, res: Response, next: NextFunction) {
     const {
-        name, display_name, features, trial_days, max_team_seats,
-        subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
+        name, display_name, display_name_ar, features, features_ar, trial_days, max_team_seats,
+        subtitle, subtitle_ar, is_popular, cta_text, cta_text_ar, cta_variant,
+        features_header, features_header_ar, features_subheader, features_subheader_ar,
         sort_order, show_on_landing, period_links, variations, addon_rules,
     } = req.body as Record<string, unknown>;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
@@ -697,15 +698,21 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
                     id:                  createId(),
                     name:                (name as string).trim(),
                     display_name:        (display_name as string).trim(),
+                    display_name_ar:     (display_name_ar as string | undefined)?.trim() || null,
                     features:            features ? (features as Prisma.InputJsonValue) : ([] as Prisma.InputJsonValue),
+                    features_ar:         features_ar ? (features_ar as Prisma.InputJsonValue) : ([] as Prisma.InputJsonValue),
                     trial_days:          (trial_days as number | undefined) ?? null,
                     max_team_seats:      (max_team_seats as number | null | undefined) ?? null,
                     subtitle:            (subtitle as string | undefined)?.trim() || null,
+                    subtitle_ar:         (subtitle_ar as string | undefined)?.trim() || null,
                     is_popular:          (is_popular as boolean | undefined) ?? false,
                     cta_text:            (cta_text as string | undefined)?.trim() || 'Get Started',
+                    cta_text_ar:         (cta_text_ar as string | undefined)?.trim() || null,
                     cta_variant:         (cta_variant as string | undefined)?.trim() || 'outline',
                     features_header:     (features_header as string | undefined)?.trim() || "What's included:",
+                    features_header_ar: (features_header_ar as string | undefined)?.trim() || null,
                     features_subheader:  (features_subheader as string | undefined)?.trim() || null,
+                    features_subheader_ar: (features_subheader_ar as string | undefined)?.trim() || null,
                     sort_order:          (sort_order as number | undefined) ?? 0,
                     show_on_landing:     (show_on_landing as boolean | undefined) ?? true,
                 },
@@ -727,8 +734,9 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
 
 export async function updatePlan(req: Request, res: Response, next: NextFunction) {
     const {
-        display_name, features, is_active, is_default, trial_days, max_team_seats,
-        subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
+        display_name, display_name_ar, features, features_ar, is_active, is_default, trial_days, max_team_seats,
+        subtitle, subtitle_ar, is_popular, cta_text, cta_text_ar, cta_variant,
+        features_header, features_header_ar, features_subheader, features_subheader_ar,
         sort_order, show_on_landing, period_links, variations, addon_rules,
     } = req.body as Record<string, unknown>;
 
@@ -746,17 +754,23 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
                 where: { id: req.params.id as string },
                 data: {
                     display_name:       (display_name as string | undefined)?.trim() ?? undefined,
+                    display_name_ar:    display_name_ar !== undefined ? ((display_name_ar as string | undefined)?.trim() || null) : undefined,
                     features:           features ? (features as Prisma.InputJsonValue) : undefined,
+                    features_ar:        features_ar !== undefined ? (features_ar as Prisma.InputJsonValue) : undefined,
                     is_active:          is_active  !== undefined ? (is_active  as boolean) : undefined,
                     is_default:         is_default !== undefined ? (is_default as boolean) : undefined,
                     trial_days:         trial_days !== undefined ? ((trial_days as number | null) ?? null) : undefined,
                     max_team_seats:     max_team_seats !== undefined ? ((max_team_seats as number | null) ?? null) : undefined,
                     subtitle:           subtitle          !== undefined ? ((subtitle as string | undefined)?.trim() || null) : undefined,
+                    subtitle_ar:        subtitle_ar       !== undefined ? ((subtitle_ar as string | undefined)?.trim() || null) : undefined,
                     is_popular:         is_popular        !== undefined ? (is_popular  as boolean)    : undefined,
                     cta_text:           cta_text          !== undefined ? ((cta_text as string | undefined)?.trim() || undefined) : undefined,
+                    cta_text_ar:        cta_text_ar       !== undefined ? ((cta_text_ar as string | undefined)?.trim() || null) : undefined,
                     cta_variant:        cta_variant       !== undefined ? ((cta_variant as string | undefined)?.trim() || undefined) : undefined,
                     features_header:    features_header   !== undefined ? ((features_header as string | undefined)?.trim() || undefined) : undefined,
+                    features_header_ar: features_header_ar !== undefined ? ((features_header_ar as string | undefined)?.trim() || null) : undefined,
                     features_subheader: features_subheader !== undefined ? ((features_subheader as string | undefined)?.trim() || null) : undefined,
+                    features_subheader_ar: features_subheader_ar !== undefined ? ((features_subheader_ar as string | undefined)?.trim() || null) : undefined,
                     sort_order:         sort_order        !== undefined ? (sort_order  as number) : undefined,
                     show_on_landing:    show_on_landing   !== undefined ? (show_on_landing as boolean) : undefined,
                 },
@@ -814,7 +828,7 @@ export async function getAddons(_req: Request, res: Response, next: NextFunction
 }
 
 export async function createAddon(req: Request, res: Response, next: NextFunction) {
-    const { key, label, dimension, units, price_monthly, currency, payment_link, sort_order } = req.body as Record<string, unknown>;
+    const { key, label, label_ar, dimension, units, price_monthly, currency, payment_link, sort_order } = req.body as Record<string, unknown>;
     if (!key || !label || !dimension || !units) {
         return res.status(400).json({ message: 'key, label, dimension and units are required' });
     }
@@ -825,6 +839,7 @@ export async function createAddon(req: Request, res: Response, next: NextFunctio
                 id:            createId(),
                 key:           (key as string).trim(),
                 label:         (label as string).trim(),
+                label_ar:      (label_ar as string | undefined)?.trim() || null,
                 dimension:     (dimension as string).trim(),
                 units:         units as number,
                 price_monthly: (price_monthly as number | undefined) ?? 0,
@@ -843,12 +858,13 @@ export async function createAddon(req: Request, res: Response, next: NextFunctio
 }
 
 export async function updateAddon(req: Request, res: Response, next: NextFunction) {
-    const { label, dimension, units, price_monthly, currency, payment_link, is_active, sort_order } = req.body as Record<string, unknown>;
+    const { label, label_ar, dimension, units, price_monthly, currency, payment_link, is_active, sort_order } = req.body as Record<string, unknown>;
     try {
         const updated = await prisma.addons.update({
             where: { id: req.params.id as string },
             data: {
                 label:         (label as string | undefined)?.trim() || undefined,
+                label_ar:      label_ar !== undefined ? ((label_ar as string | undefined)?.trim() || null) : undefined,
                 dimension:     (dimension as string | undefined)?.trim() || undefined,
                 units:         units !== undefined ? (units as number) : undefined,
                 price_monthly: price_monthly !== undefined ? (price_monthly as number) : undefined,
@@ -896,13 +912,15 @@ export async function getBillingDiscounts(_req: Request, res: Response, next: Ne
 }
 
 export async function updateBillingDiscount(req: Request, res: Response, next: NextFunction) {
-    const { label, save_label, discount_percent, months, sort_order, is_active } = req.body as Record<string, unknown>;
+    const { label, label_ar, save_label, save_label_ar, discount_percent, months, sort_order, is_active } = req.body as Record<string, unknown>;
     try {
         const updated = await prisma.billing_discounts.update({
             where: { id: req.params.id as string },
             data: {
                 label:            (label as string | undefined)?.trim() || undefined,
+                label_ar:         label_ar         !== undefined ? ((label_ar as string | undefined)?.trim() || null) : undefined,
                 save_label:       save_label       !== undefined ? ((save_label as string | undefined)?.trim() || null) : undefined,
+                save_label_ar:    save_label_ar    !== undefined ? ((save_label_ar as string | undefined)?.trim() || null) : undefined,
                 discount_percent: discount_percent !== undefined ? (discount_percent as number) : undefined,
                 months:           months           !== undefined ? (months as number) : undefined,
                 sort_order:       sort_order       !== undefined ? (sort_order as number) : undefined,
@@ -950,7 +968,9 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
         }
         if (search) {
             params.push(`%${search}%`);
-            conditions.push(`(w.name ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+            // Also matches a manual-transfer reference_code — an admin checking a WhatsApp
+            // proof message can paste the code straight in instead of hunting for the workspace.
+            conditions.push(`(w.name ILIKE $${params.length} OR u.email ILIKE $${params.length} OR wp.reference_code ILIKE $${params.length})`);
         }
         const where = conditions.join(' AND ');
 
@@ -958,7 +978,7 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT
                     wp.id, wp.amount, wp.currency, wp.duration_days, wp.gateway_status,
-                    wp.gateway_reference_id, wp.payment_method, wp.created_at, wp.paid_at, wp.notes,
+                    wp.gateway_reference_id, wp.payment_method, wp.reference_code, wp.created_at, wp.paid_at, wp.notes,
                     wp.plan_id, wp.variation_id, wp.addon_id,
                     -- Real period this payment produced, from its subscription-event row
                     -- (recorded at the moment it was applied) — falls back to a nominal
