@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Tabs } from "@heroui/react";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
 import { Skeleton } from "@heroui/react/skeleton";
 import { CheckCircle2 } from 'lucide-react';
+import { pickLocalized } from "@/lib/utils";
 
 // Plans with an "unlimited"-style feature get a highlighted row treatment,
 // matching the old design's emphasis on the "no caps" selling point.
@@ -16,7 +17,7 @@ function isUnlimitedFeature(feature) {
     return /∞|unlimited|غير محدود/i.test(feature);
 }
 
-function BillingPeriodToggle({ discounts, selected, onSelect }) {
+function BillingPeriodToggle({ discounts, selected, onSelect, locale, t }) {
     return (
         <div className="flex justify-center">
             <Tabs
@@ -28,19 +29,23 @@ function BillingPeriodToggle({ discounts, selected, onSelect }) {
                         aria-label="Billing period"
                         className="w-fit *:h-6 *:w-fit *:px-3 *:text-sm *:font-normal *:data-[selected=true]:text-accent-foreground"
                     >
-                        {discounts.map(d => (
-                            <Tabs.Tab key={d.period_key} id={d.period_key}>
-                                <span className="flex items-center gap-1.5">
-                                    {d.label}
-                                    {d.save_label && (
-                                        <span className="text-xs font-semibold text-primary bg-primary/15 rounded-full px-1.5 py-0.5 leading-none in-data-[selected=true]:bg-white/25 in-data-[selected=true]:text-white">
-                                            {d.save_label}
-                                        </span>
-                                    )}
-                                </span>
-                                <Tabs.Indicator className="bg-accent" />
-                            </Tabs.Tab>
-                        ))}
+                        {discounts.map(d => {
+                            const label = pickLocalized(locale, d.label, d.label_ar);
+                            const saveLabel = pickLocalized(locale, d.save_label, d.save_label_ar);
+                            return (
+                                <Tabs.Tab key={d.period_key} id={d.period_key}>
+                                    <span className="flex items-center gap-1.5">
+                                        {label}
+                                        {saveLabel && (
+                                            <span className="text-xs font-semibold text-primary bg-primary/15 rounded-full px-1.5 py-0.5 leading-none in-data-[selected=true]:bg-white/25 in-data-[selected=true]:text-white">
+                                                {saveLabel}
+                                            </span>
+                                        )}
+                                    </span>
+                                    <Tabs.Indicator className="bg-accent" />
+                                </Tabs.Tab>
+                            );
+                        })}
                     </Tabs.List>
                 </Tabs.ListContainer>
             </Tabs>
@@ -48,7 +53,7 @@ function BillingPeriodToggle({ discounts, selected, onSelect }) {
     );
 }
 
-function VariationDropdown({ variations, selectedId, onSelect }) {
+function VariationDropdown({ variations, selectedId, onSelect, locale, t }) {
     if (variations.length <= 1) return null;
     return (
         <select
@@ -59,7 +64,7 @@ function VariationDropdown({ variations, selectedId, onSelect }) {
         >
             {variations.map(v => (
                 <option key={v.id} value={v.id}>
-                    {v.label} — {v.price_monthly != null ? `${Number(v.price_monthly).toLocaleString('en-EG')} ${v.currency}` : 'Custom pricing'}
+                    {pickLocalized(locale, v.label_en, v.label_ar)} — {v.price_monthly != null ? `${Number(v.price_monthly).toLocaleString('en-EG')} ${v.currency}` : t('customPricing')}
                 </option>
             ))}
         </select>
@@ -70,6 +75,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
     const t = useTranslations("landing.pricing");
     const tNav = useTranslations("landing.nav");
     const tHero = useTranslations("landing.hero");
+    const locale = useLocale();
     const [plans, setPlans] = useState([]);
     const [discounts, setDiscounts] = useState([]);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
@@ -145,6 +151,8 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                 discounts={discounts}
                                 selected={selectedPeriod}
                                 onSelect={setSelectedPeriod}
+                                locale={locale}
+                                t={t}
                             />
                         )}
 
@@ -163,9 +171,15 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                 const periodTotal= effective != null ? effective * months : null;
                                 const priceDisplay = effective != null ? effective.toLocaleString('en-EG') : null;
                                 const periodLabel  = months > 1 && periodTotal != null
-                                    ? `billed ${periodTotal.toLocaleString('en-EG')} ${variation?.currency} every ${months} mo`
+                                    ? t('billedEvery', { amount: periodTotal.toLocaleString('en-EG'), currency: variation?.currency, months })
                                     : null;
-                                const features = Array.isArray(plan.features) ? plan.features : [];
+                                const localizedFeatures = pickLocalized(locale, plan.features, plan.features_ar);
+                                const features = Array.isArray(localizedFeatures) ? localizedFeatures : [];
+                                const displayName = pickLocalized(locale, plan.display_name, plan.display_name_ar);
+                                const subtitle = pickLocalized(locale, plan.subtitle, plan.subtitle_ar);
+                                const featuresHeader = pickLocalized(locale, plan.features_header, plan.features_header_ar);
+                                const featuresSubheader = pickLocalized(locale, plan.features_subheader, plan.features_subheader_ar);
+                                const ctaText = pickLocalized(locale, plan.cta_text, plan.cta_text_ar);
                                 const isCurrentPlan = currentPlanId === plan.id;
 
                                 return (
@@ -203,9 +217,9 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                     <Chip color="accent" size="sm" className="self-start">{t("mostPopular")}</Chip>
                                                 )}
                                                 <div className="flex flex-col gap-1">
-                                                    <h3 className="text-xl font-bold text-foreground">{plan.display_name}</h3>
-                                                    {plan.subtitle && (
-                                                        <p className="text-sm text-foreground/50 leading-snug">{plan.subtitle}</p>
+                                                    <h3 className="text-xl font-bold text-foreground">{displayName}</h3>
+                                                    {subtitle && (
+                                                        <p className="text-sm text-foreground/50 leading-snug">{subtitle}</p>
                                                     )}
                                                 </div>
 
@@ -213,6 +227,8 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                     variations={variations}
                                                     selectedId={variation?.id}
                                                     onSelect={id => setSelectedVariations(s => ({ ...s, [plan.id]: id }))}
+                                                    locale={locale}
+                                                    t={t}
                                                 />
 
                                                 <div className="flex flex-col gap-0.5 pt-1">
@@ -224,11 +240,11 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                                 </span>
                                                                 <div className="flex flex-col leading-tight pb-0.5">
                                                                     <span className="text-sm font-semibold text-foreground/70">{variation?.currency}</span>
-                                                                    <span className="text-xs text-foreground/40">/ month</span>
+                                                                    <span className="text-xs text-foreground/40">{t('perMonth')}</span>
                                                                 </div>
                                                             </>
                                                         ) : (
-                                                            <span className="text-3xl font-bold text-foreground leading-none">Custom pricing</span>
+                                                            <span className="text-3xl font-bold text-foreground leading-none">{t('customPricing')}</span>
                                                         )}
                                                     </div>
                                                     {periodLabel && (
@@ -236,8 +252,8 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                     )}
                                                     {(() => {
                                                         const seats = variation?.max_team_seats ?? plan.max_team_seats;
-                                                        if (seats == null) return <p className="text-xs text-foreground/40">Unlimited team seats</p>;
-                                                        return <p className="text-xs text-foreground/40">{seats} team seat{seats === 1 ? '' : 's'} included</p>;
+                                                        if (seats == null) return <p className="text-xs text-foreground/40">{t('unlimitedTeamSeats')}</p>;
+                                                        return <p className="text-xs text-foreground/40">{t('teamSeatsIncluded', { count: seats })}</p>;
                                                     })()}
                                                 </div>
                                             </Card.Header>
@@ -246,12 +262,12 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                 <Separator />
 
                                                 <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
-                                                    {plan.features_header}
+                                                    {featuresHeader}
                                                 </p>
 
-                                                {plan.features_subheader && (
+                                                {featuresSubheader && (
                                                     <p className="text-xs font-bold text-primary -mt-2">
-                                                        {plan.features_subheader}
+                                                        {featuresSubheader}
                                                     </p>
                                                 )}
 
@@ -281,14 +297,14 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                         onClick={() => onCtaClick(plan.id, variation?.id, plan)}
                                                         className={`button button--${isCurrentPlan ? "secondary" : plan.cta_variant} button--md button--full-width`}
                                                     >
-                                                        {isCurrentPlan ? `✓ ${t("currentPlan")}` : plan.cta_text}
+                                                        {isCurrentPlan ? `✓ ${t("currentPlan")}` : ctaText}
                                                     </button>
                                                 ) : (
                                                     <Link
                                                         href={ctaHref}
                                                         className={`button button--${plan.cta_variant} button--md button--full-width`}
                                                     >
-                                                        {plan.cta_text}
+                                                        {ctaText}
                                                     </Link>
                                                 )}
                                                 {effective === 0 && (

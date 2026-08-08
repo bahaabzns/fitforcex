@@ -7,11 +7,13 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
         const plans = await prisma.plans.findMany({
             where: { is_active: true, show_on_landing: true },
             select: {
-                id: true, name: true, display_name: true, subtitle: true,
+                id: true, name: true, display_name: true, display_name_ar: true,
+                subtitle: true, subtitle_ar: true,
                 is_popular: true, max_team_seats: true,
-                cta_text: true, cta_variant: true,
-                features_header: true, features_subheader: true,
-                features: true, trial_days: true,
+                cta_text: true, cta_text_ar: true, cta_variant: true,
+                features_header: true, features_header_ar: true,
+                features_subheader: true, features_subheader_ar: true,
+                features: true, features_ar: true, trial_days: true,
             },
             orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
         });
@@ -55,7 +57,11 @@ export async function getPlans(_req: Request, res: Response, next: NextFunction)
         res.json(plans.map(p => ({
             ...p,
             period_links: linkMap[p.id] ?? {},
-            variations: (variationMap[p.id] ?? []).map(v => ({ ...v, label: formatPlanVariationLabel(v) })),
+            variations: (variationMap[p.id] ?? []).map(v => ({
+                ...v,
+                label_en: formatPlanVariationLabel(v, 'en'),
+                label_ar: formatPlanVariationLabel(v, 'ar'),
+            })),
         })));
     } catch (err) {
         next(err);
@@ -67,8 +73,8 @@ export async function getBillingDiscounts(_req: Request, res: Response, next: Ne
         const discounts = await prisma.billing_discounts.findMany({
             where: { is_active: true },
             select: {
-                id: true, period_key: true, label: true,
-                save_label: true, discount_percent: true, months: true,
+                id: true, period_key: true, label: true, label_ar: true,
+                save_label: true, save_label_ar: true, discount_percent: true, months: true,
             },
             orderBy: { sort_order: 'asc' },
         });

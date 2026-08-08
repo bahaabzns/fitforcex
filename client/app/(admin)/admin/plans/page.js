@@ -45,16 +45,17 @@ function variationFromServer(v) {
 }
 
 const EMPTY_FORM = {
-    name: '', display_name: '',
-    subtitle: '',
+    name: '', display_name: '', display_name_ar: '',
+    subtitle: '', subtitle_ar: '',
     trial_days: '',
     max_team_seats: '',
     is_active: true, is_default: false,
     is_popular: false, show_on_landing: true,
-    cta_text: "Get Started – It's FREE!", cta_variant: 'outline',
-    features_header: "What's included:", features_subheader: '',
+    cta_text: "Get Started – It's FREE!", cta_text_ar: '', cta_variant: 'outline',
+    features_header: "What's included:", features_header_ar: '',
+    features_subheader: '', features_subheader_ar: '',
     sort_order: 0,
-    features: [],
+    features: [], features_ar: [],
     variations: [emptyVariation(true)],
     addon_rules: [],
 };
@@ -69,7 +70,9 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
         isEdit
             ? {
                 display_name:      plan.display_name,
+                display_name_ar:   plan.display_name_ar ?? '',
                 subtitle:          plan.subtitle ?? '',
+                subtitle_ar:       plan.subtitle_ar ?? '',
                 trial_days:        plan.trial_days ?? '',
                 max_team_seats:    plan.max_team_seats ?? '',
                 is_active:         plan.is_active,
@@ -77,11 +80,15 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                 is_popular:        plan.is_popular ?? false,
                 show_on_landing:   plan.show_on_landing ?? true,
                 cta_text:          plan.cta_text ?? "Get Started – It's FREE!",
+                cta_text_ar:       plan.cta_text_ar ?? '',
                 cta_variant:       plan.cta_variant ?? 'outline',
                 features_header:   plan.features_header ?? "What's included:",
+                features_header_ar: plan.features_header_ar ?? '',
                 features_subheader:plan.features_subheader ?? '',
+                features_subheader_ar: plan.features_subheader_ar ?? '',
                 sort_order:        plan.sort_order ?? 0,
                 features:          Array.isArray(plan.features) ? plan.features : [],
+                features_ar:       Array.isArray(plan.features_ar) ? plan.features_ar : [],
                 variations:        Array.isArray(plan.variations) && plan.variations.length > 0
                     ? plan.variations.map(variationFromServer)
                     : [emptyVariation(true)],
@@ -136,17 +143,23 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
         try {
             const payload = {
                 display_name:       form.display_name.trim() || undefined,
+                display_name_ar:    form.display_name_ar.trim() || null,
                 trial_days:         parseOptInt(form.trial_days),
                 max_team_seats:     parseOptInt(form.max_team_seats),
                 is_active:          form.is_active,
                 is_default:         form.is_default,
                 features:           form.features.filter(f => f.trim() !== ''),
+                features_ar:        form.features_ar.filter(f => f.trim() !== ''),
                 subtitle:           form.subtitle.trim() || null,
+                subtitle_ar:        form.subtitle_ar.trim() || null,
                 is_popular:         form.is_popular,
                 cta_text:           form.cta_text.trim() || 'Get Started',
+                cta_text_ar:        form.cta_text_ar.trim() || null,
                 cta_variant:        form.cta_variant,
                 features_header:    form.features_header.trim() || "What's included:",
+                features_header_ar: form.features_header_ar.trim() || null,
                 features_subheader: form.features_subheader.trim() || null,
+                features_subheader_ar: form.features_subheader_ar.trim() || null,
                 sort_order:         parseOptInt(form.sort_order) ?? 0,
                 show_on_landing:    form.show_on_landing,
                 variations: form.variations.map(v => ({
@@ -191,11 +204,19 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Display name</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Display name" value={form.display_name} onChange={(val) => set('display_name', val)}>
-                        <Input type="text" placeholder="Pro" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Display name</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Display name" value={form.display_name} onChange={(val) => set('display_name', val)}>
+                            <Input type="text" placeholder="Pro" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Display name (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Display name (Arabic)" value={form.display_name_ar} onChange={(val) => set('display_name_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="برو" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 max-w-md">
@@ -324,11 +345,19 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                 {/* ── Landing page display ── */}
                 <p className={SECTION_LABEL_CLS}>Landing Page Display</p>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Subtitle</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Subtitle" value={form.subtitle} onChange={(val) => set('subtitle', val)}>
-                        <Input type="text" placeholder="For solo coaches" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Subtitle</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Subtitle" value={form.subtitle} onChange={(val) => set('subtitle', val)}>
+                            <Input type="text" placeholder="For solo coaches" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Subtitle (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Subtitle (Arabic)" value={form.subtitle_ar} onChange={(val) => set('subtitle_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="للمدربين الأفراد" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5 max-w-56">
@@ -338,11 +367,19 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                     </TextField>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>CTA button text</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="CTA button text" value={form.cta_text} onChange={(val) => set('cta_text', val)}>
-                        <Input type="text" placeholder="Get Started – It's FREE!" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>CTA button text</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="CTA button text" value={form.cta_text} onChange={(val) => set('cta_text', val)}>
+                            <Input type="text" placeholder="Get Started – It's FREE!" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>CTA button text (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="CTA button text (Arabic)" value={form.cta_text_ar} onChange={(val) => set('cta_text_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="ابدأ الآن – مجانًا!" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -362,29 +399,58 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                     </Select>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Features section header</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Features section header" value={form.features_header} onChange={(val) => set('features_header', val)}>
-                        <Input type="text" placeholder="What's included:" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features section header</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features section header" value={form.features_header} onChange={(val) => set('features_header', val)}>
+                            <Input type="text" placeholder="What's included:" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features section header (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features section header (Arabic)" value={form.features_header_ar} onChange={(val) => set('features_header_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="ما تحصل عليه:" />
+                        </TextField>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Features sub-header <span className="text-muted-foreground">(optional)</span></FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Features sub-header" value={form.features_subheader} onChange={(val) => set('features_subheader', val)}>
-                        <Input type="text" placeholder="Team Features" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features sub-header <span className="text-muted-foreground">(optional)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features sub-header" value={form.features_subheader} onChange={(val) => set('features_subheader', val)}>
+                            <Input type="text" placeholder="Team Features" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features sub-header (Arabic) <span className="text-muted-foreground">(optional)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features sub-header (Arabic)" value={form.features_subheader_ar} onChange={(val) => set('features_subheader_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="مزايا الفريق" />
+                        </TextField>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Features <span className="text-muted-foreground">(one per line)</span></FieldLabel>
-                    <textarea
-                        rows={6}
-                        placeholder={"∞ Unlimited clients\nWorkout plan delivery\n..."}
-                        value={Array.isArray(form.features) ? form.features.join('\n') : ''}
-                        onChange={e => set('features', e.target.value.split('\n'))}
-                        className={`${INPUT_CLS} resize-y`}
-                    />
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features <span className="text-muted-foreground">(one per line)</span></FieldLabel>
+                        <textarea
+                            rows={6}
+                            placeholder={"∞ Unlimited clients\nWorkout plan delivery\n..."}
+                            value={Array.isArray(form.features) ? form.features.join('\n') : ''}
+                            onChange={e => set('features', e.target.value.split('\n'))}
+                            className={`${INPUT_CLS} resize-y`}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features (Arabic) <span className="text-muted-foreground">(one per line, same order)</span></FieldLabel>
+                        <textarea
+                            rows={6}
+                            dir="rtl"
+                            placeholder={"عملاء غير محدودين ∞\nتسليم خطة التمرين\n..."}
+                            value={Array.isArray(form.features_ar) ? form.features_ar.join('\n') : ''}
+                            onChange={e => set('features_ar', e.target.value.split('\n'))}
+                            className={`${INPUT_CLS} resize-y`}
+                        />
+                    </div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -413,7 +479,9 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
 function BillingDiscountEditRow({ discount, onSave, onCancel }) {
     const [form, setForm] = useState({
         label:            discount.label,
+        label_ar:         discount.label_ar ?? '',
         save_label:       discount.save_label ?? '',
+        save_label_ar:    discount.save_label_ar ?? '',
         discount_percent: discount.discount_percent,
         months:           discount.months,
         is_active:        discount.is_active,
@@ -427,7 +495,9 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
         try {
             const res = await api.put(`/api/admin/billing-discounts/${discount.id}`, {
                 ...form,
-                save_label: form.save_label.trim() || null,
+                save_label:    form.save_label.trim() || null,
+                label_ar:      form.label_ar.trim() || null,
+                save_label_ar: form.save_label_ar.trim() || null,
             });
             onSave(res.data);
         } finally {
@@ -438,29 +508,38 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
     const INPUT_SM = 'px-2 py-1 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 
     return (
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center px-4 py-2 border-t border-border bg-secondary/20">
-            <span className="text-sm font-mono text-muted-foreground">{discount.period_key}</span>
-            <input value={form.label} onChange={e => set('label', e.target.value)}
-                className={`${INPUT_SM} w-28`} placeholder="Label" />
-            <input value={form.save_label} onChange={e => set('save_label', e.target.value)}
-                className={`${INPUT_SM} w-24`} placeholder="Save label" />
-            <input type="number" min="0" max="100" value={form.discount_percent} onChange={e => set('discount_percent', parseInt(e.target.value) || 0)}
-                className={`${INPUT_SM} w-16 text-center`} />
-            <input type="number" min="1" value={form.months} onChange={e => set('months', parseInt(e.target.value) || 1)}
-                className={`${INPUT_SM} w-14 text-center`} />
-            <div className="flex items-center gap-1.5">
-                <label className="flex items-center gap-1 text-xs text-foreground cursor-pointer">
-                    <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
-                    On
-                </label>
-                <button onClick={handleSave} disabled={saving}
-                    className="p-1.5 rounded-lg text-green-500 hover:bg-green-500/10 transition-colors" title="Save">
-                    <Check size={14} />
-                </button>
-                <button onClick={onCancel}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors" title="Cancel">
-                    <X size={14} />
-                </button>
+        <div className="flex flex-col gap-2 px-4 py-2.5 border-t border-border bg-secondary/20">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center">
+                <span className="text-sm font-mono text-muted-foreground">{discount.period_key}</span>
+                <input value={form.label} onChange={e => set('label', e.target.value)}
+                    className={`${INPUT_SM} w-28`} placeholder="Label" />
+                <input value={form.save_label} onChange={e => set('save_label', e.target.value)}
+                    className={`${INPUT_SM} w-24`} placeholder="Save label" />
+                <input type="number" min="0" max="100" value={form.discount_percent} onChange={e => set('discount_percent', parseInt(e.target.value) || 0)}
+                    className={`${INPUT_SM} w-16 text-center`} />
+                <input type="number" min="1" value={form.months} onChange={e => set('months', parseInt(e.target.value) || 1)}
+                    className={`${INPUT_SM} w-14 text-center`} />
+                <div className="flex items-center gap-1.5">
+                    <label className="flex items-center gap-1 text-xs text-foreground cursor-pointer">
+                        <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
+                        On
+                    </label>
+                    <button onClick={handleSave} disabled={saving}
+                        className="p-1.5 rounded-lg text-green-500 hover:bg-green-500/10 transition-colors" title="Save">
+                        <Check size={14} />
+                    </button>
+                    <button onClick={onCancel}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors" title="Cancel">
+                        <X size={14} />
+                    </button>
+                </div>
+            </div>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
+                <span className="text-xs text-muted-foreground">Arabic</span>
+                <input value={form.label_ar} onChange={e => set('label_ar', e.target.value)} dir="rtl"
+                    className={`${INPUT_SM} w-28`} placeholder="التسمية" />
+                <input value={form.save_label_ar} onChange={e => set('save_label_ar', e.target.value)} dir="rtl"
+                    className={`${INPUT_SM} w-24`} placeholder="تسمية التوفير" />
             </div>
         </div>
     );
@@ -471,6 +550,7 @@ function AddonModal({ addon, onClose, onSaved }) {
     const [form, setForm] = useState({
         key:           addon?.key ?? '',
         label:         addon?.label ?? '',
+        label_ar:      addon?.label_ar ?? '',
         dimension:     addon?.dimension ?? 'clients',
         units:         addon?.units ?? '',
         price_monthly: addon?.price_monthly ?? '',
@@ -489,6 +569,7 @@ function AddonModal({ addon, onClose, onSaved }) {
         try {
             const payload = {
                 label:         form.label.trim(),
+                label_ar:      form.label_ar.trim() || null,
                 dimension:     form.dimension.trim(),
                 units:         parseInt(form.units) || 0,
                 price_monthly: parseFloat(form.price_monthly) || 0,
@@ -522,11 +603,19 @@ function AddonModal({ addon, onClose, onSaved }) {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Label</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Label" value={form.label} onChange={(val) => set('label', val)}>
-                        <Input type="text" placeholder="+10 Clients" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Label</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Label" value={form.label} onChange={(val) => set('label', val)}>
+                            <Input type="text" placeholder="+10 Clients" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Label (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Label (Arabic)" value={form.label_ar} onChange={(val) => set('label_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="+10 عملاء" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
