@@ -24,7 +24,7 @@ const router = Router();
  *               name:          { type: string, minLength: 2 }
  *               email:         { type: string, format: email }
  *               password:      { type: string, minLength: 8 }
- *               workspaceName: { type: string, description: Optional platform/brand name shown in the checkout wizard; falls back to "{fname}'s Workspace" }
+ *               workspaceName: { type: string, description: "Optional platform or brand name shown at checkout; falls back to a default name if omitted" }
  *     responses:
  *       201:
  *         description: Account created; auth cookie set
@@ -32,6 +32,33 @@ const router = Router();
  *         description: Validation error or email already registered
  */
 router.post('/register', authController.register);
+
+/**
+ * @openapi
+ * /auth/check-availability:
+ *   post:
+ *     summary: Check whether an email/phone can be used to register (validation only, no account created)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, phone]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               phone: { type: string }
+ *     responses:
+ *       200:
+ *         description: Email and phone are available
+ *       400:
+ *         description: Validation error (missing/malformed field)
+ *       409:
+ *         description: Email or phone already registered to another account
+ */
+router.post('/check-availability', loginLimiter, authController.checkSignupAvailability);
 
 /**
  * @openapi

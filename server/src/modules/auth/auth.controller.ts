@@ -10,47 +10,24 @@ import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
     fetchUserWorkspaces, fetchPendingInvitationsCount, issueToken,
     storeAndSendVerificationCode, createSession, revokeSession,
+    assertEmailPhoneAvailable, SignupFieldError,
 } from './auth.service';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
         const { fname, lname, email, password, phone, workspaceName } = req.body as Record<string, string | undefined>;
 
-        if (!email || typeof email !== 'string' || !email.trim()) {
-            return res.status(400).json({ message: 'Email is required' });
-        }
-        if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-            return res.status(400).json({ message: 'Invalid email format' });
-        }
         if (!password || typeof password !== 'string' || !password.trim()) {
             return res.status(400).json({ message: 'Password is required' });
         }
         if (password.length < 8) {
             return res.status(400).json({ message: 'Password must be at least 8 characters' });
         }
-        if (!phone || typeof phone !== 'string' || !phone.trim()) {
-            return res.status(400).json({ message: 'Phone number is required' });
-        }
 
-        const normalizedEmail = normalizeEmail(email);
-        const trimmedPhone = phone.trim();
-
-        // Email and phone must each be unique across coaches. (email has a DB unique
-        // constraint; phone does not, so it's enforced here.) Email is matched
-        // case-insensitively so "John@x.com" and "john@x.com" collide.
-        const existing = await prisma.users.findFirst({
-            where:  { OR: [{ email: { equals: normalizedEmail, mode: 'insensitive' } }, { phone: trimmedPhone }] },
-            select: { email: true, phone: true },
-        });
-        if (existing) {
-            const message = normalizeEmail(existing.email) === normalizedEmail
-                ? 'An account with this email already exists'
-                : 'An account with this phone number already exists';
-            return res.status(409).json({ message });
-        }
+        const { normalizedEmail, trimmedPhone } = await assertEmailPhoneAvailable(email, phone);
 
         const hashed         = await bcrypt.hash(password, 10);
-        const rawSlug        = email.split('@')[0] || `${fname}-${lname}`;
+        const rawSlug        = normalizedEmail.split('@')[0] || `${fname}-${lname}`;
         const normalizedSlug = normalizeSlug(rawSlug) || `coach-${Date.now()}`;
 
         const slugConflict = await prisma.workspaces.findFirst({
@@ -166,6 +143,26 @@ export async function register(req: Request, res: Response, next: NextFunction) 
             throw err;
         }
     } catch (err) {
+        if (err instanceof SignupFieldError) {
+            return res.status(err.status).json({ message: err.message });
+        }
+        next(err);
+    }
+}
+
+// Checkout wizard step 1 ("Details") — lets the frontend surface a bad/duplicate
+// email or phone before the coach picks a payment method, without creating any
+// account. Registration itself still re-validates (and actually creates the
+// account) at checkout time; this is a pure pre-check, side-effect free.
+export async function checkSignupAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { email, phone } = req.body as Record<string, string | undefined>;
+        await assertEmailPhoneAvailable(email, phone);
+        res.status(200).json({ available: true });
+    } catch (err) {
+        if (err instanceof SignupFieldError) {
+            return res.status(err.status).json({ available: false, message: err.message });
+        }
         next(err);
     }
 }
