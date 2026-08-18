@@ -15,6 +15,22 @@ export function ptToPx(pt: number): number {
     return Math.round((pt / POINTS_PER_INCH) * PIXELS_PER_INCH);
 }
 
+// The inverse of ptToPx — offsetTop/scrollHeight/getBoundingClientRect all
+// report CSS pixels, but every height measureBlockHeights() feeds back into
+// (page_height, PAGE_PADDING_Y_PT, ...) is in points. Without this
+// conversion every measured block came out ~1.33x too tall (96/72), so the
+// chunking budget in measureDayGroups/measureCycleGroups always looked
+// smaller than the physical page really had room for, packing roughly 25%
+// fewer items per page than actually fit and leaving every page mostly
+// blank below its content. Not rounded — these get summed and compared
+// across many items before any page-count decision is made, and rounding
+// each one first would compound into a real drift over a long list.
+export function pxToPt(px: number): number {
+    const PIXELS_PER_INCH = 96;
+    const POINTS_PER_INCH = 72;
+    return (px / PIXELS_PER_INCH) * POINTS_PER_INCH;
+}
+
 export type ChunkBudgets = {
     // Height budget (pt) available for the first page of a group — smaller
     // than `rest` whenever that first page also carries extra fixed content

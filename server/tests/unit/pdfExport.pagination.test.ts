@@ -1,4 +1,4 @@
-import { chunkByHeight, ptToPx } from '../../src/modules/pdfExport/templates/pagination';
+import { chunkByHeight, ptToPx, pxToPt } from '../../src/modules/pdfExport/templates/pagination';
 
 describe('ptToPx', () => {
     test('converts points to pixels at 96px/inch, 72pt/inch', () => {
@@ -8,6 +8,21 @@ describe('ptToPx', () => {
 
     test('rounds to the nearest whole pixel', () => {
         expect(ptToPx(1)).toBe(Math.round((1 / 72) * 96));
+    });
+});
+
+describe('pxToPt', () => {
+    test('converts pixels to points at 96px/inch, 72pt/inch', () => {
+        expect(pxToPt(96)).toBe(72);
+        expect(pxToPt(48)).toBe(36);
+    });
+
+    test('is the inverse of ptToPx for whole-pixel-friendly values', () => {
+        expect(pxToPt(ptToPx(72))).toBeCloseTo(72);
+    });
+
+    test('does not round -- callers sum and compare many of these before any decision is made', () => {
+        expect(pxToPt(100)).toBeCloseTo(75, 5);
     });
 });
 

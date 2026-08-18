@@ -5,7 +5,7 @@
 // doesn't add "dom" to the project's tsconfig globally, so it can't shadow
 // Node/Express globals (Buffer, Request, Response, ...) used elsewhere.
 import type { Browser } from 'puppeteer';
-import { ptToPx } from '../modules/pdfExport/templates/pagination';
+import { ptToPx, pxToPt } from '../modules/pdfExport/templates/pagination';
 
 // Loaded lazily (not a static top-level import): puppeteer ships as a pure
 // ESM package ("type": "module", no CJS build). A static `import` here gets
@@ -102,19 +102,33 @@ export async function measureBlockHeights(html: string, pageWidthPt: number): Pr
         // measurement itself — this page is never printed, only measured.
         await page.setViewport({ width: ptToPx(pageWidthPt), height: 20000 });
         await page.setContent(html, { waitUntil: 'load' });
-        return await page.evaluate(() => {
+        const pxHeights = await page.evaluate(() => {
             const blocks = Array.from(document.querySelectorAll<HTMLElement>('[data-measure-block]'));
             // offsetTop deltas (not getBoundingClientRect().height) so each
             // block's measured "slot" naturally includes the CSS margin
             // between it and the next block — hardcoding that margin as a
             // separate constant would silently drift out of sync with the
             // stylesheet the moment `.section`'s margin-bottom changes.
-            return blocks.map((el, i) => (
-                i < blocks.length - 1
+            return blocks.map((el, i) => {
+                // renderFooter()'s `.footer` is position:absolute (pinned to
+                // the bottom of `.page`), which takes it out of normal flow
+                // entirely — its wrapper block collapses to zero height, so
+                // the offsetTop-delta technique below always measured it as
+                // 0 regardless of its real size. getBoundingClientRect
+                // reports the footer's actual box regardless of positioning;
+                // it doesn't need margin-inclusion like the other blocks
+                // since nothing is ever packed directly against its edge.
+                const footer = el.querySelector<HTMLElement>('.footer');
+                if (footer) return footer.getBoundingClientRect().height;
+                return i < blocks.length - 1
                     ? blocks[i + 1].offsetTop - el.offsetTop
-                    : document.body.scrollHeight - el.offsetTop
-            ));
+                    : document.body.scrollHeight - el.offsetTop;
+            });
         });
+        // offsetTop/scrollHeight/getBoundingClientRect are always in CSS
+        // pixels; every caller compares these against page_height and the
+        // PAGE_PADDING_*_PT constants, which are in points — see pxToPt.
+        return pxHeights.map(pxToPt);
     } finally {
         await page.close();
     }
