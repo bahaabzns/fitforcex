@@ -1,14 +1,10 @@
 import { training_pdf_settings } from '@prisma/client';
-import { escapeHtml, formatNumber, formatClock, pageBreak, renderShell, renderHeader, renderFooter, renderCoverPage, renderBackCoverPage } from './layout';
+import { escapeHtml, formatNumber, formatClock, pageBreak, renderShell, renderHeader, renderFooter, renderCoverPage, renderBackCoverPage, PAGE_PADDING_Y_PT, PAGE_PADDING_X_PT } from './layout';
 import { chunkByHeight } from './pagination';
 import { measureBlockHeights } from '../../../lib/pdfRenderer';
 import { prescribedFieldsFor } from '../../../config/exerciseTrackingTypes';
 
 type Row = Record<string, unknown>;
-
-// `.page`'s own top+bottom padding (layout.ts) — subtracted from page_height
-// to get the height actually available for a day's content.
-const PAGE_PADDING_PT = 32 * 2;
 
 function hasValue(v: unknown): boolean {
     return v !== null && v !== undefined && v !== '';
@@ -181,10 +177,20 @@ async function measureDayGroups(days: Row[], settings: training_pdf_settings): P
     });
 
     const measureBody = blocks.map((html) => `<div data-measure-block>${html}</div>`).join('');
-    const heights = await measureBlockHeights(renderShell(settings, measureBody), settings.page_width);
+    // Viewport width narrowed by PAGE_PADDING_X_PT so the measured content
+    // width matches `.page`'s real content box at render time (measure
+    // blocks aren't wrapped in `.page`, so without this they'd measure
+    // against the full page width and under-measure anything that wraps).
+    const heights = await measureBlockHeights(renderShell(settings, measureBody), settings.page_width - PAGE_PADDING_X_PT);
 
+    const headerHeight = heights[0];
     const footerHeight = heights[1];
-    const usableHeight = settings.page_height - PAGE_PADDING_PT - footerHeight;
+    // Every content page renders the header too (see the `.page` block in
+    // renderTrainingPlanHtml below) — omitting its height here let this
+    // budget run over by roughly one header's worth, overflowing the
+    // physical page and fragmenting the last item onto a near-empty
+    // continuation page. See the plan/bug writeup for the full trace.
+    const usableHeight = settings.page_height - PAGE_PADDING_Y_PT - headerHeight - footerHeight;
 
     return days.map((day, dayIndex) => {
         const range = dayRanges[dayIndex];

@@ -55,6 +55,14 @@ export function pageBreak(): string {
     return '<div class="page-break"></div>';
 }
 
+// `.page`'s own padding (see the `.page` rule in renderShell's stylesheet
+// below) — the single source of truth trainingPlan.ts/nutritionPlan.ts's
+// pagination math derives both the per-page height budget (Y) and the
+// measurement viewport's content width (X) from, so a future change to this
+// CSS can't silently drift out of sync with either.
+export const PAGE_PADDING_Y_PT = 32 * 2; // top + bottom
+export const PAGE_PADDING_X_PT = 36 * 2; // left + right
+
 // Preset sizes (points) for the exercise thumbnail in trainingPlan.ts —
 // fixed width:height ratio (~1.4545:1) across all three so the image never
 // looks stretched, whichever size a coach picks.
