@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity, Tag, Settings } from "lucide-react";
+import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity, Eye, Tag, Settings } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
@@ -16,6 +16,8 @@ import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import AnswerBody from "@/app/components/forms/AnswerBody";
+import Modal from "@/app/components/Modal";
 import ManageLabelsModal, { LABEL_COLOR_CLASSES, LABEL_COLOR_SWATCH } from "@/app/components/plansQueue/ManageLabelsModal";
 
 // "assessment" → "Assessment", "check-in" → "Check-in"
@@ -82,6 +84,29 @@ function MemberOptionLabel({ name, count, needActionLabel }) {
             <span className="truncate">{name}</span>
             <span className="text-[11px] text-muted-foreground">{needActionLabel} &middot; {count}</span>
         </div>
+    );
+}
+
+// Full-detail preview of a row's submitted answers, opened from a single
+// icon button in the actions column (between the primary/undo action and
+// Archive) — a large modal rather than a popover since answers can include
+// images/attachments that need real room. Only rendered by the caller for
+// rows that actually have answers (need-action/action-done); awaiting/
+// scheduled rows have none yet (see getQueue in forms.controller.ts). One
+// instance for the whole table, driven by previewOpenId, so opening one
+// row's preview implicitly closes any other row's.
+function AnswerPreviewModal({ open, onClose, responses, locale, heading, formTitle }) {
+    return (
+        <Modal open={open} onClose={onClose} title={formTitle ? `${heading} — ${formTitle}` : heading} size="xl">
+            <div className="flex flex-col gap-4">
+                {responses.map((r, i) => (
+                    <div key={r.id ?? i} className="flex flex-col gap-1.5">
+                        <span className="text-muted-foreground text-xs font-medium">{getLocalizedField(r, 'label', locale) || `Q${i + 1}`}</span>
+                        <AnswerBody response={r} />
+                    </div>
+                ))}
+            </div>
+        </Modal>
     );
 }
 
@@ -262,6 +287,10 @@ export default function PlansQueueTable({
     const [archivedIds, setArchivedIds] = useState(new Set());
     const [bulkAssigning, setBulkAssigning] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    // Which row's answer-preview popover is open (row id or null) — lifted
+    // here rather than local to AnswerPreviewTrigger so opening one row's
+    // preview closes any other row's still-open one.
+    const [previewOpenId, setPreviewOpenId] = useState(null);
     const [archiving, setArchiving] = useState(false);
 
     async function assignTo(rowId, userId) {
@@ -842,6 +871,15 @@ export default function PlansQueueTable({
                                 <Undo2 size={15} />
                             </IconAction>
                         )}
+                        {row.responses?.length > 0 && (
+                            <IconAction
+                                label={t('previewAnswers')}
+                                onClick={(e) => { e.stopPropagation(); setPreviewOpenId(row.id); }}
+                                className="bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30"
+                            >
+                                <Eye size={15} />
+                            </IconAction>
+                        )}
                         {(row.status === "need-action" || row.status === "action-done") && (
                             <IconAction
                                 padded
@@ -890,6 +928,21 @@ export default function PlansQueueTable({
                     onChanged={onLabelsChange}
                 />
             )}
+
+            {previewOpenId && (() => {
+                const previewRow = allItems.find((r) => r.id === previewOpenId);
+                if (!previewRow) return null;
+                return (
+                    <AnswerPreviewModal
+                        open
+                        onClose={() => setPreviewOpenId(null)}
+                        responses={previewRow.responses}
+                        locale={locale}
+                        heading={t('submissionAnswers')}
+                        formTitle={getLocalizedField(previewRow, 'formTitle', locale)}
+                    />
+                );
+            })()}
 
             <DataTable
                 columns={columns}

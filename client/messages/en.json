@@ -891,6 +891,7 @@
     "noAction": "No Action",
     "noResults": "No results match the current filters",
     "submissionAnswers": "Submission Answers",
+    "previewAnswers": "Preview submitted answers",
     "actionType": "Action Type:",
     "waitingForClient": "Waiting for client",
     "loadingQueue": "Loading plans queue…",
