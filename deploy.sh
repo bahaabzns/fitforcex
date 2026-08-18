@@ -62,6 +62,27 @@ step "Running migrations..."
 npm run migrate
 ok "Migrations complete"
 
+step "Verifying PDF export (Puppeteer/Chromium) can launch..."
+# Read-only check, deliberately non-fatal (doesn't call fail/exit 1) — a
+# Chromium launch failure here means PDF export is broken, not that the rest
+# of the app can't run, and this script has no business silently running
+# `apt-get install` as root against production infra on every deploy. If this
+# fails, install the listed packages by hand and redeploy. See DEBT.md
+# (2026-07-28) and the PDF export bug writeup for how this was diagnosed.
+if node -e "
+(async () => {
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    await browser.close();
+})().catch((err) => { console.error(err.message); process.exit(1); });
+"; then
+    ok "Puppeteer/Chromium launches — PDF export should work"
+else
+    echo -e "${RED}⚠ Puppeteer/Chromium failed to launch — PDF export will fail until this is fixed.${NC}"
+    echo -e "${RED}  On Debian/Ubuntu, install Chromium's required shared libraries and redeploy:${NC}"
+    echo -e "${RED}  sudo apt-get install -y ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 lsb-release wget xdg-utils${NC}"
+fi
+
 step "Installing client dependencies..."
 cd "$APP_DIR/client"
 # Unset NODE_ENV so npm ci installs devDependencies needed for the build

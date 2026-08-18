@@ -16,7 +16,7 @@ import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
-import { downloadPdfExport } from "@/lib/pdfExport";
+import { downloadPdfExport, describePdfExportError } from "@/lib/pdfExport";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const { id, workspaceSlug } = useParams();
@@ -132,7 +132,9 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         setExportError("");
         try {
             await downloadPdfExport("training", selectedPlan.id, `${selectedPlan.name || "training-plan"}.pdf`);
-        } catch {
+        } catch (err) {
+            const detail = await describePdfExportError(err);
+            console.error("PDF export failed:", detail.status, detail.message);
             setExportError(t("exportPdfFailed"));
         } finally {
             setExportingPdf(false);

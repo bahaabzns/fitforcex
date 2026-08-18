@@ -17,7 +17,7 @@ import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
-import { downloadPdfExport } from "@/lib/pdfExport";
+import { downloadPdfExport, describePdfExportError } from "@/lib/pdfExport";
 
 export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) {
     const t = useTranslations('nutrition');
@@ -148,7 +148,9 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         setExportError("");
         try {
             await downloadPdfExport("nutrition", selectedPlan.id, `${selectedPlan.name || "nutrition-plan"}.pdf`);
-        } catch {
+        } catch (err) {
+            const detail = await describePdfExportError(err);
+            console.error("PDF export failed:", detail.status, detail.message);
             setExportError(t("exportPdfFailed"));
         } finally {
             setExportingPdf(false);
