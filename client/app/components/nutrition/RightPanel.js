@@ -12,6 +12,7 @@ import { Disclosure, DisclosureGroup, NumberField, Separator, Surface } from "@h
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import MacroStat from "./MacroStat";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
+import { localizedFoodName } from "@/utils/foodLocalization";
 
 export default function RightPanel({
     selectedMeal,
@@ -34,7 +35,6 @@ export default function RightPanel({
     const [insightsItem, setInsightsItem] = useState(null);
     const t = useTranslations('nutrition');
     const isRTL = useLocale() === 'ar';
-    const localizedFoodName = (food) => (isRTL && food?.name_ar) || food?.name || food?.name_ar || '';
     const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
     const [expandedItemIds, setExpandedItemIds] = useState(new Set());
 
@@ -174,8 +174,8 @@ export default function RightPanel({
 
                                                         {/* Name + quantity stepper */}
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
-                                                                {localizedFoodName(item)}
+                                                            <p translate="no" className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
+                                                                {localizedFoodName(item.name, item.name_ar, isRTL)}
                                                             </p>
                                                             <div className="flex items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
                                                                 <NumberField
@@ -193,12 +193,12 @@ export default function RightPanel({
                                                             </div>
                                                             {alternatives.length > 0 && (
                                                                 <div
-                                                                    title={alternatives.map(a => localizedFoodName(a)).filter(Boolean).join(', ')}
+                                                                    title={alternatives.map(a => localizedFoodName(a.name, a.name_ar, isRTL)).filter(Boolean).join(', ')}
                                                                     className="mt-1 flex items-center w-full text-xs text-muted-foreground/70 group-hover:text-muted-foreground group-data-open/disc:text-primary leading-none transition-colors"
                                                                 >
                                                                     <span className="font-medium">{t('alternativesCount', { count: alternatives.length })}</span>
                                                                     <span className="text-muted-foreground/40 mx-1">·</span>
-                                                                    <span className="truncate min-w-0 flex-1">{alternatives.slice(0, 2).map(a => localizedFoodName(a)).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
+                                                                    <span translate="no" className="truncate min-w-0 flex-1">{alternatives.slice(0, 2).map(a => localizedFoodName(a.name, a.name_ar, isRTL)).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`ml-0.5 shrink-0 transition-transform ${expandedItemIds.has(String(item.id)) ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
                                                                 </div>
                                                             )}
@@ -260,7 +260,7 @@ export default function RightPanel({
                                                                 return (
                                                                 <div key={alt.id} className="group flex items-center gap-2 px-2 py-2.5 rounded-md hover:bg-default/60 transition-colors">
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-sm text-foreground/75 truncate">{localizedFoodName(alt)}</p>
+                                                                        <p translate="no" className="text-sm text-foreground/75 truncate">{localizedFoodName(alt.name, alt.name_ar, isRTL)}</p>
                                                                         <div className="flex items-center gap-1.5 mt-0.5">
                                                                             <NumberField
                                                                                 value={Number(alt.amount) || 0}

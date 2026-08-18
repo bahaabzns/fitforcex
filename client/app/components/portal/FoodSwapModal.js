@@ -7,6 +7,7 @@ import Modal, { ModalFooter } from "@/app/components/Modal";
 import { SearchField } from "@heroui/react/search-field";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
+import { localizedFoodName } from "@/utils/foodLocalization";
 
 /**
  * Client-facing food swap: search is backend-driven and every candidate
@@ -76,7 +77,7 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
     };
 
     return (
-        <Modal open={open} onClose={onClose} title={t("title", { name: (isRTL && currentFood?.name_ar) || currentFood?.name || currentFood?.name_ar || "" })} wide>
+        <Modal open={open} onClose={onClose} title={t("title", { name: localizedFoodName(currentFood?.name, currentFood?.name_ar, isRTL) })} wide>
             <div className="flex flex-col gap-3 p-2">
                 <SearchField value={query} onChange={setQuery} variant="secondary" aria-label={t("searchPlaceholder")}>
                     <SearchField.Group>
@@ -104,12 +105,12 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
                                 }`}
                             >
                                 <div className="flex items-center justify-between gap-2">
-                                    <span dir="auto" className="text-sm font-medium text-foreground">
-                                        {(isRTL && alt.nameAr) || alt.name || alt.nameAr}
+                                    <span dir="auto" translate="no" className="text-sm font-medium text-foreground">
+                                        {localizedFoodName(alt.name, alt.nameAr, isRTL)}
                                     </span>
                                     {alt.foodCategory && (
                                         <Chip size="sm" variant="soft" color="default">
-                                            <Chip.Label>{(isRTL && alt.foodCategoryAr) || alt.foodCategory}</Chip.Label>
+                                            <Chip.Label>{localizedFoodName(alt.foodCategory, alt.foodCategoryAr, isRTL)}</Chip.Label>
                                         </Chip>
                                     )}
                                 </div>
@@ -131,8 +132,8 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
                 {selected && (
                     <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex flex-col gap-1">
                         <span className="text-xs font-semibold text-primary uppercase tracking-wide">{t("equivalentTo")}</span>
-                        <span dir="auto" className="text-sm font-medium text-foreground">
-                            {(isRTL && selected.nameAr) || selected.name || selected.nameAr} — {selected.calculatedAmount}{selected.servingUnit}
+                        <span dir="auto" translate="no" className="text-sm font-medium text-foreground">
+                            {localizedFoodName(selected.name, selected.nameAr, isRTL)} — {selected.calculatedAmount}{selected.servingUnit}
                         </span>
                     </div>
                 )}
