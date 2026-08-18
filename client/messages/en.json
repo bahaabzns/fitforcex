@@ -2569,7 +2569,6 @@
       "showExerciseEquipment": "Show exercise equipment",
       "showSetsDetail": "Show sets table (reps/rest/tempo/RIR)",
       "showDaySummaryPage": "Show per-day summary page",
-      "maxExercisesPerPage": "Max exercises per page (0 = no limit)",
       "showExerciseThumbnail": "Show exercise thumbnail",
       "thumbnailSize": "Thumbnail size",
       "thumbnailSizeSmall": "Small",

@@ -42,7 +42,7 @@ const EDITABLE_FIELDS_BY_TYPE = {
         "show_cover_page", "show_back_cover_page", "show_plan_summary_page",
         "show_cover_header", "show_cover_title", "show_cover_subtitle", "show_cover_client_name",
         "show_notes", "show_exercise_notes", "show_exercise_equipment", "show_sets_detail", "show_day_summary_page",
-        "max_exercises_per_page", "body_text_color", "show_exercise_thumbnail", "exercise_thumbnail_size",
+        "body_text_color", "show_exercise_thumbnail", "exercise_thumbnail_size",
     ],
 };
 
@@ -659,24 +659,6 @@ export default function PdfExportSettingsPage() {
                             </div>
                         </>
                     )}
-                    <Separator />
-                    <div className="py-3">
-                        <NumberField
-                            variant="secondary"
-                            value={settings.max_exercises_per_page ?? 0}
-                            onChange={(v) => update({ max_exercises_per_page: Math.max(0, v || 0) })}
-                            minValue={0}
-                            maxValue={50}
-                            aria-label={t("training.maxExercisesPerPage")}
-                        >
-                            <label className="text-sm text-foreground mb-1.5 block">{t("training.maxExercisesPerPage")}</label>
-                            <NumberField.Group className="w-36">
-                                <NumberField.DecrementButton />
-                                <NumberField.Input />
-                                <NumberField.IncrementButton />
-                            </NumberField.Group>
-                        </NumberField>
-                    </div>
                 </Card.Content>
             </Card>
             )}
