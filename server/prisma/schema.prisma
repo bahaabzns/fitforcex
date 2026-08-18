@@ -359,12 +359,14 @@ model form_requests {
   form_version_id       String?
   archived_at           DateTime?               @db.Timestamptz(6)
   archived_by           String?
+  label_id              String?
   check_in_schedules    check_in_schedules[]
   client_observations   client_observations[]
   workspaces            workspaces              @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
   clients               clients?                @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   forms                 forms?                  @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   form_versions         form_versions?          @relation(fields: [form_version_id], references: [id], onUpdate: NoAction)
+  plans_queue_labels    plans_queue_labels?     @relation(fields: [label_id], references: [id], onUpdate: NoAction)
   form_responses        form_responses[]
   observation_relations observation_relations[]
 
@@ -372,6 +374,21 @@ model form_requests {
   @@index([workspace_id, archived_at], map: "idx_form_requests_ws_archived")
   @@index([form_id], map: "form_requests_form_id_index")
   @@index([form_version_id], map: "form_requests_form_version_id_index")
+  @@index([label_id])
+}
+
+model plans_queue_labels {
+  id            String          @id
+  workspace_id  String
+  name          String
+  color         String
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  workspaces    workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_requests form_requests[]
+
+  @@unique([workspace_id, name], map: "plans_queue_labels_workspace_id_name_key")
+  @@index([workspace_id])
 }
 
 model form_responses {
@@ -1449,6 +1466,7 @@ model workspaces {
   nutrition_pdf_settings                       nutrition_pdf_settings?
   packages                                     packages[]
   payment_methods                              payment_methods[]
+  plans_queue_labels                           plans_queue_labels[]
   roadmap_items                                roadmap_items[]
   subscription_access_policies                 subscription_access_policies[]
   training_plans                               training_plans[]

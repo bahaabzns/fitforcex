@@ -42,9 +42,18 @@ export async function createTestWorkspace(ownerId: string) {
 
 // Creates a JWT and stores the matching session hash in user_sessions so the
 // authMiddleware session check (which validates against the DB) passes.
-export async function makeAuthCookie(userId: string, workspaceId: string, role = 'owner'): Promise<string> {
+// `permissions` defaults to null (matching every existing call site, which
+// only ever tests as 'owner' and so never needed it) — pass the shape from
+// defaultPermissions.ts's DEFAULT_PERMISSIONS when a test needs a non-owner
+// role to actually pass requirePermission's module/action check.
+export async function makeAuthCookie(
+    userId: string,
+    workspaceId: string,
+    role = 'owner',
+    permissions: Record<string, Record<string, boolean>> | null = null
+): Promise<string> {
     const token = jwt.sign(
-        { userId, workspaceId, role, permissions: null },
+        { userId, workspaceId, role, permissions },
         process.env.JWT_SECRET!,
         { expiresIn: '1h' }
     );

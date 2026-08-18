@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity } from "lucide-react";
+import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity, Tag, Settings } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
@@ -16,6 +16,7 @@ import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import ManageLabelsModal, { LABEL_COLOR_CLASSES, LABEL_COLOR_SWATCH } from "@/app/components/plansQueue/ManageLabelsModal";
 
 // "assessment" → "Assessment", "check-in" → "Check-in"
 function titleCaseType(type) {
@@ -86,6 +87,7 @@ function MemberOptionLabel({ name, count, needActionLabel }) {
 
 export default function PlansQueueTable({
     initialSubmissions, awaiting, forms, members = [],
+    labels = [], canManageLabels = false, onLabelsChange = async () => {},
     hideStatusColumn = false, hideActionTakenColumn = false,
     title, description, headerAction,
     // The just-completed submission id, already claimed once (Strict-Mode-safe,
@@ -110,6 +112,14 @@ export default function PlansQueueTable({
     const [marking, setMarking] = useState(false);
     // Per-row assignee overrides applied on top of the server data (id → { assignedTo, assignedToName }).
     const [assignMap, setAssignMap] = useState({});
+    // Per-row label override — just the id (not a name/color snapshot), so a
+    // row's displayed label is always re-resolved against the current
+    // `labels` list in withDerived below. This is what makes renaming,
+    // recoloring, or deleting a label reflect instantly on every row that
+    // has it, with no extra sync effect: name/color are never stored
+    // anywhere except on the label itself, so they can't go stale.
+    const [labelMap, setLabelMap] = useState({});
+    const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     // hideStatusColumn is 1:1 with which builder-return button was clicked
@@ -268,6 +278,17 @@ export default function PlansQueueTable({
         }
     }
 
+    async function assignLabel(rowId, labelId) {
+        // Optimistic — same pattern as assignTo above. Just the id; see
+        // labelMap's declaration for why name/color are never stored here.
+        setLabelMap((prev) => ({ ...prev, [rowId]: labelId || null }));
+        try {
+            await api.patch("/api/forms/queue/label", { formRequestId: rowId, labelId: labelId || null });
+        } catch {
+            // silent — leave the optimistic value; a reload reconciles with the server
+        }
+    }
+
     function getPostAction(formId) {
         const form = forms.find((f) => f.id === formId);
         return form?.postAction || "nothing";
@@ -280,12 +301,24 @@ export default function PlansQueueTable({
 
     const withDerived = (item) => {
         const override = assignMap[item.id];
+        // hasOwnProperty, not `labelMap[item.id] ?? item.labelId`: a row
+        // explicitly cleared to "no label" stores `null` in labelMap, which
+        // must win over item.labelId rather than falling back to it.
+        const hasLabelOverride = Object.prototype.hasOwnProperty.call(labelMap, item.id);
+        const effectiveLabelId = hasLabelOverride ? labelMap[item.id] : (item.labelId ?? null);
+        // Always re-resolved against the current labels list — never a
+        // snapshot — so a rename/recolor/delete shows up immediately on
+        // every row with no separate sync step (see labelMap's declaration).
+        const effectiveLabel = effectiveLabelId ? labels.find((l) => l.id === effectiveLabelId) : null;
         return {
             ...item,
             postAction: item.postAction || getPostAction(item.formId),
             formType: item.formType || getFormType(item.formId),
             assignedTo: override ? override.assignedTo : (item.assignedTo ?? null),
             assignedToName: override ? override.assignedToName : (item.assignedToName ?? null),
+            labelId: effectiveLabel ? effectiveLabel.id : null,
+            labelName: effectiveLabel ? effectiveLabel.name : null,
+            labelColor: effectiveLabel ? effectiveLabel.color : null,
         };
     };
 
@@ -358,6 +391,26 @@ export default function PlansQueueTable({
         setBulkAssigning(true);
         try {
             await api.patch("/api/forms/queue/assign", { ids, assignedTo: userId || null });
+        } catch {
+            // silent — leave the optimistic value; a reload reconciles with the server
+        }
+        setBulkAssigning(false);
+        setSelectedIds(new Set());
+    }
+
+    // Bulk label assignment — same shape as bulkAssignTo above, applied to
+    // one label at a time across the whole selection.
+    async function bulkAssignLabel(labelId) {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        setLabelMap((prev) => {
+            const next = { ...prev };
+            for (const id of ids) next[id] = labelId || null;
+            return next;
+        });
+        setBulkAssigning(true);
+        try {
+            await Promise.all(ids.map((id) => api.patch("/api/forms/queue/label", { formRequestId: id, labelId: labelId || null })));
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -656,6 +709,59 @@ export default function PlansQueueTable({
             ),
         },
         {
+            key: "label",
+            label: t('label'),
+            filterType: "multi",
+            options: [null, ...labels.map((l) => l.id)],
+            optionLabel: (id) => id === null ? t('unlabeled') : (labels.find((l) => l.id === id)?.name || id),
+            filterValue: (row) => row.labelId ?? null,
+            sortable: true,
+            sortValue: (row) => row.labelName || null,
+            pinned: true,
+            icon: Tag,
+            width: "150px",
+            cardPriority: "secondary",
+            render: (row) => (
+                <Select
+                    aria-label={t('label')}
+                    value={row.labelId ?? "none"}
+                    onChange={(v) => assignLabel(row.id, v === "none" ? null : v)}
+                    size="sm"
+                >
+                    <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
+                        {row.labelName ? (
+                            <Chip size="sm" className={`whitespace-nowrap ${LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}`}>
+                                {row.labelName}
+                            </Chip>
+                        ) : (
+                            <>
+                                <Tag size={13} className="shrink-0" />
+                                <span className="truncate text-xs">{t('unlabeled')}</span>
+                            </>
+                        )}
+                        <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                        <ListBox>
+                            <ListBox.Item id="none" textValue={t('unlabeled')}>
+                                {t('unlabeled')}
+                                <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                            {labels.map((l) => (
+                                <ListBox.Item key={l.id} id={l.id} textValue={l.name}>
+                                    <span className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${LABEL_COLOR_SWATCH[l.color] || "bg-zinc-500"}`} />
+                                        {l.name}
+                                    </span>
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                            ))}
+                        </ListBox>
+                    </Select.Popover>
+                </Select>
+            ),
+        },
+        {
             key: "actions",
             label: t('action'),
             filterType: "multi",
@@ -765,8 +871,25 @@ export default function PlansQueueTable({
                     <h1 className="text-3xl font-bold">{title ?? t('title')}</h1>
                     <p className="text-muted-foreground text-sm mt-1">{description ?? t('description')}</p>
                 </div>
-                {headerAction}
+                <div className="flex items-center gap-2">
+                    {canManageLabels && (
+                        <Button variant="ghost" size="sm" onClick={() => setManageLabelsOpen(true)}>
+                            <Settings className="w-4 h-4" />
+                            <span>{t('manageLabels')}</span>
+                        </Button>
+                    )}
+                    {headerAction}
+                </div>
             </div>
+
+            {canManageLabels && (
+                <ManageLabelsModal
+                    open={manageLabelsOpen}
+                    onClose={() => setManageLabelsOpen(false)}
+                    labels={labels}
+                    onChanged={onLabelsChange}
+                />
+            )}
 
             <DataTable
                 columns={columns}
@@ -839,6 +962,38 @@ export default function PlansQueueTable({
                             </ListBox>
                         </Select.Popover>
                     </Select>
+
+                    {labels.length > 0 && (
+                        <Select
+                            aria-label={t('label')}
+                            value="none"
+                            onChange={(v) => bulkAssignLabel(v === "none" ? null : v)}
+                            size="sm"
+                            isDisabled={bulkAssigning || marking || cancelling}
+                        >
+                            <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                <Tag size={14} className="shrink-0" />
+                                <span className="action-bar__label text-sm">{t('label')}</span>
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    <ListBox.Item id="none" textValue={t('unlabeled')}>
+                                        {t('unlabeled')}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                    {labels.map((l) => (
+                                        <ListBox.Item key={l.id} id={l.id} textValue={l.name}>
+                                            <span className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full shrink-0 ${LABEL_COLOR_SWATCH[l.color] || "bg-zinc-500"}`} />
+                                                {l.name}
+                                            </span>
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
+                    )}
 
                     {eligibleReviewIds.length > 0 && (
                         <Button variant="ghost" size="sm" onClick={bulkMarkReviewed} isDisabled={marking}>

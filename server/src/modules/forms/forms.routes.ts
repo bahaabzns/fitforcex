@@ -304,6 +304,60 @@ router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestio
  *     responses:
  *       200:
  *         description: Requests archived or restored
+ *
+ * /forms/queue/labels:
+ *   get:
+ *     summary: List the workspace's Plans Queue labels
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of labels
+ *   post:
+ *     summary: Create a Plans Queue label (workspace owner/manager only)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201:
+ *         description: Label created
+ *       403:
+ *         description: Caller is not the workspace owner or a manager
+ *       409:
+ *         description: A label with this name already exists
+ *
+ * /forms/queue/labels/{id}:
+ *   patch:
+ *     summary: Rename/recolor a Plans Queue label (workspace owner/manager only)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Label updated
+ *   delete:
+ *     summary: Delete a Plans Queue label (workspace owner/manager only) — affected queue items are un-labelled, not blocked
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Label deleted
+ *
+ * /forms/queue/label:
+ *   patch:
+ *     summary: Apply or clear a label on a single queue item
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Label applied/cleared
  */
 router.post('/requests',                      formsController.createRequests);
 router.get('/requests/client/:client_id',     formsController.getRequestsByClient);
@@ -313,5 +367,10 @@ router.patch('/queue/review',                 formsController.reviewQueue);
 router.patch('/queue/assign',                 formsController.assignQueue);
 router.patch('/queue/archive',                formsController.archiveQueue);
 router.delete('/queue/cancel',                formsController.cancelQueue);
+router.get('/queue/labels',                   formsController.getQueueLabels);
+router.post('/queue/labels',                  formsController.createQueueLabel);
+router.patch('/queue/labels/:id',             formsController.updateQueueLabel);
+router.delete('/queue/labels/:id',            formsController.deleteQueueLabel);
+router.patch('/queue/label',                  formsController.assignQueueLabel);
 
 export default router;
