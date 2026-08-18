@@ -34,6 +34,12 @@ export default function FoodForm({ data, onChange, onSubmit, onCancel, submitLab
                     <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} {...field("name_ar")}>
                         <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
                     </TextField>
+                    {/* Not required — some workspaces are English-only — but an Arabic
+                        client viewing this item without one sees the English name
+                        substituted in, so flag it rather than leave it silent. */}
+                    {!data.name_ar && (
+                        <p className="text-xs text-amber-500">{t("missingArabicNameHint")}</p>
+                    )}
                 </div>
             </div>
             <div className="flex flex-col gap-1.5">

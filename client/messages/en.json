@@ -2320,7 +2320,9 @@
     "deleteButton": "Delete",
     "searchPlaceholder": "Search food items...",
     "emptyTitle": "No food items yet",
-    "emptyHint": "Add your first food item to start building nutrition plans."
+    "emptyHint": "Add your first food item to start building nutrition plans.",
+    "missingArabicNameHint": "No Arabic name yet — clients viewing this item on an Arabic-language plan will see the English name instead.",
+    "missingArabicName": "Missing Arabic name"
   },
   "notifications": {
     "title": "Notifications",
