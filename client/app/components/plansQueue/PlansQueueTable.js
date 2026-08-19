@@ -872,13 +872,30 @@ export default function PlansQueueTable({
                             </IconAction>
                         )}
                         {row.responses?.length > 0 && (
-                            <IconAction
-                                label={t('previewAnswers')}
-                                onClick={(e) => { e.stopPropagation(); setPreviewOpenId(row.id); }}
-                                className="bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30"
-                            >
-                                <Eye size={15} />
-                            </IconAction>
+                            <>
+                                {/* One-time hint pointing at the new answer-preview icon — only on
+                                    the first eligible row, dismissed once (same pattern as the
+                                    assignee-workload hint above). */}
+                                {row.id === allItems.find((r) => r.responses?.length > 0)?.id && (
+                                    <NewFeatureTooltip
+                                        featureKey="answer_preview_hint"
+                                        active
+                                        message={t('previewAnswersHint')}
+                                        dismissLabel={t('previewAnswersHintDismiss')}
+                                        badgeLabel={t('previewAnswersHintBadge')}
+                                        triggerClassName="shrink-0 w-1.5 h-1.5 rounded-full bg-primary cursor-pointer"
+                                    >
+                                        <span className="sr-only">{t('previewAnswersHintBadge')}</span>
+                                    </NewFeatureTooltip>
+                                )}
+                                <IconAction
+                                    label={t('previewAnswers')}
+                                    onClick={(e) => { e.stopPropagation(); setPreviewOpenId(row.id); }}
+                                    className="bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30"
+                                >
+                                    <Eye size={15} />
+                                </IconAction>
+                            </>
                         )}
                         {(row.status === "need-action" || row.status === "action-done") && (
                             <IconAction
@@ -911,10 +928,18 @@ export default function PlansQueueTable({
                 </div>
                 <div className="flex items-center gap-2">
                     {canManageLabels && (
-                        <Button variant="ghost" size="sm" onClick={() => setManageLabelsOpen(true)}>
-                            <Settings className="w-4 h-4" />
-                            <span>{t('manageLabels')}</span>
-                        </Button>
+                        <NewFeatureTooltip
+                            featureKey="plans_queue_labels_hint"
+                            active
+                            message={t('manageLabelsHint')}
+                            dismissLabel={t('manageLabelsHintDismiss')}
+                            badgeLabel={t('manageLabelsHintBadge')}
+                        >
+                            <Button variant="ghost" size="sm" onClick={() => setManageLabelsOpen(true)}>
+                                <Settings className="w-4 h-4" />
+                                <span>{t('manageLabels')}</span>
+                            </Button>
+                        </NewFeatureTooltip>
                     )}
                     {headerAction}
                 </div>
