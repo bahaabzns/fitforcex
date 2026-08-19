@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
@@ -22,11 +22,28 @@ const DEFAULT_REST = 90;
 // impure call during render (react-hooks/purity).
 const currentMillis = () => Date.now();
 
+// Debounces `value` so callers don't fire a request on every keystroke —
+// waits `delay`ms after the last change before updating the returned value.
+// Same shape as settings/pdf/page.js's identical hook for its live preview.
+function useDebouncedValue(value, delay) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(timer);
+    }, [value, delay]);
+    return debounced;
+}
+
 function toNumber(value) {
     const n = parseFloat(value);
     return Number.isFinite(n) ? n : null;
 }
 
+// Minted client-side (not server-generated) the moment a session starts, so
+// every debounced autosave and the final Finish both target the same
+// workout_logs row via upsert (PUT /workout-logs/:id) instead of Finish
+// creating a second one — see clientPortal.controller.ts's upsertWorkoutLog.
+//
 // crypto.randomUUID() alone isn't enough here: it's gated to secure contexts
 // (HTTPS, or literally the hostname "localhost") and throws in any other
 // context — which silently broke every "Start Training" click in this app's
@@ -56,17 +73,80 @@ function newSessionId() {
 // gets added to buildSession after the client already had a session cached.
 // Re-derive metadata from the freshly fetched day on every resume; only the
 // client's own logged data (sets, per-exercise note, start time) survives
-// from storage.
+// from storage. Reused for both the localStorage-restored shape and the
+// server-draft shape (see draftToRestored below) — they're normalized to the
+// same { id, day_id, started_at, exercises: [{exercise_id, note, sets}] } shape.
 function resumeSession(fresh, restored) {
     const restoredById = new Map(restored.exercises.map(ex => [ex.exercise_id, ex]));
     return {
         ...fresh,
+        // Pre-existing saved sessions (from before Instant Save shipped) won't
+        // have an id yet — mint one rather than losing the ability to autosave.
+        id:         restored.id || newSessionId(),
         started_at: restored.started_at,
         exercises: fresh.exercises.map(ex => {
             const saved = restoredById.get(ex.exercise_id);
             return saved ? { ...ex, note: saved.note, sets: saved.sets } : ex;
         }),
     };
+}
+
+// Converts a server draft (GET /workout-logs/draft — the same flat, already-
+// numeric shape autosave sends, see serializeExercisesForApi) into the shape
+// resumeSession expects. Nulls become "" so a controlled input never receives
+// null as its value; numbers pass through unchanged (React renders them fine).
+function draftToRestored(draft) {
+    return {
+        id:         draft.id,
+        day_id:     draft.day_id,
+        started_at: draft.started_at,
+        exercises: (draft.exercises ?? []).map(ex => ({
+            exercise_id: ex.exercise_id,
+            note:        ex.note || "",
+            sets: (ex.sets ?? []).map(s => ({
+                set_order:        s.set_order,
+                completed:        !!s.completed,
+                rest_seconds:     s.rest_seconds ?? null,
+                weight:           s.weight ?? "",
+                reps:             s.reps ?? "",
+                rir:              s.rir ?? "",
+                rpe:              s.rpe ?? "",
+                duration_seconds: s.duration_seconds ?? "",
+                distance_km:      s.distance_km ?? "",
+                incline_percent:  s.incline_percent ?? "",
+                speed_kmh:        s.speed_kmh ?? "",
+            })),
+        })),
+    };
+}
+
+// Shared by the debounced autosave and Finish — both must send the exact
+// same shape so a mid-session autosave and the final save are interchangeable
+// as far as the server's upsert is concerned.
+function serializeExercisesForApi(exercises) {
+    return exercises.map(ex => ({
+        exercise_id:         ex.exercise_id,
+        exercise_library_id: ex.exercise_library_id,
+        name:                ex.name,
+        library_name_en:     ex.library_name_en,
+        library_name_ar:     ex.library_name_ar,
+        note:                ex.note?.trim() || null,
+        tracking_type:       ex.tracking_type,
+        tracked_metrics:     ex.tracked_metrics,
+        sets: ex.sets.map(s => ({
+            set_order:        s.set_order,
+            weight:           toNumber(s.weight),
+            reps:             toNumber(s.reps),
+            rir:              toNumber(s.rir),
+            rpe:              toNumber(s.rpe),
+            rest_seconds:     s.rest_seconds,
+            duration_seconds: toNumber(s.duration_seconds),
+            distance_km:      toNumber(s.distance_km),
+            incline_percent:  toNumber(s.incline_percent),
+            speed_kmh:        toNumber(s.speed_kmh),
+            completed:        s.completed,
+        })),
+    }));
 }
 
 function buildSession(plan, day, dayIndex) {
@@ -133,6 +213,25 @@ export default function TrainingSessionPage() {
     const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
     const [finishEmptyOpen, setFinishEmptyOpen]       = useState(false);
 
+    // Instant Save — debounced background autosave of the whole session
+    // while the client is still working, so weights/reps typed mid-workout
+    // survive a closed tab/crash/lost connection without waiting for Finish.
+    // "error" only after several *consecutive* failures (see the effect
+    // below) — a transient blip on one save isn't worth interrupting anyone.
+    const [autosaveState, setAutosaveState] = useState("idle"); // idle | saving | saved | error
+    // True once the initial session value (fresh or resumed) has landed —
+    // autosave must not fire for that first value, only for real edits after.
+    const hydratedRef = useRef(false);
+    // Discards a stale autosave response if a newer one has since fired —
+    // same request-id-guard pattern as settings/pdf/page.js's preview autosave.
+    const autosaveRequestIdRef = useRef(0);
+    const autosaveFailStreakRef = useRef(0);
+    // Set the instant Finish is clicked so any autosave already queued behind
+    // the debounce timer skips firing — Finish's own save supersedes it. Does
+    // not cancel a request already in flight; the server's own check (a
+    // completed row is never mutated again) covers that narrower race.
+    const finishingRef = useRef(false);
+
     // State, not a ref: focusSetIndexFor reads it during render to drive
     // auto-focus, and refs can't be read while rendering (react-hooks/refs).
     const [lastCompletion, setLastCompletion] = useState(null);
@@ -164,7 +263,21 @@ export default function TrainingSessionPage() {
                 if (cancelled) return;
 
                 const saved = getActiveTrainingSession();
-                const restored = saved && saved.day_id === day.id ? saved : null;
+                let restored = saved && saved.day_id === day.id ? saved : null;
+
+                // No local draft (cleared storage, browser crash, or a fresh
+                // device) — check the server for one before giving up and
+                // starting blank. A nice-to-have, same as previous values:
+                // never let its failure block starting the session.
+                if (!restored) {
+                    try {
+                        const { data: draft } = await api.get("/api/client-portal/workout-logs/draft", {
+                            params: { day_id: day.id },
+                        });
+                        if (draft) restored = draftToRestored(draft);
+                    } catch { /* no server draft available */ }
+                    if (cancelled) return;
+                }
 
                 const fresh = buildSession(plan, day, dayIndex);
                 setSession(restored ? resumeSession(fresh, restored) : fresh);
@@ -195,6 +308,44 @@ export default function TrainingSessionPage() {
     useEffect(() => {
         if (session) saveTrainingSession(session);
     }, [session]);
+
+    // Debounces `session` (700ms) so autosave doesn't fire on every keystroke
+    // — same pattern as settings/pdf/page.js's live-preview autosave.
+    const debouncedSession = useDebouncedValue(session, 700);
+
+    // The actual server autosave — fires on every real edit (not the initial
+    // load/resume value), independent of localStorage above. Data already
+    // reaches the server here; Finish (below) only flips completed to true on
+    // the same row instead of doing the one save that used to matter most.
+    useEffect(() => {
+        if (!debouncedSession) return;
+        if (!hydratedRef.current) { hydratedRef.current = true; return; }
+        if (finishingRef.current) return;
+
+        const requestId = ++autosaveRequestIdRef.current;
+        setAutosaveState("saving");
+        api.put(`/api/client-portal/workout-logs/${debouncedSession.id}`, {
+            plan_id:    debouncedSession.plan_id,
+            day_id:     debouncedSession.day_id,
+            day_index:  debouncedSession.day_index,
+            notes:      null,
+            started_at: debouncedSession.started_at,
+            ended_at:   new Date().toISOString(),
+            exercises:  serializeExercisesForApi(debouncedSession.exercises),
+            completed:  false,
+        }).then(() => {
+            if (requestId !== autosaveRequestIdRef.current) return;
+            autosaveFailStreakRef.current = 0;
+            setAutosaveState("saved");
+        }).catch(() => {
+            if (requestId !== autosaveRequestIdRef.current) return;
+            autosaveFailStreakRef.current += 1;
+            // A background save failing on every flaky-connection blip would
+            // be a worse experience than today's silence — only surface
+            // something after a sustained run of failures.
+            setAutosaveState(autosaveFailStreakRef.current >= 3 ? "error" : "saving");
+        });
+    }, [debouncedSession]);
 
     function updateExercise(exIdx, updater) {
         setSession(prev => {
@@ -255,7 +406,12 @@ export default function TrainingSessionPage() {
 
     function confirmDiscard() {
         setDiscardConfirmOpen(false);
+        finishingRef.current = true; // stop any queued autosave from resurrecting the row we're about to delete
         clearTrainingSession();
+        // Best-effort — an explicit discard should remove the autosaved
+        // draft, not just the local cache, but a failed cleanup call is no
+        // reason to block the client from leaving.
+        if (session?.id) api.delete(`/api/client-portal/workout-logs/${session.id}`).catch(() => {});
         router.replace("/portal/training");
     }
 
@@ -276,37 +432,20 @@ export default function TrainingSessionPage() {
 
     async function submitFinish() {
         setSaving(true);
+        // Stops any autosave still queued behind the debounce timer from
+        // firing after this — Finish's own save (below) is the authoritative
+        // final write, targeting the exact same row by id.
+        finishingRef.current = true;
         try {
-            const { data } = await api.post("/api/client-portal/workout-logs", {
+            const { data } = await api.put(`/api/client-portal/workout-logs/${session.id}`, {
                 plan_id:    session.plan_id,
                 day_id:     session.day_id,
                 day_index:  session.day_index,
                 notes:      null,
                 started_at: session.started_at,
                 ended_at:   new Date().toISOString(),
-                exercises: session.exercises.map(ex => ({
-                    exercise_id:         ex.exercise_id,
-                    exercise_library_id: ex.exercise_library_id,
-                    name:                ex.name,
-                    library_name_en:     ex.library_name_en,
-                    library_name_ar:     ex.library_name_ar,
-                    note:                ex.note?.trim() || null,
-                    tracking_type:       ex.tracking_type,
-                    tracked_metrics:     ex.tracked_metrics,
-                    sets: ex.sets.map(s => ({
-                        set_order:        s.set_order,
-                        weight:           toNumber(s.weight),
-                        reps:             toNumber(s.reps),
-                        rir:              toNumber(s.rir),
-                        rpe:              toNumber(s.rpe),
-                        rest_seconds:     s.rest_seconds,
-                        duration_seconds: toNumber(s.duration_seconds),
-                        distance_km:      toNumber(s.distance_km),
-                        incline_percent:  toNumber(s.incline_percent),
-                        speed_kmh:        toNumber(s.speed_kmh),
-                        completed:        s.completed,
-                    })),
-                })),
+                exercises:  serializeExercisesForApi(session.exercises),
+                completed:  true,
             });
             clearTrainingSession();
             const params = new URLSearchParams({
@@ -318,6 +457,7 @@ export default function TrainingSessionPage() {
             router.replace(`/portal/training/session/complete?${params.toString()}`);
         } catch {
             setSaving(false);
+            finishingRef.current = false; // let autosave resume if the client keeps editing and retries
             window.alert(t("saveFailed"));
         }
     }
@@ -358,8 +498,11 @@ export default function TrainingSessionPage() {
                         <ChevronDown className="w-5 h-5" />
                     </NewFeatureTooltip>
                 </span>
-                <div className="flex-1 flex items-center justify-center min-w-0">
+                <div className="flex-1 flex flex-col items-center justify-center min-w-0">
                     <span className="text-xl font-bold text-foreground tabular-nums leading-tight">{formatDuration(elapsedSeconds)}</span>
+                    {autosaveState === "error" && (
+                        <span className="text-[11px] text-destructive leading-tight">{t("notSaved")}</span>
+                    )}
                 </div>
                 <Button variant="primary" size="sm" onClick={finish} isDisabled={saving} className="shrink-0">
                     <Flag className="w-4 h-4" /> {saving ? t("saving") : t("finish")}

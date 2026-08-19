@@ -538,6 +538,18 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
  *       400:
  *         description: Validation failed
  *
+ * /client-portal/workout-logs/draft:
+ *   get:
+ *     summary: Find an in-progress (not yet finished) draft for a training day, if any — Instant Save's cross-device/cross-session resume path
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: day_id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: The draft (id, plan_id, day_id, day_index, started_at, exercises), or null if none
+ *
  * /client-portal/workout-logs/previous:
  *   get:
  *     summary: Previous logged sets per exercise for a training day
@@ -589,6 +601,25 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
  *         description: Session detail
  *       404:
  *         description: Not found
+ *   put:
+ *     summary: >
+ *       Instant Save — upsert a workout log by a client-generated id. Used for
+ *       both the debounced in-progress autosave (completed:false) and Finish
+ *       (completed:true), so both target the same row instead of Finish
+ *       creating a second one. A no-op once the row is already completed —
+ *       a finished session is an immutable snapshot.
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Draft saved, or (completed:true) the finished session's summary
+ *       400:
+ *         description: Validation failed
+ *       403:
+ *         description: This id belongs to another client's workout log
  *   delete:
  *     summary: Delete a logged session
  *     tags: [Client Portal]
@@ -606,11 +637,13 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
 // Logging a session needs the training plan; reading history needs progress-history view.
 router.get('/workout-logs',                   ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLogs);
 router.post('/workout-logs',                  ...open, requireClientAccess('view_training_plans'),   clientPortalController.createWorkoutLog);
+router.get('/workout-logs/draft',             ...open, requireClientAccess('view_training_plans'),   clientPortalController.getWorkoutLogDraft);
 router.get('/workout-logs/previous',          ...open, requireClientAccess('view_training_plans'),   clientPortalController.getWorkoutLogPrevious);
 router.get('/workout-logs/exercise-progress', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseProgress);
 router.get('/workout-logs/exercise-insights', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseInsights);
 router.get('/workout-logs/exercises',         ...open, requireClientAccess('view_progress_history'), clientPortalController.getLoggedExercises);
 router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
+router.put('/workout-logs/:id',               ...open, requireClientAccess('view_training_plans'),   clientPortalController.upsertWorkoutLog);
 router.delete('/workout-logs/:id',            ...open, requireClientAccess('view_progress_history'), clientPortalController.deleteWorkoutLog);
 
 /**

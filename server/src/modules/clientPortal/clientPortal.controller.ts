@@ -1015,10 +1015,113 @@ export async function createWorkoutLog(req: Request, res: Response, next: NextFu
     }
 }
 
+// Instant Save (Training Mode) — the client mints this row's id itself
+// (crypto.randomUUID(), see session/page.js) the moment a session starts, so
+// every debounced autosave and the final Finish both target the SAME row via
+// upsert instead of Finish creating a brand-new one. `completed` (already an
+// existing column, previously always true — see createWorkoutLog below,
+// unchanged) is what distinguishes an in-progress draft from a finished
+// session; every read endpoint in this file and clients.controller.ts filters
+// `completed: true` so a draft never surfaces in history/progress/PRs before
+// the client actually finishes.
+const upsertWorkoutLogSchema = createWorkoutLogSchema.extend({
+    completed: z.boolean().default(false),
+});
+
+export async function upsertWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    const id = req.params.id as string;
+    const parsed = upsertWorkoutLogSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const data = parsed.data;
+
+    try {
+        const existing = await prisma.workout_logs.findUnique({
+            where:  { id },
+            select: { client_id: true, completed: true },
+        });
+        if (existing && existing.client_id !== req.client!.clientId) {
+            return res.status(403).json({ error: 'This workout log belongs to another client' });
+        }
+        // A completed log is an immutable snapshot (DECISIONS.md, 2026-06-17) —
+        // a stray autosave that arrives after Finish (already raced and lost,
+        // see the request-id-guard on the client) must not resurrect or mutate
+        // a session the client has already walked away from. No-op, not an error.
+        if (existing?.completed) {
+            return res.json({ id, completed: true });
+        }
+
+        const sessionDate = new Date(data.started_at);
+        const log = await prisma.workout_logs.upsert({
+            where:  { id },
+            create: {
+                id,
+                client_id:    req.client!.clientId,
+                workspace_id: req.client!.workspaceId,
+                plan_id:      data.plan_id,
+                day_id:       data.day_id,
+                day_index:    data.day_index,
+                date:         Number.isNaN(sessionDate.getTime()) ? new Date() : sessionDate,
+                start_time:   data.started_at,
+                end_time:     data.ended_at,
+                notes:        data.notes,
+                exercises:    data.exercises as object,
+                completed:    data.completed,
+            },
+            update: {
+                end_time:  data.ended_at,
+                notes:     data.notes,
+                exercises: data.exercises as object,
+                completed: data.completed,
+            },
+        });
+
+        res.json(data.completed ? { id: log.id, ...summarizeLog(toLogRow(log)) } : { id: log.id, completed: false });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Lets a fresh page load (same device after a crash/cleared storage, or a
+// different device entirely) find an in-progress draft that localStorage
+// alone can't see — closes the cross-device gap DECISIONS.md flagged as a
+// deliberate v1 trade-off. Bounded to the last 24h so a long-abandoned draft
+// for the same day (e.g. the client did this day, gave up, and is doing it
+// again a week later) never resurfaces as if it were still current.
+export async function getWorkoutLogDraft(req: Request, res: Response, next: NextFunction) {
+    const dayId = req.query.day_id as string | undefined;
+    if (!dayId) return res.status(400).json({ error: 'day_id is required' });
+
+    try {
+        const draft = await prisma.workout_logs.findFirst({
+            where: {
+                client_id: req.client!.clientId,
+                day_id:    dayId,
+                completed: false,
+                date:      { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            },
+            orderBy: { created_at: 'desc' },
+        });
+        if (!draft) return res.json(null);
+
+        res.json({
+            id:         draft.id,
+            plan_id:    draft.plan_id,
+            day_id:     draft.day_id,
+            day_index:  draft.day_index,
+            started_at: draft.start_time,
+            exercises:  parseLoggedExercises(draft.exercises),
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function getWorkoutLogs(req: Request, res: Response, next: NextFunction) {
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
             take:    HISTORY_LIMIT,
             include: { training_days: { select: { name: true } } },
@@ -1054,7 +1157,7 @@ export async function getWorkoutLogPrevious(req: Request, res: Response, next: N
         }));
 
         const priorLogs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    HISTORY_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1075,7 +1178,7 @@ export async function getExerciseProgress(req: Request, res: Response, next: Nex
 
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'asc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1099,7 +1202,7 @@ export async function getExerciseInsights(req: Request, res: Response, next: Nex
 
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1127,7 +1230,7 @@ export async function getExerciseInsights(req: Request, res: Response, next: Nex
 export async function getLoggedExercises(req: Request, res: Response, next: NextFunction) {
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1141,7 +1244,7 @@ export async function getLoggedExercises(req: Request, res: Response, next: Next
 export async function getWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({
-            where:   { id: req.params.id as string, client_id: req.client!.clientId },
+            where:   { id: req.params.id as string, client_id: req.client!.clientId, completed: true },
             include: { training_days: { select: { name: true } } },
         });
         if (!log) return res.status(404).json({ error: 'Workout log not found' });
@@ -1162,6 +1265,9 @@ export async function getWorkoutLog(req: Request, res: Response, next: NextFunct
     }
 }
 
+// Not restricted to completed:true — deleting an abandoned in-progress draft
+// by id is harmless cleanup, not a history-integrity concern the way reading
+// one into progress/insights/PR calculations would be.
 export async function deleteWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({

@@ -605,7 +605,7 @@ export async function getClientWorkoutLogs(req: Request, res: Response, next: Ne
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
             take:    WORKOUT_HISTORY_LIMIT,
             include: { training_days: { select: { name: true } } },
@@ -637,7 +637,7 @@ export async function getClientExerciseProgress(req: Request, res: Response, nex
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: { date: 'asc' },
             take:    WORKOUT_PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -665,7 +665,7 @@ export async function getClientExerciseInsights(req: Request, res: Response, nex
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: { date: 'desc' },
             take:    WORKOUT_PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -697,7 +697,7 @@ export async function getClientLoggedExercises(req: Request, res: Response, next
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: { date: 'desc' },
             take:    WORKOUT_PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -711,7 +711,7 @@ export async function getClientLoggedExercises(req: Request, res: Response, next
 export async function getClientWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({
-            where:   { id: req.params.logId as string, client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { id: req.params.logId as string, client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             include: { training_days: { select: { name: true } } },
         });
         if (!log) return res.status(404).json({ error: 'Workout log not found' });
