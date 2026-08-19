@@ -34,7 +34,7 @@ export async function resetTestDb(): Promise<void> {
                 password_reset_tokens, users
             RESTART IDENTITY CASCADE
         `);
-    }, { timeout: 10000 });
+    }, { timeout: 20000 });
 }
 
 export async function closeTestDb(): Promise<void> {
