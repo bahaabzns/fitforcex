@@ -27,6 +27,29 @@ function toNumber(value) {
     return Number.isFinite(n) ? n : null;
 }
 
+// crypto.randomUUID() alone isn't enough here: it's gated to secure contexts
+// (HTTPS, or literally the hostname "localhost") and throws in any other
+// context — which silently broke every "Start Training" click in this app's
+// own dev environment (http://lvh.me:3000 doesn't qualify as secure despite
+// resolving to 127.0.0.1). crypto.getRandomValues has no such restriction, so
+// build an equivalent v4 UUID from it when randomUUID isn't available.
+function newSessionId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        try { return crypto.randomUUID(); } catch { /* fall through to getRandomValues below */ }
+    }
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+        bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    // Last-resort fallback for an environment with no crypto API at all —
+    // this id is just a client-picked primary key, not a security token, so
+    // Math.random-based uniqueness is an acceptable final fallback.
+    return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 // A resumed session's exercise metadata (name, notes, instructions, video, …)
 // is whatever was cached when the session started — it can silently go stale
 // if the coach edits the plan mid-session, or (as happened here) if a field
@@ -48,6 +71,7 @@ function resumeSession(fresh, restored) {
 
 function buildSession(plan, day, dayIndex) {
     return {
+        id:         newSessionId(),
         plan_id:    plan.id,
         day_id:     day.id,
         day_index:  dayIndex,
