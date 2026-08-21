@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity } from "lucide-react";
+import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity, Eye, Tag, Settings } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
@@ -15,6 +15,10 @@ import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import AnswerBody from "@/app/components/forms/AnswerBody";
+import Modal from "@/app/components/Modal";
+import ManageLabelsModal, { LABEL_COLOR_CLASSES, LABEL_COLOR_SWATCH } from "@/app/components/plansQueue/ManageLabelsModal";
 
 // "assessment" → "Assessment", "check-in" → "Check-in"
 function titleCaseType(type) {
@@ -71,8 +75,44 @@ function IconAction({ label, onClick, disabled, className = "", children, showLa
     );
 }
 
+// Two-line member option: name on top, current "Need Action" workload below —
+// lets a manager see who's overloaded right in the assignment dropdown instead
+// of having to cross-reference a separate report.
+function MemberOptionLabel({ name, count, needActionLabel }) {
+    return (
+        <div className="flex flex-col min-w-0 items-start">
+            <span className="truncate">{name}</span>
+            <span className="text-[11px] text-muted-foreground">{needActionLabel} &middot; {count}</span>
+        </div>
+    );
+}
+
+// Full-detail preview of a row's submitted answers, opened from a single
+// icon button in the actions column (between the primary/undo action and
+// Archive) — a large modal rather than a popover since answers can include
+// images/attachments that need real room. Only rendered by the caller for
+// rows that actually have answers (need-action/action-done); awaiting/
+// scheduled rows have none yet (see getQueue in forms.controller.ts). One
+// instance for the whole table, driven by previewOpenId, so opening one
+// row's preview implicitly closes any other row's.
+function AnswerPreviewModal({ open, onClose, responses, locale, heading, formTitle }) {
+    return (
+        <Modal open={open} onClose={onClose} title={formTitle ? `${heading} — ${formTitle}` : heading} size="xl">
+            <div className="flex flex-col gap-4">
+                {responses.map((r, i) => (
+                    <div key={r.id ?? i} className="flex flex-col gap-1.5">
+                        <span className="text-muted-foreground text-xs font-medium">{getLocalizedField(r, 'label', locale) || `Q${i + 1}`}</span>
+                        <AnswerBody response={r} />
+                    </div>
+                ))}
+            </div>
+        </Modal>
+    );
+}
+
 export default function PlansQueueTable({
     initialSubmissions, awaiting, forms, members = [],
+    labels = [], canManageLabels = false, onLabelsChange = async () => {},
     hideStatusColumn = false, hideActionTakenColumn = false,
     title, description, headerAction,
     // The just-completed submission id, already claimed once (Strict-Mode-safe,
@@ -97,6 +137,14 @@ export default function PlansQueueTable({
     const [marking, setMarking] = useState(false);
     // Per-row assignee overrides applied on top of the server data (id → { assignedTo, assignedToName }).
     const [assignMap, setAssignMap] = useState({});
+    // Per-row label override — just the id (not a name/color snapshot), so a
+    // row's displayed label is always re-resolved against the current
+    // `labels` list in withDerived below. This is what makes renaming,
+    // recoloring, or deleting a label reflect instantly on every row that
+    // has it, with no extra sync effect: name/color are never stored
+    // anywhere except on the label itself, so they can't go stale.
+    const [labelMap, setLabelMap] = useState({});
+    const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     // hideStatusColumn is 1:1 with which builder-return button was clicked
@@ -239,6 +287,10 @@ export default function PlansQueueTable({
     const [archivedIds, setArchivedIds] = useState(new Set());
     const [bulkAssigning, setBulkAssigning] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    // Which row's answer-preview popover is open (row id or null) — lifted
+    // here rather than local to AnswerPreviewTrigger so opening one row's
+    // preview closes any other row's still-open one.
+    const [previewOpenId, setPreviewOpenId] = useState(null);
     const [archiving, setArchiving] = useState(false);
 
     async function assignTo(rowId, userId) {
@@ -250,6 +302,17 @@ export default function PlansQueueTable({
         }));
         try {
             await api.patch("/api/forms/queue/assign", { ids: [rowId], assignedTo: userId || null });
+        } catch {
+            // silent — leave the optimistic value; a reload reconciles with the server
+        }
+    }
+
+    async function assignLabel(rowId, labelId) {
+        // Optimistic — same pattern as assignTo above. Just the id; see
+        // labelMap's declaration for why name/color are never stored here.
+        setLabelMap((prev) => ({ ...prev, [rowId]: labelId || null }));
+        try {
+            await api.patch("/api/forms/queue/label", { formRequestId: rowId, labelId: labelId || null });
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -267,12 +330,24 @@ export default function PlansQueueTable({
 
     const withDerived = (item) => {
         const override = assignMap[item.id];
+        // hasOwnProperty, not `labelMap[item.id] ?? item.labelId`: a row
+        // explicitly cleared to "no label" stores `null` in labelMap, which
+        // must win over item.labelId rather than falling back to it.
+        const hasLabelOverride = Object.prototype.hasOwnProperty.call(labelMap, item.id);
+        const effectiveLabelId = hasLabelOverride ? labelMap[item.id] : (item.labelId ?? null);
+        // Always re-resolved against the current labels list — never a
+        // snapshot — so a rename/recolor/delete shows up immediately on
+        // every row with no separate sync step (see labelMap's declaration).
+        const effectiveLabel = effectiveLabelId ? labels.find((l) => l.id === effectiveLabelId) : null;
         return {
             ...item,
             postAction: item.postAction || getPostAction(item.formId),
             formType: item.formType || getFormType(item.formId),
             assignedTo: override ? override.assignedTo : (item.assignedTo ?? null),
             assignedToName: override ? override.assignedToName : (item.assignedToName ?? null),
+            labelId: effectiveLabel ? effectiveLabel.id : null,
+            labelName: effectiveLabel ? effectiveLabel.name : null,
+            labelColor: effectiveLabel ? effectiveLabel.color : null,
         };
     };
 
@@ -289,6 +364,18 @@ export default function PlansQueueTable({
     const allItems = completingItem && !baseItems.some((r) => r.id === completingItem.id)
         ? [...baseItems, withDerived(completingItem)]
         : baseItems;
+
+    // Per-member "Need Action" workload, straight from this table's own live
+    // rows (already carries assignMap's optimistic overrides) — no extra
+    // request, so reassigning a row updates every member's count immediately.
+    // Only "need-action" counts (not the awaiting/scheduled/action-done rows
+    // also present in allItems on the History view) match what the Assigned
+    // dropdown's example describes: how much a member still needs to act on.
+    const needActionCountByAssignee = new Map();
+    for (const row of allItems) {
+        if (row.status !== "need-action" || !row.assignedTo) continue;
+        needActionCountByAssignee.set(row.assignedTo, (needActionCountByAssignee.get(row.assignedTo) ?? 0) + 1);
+    }
 
     // Sorted (not insertion order) so a given package name always lands on the
     // same color regardless of which row it first appears in.
@@ -333,6 +420,26 @@ export default function PlansQueueTable({
         setBulkAssigning(true);
         try {
             await api.patch("/api/forms/queue/assign", { ids, assignedTo: userId || null });
+        } catch {
+            // silent — leave the optimistic value; a reload reconciles with the server
+        }
+        setBulkAssigning(false);
+        setSelectedIds(new Set());
+    }
+
+    // Bulk label assignment — same shape as bulkAssignTo above, applied to
+    // one label at a time across the whole selection.
+    async function bulkAssignLabel(labelId) {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        setLabelMap((prev) => {
+            const next = { ...prev };
+            for (const id of ids) next[id] = labelId || null;
+            return next;
+        });
+        setBulkAssigning(true);
+        try {
+            await Promise.all(ids.map((id) => api.patch("/api/forms/queue/label", { formRequestId: id, labelId: labelId || null })));
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -585,26 +692,96 @@ export default function PlansQueueTable({
             width: "170px",
             cardPriority: "secondary",
             render: (row) => (
+                <div className="flex items-center gap-1 min-w-0">
+                    {/* One-time hint pointing at the workload counts now shown inside
+                        this dropdown — only on the Main view's first row, where a
+                        manager's eye actually lands, and only until dismissed once. */}
+                    {hideStatusColumn && members.length > 0 && row.id === allItems[0]?.id && (
+                        <NewFeatureTooltip
+                            featureKey="assignee_workload_hint"
+                            active
+                            message={t('assignWorkloadHint')}
+                            dismissLabel={t('assignWorkloadHintDismiss')}
+                            badgeLabel={t('assignWorkloadHintBadge')}
+                            triggerClassName="shrink-0 w-1.5 h-1.5 rounded-full bg-primary cursor-pointer"
+                        >
+                            <span className="sr-only">{t('assignWorkloadHintBadge')}</span>
+                        </NewFeatureTooltip>
+                    )}
+                    <Select
+                        aria-label={t('assignTo')}
+                        value={row.assignedTo ?? "none"}
+                        onChange={(v) => assignTo(row.id, v === "none" ? null : v)}
+                        size="sm"
+                    >
+                        <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
+                            <UserPlus size={13} className="shrink-0" />
+                            <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item id="none" textValue={t('unassigned')}>
+                                    {t('unassigned')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                {members.map((m) => (
+                                    <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
+                                        <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                ))}
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+                </div>
+            ),
+        },
+        {
+            key: "label",
+            label: t('label'),
+            filterType: "multi",
+            options: [null, ...labels.map((l) => l.id)],
+            optionLabel: (id) => id === null ? t('unlabeled') : (labels.find((l) => l.id === id)?.name || id),
+            filterValue: (row) => row.labelId ?? null,
+            sortable: true,
+            sortValue: (row) => row.labelName || null,
+            pinned: true,
+            icon: Tag,
+            width: "150px",
+            cardPriority: "secondary",
+            render: (row) => (
                 <Select
-                    aria-label={t('assignTo')}
-                    value={row.assignedTo ?? "none"}
-                    onChange={(v) => assignTo(row.id, v === "none" ? null : v)}
+                    aria-label={t('label')}
+                    value={row.labelId ?? "none"}
+                    onChange={(v) => assignLabel(row.id, v === "none" ? null : v)}
                     size="sm"
                 >
                     <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
-                        <UserPlus size={13} className="shrink-0" />
-                        <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
+                        {row.labelName ? (
+                            <Chip size="sm" className={`whitespace-nowrap ${LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}`}>
+                                {row.labelName}
+                            </Chip>
+                        ) : (
+                            <>
+                                <Tag size={13} className="shrink-0" />
+                                <span className="truncate text-xs">{t('unlabeled')}</span>
+                            </>
+                        )}
                         <Select.Indicator />
                     </Select.Trigger>
                     <Select.Popover>
                         <ListBox>
-                            <ListBox.Item id="none" textValue={t('unassigned')}>
-                                {t('unassigned')}
+                            <ListBox.Item id="none" textValue={t('unlabeled')}>
+                                {t('unlabeled')}
                                 <ListBox.ItemIndicator />
                             </ListBox.Item>
-                            {members.map((m) => (
-                                <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
-                                    {m.name}
+                            {labels.map((l) => (
+                                <ListBox.Item key={l.id} id={l.id} textValue={l.name}>
+                                    <span className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${LABEL_COLOR_SWATCH[l.color] || "bg-zinc-500"}`} />
+                                        {l.name}
+                                    </span>
                                     <ListBox.ItemIndicator />
                                 </ListBox.Item>
                             ))}
@@ -694,6 +871,32 @@ export default function PlansQueueTable({
                                 <Undo2 size={15} />
                             </IconAction>
                         )}
+                        {row.responses?.length > 0 && (
+                            <>
+                                {/* One-time hint pointing at the new answer-preview icon — only on
+                                    the first eligible row, dismissed once (same pattern as the
+                                    assignee-workload hint above). */}
+                                {row.id === allItems.find((r) => r.responses?.length > 0)?.id && (
+                                    <NewFeatureTooltip
+                                        featureKey="answer_preview_hint"
+                                        active
+                                        message={t('previewAnswersHint')}
+                                        dismissLabel={t('previewAnswersHintDismiss')}
+                                        badgeLabel={t('previewAnswersHintBadge')}
+                                        triggerClassName="shrink-0 w-1.5 h-1.5 rounded-full bg-primary cursor-pointer"
+                                    >
+                                        <span className="sr-only">{t('previewAnswersHintBadge')}</span>
+                                    </NewFeatureTooltip>
+                                )}
+                                <IconAction
+                                    label={t('previewAnswers')}
+                                    onClick={(e) => { e.stopPropagation(); setPreviewOpenId(row.id); }}
+                                    className="bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30"
+                                >
+                                    <Eye size={15} />
+                                </IconAction>
+                            </>
+                        )}
                         {(row.status === "need-action" || row.status === "action-done") && (
                             <IconAction
                                 padded
@@ -723,8 +926,48 @@ export default function PlansQueueTable({
                     <h1 className="text-3xl font-bold">{title ?? t('title')}</h1>
                     <p className="text-muted-foreground text-sm mt-1">{description ?? t('description')}</p>
                 </div>
-                {headerAction}
+                <div className="flex items-center gap-2">
+                    {canManageLabels && (
+                        <NewFeatureTooltip
+                            featureKey="plans_queue_labels_hint"
+                            active
+                            message={t('manageLabelsHint')}
+                            dismissLabel={t('manageLabelsHintDismiss')}
+                            badgeLabel={t('manageLabelsHintBadge')}
+                        >
+                            <Button variant="ghost" size="sm" onClick={() => setManageLabelsOpen(true)}>
+                                <Settings className="w-4 h-4" />
+                                <span>{t('manageLabels')}</span>
+                            </Button>
+                        </NewFeatureTooltip>
+                    )}
+                    {headerAction}
+                </div>
             </div>
+
+            {canManageLabels && (
+                <ManageLabelsModal
+                    open={manageLabelsOpen}
+                    onClose={() => setManageLabelsOpen(false)}
+                    labels={labels}
+                    onChanged={onLabelsChange}
+                />
+            )}
+
+            {previewOpenId && (() => {
+                const previewRow = allItems.find((r) => r.id === previewOpenId);
+                if (!previewRow) return null;
+                return (
+                    <AnswerPreviewModal
+                        open
+                        onClose={() => setPreviewOpenId(null)}
+                        responses={previewRow.responses}
+                        locale={locale}
+                        heading={t('submissionAnswers')}
+                        formTitle={getLocalizedField(previewRow, 'formTitle', locale)}
+                    />
+                );
+            })()}
 
             <DataTable
                 columns={columns}
@@ -790,13 +1033,45 @@ export default function PlansQueueTable({
                                 </ListBox.Item>
                                 {members.map((m) => (
                                     <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
-                                        {m.name}
+                                        <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
                                         <ListBox.ItemIndicator />
                                     </ListBox.Item>
                                 ))}
                             </ListBox>
                         </Select.Popover>
                     </Select>
+
+                    {labels.length > 0 && (
+                        <Select
+                            aria-label={t('label')}
+                            value="none"
+                            onChange={(v) => bulkAssignLabel(v === "none" ? null : v)}
+                            size="sm"
+                            isDisabled={bulkAssigning || marking || cancelling}
+                        >
+                            <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                <Tag size={14} className="shrink-0" />
+                                <span className="action-bar__label text-sm">{t('label')}</span>
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    <ListBox.Item id="none" textValue={t('unlabeled')}>
+                                        {t('unlabeled')}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                    {labels.map((l) => (
+                                        <ListBox.Item key={l.id} id={l.id} textValue={l.name}>
+                                            <span className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full shrink-0 ${LABEL_COLOR_SWATCH[l.color] || "bg-zinc-500"}`} />
+                                                {l.name}
+                                            </span>
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
+                    )}
 
                     {eligibleReviewIds.length > 0 && (
                         <Button variant="ghost" size="sm" onClick={bulkMarkReviewed} isDisabled={marking}>

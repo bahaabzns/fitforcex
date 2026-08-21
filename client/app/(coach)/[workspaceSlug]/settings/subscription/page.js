@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
+import { pickLocalized } from "@/lib/utils";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Separator } from "@heroui/react/separator";
 import { Download } from "lucide-react";
 import LandingPricing from "@/app/components/LandingPricing";
 import DataTable from "@/app/components/DataTable";
+import ManualPaymentPanel from "@/app/components/ManualPaymentPanel";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -34,16 +36,21 @@ export default function SubscriptionPage() {
     const { formatDate } = useDateFormatter();
     const t = useTranslations("billing");
     const tNav = useTranslations("nav");
+    const locale = useLocale();
     const tPlans = useTranslations("subscriptionPlans");
     const tHistory = useTranslations("paymentHistory");
     usePageTitle(tNav("subscription"));
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [paying, setPaying] = useState(false);
+    const [paying, setPaying] = useState(null); // planId currently submitting, or null
     const [error, setError] = useState("");
-    const [iframeUrl, setIframeUrl] = useState(null);
-    const [iframePayId, setIframePayId] = useState(null);
-    const [payStatus, setPayStatus] = useState(null);
+    const [availableAddons, setAvailableAddons] = useState([]);
+    const [buyingAddon, setBuyingAddon] = useState(null);
+    // Plan just clicked — shows the Card/Wallet/Fawry (unavailable) + manual-transfer choice.
+    const [methodChoice, setMethodChoice] = useState(null); // { planId, variationId }
+    // Manual-transfer instructions once create-invoice returns them — also reused directly by
+    // handleBuyAddon (add-ons skip the method-choice screen, manual is the only real option).
+    const [manualPayment, setManualPayment] = useState(null);
 
     const loadBilling = useCallback(() => {
         return api.get("/api/billing/subscription").then(res => {
@@ -52,66 +59,56 @@ export default function SubscriptionPage() {
           .finally(() => setLoading(false));
     }, [t]);
 
-    useEffect(() => {
-        loadBilling();
-    }, [loadBilling]);
-
-    useEffect(() => {
-        function onMessage(e) {
-            if (e.data === 'payment_confirmed') {
-                setPayStatus('confirmed');
-                loadBilling();
-            }
-        }
-        window.addEventListener('message', onMessage);
-        return () => window.removeEventListener('message', onMessage);
+    const loadAddons = useCallback(() => {
+        return api.get("/api/billing/addons").then(res => setAvailableAddons(res.data)).catch(() => {});
     }, []);
 
     useEffect(() => {
-        if (!iframePayId) return;
-        let attempts = 0;
-        const id = setInterval(async () => {
-            try {
-                const res = await api.get(`/api/billing/payment-status/${iframePayId}`);
-                if (res.data.status === "paid") {
-                    clearInterval(id);
-                    setPayStatus("confirmed");
-                    loadBilling();
-                } else if (attempts++ > 60) {
-                    clearInterval(id);
-                    setPayStatus("processing");
-                }
-            } catch { /* keep polling */ }
-        }, 3000);
-        return () => clearInterval(id);
-    }, [iframePayId]);
+        loadBilling();
+        loadAddons();
+    }, [loadBilling, loadAddons]);
 
-    function closeIframe() {
-        setIframeUrl(null);
-        setIframePayId(null);
-        setPayStatus(null);
+    function closeManualModal() {
+        setMethodChoice(null);
+        setManualPayment(null);
     }
 
     async function handlePay(planId, variationId) {
         setPaying(planId);
         setError("");
         try {
-            const res = await api.post("/api/billing/create-invoice", { planId, variationId });
-            setIframeUrl(res.data.paymentUrl);
-            setIframePayId(res.data.paymentId);
-            setPayStatus(null);
+            const res = await api.post("/api/billing/create-invoice", { planId, variationId, paymentMethod: 'manual' });
+            // The final amount already reflects any tier-change credit (see
+            // billing.controller.ts's createInvoice) — no separate "confirm the discount"
+            // step needed before showing instructions, unlike a gateway redirect.
+            setManualPayment(res.data.manualPayment);
         } catch (err) {
             const message = err.response?.data?.error || "";
-            const limitMatch = message.match(/^(client|seat|workspace)_limit_exceeded:(\d+)$/);
+            const limitMatch = message.match(/^(client|seat)_limit_exceeded:(\d+)$/);
             if (limitMatch) {
                 const [, kind, limit] = limitMatch;
-                const kindLabel = kind === "client" ? "clients" : kind === "seat" ? "team seats" : "workspaces";
+                const kindLabel = kind === "client" ? "clients" : "team seats";
                 setError(`You currently have more ${kindLabel} than this plan allows (max ${limit}). Reduce usage before switching.`);
             } else {
                 setError(message || t("paymentFailed"));
             }
         } finally {
-            setPaying(false);
+            setPaying(null);
+        }
+    }
+
+    async function handleBuyAddon(addonId) {
+        setBuyingAddon(addonId);
+        setError("");
+        try {
+            const res = await api.post("/api/billing/create-addon-invoice", { addonId, paymentMethod: 'manual' });
+            setManualPayment(res.data.manualPayment);
+        } catch (err) {
+            const message = err.response?.data?.error || "";
+            const capMatch = message.match(/^addon_limit_reached:(\d+)$/);
+            setError(capMatch ? `You've reached the maximum of ${capMatch[1]} for this add-on.` : (message || t("paymentFailed")));
+        } finally {
+            setBuyingAddon(null);
         }
     }
 
@@ -146,14 +143,14 @@ export default function SubscriptionPage() {
             ),
         },
         {
-            key: "fawaterak_status",
+            key: "gateway_status",
             label: t("columnStatus"),
             filterType: "multi",
             options: ["paid", "pending", "failed", "refunded"],
             sortable: true,
             render: (row) => (
-                <Chip size="sm" className={STATUS_CHIP[row.fawaterak_status] ?? "bg-secondary text-muted-foreground"}>
-                    {t(row.fawaterak_status)}
+                <Chip size="sm" className={STATUS_CHIP[row.gateway_status] ?? "bg-secondary text-muted-foreground"}>
+                    {t(row.gateway_status)}
                 </Chip>
             ),
         },
@@ -221,9 +218,9 @@ export default function SubscriptionPage() {
                 }`}>
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("currentPlan")}</span>
                     <span className="text-sm font-bold text-foreground">
-                        {subscription?.planDisplay ?? "—"}
+                        {(subscription && pickLocalized(locale, subscription.planDisplay, subscription.planDisplayAr)) ?? "—"}
                         {subscription?.variationLabel && (
-                            <span className="font-normal text-muted-foreground"> · {subscription.variationLabel}</span>
+                            <span className="font-normal text-muted-foreground"> · {pickLocalized(locale, subscription.variationLabel, subscription.variationLabelAr)}</span>
                         )}
                     </span>
                     <span className="text-border">·</span>
@@ -253,10 +250,45 @@ export default function SubscriptionPage() {
             <LandingPricing
                 isInline={true}
                 currentPlanId={subscription?.planId}
-                onCtaClick={(planId, variationId) => handlePay(planId, variationId)}
+                onCtaClick={(planId, variationId) => setMethodChoice({ planId, variationId })}
             />
 
             {error && <ErrorMsg msg={error} />}
+
+            {availableAddons.length > 0 && (
+                <div className="flex flex-col gap-3">
+                    <h2 className="text-lg font-semibold text-foreground">Add-ons</h2>
+                    {data?.addons?.length > 0 && (
+                        <div className="flex flex-col gap-1.5 mb-1">
+                            {data.addons.map(a => (
+                                <p key={a.id} className="text-sm text-muted-foreground">
+                                    ✓ {pickLocalized(locale, a.label, a.labelAr)} <span className="text-xs">(active since {formatDate(a.purchasedAt)})</span>
+                                </p>
+                            ))}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {availableAddons.map(a => (
+                            <div key={a.id} className="rounded-lg border border-border bg-secondary/20 px-4 py-3 flex flex-col gap-2">
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">{pickLocalized(locale, a.label, a.labelAr)}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {Number(a.priceMonthly).toLocaleString()} {a.currency} / mo
+                                        {a.maxUnits != null && ` · ${a.unitsOwned}/${a.maxUnits} bought`}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => handleBuyAddon(a.id)}
+                                    disabled={a.atCap || buyingAddon === a.id}
+                                    className="button button--outline button--sm self-start disabled:opacity-40 disabled:pointer-events-none"
+                                >
+                                    {buyingAddon === a.id ? "…" : a.atCap ? "Max reached" : "Buy"}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <Separator className="bg-border" />
 
@@ -272,57 +304,66 @@ export default function SubscriptionPage() {
                 />
             </div>
 
-            {/* Payment iframe overlay */}
-            {iframeUrl && (
+            {/* Payment method modal — reached either from a plan's CTA (methodChoice set first,
+                shows the Card/Wallet/Fawry-unavailable + manual choice) or straight from an
+                add-on's Buy button (manualPayment set directly, no choice screen needed). */}
+            {(methodChoice || manualPayment) && (
                 <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-2xl" style={{ height: "80vh" }}>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-                            <p className="text-sm font-semibold text-foreground">{t("completePayment")}</p>
-                            <button onClick={closeIframe} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">✕</button>
-                        </div>
+                    <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-sm p-6 gap-4 max-h-[85vh] overflow-y-auto">
+                        {!manualPayment ? (
+                            <>
+                                <p className="text-base font-semibold text-foreground">{t("chooseMethodTitle")}</p>
 
-                        {payStatus === "confirmed" ? (
-                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
-                                <div className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
-                                    <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
+                                <div className="flex flex-col gap-2">
+                                    {['payWithCard', 'payWithWallet', 'payWithFawry'].map((key) => (
+                                        <label key={key} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
+                                            <span className="flex items-center gap-2 text-sm text-foreground">
+                                                <input type="radio" disabled />
+                                                {t(key)}
+                                            </span>
+                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground whitespace-nowrap">
+                                                {t("currentlyUnavailable")}
+                                            </span>
+                                        </label>
+                                    ))}
+                                    <label className="flex items-center gap-2 p-2.5 rounded-lg border border-primary bg-primary/5 cursor-default">
+                                        <input type="radio" checked readOnly />
+                                        <span className="flex flex-col items-start gap-0.5">
+                                            <span className="text-sm text-foreground font-medium">{t("payManually")}</span>
+                                            <span className="text-xs text-muted-foreground">{t("payManuallyHint")}</span>
+                                        </span>
+                                    </label>
                                 </div>
-                                <div>
-                                    <p className="text-xl font-bold text-foreground">{t("paymentConfirmed")}</p>
-                                    <p className="text-sm text-muted-foreground mt-1">{t("subscriptionActivated")}</p>
+
+                                {error && <ErrorMsg msg={error} />}
+
+                                <div className="flex items-center justify-end gap-2 mt-1">
+                                    <button
+                                        onClick={closeManualModal}
+                                        className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary transition-colors"
+                                    >
+                                        {t("cancelButton")}
+                                    </button>
+                                    <button
+                                        onClick={() => handlePay(methodChoice.planId, methodChoice.variationId)}
+                                        disabled={paying === methodChoice.planId}
+                                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                                    >
+                                        {paying === methodChoice.planId ? t("processing") : t("checkoutButton")}
+                                    </button>
                                 </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-base font-semibold text-foreground">{t("payManually")}</p>
+                                <ManualPaymentPanel info={manualPayment} t={t} />
                                 <button
-                                    onClick={closeIframe}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                                    onClick={closeManualModal}
+                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                                 >
                                     {t("done")}
                                 </button>
-                            </div>
-                        ) : payStatus === "processing" ? (
-                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
-                                <div className="w-16 h-16 rounded-full bg-yellow-500/15 flex items-center justify-center">
-                                    <svg className="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p className="text-xl font-bold text-foreground">{t("paymentProcessing")}</p>
-                                    <p className="text-sm text-muted-foreground mt-1">{t("subscriptionActivatingSoon")}</p>
-                                </div>
-                                <button
-                                    onClick={closeIframe}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                                >
-                                    {t("close")}
-                                </button>
-                            </div>
-                        ) : (
-                            <iframe
-                                src={iframeUrl}
-                                className="flex-1 w-full rounded-b-xl border-0"
-                                title="Fawaterak Payment"
-                            />
+                            </>
                         )}
                     </div>
                 </div>

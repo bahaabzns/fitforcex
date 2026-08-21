@@ -13,6 +13,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionSet> = {
         databases: { read: true,  write: true,  delete: false },
         team:      { read: true,  write: true,  delete: false },
         insights:  { read: true,  write: true,  delete: false },
+        pdfExport: { read: true,  write: true,  delete: false },
     },
     trainer: {
         clients:   { read: true,  write: true,  delete: false },
@@ -23,6 +24,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionSet> = {
         databases: { read: true,  write: true,  delete: false },
         team:      { read: false, write: false, delete: false },
         insights:  { read: true,  write: true,  delete: false },
+        pdfExport: { read: true,  write: false, delete: false },
     },
     nutritionist: {
         clients:   { read: true,  write: true,  delete: false },
@@ -33,6 +35,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionSet> = {
         databases: { read: true,  write: true,  delete: false },
         team:      { read: false, write: false, delete: false },
         insights:  { read: true,  write: true,  delete: false },
+        pdfExport: { read: true,  write: false, delete: false },
     },
     receptionist: {
         clients:   { read: true,  write: false, delete: false },
@@ -43,6 +46,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionSet> = {
         databases: { read: false, write: false, delete: false },
         team:      { read: false, write: false, delete: false },
         insights:  { read: true,  write: true,  delete: false },
+        pdfExport: { read: false, write: false, delete: false },
     },
     viewer: {
         clients:   { read: true,  write: false, delete: false },
@@ -53,6 +57,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionSet> = {
         databases: { read: true,  write: false, delete: false },
         team:      { read: false, write: false, delete: false },
         insights:  { read: true,  write: false, delete: false },
+        pdfExport: { read: true,  write: false, delete: false },
     },
 };
 

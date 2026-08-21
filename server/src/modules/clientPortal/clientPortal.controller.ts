@@ -121,12 +121,14 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
         if (row.exercise_id && !exercisesMap.has(row.exercise_id as string)) {
             exercisesMap.set(row.exercise_id as string, {
                 id: row.exercise_id, day_id: row.day_id, name: row.exercise_name,
-                exercise_order: row.exercise_order, equipment: row.equipment,
+                library_name_en: row.library_name_en, library_name_ar: row.library_name_ar,
+                exercise_order: row.exercise_order, equipment: row.equipment, equipment_ar: row.equipment_ar,
                 notes: row.exercise_notes, exercise_library_id: row.exercise_library_id,
                 thumbnail_path: toPublicUrl(row.thumbnail_path as string | null),
                 video_path:     toPublicUrl(row.video_path as string | null),
-                youtube_url: row.youtube_url, muscle_group: row.muscle_group,
+                youtube_url: row.youtube_url, muscle_group: row.muscle_group, muscle_group_ar: row.muscle_group_ar,
                 instructions_en: row.instructions_en, instructions_ar: row.instructions_ar,
+                tracking_type: row.tracking_type, tracked_metrics: row.tracked_metrics,
                 sets: [], alternatives: [],
             });
             (daysMap.get(row.day_id as string)!.exercises as unknown[]).push(exercisesMap.get(row.exercise_id as string)!);
@@ -136,7 +138,9 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
             if (!sets?.some(s => s.id === row.set_id)) {
                 sets?.push({
                     id: row.set_id, exercise_id: row.exercise_id, set_order: row.set_order,
-                    reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir,
+                    reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir, rpe: row.rpe,
+                    duration_seconds: row.duration_seconds, distance_km: row.distance_km,
+                    incline_percent: row.incline_percent, speed_kmh: row.speed_kmh,
                 });
             }
         }
@@ -147,7 +151,8 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
                     id: row.alt_id, exercise_id: row.exercise_id,
                     exercise_library_id: row.alt_exercise_library_id, alt_order: row.alt_order,
                     name_en: row.alt_name_en, name_ar: row.alt_name_ar,
-                    muscle_group: row.alt_muscle_group, equipment: row.alt_equipment,
+                    muscle_group: row.alt_muscle_group, muscle_group_ar: row.alt_muscle_group_ar,
+                    equipment: row.alt_equipment, equipment_ar: row.alt_equipment_ar,
                     thumbnail_path: toPublicUrl(row.alt_thumbnail_path as string | null),
                     youtube_url:    row.alt_youtube_url,
                     video_path:     toPublicUrl(row.alt_video_path as string | null),
@@ -369,19 +374,27 @@ export async function getActiveTrainingPlan(req: Request, res: Response, next: N
                 te.id AS exercise_id, te.day_id AS exercise_day_id, te.name AS exercise_name, te.exercise_order,
                     te.equipment, te.notes AS exercise_notes, te.exercise_library_id,
                 el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
-                    el.instructions_en, el.instructions_ar,
-                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir,
+                    el.name_en AS library_name_en, el.name_ar AS library_name_ar,
+                    el.instructions_en, el.instructions_ar, el.tracking_type, el.tracked_metrics,
+                    emg.name_ar AS muscle_group_ar, ee.name_ar AS equipment_ar,
+                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir, ts.rpe,
+                    ts.duration_seconds, ts.distance_km, ts.incline_percent, ts.speed_kmh,
                 tea.id AS alt_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
                 el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
                     el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
+                    emg2.name_ar AS alt_muscle_group_ar, ee2.name_ar AS alt_equipment_ar,
                     el2.thumbnail_path AS alt_thumbnail_path, el2.youtube_url AS alt_youtube_url, el2.video_path AS alt_video_path
             FROM training_plans tp
             LEFT JOIN training_days td ON td.plan_id = tp.id
             LEFT JOIN training_exercises te ON te.day_id = td.id
             LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
+            LEFT JOIN exercise_muscle_groups emg ON emg.workspace_id = ${req.client!.workspaceId} AND emg.name_en = el.muscle_group
+            LEFT JOIN exercise_equipments ee ON ee.workspace_id = ${req.client!.workspaceId} AND ee.name_en = te.equipment
             LEFT JOIN training_sets ts ON ts.exercise_id = te.id
             LEFT JOIN training_exercise_alternatives tea ON tea.exercise_id = te.id
             LEFT JOIN exercise_library el2 ON el2.id = tea.exercise_library_id
+            LEFT JOIN exercise_muscle_groups emg2 ON emg2.workspace_id = ${req.client!.workspaceId} AND emg2.name_en = el2.muscle_group
+            LEFT JOIN exercise_equipments ee2 ON ee2.workspace_id = ${req.client!.workspaceId} AND ee2.name_en = el2.equipment
             WHERE tp.id = ${plan.id}
             ORDER BY td.day_order, te.exercise_order, ts.set_order, tea.alt_order
         `;
@@ -916,19 +929,33 @@ const HISTORY_LIMIT  = 50;   // sessions returned in the history list
 const PROGRESS_LIMIT = 200;  // sessions scanned to build a progress chart
 
 const loggedSetSchema = z.object({
-    set_order:    z.number().int().nonnegative(),
-    weight:       z.number().nullable().default(null),
-    reps:         z.number().nullable().default(null),
-    rir:          z.number().nullable().default(null),
-    rest_seconds: z.number().int().nullable().default(null),
-    completed:    z.boolean().default(false),
+    set_order:        z.number().int().nonnegative(),
+    weight:           z.number().nullable().default(null),
+    reps:             z.number().nullable().default(null),
+    rir:              z.number().nullable().default(null),
+    rpe:              z.number().nullable().default(null),
+    rest_seconds:     z.number().int().nullable().default(null),
+    duration_seconds: z.number().int().nullable().default(null),
+    distance_km:      z.number().nullable().default(null),
+    incline_percent:  z.number().nullable().default(null),
+    speed_kmh:        z.number().nullable().default(null),
+    completed:        z.boolean().default(false),
 });
 
 const loggedExerciseSchema = z.object({
     exercise_id:         z.string().min(1),
     exercise_library_id: z.string().nullable().default(null),
     name:                z.string().min(1),
+    library_name_en:     z.string().nullable().default(null),
+    library_name_ar:     z.string().nullable().default(null),
     note:                z.string().nullable().default(null),
+    // Snapshotted from the catalog exercise at submission time (like name/
+    // exercise_library_id already are) rather than re-derived later — a coach
+    // could change the exercise's tracking_type/tracked_metrics after a
+    // client logs it, and history/PDF must keep rendering what was actually
+    // prescribed at the time.
+    tracking_type:       z.string().nullable().default(null),
+    tracked_metrics:     z.array(z.string()).nullable().default(null),
     sets:                z.array(loggedSetSchema),
 });
 
@@ -988,10 +1015,113 @@ export async function createWorkoutLog(req: Request, res: Response, next: NextFu
     }
 }
 
+// Instant Save (Training Mode) — the client mints this row's id itself
+// (crypto.randomUUID(), see session/page.js) the moment a session starts, so
+// every debounced autosave and the final Finish both target the SAME row via
+// upsert instead of Finish creating a brand-new one. `completed` (already an
+// existing column, previously always true — see createWorkoutLog below,
+// unchanged) is what distinguishes an in-progress draft from a finished
+// session; every read endpoint in this file and clients.controller.ts filters
+// `completed: true` so a draft never surfaces in history/progress/PRs before
+// the client actually finishes.
+const upsertWorkoutLogSchema = createWorkoutLogSchema.extend({
+    completed: z.boolean().default(false),
+});
+
+export async function upsertWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    const id = req.params.id as string;
+    const parsed = upsertWorkoutLogSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const data = parsed.data;
+
+    try {
+        const existing = await prisma.workout_logs.findUnique({
+            where:  { id },
+            select: { client_id: true, completed: true },
+        });
+        if (existing && existing.client_id !== req.client!.clientId) {
+            return res.status(403).json({ error: 'This workout log belongs to another client' });
+        }
+        // A completed log is an immutable snapshot (DECISIONS.md, 2026-06-17) —
+        // a stray autosave that arrives after Finish (already raced and lost,
+        // see the request-id-guard on the client) must not resurrect or mutate
+        // a session the client has already walked away from. No-op, not an error.
+        if (existing?.completed) {
+            return res.json({ id, completed: true });
+        }
+
+        const sessionDate = new Date(data.started_at);
+        const log = await prisma.workout_logs.upsert({
+            where:  { id },
+            create: {
+                id,
+                client_id:    req.client!.clientId,
+                workspace_id: req.client!.workspaceId,
+                plan_id:      data.plan_id,
+                day_id:       data.day_id,
+                day_index:    data.day_index,
+                date:         Number.isNaN(sessionDate.getTime()) ? new Date() : sessionDate,
+                start_time:   data.started_at,
+                end_time:     data.ended_at,
+                notes:        data.notes,
+                exercises:    data.exercises as object,
+                completed:    data.completed,
+            },
+            update: {
+                end_time:  data.ended_at,
+                notes:     data.notes,
+                exercises: data.exercises as object,
+                completed: data.completed,
+            },
+        });
+
+        res.json(data.completed ? { id: log.id, ...summarizeLog(toLogRow(log)) } : { id: log.id, completed: false });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Lets a fresh page load (same device after a crash/cleared storage, or a
+// different device entirely) find an in-progress draft that localStorage
+// alone can't see — closes the cross-device gap DECISIONS.md flagged as a
+// deliberate v1 trade-off. Bounded to the last 24h so a long-abandoned draft
+// for the same day (e.g. the client did this day, gave up, and is doing it
+// again a week later) never resurfaces as if it were still current.
+export async function getWorkoutLogDraft(req: Request, res: Response, next: NextFunction) {
+    const dayId = req.query.day_id as string | undefined;
+    if (!dayId) return res.status(400).json({ error: 'day_id is required' });
+
+    try {
+        const draft = await prisma.workout_logs.findFirst({
+            where: {
+                client_id: req.client!.clientId,
+                day_id:    dayId,
+                completed: false,
+                date:      { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            },
+            orderBy: { created_at: 'desc' },
+        });
+        if (!draft) return res.json(null);
+
+        res.json({
+            id:         draft.id,
+            plan_id:    draft.plan_id,
+            day_id:     draft.day_id,
+            day_index:  draft.day_index,
+            started_at: draft.start_time,
+            exercises:  parseLoggedExercises(draft.exercises),
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function getWorkoutLogs(req: Request, res: Response, next: NextFunction) {
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
             take:    HISTORY_LIMIT,
             include: { training_days: { select: { name: true } } },
@@ -1027,7 +1157,7 @@ export async function getWorkoutLogPrevious(req: Request, res: Response, next: N
         }));
 
         const priorLogs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    HISTORY_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1048,7 +1178,7 @@ export async function getExerciseProgress(req: Request, res: Response, next: Nex
 
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'asc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1072,7 +1202,7 @@ export async function getExerciseInsights(req: Request, res: Response, next: Nex
 
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1100,7 +1230,7 @@ export async function getExerciseInsights(req: Request, res: Response, next: Nex
 export async function getLoggedExercises(req: Request, res: Response, next: NextFunction) {
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -1114,7 +1244,7 @@ export async function getLoggedExercises(req: Request, res: Response, next: Next
 export async function getWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({
-            where:   { id: req.params.id as string, client_id: req.client!.clientId },
+            where:   { id: req.params.id as string, client_id: req.client!.clientId, completed: true },
             include: { training_days: { select: { name: true } } },
         });
         if (!log) return res.status(404).json({ error: 'Workout log not found' });
@@ -1135,6 +1265,9 @@ export async function getWorkoutLog(req: Request, res: Response, next: NextFunct
     }
 }
 
+// Not restricted to completed:true — deleting an abandoned in-progress draft
+// by id is harmless cleanup, not a history-integrity concern the way reading
+// one into progress/insights/PR calculations would be.
 export async function deleteWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({

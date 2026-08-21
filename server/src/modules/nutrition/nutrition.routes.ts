@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import * as nutritionController from './nutrition.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 router.use((req: Request, res: Response, next: NextFunction) => {
     const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
     requirePermission('nutrition', action)(req, res, next);

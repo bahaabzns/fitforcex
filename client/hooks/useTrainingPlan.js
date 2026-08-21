@@ -1,8 +1,33 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import api from "@/lib/axios";
+import { prescribedFieldsFor, categoryOf } from "@/utils/exerciseTrackingTypes";
 
 function makeTempId(prefix) {
     return `tmp-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// A freshly-added set's starting value per field — a human-friendly default
+// ("8-12" reps), not just an empty shell. Only fields the exercise's
+// category + coach-selected metrics actually call for
+// (prescribedFieldsFor, from exerciseTrackingTypes.js) get seeded.
+const FIELD_DEFAULT_VALUE = {
+    reps: "8-12",
+    rest_seconds: 60,
+    tempo: "-",
+    rir: 2,
+    rpe: null,
+    duration_seconds: 30,
+    distance_km: null,
+    incline_percent: null,
+    speed_kmh: null,
+};
+
+function defaultSetFor(exercise) {
+    const set = { id: makeTempId("set") };
+    for (const field of prescribedFieldsFor(exercise)) {
+        set[field] = FIELD_DEFAULT_VALUE[field] ?? null;
+    }
+    return set;
 }
 
 function normalizePlan(plan) {
@@ -397,15 +422,17 @@ export function useTrainingPlan(clientId) {
                             library_name_en: libraryItem?.name_en ?? null,
                             library_name_ar: libraryItem?.name_ar ?? null,
                             equipment: libraryItem?.equipment ?? "",
+                            equipment_ar: libraryItem?.equipment_ar ?? null,
                             notes: "",
                             exercise_library_id: libraryItem?.id ?? null,
                             thumbnail_path: libraryItem?.thumbnail_path ?? null,
                             video_path: libraryItem?.video_path ?? null,
                             youtube_url: libraryItem?.youtube_url ?? null,
                             muscle_group: libraryItem?.muscle_group ?? null,
-                            sets: [
-                                { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
-                            ],
+                            muscle_group_ar: libraryItem?.muscle_group_ar ?? null,
+                            tracking_type: categoryOf(libraryItem),
+                            tracked_metrics: libraryItem?.tracked_metrics ?? [],
+                            sets: [defaultSetFor(libraryItem)],
                         },
                     ],
                 };
@@ -428,15 +455,17 @@ export function useTrainingPlan(clientId) {
                     library_name_en: item.name_en ?? null,
                     library_name_ar: item.name_ar ?? null,
                     equipment: item.equipment ?? "",
+                    equipment_ar: item.equipment_ar ?? null,
                     notes: "",
                     exercise_library_id: item.id ?? null,
                     thumbnail_path: item.thumbnail_path ?? null,
                     video_path: item.video_path ?? null,
                     youtube_url: item.youtube_url ?? null,
                     muscle_group: item.muscle_group ?? null,
-                    sets: [
-                        { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
-                    ],
+                    muscle_group_ar: item.muscle_group_ar ?? null,
+                    tracking_type: categoryOf(item),
+                    tracked_metrics: item.tracked_metrics ?? [],
+                    sets: [defaultSetFor(item)],
                 }));
                 return { ...d, exercises: [...(d.exercises ?? []), ...newExercises] };
             }),
@@ -461,11 +490,20 @@ export function useTrainingPlan(clientId) {
                             library_name_en: libraryItem.name_en ?? null,
                             library_name_ar: libraryItem.name_ar ?? null,
                             equipment: libraryItem.equipment ?? "",
+                            equipment_ar: libraryItem.equipment_ar ?? null,
                             exercise_library_id: libraryItem.id ?? null,
                             thumbnail_path: libraryItem.thumbnail_path ?? null,
                             video_path: libraryItem.video_path ?? null,
                             youtube_url: libraryItem.youtube_url ?? null,
                             muscle_group: libraryItem.muscle_group ?? null,
+                            muscle_group_ar: libraryItem.muscle_group_ar ?? null,
+                            // Swapping to a different-type exercise changes which
+                            // columns render (see RightPanel.js) — existing sets
+                            // are left as-is (not migrated/cleared): fields that no
+                            // longer apply just go unused until the coach re-adds
+                            // sets, matching how this function doesn't touch `sets` either.
+                            tracking_type: categoryOf(libraryItem),
+                            tracked_metrics: libraryItem.tracked_metrics ?? [],
                         };
                     }),
                 };
@@ -502,7 +540,7 @@ export function useTrainingPlan(clientId) {
                         const lastSet = existingSets[existingSets.length - 1];
                         const newSet = lastSet
                             ? { ...lastSet, id: makeTempId("set") }
-                            : { id: makeTempId("set"), reps: "", rest_seconds: null, tempo: "", rir: null };
+                            : defaultSetFor(e);
                         return { ...e, sets: [...existingSets, newSet] };
                     }),
                 };

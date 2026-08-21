@@ -4,6 +4,7 @@ import { RouterProvider } from '@heroui/react';
 import { I18nProvider } from 'react-aria-components';
 import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
+import OverlayInertFix from './components/OverlayInertFix';
 
 export function Providers({ children, defaultTheme = 'system', locale = 'en', messages = {} }) {
     return (
@@ -20,6 +21,7 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                     enableSystem
                 >
                     <RouterProvider>
+                        <OverlayInertFix />
                         {children}
                     </RouterProvider>
                 </ThemeProvider>

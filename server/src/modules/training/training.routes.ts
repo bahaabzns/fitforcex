@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import { uploadLimiter } from '../../middleware/rateLimit';
 import { upload } from './training.service';
@@ -7,7 +8,7 @@ import * as trainingController from './training.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 router.use((req: Request, res: Response, next: NextFunction) => {
     const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
     requirePermission('training', action)(req, res, next);

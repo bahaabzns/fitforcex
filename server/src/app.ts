@@ -18,6 +18,7 @@ import { prisma } from './lib/prisma';
 import {
     scheduleFormDispatcher,
     scheduleSubscriptionExpiry,
+    scheduleTrialExpiry,
     scheduleSessionCleanup,
     scheduleClientStatusSync,
     scheduleCheckInDispatch,
@@ -51,10 +52,12 @@ import notificationsRouter from './modules/notifications/index';
 import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 import metricsRouter from './modules/metrics/index';
 import insightsRouter from './modules/insights/index';
+import pdfExportRouter from './modules/pdfExport/index';
 
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
     scheduleSubscriptionExpiry();
+    scheduleTrialExpiry();
     scheduleSessionCleanup();
     scheduleClientStatusSync();
     scheduleCheckInDispatch();
@@ -141,6 +144,7 @@ app.use('/api/subscription-policies', apiLimiter, subscriptionPoliciesRouter);
 app.use('/api/notifications',  apiLimiter, notificationsRouter);
 app.use('/api/metrics',        apiLimiter, metricsRouter);
 app.use('/api/insights',       apiLimiter, insightsRouter);
+app.use('/api/pdf-export',     apiLimiter, pdfExportRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

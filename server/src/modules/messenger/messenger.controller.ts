@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
 import { deleteFile } from '../../lib/storage';
 import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
+import { computeStatusesForClients } from '../../lib/clientSubscriptionStatus';
 
 /** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
 async function getUserDisplayName(userId: string): Promise<string | null> {
@@ -13,9 +14,10 @@ async function getUserDisplayName(userId: string): Promise<string | null> {
 }
 
 type ThreadRow = {
-    id: string; client_id: string; status: string; updated_at: Date;
+    thread_id: string | null; client_id: string; thread_status: string | null; thread_updated_at: Date | null;
     fname: string; lname: string; client_code: string | null;
-    current_package: string | null; subscription_status: string;
+    current_package: string | null; current_package_variation_id: string | null;
+    archived_at: Date | null; client_created_at: Date;
     latest_message: string | null; latest_message_at: Date | null;
     latest_message_sender_type: string | null;
     latest_message_type: string | null;
@@ -24,12 +26,20 @@ type ThreadRow = {
     unread_count: number;
 };
 
+// Starts from every client in the workspace (LEFT JOIN threads), not from threads
+// itself — a client who has never been messaged has no threads row, and starting
+// the query there silently dropped them from the conversation list, the package
+// filter, and (compounded by the stale subscription_status column below) the
+// status filter counts, which is why a coach filtering "Active" here saw far fewer
+// results than on the clients page.
 export async function getThreads(req: Request, res: Response, next: NextFunction) {
     try {
+        const wsId = req.user!.workspaceId;
         const rows = await prisma.$queryRaw<ThreadRow[]>`
             SELECT
-                t.id, t.client_id, t.status, t.updated_at,
-                c.fname, c.lname, c.client_code, c.current_package, c.subscription_status,
+                t.id AS thread_id, t.status AS thread_status, t.updated_at AS thread_updated_at,
+                c.id AS client_id, c.fname, c.lname, c.client_code, c.current_package, c.current_package_variation_id,
+                c.archived_at, c.created_at AS client_created_at,
                 lm.body AS latest_message,
                 lm.created_at AS latest_message_at,
                 lm.sender_type AS latest_message_sender_type,
@@ -37,8 +47,8 @@ export async function getThreads(req: Request, res: Response, next: NextFunction
                 lm.attachment_name AS latest_message_attachment_name,
                 lm.deleted_at AS latest_message_deleted_at,
                 (SELECT COUNT(*) FROM messages m WHERE m.thread_id = t.id AND m.sender_type = 'client' AND m.read_by_team_at IS NULL AND m.deleted_at IS NULL)::int AS unread_count
-            FROM threads t
-            JOIN clients c ON c.id = t.client_id
+            FROM clients c
+            LEFT JOIN threads t ON t.client_id = c.id AND t.workspace_id = c.workspace_id
             LEFT JOIN LATERAL (
                 SELECT body, created_at, sender_type, type, attachment_name, deleted_at
                 FROM messages m
@@ -46,10 +56,34 @@ export async function getThreads(req: Request, res: Response, next: NextFunction
                 ORDER BY m.created_at DESC
                 LIMIT 1
             ) lm ON true
-            WHERE t.workspace_id = ${req.user!.workspaceId}
-            ORDER BY COALESCE(lm.created_at, t.created_at) DESC
+            WHERE c.workspace_id = ${wsId}
+            ORDER BY COALESCE(lm.created_at, t.updated_at, c.created_at) DESC
         `;
-        res.json(rows);
+
+        // Live-computed, same as the clients page — c.subscription_status is only a
+        // once-daily snapshot (see middleware/scheduler.ts) and must never be read
+        // directly as the status filter's source of truth.
+        const statuses = await computeStatusesForClients(wsId, rows.map(r => ({ id: r.client_id, archived_at: r.archived_at })));
+
+        res.json(rows.map(r => ({
+            id:                  r.thread_id,
+            client_id:           r.client_id,
+            status:              r.thread_status ?? 'open',
+            updated_at:          r.thread_updated_at ?? r.client_created_at,
+            fname:               r.fname,
+            lname:               r.lname,
+            client_code:         r.client_code,
+            current_package:     r.current_package,
+            current_package_variation_id: r.current_package_variation_id,
+            subscription_status: statuses[r.client_id],
+            latest_message:      r.latest_message,
+            latest_message_at:   r.latest_message_at,
+            latest_message_sender_type:     r.latest_message_sender_type,
+            latest_message_type:            r.latest_message_type,
+            latest_message_attachment_name: r.latest_message_attachment_name,
+            latest_message_deleted_at:      r.latest_message_deleted_at,
+            unread_count:        r.unread_count,
+        })));
     } catch (err) { next(err); }
 }
 

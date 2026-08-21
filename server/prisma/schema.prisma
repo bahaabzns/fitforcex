@@ -20,7 +20,9 @@ model billing_discounts {
   id                String              @id
   period_key        String              @unique
   label             String
+  label_ar          String?
   save_label        String?
+  save_label_ar     String?
   discount_percent  Int                 @default(0)
   months            Int                 @default(1)
   sort_order        Int                 @default(0)
@@ -192,6 +194,8 @@ model exercise_library {
   updated_at                     DateTime                         @default(now()) @db.Timestamptz(6)
   name_ar                        String?
   instructions_ar                String?
+  tracking_type                  String                           @default("sets_reps")
+  tracked_metrics                String[]                         @default([])
   client_observations            client_observations[]
   workspaces                     workspaces                       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_library_workspace")
   observation_relations          observation_relations[]
@@ -271,6 +275,8 @@ model master_exercise_library {
   instructions_ar String?
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  tracking_type   String   @default("sets_reps")
+  tracked_metrics String[] @default([])
 
   @@index([name_en])
   @@index([muscle_group])
@@ -353,12 +359,14 @@ model form_requests {
   form_version_id       String?
   archived_at           DateTime?               @db.Timestamptz(6)
   archived_by           String?
+  label_id              String?
   check_in_schedules    check_in_schedules[]
   client_observations   client_observations[]
   workspaces            workspaces              @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
   clients               clients?                @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   forms                 forms?                  @relation(fields: [form_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   form_versions         form_versions?          @relation(fields: [form_version_id], references: [id], onUpdate: NoAction)
+  plans_queue_labels    plans_queue_labels?     @relation(fields: [label_id], references: [id], onUpdate: NoAction)
   form_responses        form_responses[]
   observation_relations observation_relations[]
 
@@ -366,6 +374,21 @@ model form_requests {
   @@index([workspace_id, archived_at], map: "idx_form_requests_ws_archived")
   @@index([form_id], map: "form_requests_form_id_index")
   @@index([form_version_id], map: "form_requests_form_version_id_index")
+  @@index([label_id])
+}
+
+model plans_queue_labels {
+  id            String          @id
+  workspace_id  String
+  name          String
+  color         String
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  workspaces    workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_requests form_requests[]
+
+  @@unique([workspace_id, name], map: "plans_queue_labels_workspace_id_name_key")
+  @@index([workspace_id])
 }
 
 model form_responses {
@@ -526,6 +549,8 @@ model nutrition_cycles {
   note            String?
   nutrition_plans nutrition_plans?  @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nutrition_meals nutrition_meals[]
+
+  @@index([plan_id])
 }
 
 model nutrition_meal_item_alternatives {
@@ -555,6 +580,10 @@ model nutrition_meal_items {
   nutrition_meals                                                   nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   original_food_item                                                food_items?                        @relation("nutrition_meal_items_original_food_item_idTofood_items", fields: [original_food_item_id], references: [id], onUpdate: NoAction)
   swapped_by_client                                                 clients?                           @relation(fields: [swapped_by_client_id], references: [id], onUpdate: NoAction)
+
+  @@index([meal_id])
+  @@index([food_item_id])
+  @@index([original_food_item_id])
 }
 
 model nutrition_meals {
@@ -565,6 +594,8 @@ model nutrition_meals {
   note                 String?
   nutrition_meal_items nutrition_meal_items[]
   nutrition_cycles     nutrition_cycles?      @relation(fields: [cycle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([cycle_id])
 }
 
 model nutrition_plans {
@@ -589,6 +620,8 @@ model nutrition_plans {
   last_editor        users?             @relation("nutrition_plans_last_edited_by", fields: [last_edited_by], references: [id], onUpdate: NoAction)
 
   @@index([last_edited_by], map: "nutrition_plans_last_edited_by_index")
+  @@index([workspace_id])
+  @@index([client_id])
 }
 
 model package_variations {
@@ -851,9 +884,13 @@ model payment_methods {
   workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_payment_methods_workspace")
 }
 
-model pdf_settings {
+// Branding for exported nutrition plan PDFs — fully independent from
+// training_pdf_settings (§ "don't share assets" decision, 2026-07-28): a
+// workspace can use a completely different logo/colors/cover image for
+// nutrition vs. training exports. One row per workspace.
+model nutrition_pdf_settings {
   id                          String    @id
-  coach_id                    String?   @unique
+  workspace_id                String?   @unique
   coach_name                  String    @default("FitForce")
   footer_text                 String    @default("Generated by FitForce")
   primary_color               String    @default("#007AFF")
@@ -861,35 +898,83 @@ model pdf_settings {
   show_alternatives           Boolean   @default(true)
   show_macros_summary         Boolean   @default(true)
   show_cycle_totals           Boolean   @default(true)
-  show_meal_totals            Boolean   @default(true)
+  show_meal_totals             Boolean   @default(true)
   updated_at                  DateTime? @default(now()) @db.Timestamp(6)
   logo_url                    String?
   header_text_color           String    @default("#FFFFFF")
-  show_food_calories          Boolean   @default(true)
-  table_header_bg_color       String    @default("#E8E8ED")
-  table_alt_bg_color          String    @default("#F9F9FB")
-  show_food_macros            Boolean   @default(true)
-  show_cover_page             Boolean   @default(true)
-  show_plan_summary_page      Boolean   @default(true)
-  show_meal_summary_page      Boolean   @default(true)
-  show_cycle_summary_page     Boolean   @default(true)
-  page_bg_image_url           String?
-  cover_image_url             String?
-  cover_title                 String    @default("Nutrition Plan")
-  cover_subtitle              String?   @default("")
-  summary_bg_image_url        String?
-  page_width                  Float     @default(595.28) @db.Real
-  page_height                 Float     @default(841.89) @db.Real
-  plan_summary_bg_image_url   String?
-  meal_summary_bg_image_url   String?
-  cycle_summary_bg_image_url  String?
-  back_cover_bg_image_url     String?
-  show_back_cover_page        Boolean   @default(false)
-  max_meals_per_page          Int       @default(0)
-  meals_content_primary_color String?
-  plan_summary_primary_color  String?
-  cycle_summary_primary_color String?
-  users                       users?    @relation(fields: [coach_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  show_food_calories           Boolean   @default(true)
+  table_header_bg_color        String    @default("#E8E8ED")
+  table_alt_bg_color           String    @default("#F9F9FB")
+  show_food_macros             Boolean   @default(true)
+  show_cover_page              Boolean   @default(true)
+  show_plan_summary_page       Boolean   @default(true)
+  show_meal_summary_page       Boolean   @default(true)
+  show_cycle_summary_page      Boolean   @default(true)
+  page_bg_image_url            String?
+  cover_image_url              String?
+  cover_title                  String    @default("Nutrition Plan")
+  cover_subtitle                String?   @default("")
+  summary_bg_image_url          String?
+  page_width                    Float     @default(595.28) @db.Real
+  page_height                   Float     @default(841.89) @db.Real
+  plan_summary_bg_image_url     String?
+  meal_summary_bg_image_url     String?
+  cycle_summary_bg_image_url    String?
+  back_cover_bg_image_url       String?
+  show_back_cover_page          Boolean   @default(false)
+  max_meals_per_page            Int       @default(0)
+  meals_content_primary_color   String?
+  plan_summary_primary_color    String?
+  cycle_summary_primary_color   String?
+  show_cover_header             Boolean   @default(true)
+  show_cover_title              Boolean   @default(true)
+  show_cover_subtitle           Boolean   @default(true)
+  show_cover_client_name        Boolean   @default(true)
+  body_text_color               String    @default("#1A1A1A")
+  workspaces                    workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+// Branding for exported training plan PDFs — see nutrition_pdf_settings;
+// deliberately a separate table/row, not a shared one with a type column, so
+// the two can never accidentally share a logo/color/image reference.
+model training_pdf_settings {
+  id                              String    @id
+  workspace_id                    String?   @unique
+  coach_name                      String    @default("FitForce")
+  footer_text                     String    @default("Generated by FitForce")
+  primary_color                   String    @default("#007AFF")
+  header_text_color               String    @default("#FFFFFF")
+  table_header_bg_color           String    @default("#E8E8ED")
+  table_alt_bg_color              String    @default("#F9F9FB")
+  logo_url                        String?
+  show_cover_page                 Boolean   @default(true)
+  show_back_cover_page             Boolean   @default(false)
+  show_plan_summary_page           Boolean   @default(true)
+  cover_title                      String    @default("Training Plan")
+  cover_subtitle                   String?   @default("")
+  cover_image_url                  String?
+  page_bg_image_url                String?
+  back_cover_bg_image_url          String?
+  page_width                       Float     @default(595.28) @db.Real
+  page_height                      Float     @default(841.89) @db.Real
+  show_notes                       Boolean   @default(true)
+  show_exercise_notes              Boolean   @default(true)
+  show_exercise_equipment          Boolean   @default(true)
+  show_sets_detail                 Boolean   @default(true)
+  show_day_summary_page            Boolean   @default(true)
+  day_summary_bg_image_url         String?
+  exercise_content_primary_color   String?
+  day_summary_primary_color        String?
+  max_exercises_per_page           Int       @default(0)
+  show_cover_header                Boolean   @default(true)
+  show_cover_title                 Boolean   @default(true)
+  show_cover_subtitle              Boolean   @default(true)
+  show_cover_client_name           Boolean   @default(true)
+  body_text_color                  String    @default("#1A1A1A")
+  show_exercise_thumbnail           Boolean   @default(true)
+  exercise_thumbnail_size           String    @default("medium")
+  updated_at                       DateTime? @default(now()) @db.Timestamp(6)
+  workspaces                       workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model pgmigrations {
@@ -909,23 +994,20 @@ model plan_period_links {
   @@unique([plan_id, billing_discount_id])
 }
 
-/// Deprecated: max_clients/max_team_seats/max_workspaces/price_monthly/currency/payment_link
-/// are being superseded by plan_variations (each plan now has >=1 variation carrying these
-/// values). Kept in place until every read/write path is migrated; see the plan-variations
-/// implementation plan for the removal follow-up.
+/// Deprecated: max_clients/max_team_seats/price_monthly/currency/payment_link on `plans` are
+/// being superseded by plan_variations (each plan now has >=1 variation carrying these
+/// values). Kept in place as a fallback for single-variation plans until every read/write path
+/// is migrated. Variations differ by client limit, included team seats, and price — extra
+/// team seats beyond a variation's allotment are sold as an add-on. There is no per-plan/
+/// per-variation workspace limit (every workspace has its own independent subscription).
 model plan_variations {
   id                      String                    @id
   plan_id                 String
   max_clients             Int?
   max_team_seats          Int?
-  max_workspaces          Int?
   price_monthly           Decimal?                  @db.Decimal(10, 2)
   currency                String                    @default("LE")
   payment_link            String?
-  has_team_counter        Boolean                   @default(false)
-  price_per_seat          Decimal?                  @db.Decimal(10, 2)
-  min_seat_count          Int                       @default(1)
-  max_seat_count          Int                       @default(20)
   is_default              Boolean                   @default(false)
   is_active               Boolean                   @default(true)
   sort_order              Int                       @default(0)
@@ -942,9 +1024,10 @@ model plans {
   id                      String                    @id
   name                    String                    @unique
   display_name            String
+  display_name_ar         String?
   max_team_seats          Int?
-  max_workspaces          Int?
   features                Json                      @default("{}")
+  features_ar             Json?
   price_monthly           Decimal?                  @db.Decimal(10, 2)
   is_active               Boolean                   @default(true)
   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
@@ -953,23 +1036,92 @@ model plans {
   duration_days           Int                       @default(30)
   payment_link            String?
   subtitle                String?
+  subtitle_ar             String?
   is_popular              Boolean                   @default(false)
   cta_text                String                    @default("Get Started")
+  cta_text_ar             String?
   cta_variant             String                    @default("outline")
   features_header         String                    @default("What's included:")
+  features_header_ar      String?
   features_subheader      String?
-  has_team_counter        Boolean                   @default(false)
+  features_subheader_ar   String?
   sort_order              Int                       @default(0)
   currency                String                    @default("LE")
   show_on_landing         Boolean                   @default(true)
-  price_per_seat          Decimal?                  @db.Decimal(10, 2)
-  min_seat_count          Int                       @default(1)
-  max_seat_count          Int                       @default(20)
   max_clients             Int?
+  plan_addon_rules        plan_addon_rules[]
   plan_period_links       plan_period_links[]
   plan_variations         plan_variations[]
   workspace_payments      workspace_payments[]
   workspace_subscriptions workspace_subscriptions[]
+}
+
+/// Catalog of purchasable add-ons (e.g. "+10 Clients", "+1 Team Member"). Add-ons only ever
+/// raise a numeric usage limit (`dimension`) — never unlock a feature.
+model addons {
+  id                 String               @id
+  key                String               @unique
+  label              String
+  label_ar           String?
+  dimension          String
+  units               Int
+  price_monthly      Decimal              @db.Decimal(10, 2)
+  currency           String               @default("LE")
+  payment_link       String?
+  is_active          Boolean              @default(true)
+  sort_order         Int                  @default(0)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  plan_addon_rules   plan_addon_rules[]
+  workspace_addons   workspace_addons[]
+  workspace_payments workspace_payments[]
+}
+
+/// Which add-ons a plan may buy, and an optional admin-configured cap (e.g. OneForce's
+/// "max 3 client add-ons") — keyed by plan, never by hardcoded plan name in business logic.
+model plan_addon_rules {
+  id         String   @id
+  plan_id    String
+  addon_id   String
+  max_units  Int?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  plans      plans    @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  addons     addons   @relation(fields: [addon_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([plan_id, addon_id])
+  @@index([plan_id])
+}
+
+/// A workspace's purchased add-on units. `dimension`/`units`/`unit_price_locked` are
+/// snapshotted at purchase time so later catalog edits (or deleting the `addons` row) never
+/// change what's already been bought and is actively counted toward the workspace's limits.
+model workspace_addons {
+  id                   String              @id
+  workspace_id         String
+  addon_id             String?
+  dimension            String
+  units                Int
+  quantity             Int                 @default(1)
+  unit_price_locked    Decimal             @db.Decimal(10, 2)
+  currency             String              @default("LE")
+  status               String              @default("active")
+  workspace_payment_id String?
+  purchased_at         DateTime            @default(now()) @db.Timestamptz(6)
+  canceled_at          DateTime?           @db.Timestamptz(6)
+  workspaces           workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  addons               addons?             @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspace_payments   workspace_payments? @relation(fields: [workspace_payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id])
+  @@index([workspace_id, status])
+}
+
+/// Global trial toggle (founder decision: admin-controlled on/off + duration, not per-plan).
+/// Single row, fixed id — read/written as a singleton.
+model trial_settings {
+  id                  String   @id @default("singleton")
+  trial_enabled       Boolean  @default(false)
+  trial_duration_days Int      @default(14)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
 }
 
 model subscription_freezes {
@@ -1067,6 +1219,11 @@ model training_sets {
   rest_seconds       Int?
   tempo              String?
   rir                Int?
+  duration_seconds   Int?
+  distance_km        Decimal?           @db.Decimal(6, 2)
+  incline_percent    Decimal?           @db.Decimal(4, 1)
+  speed_kmh          Decimal?           @db.Decimal(5, 2)
+  rpe                Decimal?           @db.Decimal(3, 1)
   training_exercises training_exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([exercise_id], map: "idx_training_sets_exercise")
@@ -1117,7 +1274,6 @@ model users {
   client_observations                                                   client_observations[]
   nutrition_plans                                                       nutrition_plans[]       @relation("nutrition_plans_created_by")
   nutrition_plans_edited                                                nutrition_plans[]       @relation("nutrition_plans_last_edited_by")
-  pdf_settings                                                          pdf_settings?
   training_plans                                                        training_plans[]
   user_sessions                                                         user_sessions[]
   workspaces_users_default_workspace_idToworkspaces                     workspaces?             @relation("users_default_workspace_idToworkspaces", fields: [default_workspace_id], references: [id], onUpdate: NoAction)
@@ -1206,27 +1362,58 @@ model workspace_members {
 }
 
 model workspace_payments {
-  id                    String           @id
+  id                    String             @id
   workspace_id          String
   plan_id               String
   variation_id          String?
-  amount                Decimal          @db.Decimal(10, 2)
-  currency              String           @default("EGP")
+  addon_id              String?
+  amount                Decimal            @db.Decimal(10, 2)
+  currency              String             @default("EGP")
   duration_days         Int
-  fawaterak_invoice_id  String?
-  fawaterak_payment_url String?
-  fawaterak_status      String           @default("pending")
-  fawaterak_raw_webhook Json?
+  gateway_reference_id  String?
+  gateway_payment_url   String?
+  gateway_status        String             @default("pending")
+  gateway_raw_webhook   Json?
+  payment_method        String             @default("card")
+  reference_code        String?            @unique
   notes                 String?
-  paid_at               DateTime?        @db.Timestamptz(6)
-  created_at            DateTime         @default(now()) @db.Timestamptz(6)
-  plans                 plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  plan_variations       plan_variations? @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  workspaces            workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paid_at               DateTime?          @db.Timestamptz(6)
+  created_at            DateTime           @default(now()) @db.Timestamptz(6)
+  credit_applied        Decimal?           @db.Decimal(10, 2)
+  plans                 plans              @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan_variations       plan_variations?   @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  addons                addons?            @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspaces            workspaces         @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_addons       workspace_addons[]
+  workspace_subscription_events workspace_subscription_events[]
 
-  @@index([fawaterak_invoice_id])
+  @@index([gateway_reference_id])
   @@index([workspace_id])
   @@index([variation_id])
+  @@index([addon_id])
+}
+
+model workspace_subscription_events {
+  id                    String              @id
+  workspace_id          String
+  payment_id            String?
+  event_type            String
+  plan_id               String?
+  variation_id          String?
+  locked_price_monthly  Decimal?            @db.Decimal(10, 2)
+  locked_currency       String?
+  starts_at             DateTime?           @db.Timestamptz(6)
+  expires_at            DateTime?           @db.Timestamptz(6)
+  previous_expires_at   DateTime?           @db.Timestamptz(6)
+  actor_type            String
+  actor_label           String?
+  is_backfilled         Boolean             @default(false)
+  created_at            DateTime            @default(now()) @db.Timestamptz(6)
+  workspaces            workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_payments    workspace_payments? @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([workspace_id, created_at])
+  @@index([payment_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1276,11 +1463,14 @@ model workspaces {
   insights                                     insights[]
   metrics                                      metrics[]
   nutrition_plans                              nutrition_plans[]
+  nutrition_pdf_settings                       nutrition_pdf_settings?
   packages                                     packages[]
   payment_methods                              payment_methods[]
+  plans_queue_labels                           plans_queue_labels[]
   roadmap_items                                roadmap_items[]
   subscription_access_policies                 subscription_access_policies[]
   training_plans                               training_plans[]
+  training_pdf_settings                        training_pdf_settings?
   transactions                                 transactions[]
   users_users_default_workspace_idToworkspaces users[]                        @relation("users_default_workspace_idToworkspaces")
   workout_logs                                 workout_logs[]
@@ -1288,7 +1478,9 @@ model workspaces {
   workspace_invitations                        workspace_invitations[]
   workspace_members                            workspace_members[]
   workspace_payments                           workspace_payments[]
+  workspace_addons                             workspace_addons[]
   workspace_subscriptions                      workspace_subscriptions?
+  workspace_subscription_events                workspace_subscription_events[]
   users_workspaces_owner_idTousers             users                          @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
 
   @@index([owner_id], map: "idx_workspaces_owner")

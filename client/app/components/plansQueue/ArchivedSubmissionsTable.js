@@ -12,6 +12,7 @@ import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import { LABEL_COLOR_CLASSES } from "@/app/components/plansQueue/ManageLabelsModal";
 
 function titleCaseType(type) {
     if (!type) return "";
@@ -111,6 +112,20 @@ export default function ArchivedSubmissionsTable({ items, onRestored }) {
             filterType: "dateRange",
             width: "150px",
             render: (row) => shortDate(row.archivedAt),
+        },
+        {
+            // Read-only here — archived items keep whatever label they had when
+            // archived, but this view has no per-row actions to change it, matching
+            // every other column in this table (see PlansQueueTable for the editable version).
+            key: "label",
+            label: t('label'),
+            filterType: "multi",
+            options: [...new Set(items.map((r) => r.labelName).filter(Boolean))],
+            sortable: true,
+            width: "130px",
+            render: (row) => row.labelName
+                ? <Chip size="sm" className={`whitespace-nowrap ${LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}`}>{row.labelName}</Chip>
+                : <span className="text-muted-foreground text-sm">-</span>,
         },
         {
             key: "actions",

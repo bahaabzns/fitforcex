@@ -4,6 +4,17 @@ import { createId } from '@paralleldrive/cuid2';
 import { sendVerificationEmail } from '../../lib/email';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
+import { normalizeEmail } from '../../utils/email';
+
+// Thrown by assertEmailPhoneAvailable — controllers catch this and respond with
+// { status, message } instead of falling through to the generic error handler.
+export class SignupFieldError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+    }
+}
 
 export type WsContextRow = {
     workspace_id: string; slug: string; name: string; owner_id: string;
@@ -29,6 +40,43 @@ export function normalizeSlug(raw: string): string {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
+}
+
+// Shared by register() (step 2 — actually creates the account) and the
+// checkout wizard's step-1 "can I use this email/phone" pre-check, so the two
+// never drift on what counts as valid/available. Throws SignupFieldError on
+// the first failing rule; never writes anything.
+export async function assertEmailPhoneAvailable(
+    email: string | undefined, phone: string | undefined,
+): Promise<{ normalizedEmail: string; trimmedPhone: string }> {
+    if (!email || typeof email !== 'string' || !email.trim()) {
+        throw new SignupFieldError(400, 'Email is required');
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+        throw new SignupFieldError(400, 'Invalid email format');
+    }
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+        throw new SignupFieldError(400, 'Phone number is required');
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const trimmedPhone = phone.trim();
+
+    // Email and phone must each be unique across coaches. (email has a DB unique
+    // constraint; phone does not, so it's enforced here.) Email is matched
+    // case-insensitively so "John@x.com" and "john@x.com" collide.
+    const existing = await prisma.users.findFirst({
+        where:  { OR: [{ email: { equals: normalizedEmail, mode: 'insensitive' } }, { phone: trimmedPhone }] },
+        select: { email: true, phone: true },
+    });
+    if (existing) {
+        const message = normalizeEmail(existing.email) === normalizedEmail
+            ? 'An account with this email already exists'
+            : 'An account with this phone number already exists';
+        throw new SignupFieldError(409, message);
+    }
+
+    return { normalizedEmail, trimmedPhone };
 }
 
 export async function buildTokenForWorkspace(userId: string, workspaceId: string) {

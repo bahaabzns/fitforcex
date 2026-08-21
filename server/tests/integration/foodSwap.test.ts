@@ -40,7 +40,7 @@ function daysAgo(n: number): Date {
 }
 
 async function createFood(workspaceId: string, overrides: Partial<{
-    name_en: string; calories: number; protein: number; carbs: number; fats: number; servingSize: number; category: string;
+    name_en: string; calories: number; protein: number; carbs: number; fats: number; servingSize: number | null; category: string;
 }> = {}) {
     return testPrisma.food_items.create({
         data: {
@@ -51,7 +51,7 @@ async function createFood(workspaceId: string, overrides: Partial<{
             protein_per_serving:  overrides.protein ?? 31,
             carbs_per_serving:    overrides.carbs ?? 0,
             fats_per_serving:     overrides.fats ?? 3.6,
-            serving_size:         overrides.servingSize ?? 100,
+            serving_size:         'servingSize' in overrides ? overrides.servingSize : 100,
             serving_unit:         'g',
             food_category:        overrides.category ?? null,
         },
@@ -189,6 +189,78 @@ describe('Client Food Swap', () => {
             const ids = res.body.alternatives.map((a: { foodItemId: string }) => a.foodItemId);
             expect(ids).toContain(turkey.id);
             expect(ids).not.toContain(rice.id);
+        });
+
+        test('swap-search returns every same-category alternative, unbounded by any page-size cap', async () => {
+            const client = await createClient(workspaceId);
+            const chicken = await createFood(workspaceId, { name_en: 'Chicken Breast', category: 'Protein' });
+            const alternatives = await Promise.all(
+                Array.from({ length: 55 }, (_, i) =>
+                    createFood(workspaceId, { name_en: `Protein Alt ${String(i).padStart(2, '0')}`, category: 'Protein' })
+                )
+            );
+            const { item } = await createActivePlanWithItem(workspaceId, client.id, chicken.id);
+            const cookie = makeClientCookie(client.id, workspaceId);
+
+            const res = await request.get(`/api/client-portal/meal-items/${item.id}/swap-search`).set('Cookie', cookie);
+
+            expect(res.status).toBe(200);
+            const ids = res.body.alternatives.map((a: { foodItemId: string }) => a.foodItemId);
+            for (const alt of alternatives) {
+                expect(ids).toContain(alt.id);
+            }
+        });
+
+        test('swap-search includes a same-category food with 0 calories/serving, flagged as not calorie-matched', async () => {
+            const client = await createClient(workspaceId);
+            const chicken = await createFood(workspaceId, { name_en: 'Chicken Breast', category: 'Protein' });
+            // Black coffee: legitimately 0 kcal — calorie-matching is mathematically
+            // undefined, but it's still a valid same-category swap option.
+            const blackCoffee = await createFood(workspaceId, {
+                name_en: 'Black Coffee', category: 'Protein', calories: 0, protein: 0, carbs: 0, fats: 0, servingSize: 250,
+            });
+            const { item } = await createActivePlanWithItem(workspaceId, client.id, chicken.id, 200);
+            const cookie = makeClientCookie(client.id, workspaceId);
+
+            const res = await request.get(`/api/client-portal/meal-items/${item.id}/swap-search`).set('Cookie', cookie);
+
+            expect(res.status).toBe(200);
+            const alt = res.body.alternatives.find((a: { foodItemId: string }) => a.foodItemId === blackCoffee.id);
+            expect(alt).toBeDefined();
+            expect(alt.isCalorieMatched).toBe(false);
+            expect(alt.calculatedAmount).toBe(250); // falls back to the food's own serving size
+        });
+
+        test('swap-search excludes a same-category food that has no serving_size at all', async () => {
+            const client = await createClient(workspaceId);
+            const chicken = await createFood(workspaceId, { name_en: 'Chicken Breast', category: 'Protein' });
+            const incomplete = await createFood(workspaceId, { name_en: 'Mystery Protein', category: 'Protein', servingSize: null });
+            const { item } = await createActivePlanWithItem(workspaceId, client.id, chicken.id, 200);
+            const cookie = makeClientCookie(client.id, workspaceId);
+
+            const res = await request.get(`/api/client-portal/meal-items/${item.id}/swap-search`).set('Cookie', cookie);
+
+            expect(res.status).toBe(200);
+            const ids = res.body.alternatives.map((a: { foodItemId: string }) => a.foodItemId);
+            expect(ids).not.toContain(incomplete.id);
+        });
+
+        test('swap succeeds against a 0-calorie alternative, using its own serving size', async () => {
+            const client = await createClient(workspaceId);
+            const chicken = await createFood(workspaceId, { name_en: 'Chicken Breast', category: 'Protein' });
+            const blackCoffee = await createFood(workspaceId, {
+                name_en: 'Black Coffee', category: 'Protein', calories: 0, protein: 0, carbs: 0, fats: 0, servingSize: 250,
+            });
+            const { item } = await createActivePlanWithItem(workspaceId, client.id, chicken.id, 200);
+            const cookie = makeClientCookie(client.id, workspaceId);
+
+            const res = await request.post(`/api/client-portal/meal-items/${item.id}/swap`)
+                .set('Cookie', cookie)
+                .send({ alternativeFoodId: blackCoffee.id });
+
+            expect(res.status).toBe(200);
+            expect(res.body.calculatedAmount).toBe(250);
+            expect(res.body.calories).toBe(0);
         });
 
         test('a second swap keeps the true original snapshot (does not overwrite it with the first swap target)', async () => {

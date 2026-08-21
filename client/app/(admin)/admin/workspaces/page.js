@@ -10,6 +10,12 @@ import { Chip } from '@heroui/react/chip';
 import { Avatar } from '@heroui/react/avatar';
 import { Modal } from '@heroui/react/modal';
 
+const ACCESS_STATUS_DISPLAY = {
+    active:           { label: 'Active',           className: 'bg-green-500/15 text-green-700' },
+    read_only:        { label: 'Read-only',        className: 'bg-red-500/15 text-red-700' },
+    no_subscription:  { label: 'No subscription',  className: 'bg-secondary text-muted-foreground' },
+};
+
 function useDebounce(value, delay = 350) {
     const [debounced, setDebounced] = useState(value);
     useEffect(() => {
@@ -120,11 +126,385 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
     );
 }
 
-function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
+function ManualPaymentModal({ workspace, plans, onClose, onSaved }) {
+    const { formatDate } = useDateFormatter();
+    const [planId, setPlanId] = useState(workspace.plan_id);
+    const [variationId, setVariationId] = useState(workspace.variation_id);
+    const [amount, setAmount] = useState('');
+    const [currency, setCurrency] = useState('');
+    const [durationDays, setDurationDays] = useState('');
+    const [notes, setNotes] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
+
+    const variations = plans.find(p => p.id === planId)?.variations ?? [];
+    const selectedVariation = variations.find(v => v.id === variationId);
+
+    function handlePlanChange(newPlanId) {
+        setPlanId(newPlanId);
+        const newVariations = plans.find(p => p.id === newPlanId)?.variations ?? [];
+        setVariationId(newVariations.find(v => v.is_default)?.id ?? newVariations[0]?.id ?? '');
+    }
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            const res = await api.post(`/api/admin/workspaces/${workspace.id}/manual-payment`, {
+                planId, variationId,
+                amount:       amount === '' ? undefined : Number(amount),
+                currency:     currency.trim() || undefined,
+                durationDays: durationDays === '' ? undefined : parseInt(durationDays),
+                notes,
+                startDate:    startDate || undefined,
+            });
+            // Confirm the resulting renewal date before closing — don't just assume
+            // it landed where expected (start-date backdating + credited extra days
+            // both shift it in ways worth a coach/admin double-checking).
+            setResult(res.data);
+            onSaved();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to record payment');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    if (result) {
+        return (
+            <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+                <Modal.Backdrop>
+                    <Modal.Container>
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>Payment Recorded</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body className="flex flex-col gap-3">
+                                <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                                <div className="rounded-lg border border-green-600/30 bg-green-500/5 px-4 py-3 flex flex-col gap-1">
+                                    <p className="text-sm font-medium text-foreground">
+                                        {result.planDisplay}{result.variationLabel ? ` · ${result.variationLabel}` : ''}
+                                    </p>
+                                    <p className="text-sm text-green-600 font-semibold">
+                                        Now active until {result.expiresAt ? formatDate(result.expiresAt) : '—'}
+                                    </p>
+                                    {result.startsAt && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Cycle started {formatDate(result.startsAt)}
+                                        </p>
+                                    )}
+                                </div>
+                            </Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="primary" onClick={onClose}>Done</Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
+        );
+    }
+
+    return (
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>Record Manual Payment</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                            <p className="text-xs text-muted-foreground -mt-2">
+                                For a payment that happened outside the payment gateway (bank transfer, cash, a one-off deal).
+                                Activates immediately, the same way a real payment would.
+                            </p>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Plan</label>
+                                <select
+                                    value={planId}
+                                    onChange={e => handlePlanChange(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {plans.map(p => (
+                                        <option key={p.id} value={p.id}>{p.display_name} ({p.name})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Variation</label>
+                                <select
+                                    value={variationId}
+                                    onChange={e => setVariationId(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {variations.map(v => (
+                                        <option key={v.id} value={v.id}>
+                                            {v.label} — {v.price_monthly != null ? `${v.price_monthly} ${v.currency}` : 'Custom'}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Amount <span className="opacity-60">(blank = variation price)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        placeholder={selectedVariation?.price_monthly ?? '0.00'}
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                                    <input
+                                        type="text"
+                                        placeholder={selectedVariation?.currency ?? 'EGP'}
+                                        value={currency}
+                                        onChange={e => setCurrency(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Days <span className="opacity-60">(blank = plan default)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="1"
+                                        placeholder="30"
+                                        value={durationDays}
+                                        onChange={e => setDurationDays(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    Start date <span className="opacity-60">(blank = today — backdate or schedule ahead)</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. bank transfer ref #1234, agreed by phone"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                                {saving ? 'Recording…' : 'Record & Activate'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+    );
+}
+
+function AddAddonModal({ workspace, addons, onClose, onSaved }) {
+    const { formatDate } = useDateFormatter();
+    const [addonId, setAddonId] = useState(addons[0]?.id ?? '');
+    const [quantity, setQuantity] = useState('1');
+    const [amount, setAmount] = useState('');
+    const [currency, setCurrency] = useState('');
+    const [durationDays, setDurationDays] = useState('');
+    const [notes, setNotes] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
+
+    const selectedAddon = addons.find(a => a.id === addonId);
+    const qty = parseInt(quantity) || 1;
+    const defaultAmount = selectedAddon ? Number(selectedAddon.price_monthly) * qty : 0;
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            const res = await api.post(`/api/admin/workspaces/${workspace.id}/manual-addon`, {
+                addonId,
+                quantity:     qty,
+                amount:       amount === '' ? undefined : Number(amount),
+                currency:     currency.trim() || undefined,
+                durationDays: durationDays === '' ? undefined : parseInt(durationDays),
+                notes,
+            });
+            // Add-ons extend the cycle by a computed number of days (not a flat
+            // duration) — worth confirming exactly where that landed.
+            setResult(res.data);
+            onSaved();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to add add-on');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    if (result) {
+        return (
+            <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+                <Modal.Backdrop>
+                    <Modal.Container>
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>Add-on Applied</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body className="flex flex-col gap-3">
+                                <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                                <div className="rounded-lg border border-green-600/30 bg-green-500/5 px-4 py-3">
+                                    <p className="text-sm text-foreground">{result.message}</p>
+                                    <p className="text-sm text-green-600 font-semibold mt-1">
+                                        Subscription now renews {result.expiresAt ? formatDate(result.expiresAt) : '—'}
+                                    </p>
+                                </div>
+                            </Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="primary" onClick={onClose}>Done</Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
+        );
+    }
+
+    return (
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>Add Add-on</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            <p className="text-sm text-muted-foreground">{workspace.name}</p>
+                            <p className="text-xs text-muted-foreground -mt-2">
+                                Grants this add-on outside the payment gateway — applies the same way a real purchase would
+                                (billing-cycle extension included). Set amount to 0 for a free/comped grant.
+                            </p>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Add-on</label>
+                                <select
+                                    value={addonId}
+                                    onChange={e => setAddonId(e.target.value)}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {addons.map(a => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label} — {Number(a.price_monthly).toLocaleString()} {a.currency}/mo
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+                                    <input
+                                        type="number" min="1"
+                                        value={quantity}
+                                        onChange={e => setQuantity(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Amount <span className="opacity-60">(total)</span>
+                                    </label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        placeholder={defaultAmount.toLocaleString()}
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                                    <input
+                                        type="text"
+                                        placeholder={selectedAddon?.currency ?? 'EGP'}
+                                        value={currency}
+                                        onChange={e => setCurrency(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    Billing cycle length (days) <span className="opacity-60">(blank = workspace&apos;s plan default)</span>
+                                </label>
+                                <input
+                                    type="number" min="1"
+                                    value={durationDays}
+                                    onChange={e => setDurationDays(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. comped for a support issue"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                />
+                            </div>
+
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving || !addonId} onClick={handleSave}>
+                                {saving ? 'Adding…' : 'Add'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+    );
+}
+
+function WorkspaceDrawer({ workspaceId, plans, addons, onClose, onRefresh }) {
     const { formatDate } = useDateFormatter();
     const [workspace, setWorkspace] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showSubModal, setShowSubModal] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showAddonModal, setShowAddonModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState('');
 
@@ -241,12 +621,41 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                     </div>
                                 )}
 
+                                {workspace.addons?.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-foreground mb-2">Active Add-ons</h4>
+                                        <div className="rounded-xl border border-border overflow-hidden">
+                                            {workspace.addons.map((a, idx) => (
+                                                <div key={a.id} className={`flex items-center justify-between gap-2 px-3 py-2.5 ${idx < workspace.addons.length - 1 ? 'border-b border-border' : ''}`}>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-medium text-foreground truncate">
+                                                            {a.quantity > 1 ? `${a.quantity}× ` : ''}{a.label}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {a.priceMonthly != null ? `${Number(a.priceMonthly).toLocaleString()} ${a.currency}/mo each` : 'Free'} · since {formatDate(a.purchasedAt)}
+                                                        </p>
+                                                    </div>
+                                                    <Chip size="sm" className="bg-secondary text-muted-foreground shrink-0">+{a.units * a.quantity} {a.dimension}</Chip>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {actionError && <p className="text-sm text-red-500">{actionError}</p>}
 
                                 <div className="flex flex-col gap-2 pt-2 border-t border-border">
                                     <Button variant="outline" className="w-full" onClick={() => setShowSubModal(true)}>
                                         Override Subscription Plan
                                     </Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setShowPaymentModal(true)}>
+                                        Record Manual Payment
+                                    </Button>
+                                    {addons?.length > 0 && (
+                                        <Button variant="outline" className="w-full" onClick={() => setShowAddonModal(true)}>
+                                            Add Add-on
+                                        </Button>
+                                    )}
                                     {workspace.archived_at ? (
                                         <Button variant="outline" className="w-full" isDisabled={actionLoading} onClick={handleRestore}>
                                             <ArchiveRestore size={14} className="mr-1.5" />
@@ -273,6 +682,24 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                     onSaved={() => { onRefresh(); load(); }}
                 />
             )}
+
+            {showPaymentModal && workspace && (
+                <ManualPaymentModal
+                    workspace={workspace}
+                    plans={plans}
+                    onClose={() => setShowPaymentModal(false)}
+                    onSaved={() => { onRefresh(); load(); }}
+                />
+            )}
+
+            {showAddonModal && workspace && (
+                <AddAddonModal
+                    workspace={workspace}
+                    addons={addons}
+                    onClose={() => setShowAddonModal(false)}
+                    onSaved={() => { onRefresh(); load(); }}
+                />
+            )}
         </>
     );
 }
@@ -282,9 +709,11 @@ export default function AdminWorkspacesPage() {
     const [workspaces, setWorkspaces] = useState([]);
     const [total, setTotal] = useState(0);
     const [plans, setPlans] = useState([]);
+    const [addons, setAddons] = useState([]);
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [planFilter, setPlanFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -296,15 +725,16 @@ export default function AdminWorkspacesPage() {
 
     const fetchWorkspaces = useCallback(() => {
         setLoading(true);
-        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, plan: planFilter, archived: showArchived, page, limit } })
+        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, plan: planFilter, status: statusFilter, archived: showArchived, page, limit } })
             .then(res => { setWorkspaces(res.data.workspaces); setTotal(res.data.total); })
             .catch(() => setError('Failed to load workspaces'))
             .finally(() => setLoading(false));
-    }, [debouncedSearch, planFilter, showArchived, page]);
+    }, [debouncedSearch, planFilter, statusFilter, showArchived, page]);
 
     useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
     useEffect(() => { api.get('/api/admin/plans').then(res => setPlans(res.data)); }, []);
-    useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, showArchived]);
+    useEffect(() => { api.get('/api/admin/addons').then(res => setAddons(res.data.filter(a => a.is_active))); }, []);
+    useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, statusFilter, showArchived]);
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -332,6 +762,16 @@ export default function AdminWorkspacesPage() {
                     <option value="">All plans</option>
                     {plans.map(p => <option key={p.id} value={p.name}>{p.display_name}</option>)}
                 </select>
+                <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                >
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="read_only">Read-only (expired)</option>
+                    <option value="no_subscription">No subscription</option>
+                </select>
                 <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
                     <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded" />
                     Show archived
@@ -342,12 +782,14 @@ export default function AdminWorkspacesPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
+                    <span>Status</span>
                     <span className="text-center">Members</span>
                     <span className="text-center">Clients</span>
+                    <span>Expires</span>
                     <span>Created</span>
                 </div>
 
@@ -358,11 +800,13 @@ export default function AdminWorkspacesPage() {
                 ) : workspaces.length === 0 ? (
                     <div className="py-14 text-center text-sm text-muted-foreground border-t border-border">No workspaces found.</div>
                 ) : (
-                    workspaces.map((w, idx) => (
+                    workspaces.map((w, idx) => {
+                        const statusDisplay = ACCESS_STATUS_DISPLAY[w.access_status] ?? ACCESS_STATUS_DISPLAY.no_subscription;
+                        return (
                         <button
                             key={w.id}
                             onClick={() => setSelectedId(w.id)}
-                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>
@@ -375,13 +819,18 @@ export default function AdminWorkspacesPage() {
                                 <p className="text-xs text-muted-foreground truncate">{w.owner_email}</p>
                             </div>
                             <Chip size="sm" className="bg-primary/10 text-primary">{w.plan_display}</Chip>
+                            <Chip size="sm" className={statusDisplay.className}>{statusDisplay.label}</Chip>
                             <span className="text-sm text-foreground text-center w-16">{w.member_count}</span>
                             <span className="text-sm text-foreground text-center w-16">{w.client_count}</span>
+                            <span className={`text-xs whitespace-nowrap ${w.access_status === 'read_only' ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                                {w.expires_at ? formatDate(w.expires_at) : 'Never'}
+                            </span>
                             <span className="text-xs text-muted-foreground shrink-0">
                                 {formatDate(w.created_at)}
                             </span>
                         </button>
-                    ))
+                        );
+                    })
                 )}
             </div>
 
@@ -404,6 +853,7 @@ export default function AdminWorkspacesPage() {
                 <WorkspaceDrawer
                     workspaceId={selectedId}
                     plans={plans}
+                    addons={addons}
                     onClose={() => setSelectedId(null)}
                     onRefresh={fetchWorkspaces}
                 />

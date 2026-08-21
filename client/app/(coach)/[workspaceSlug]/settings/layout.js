@@ -9,7 +9,13 @@ import { Tabs } from "@heroui/react/tabs";
 import { Separator } from "@heroui/react/separator";
 import SettingsPageHeader from "./_components/SettingsPageHeader";
 
-const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "advanced"];
+const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "pdf", "advanced"];
+
+// Same "seen once ever, per browser" convention as NewFeatureTooltip
+// (ff_seen_feature_hint_<key> in localStorage) -- a plain badge here instead
+// of the popover component itself, since the Tab is the whole row's own
+// interactive element and doesn't need a second nested trigger.
+const PDF_TAB_HINT_KEY = "ff_seen_feature_hint_pdf_export_tab";
 
 export default function SettingsLayout({ children, params }) {
     const router = useRouter();
@@ -47,6 +53,26 @@ export default function SettingsLayout({ children, params }) {
     }, [load]);
 
     const isOwner = me?.currentWorkspace?.role === "owner";
+    const canManagePdfExport = isOwner || me?.currentWorkspace?.permissions?.pdfExport?.write === true;
+
+    const [pdfTabHintSeen, setPdfTabHintSeen] = useState(() => {
+        if (typeof window === "undefined") return true;
+        try { return !!localStorage.getItem(PDF_TAB_HINT_KEY); } catch { return true; }
+    });
+
+    const activeKeyMatch = pathname.match(/\/settings\/([^/]+)/);
+    const activeKey = TAB_KEYS.includes(activeKeyMatch?.[1]) ? activeKeyMatch[1] : "account";
+
+    // Covers landing on /settings/pdf directly (bookmark, deep link) --
+    // handleSelectionChange only fires on an actual tab click, never on a
+    // route that was already active on mount. Must run before the loading
+    // early-return below so this hook's call order never changes between
+    // renders.
+    useEffect(() => {
+        if (activeKey !== "pdf" || pdfTabHintSeen) return;
+        setPdfTabHintSeen(true);
+        try { localStorage.setItem(PDF_TAB_HINT_KEY, "1"); } catch { /* storage unavailable */ }
+    }, [activeKey, pdfTabHintSeen]);
 
     if (loading) {
         return (
@@ -62,10 +88,14 @@ export default function SettingsLayout({ children, params }) {
         );
     }
 
-    const activeKeyMatch = pathname.match(/\/settings\/([^/]+)/);
-    const activeKey = TAB_KEYS.includes(activeKeyMatch?.[1]) ? activeKeyMatch[1] : "account";
-
     function handleSelectionChange(key) {
+        // Duplicates the useEffect above deliberately: this fires the instant
+        // the tab is clicked, so the badge disappears immediately instead of
+        // waiting a frame for the route change to land and activeKey to catch up.
+        if (key === "pdf" && !pdfTabHintSeen) {
+            setPdfTabHintSeen(true);
+            try { localStorage.setItem(PDF_TAB_HINT_KEY, "1"); } catch { /* storage unavailable — badge just won't persist dismissal this session */ }
+        }
         router.push(`/${workspaceSlug}/settings/${key}`);
     }
 
@@ -98,6 +128,19 @@ export default function SettingsLayout({ children, params }) {
                                     {tNav("clientExperience")}
                                     <Tabs.Indicator />
                                 </Tabs.Tab>
+                                {canManagePdfExport && (
+                                    <Tabs.Tab id="pdf">
+                                        <span className="flex items-center gap-1.5">
+                                            {tNav("pdfExport")}
+                                            {!pdfTabHintSeen && (
+                                                <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-wide">
+                                                    {tSettings("pdfTabNewBadge")}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <Tabs.Indicator />
+                                    </Tabs.Tab>
+                                )}
                                 {isOwner && (
                                     <Tabs.Tab id="advanced">
                                         {tNav("advanced")}

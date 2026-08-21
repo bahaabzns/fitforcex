@@ -1,12 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requireOwner from '../../middleware/requireOwner';
 import requirePermission from '../../middleware/requirePermission';
 import * as workspacesController from './workspaces.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 
 function sameWorkspace(req: Request, res: Response, next: NextFunction): void {
     if (req.params.id !== req.user!.workspaceId) {

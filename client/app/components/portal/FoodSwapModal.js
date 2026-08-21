@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { SearchField } from "@heroui/react/search-field";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
+import { localizedFoodName } from "@/utils/foodLocalization";
 
 /**
  * Client-facing food swap: search is backend-driven and every candidate
@@ -16,6 +17,7 @@ import { Chip } from "@heroui/react/chip";
  */
 export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, onSwapped }) {
     const t = useTranslations("portal.dashboard.foodSwap");
+    const isRTL = useLocale() === 'ar';
     const [query, setQuery]               = useState("");
     const [alternatives, setAlternatives] = useState([]);
     const [loading, setLoading]           = useState(false);
@@ -75,7 +77,7 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
     };
 
     return (
-        <Modal open={open} onClose={onClose} title={t("title", { name: currentFood?.name || "" })} wide>
+        <Modal open={open} onClose={onClose} title={t("title", { name: localizedFoodName(currentFood?.name, currentFood?.name_ar, isRTL) })} wide>
             <div className="flex flex-col gap-3 p-2">
                 <SearchField value={query} onChange={setQuery} variant="secondary" aria-label={t("searchPlaceholder")}>
                     <SearchField.Group>
@@ -103,15 +105,18 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
                                 }`}
                             >
                                 <div className="flex items-center justify-between gap-2">
-                                    <span dir="auto" className="text-sm font-medium text-foreground">
-                                        {alt.name || alt.nameAr}
+                                    <span dir="auto" translate="no" className="text-sm font-medium text-foreground">
+                                        {localizedFoodName(alt.name, alt.nameAr, isRTL)}
                                     </span>
                                     {alt.foodCategory && (
                                         <Chip size="sm" variant="soft" color="default">
-                                            <Chip.Label>{alt.foodCategory}</Chip.Label>
+                                            <Chip.Label>{localizedFoodName(alt.foodCategory, alt.foodCategoryAr, isRTL)}</Chip.Label>
                                         </Chip>
                                     )}
                                 </div>
+                                {alt.isCalorieMatched === false && (
+                                    <p className="text-xs text-warning mt-0.5">{t("notCalorieMatched")}</p>
+                                )}
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1" dir="ltr">
                                     <span>{alt.calculatedAmount}{alt.servingUnit}</span>
                                     <span>{alt.calories} {t("kcal")}</span>
@@ -127,8 +132,8 @@ export default function FoodSwapModal({ open, mealItemId, currentFood, onClose, 
                 {selected && (
                     <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex flex-col gap-1">
                         <span className="text-xs font-semibold text-primary uppercase tracking-wide">{t("equivalentTo")}</span>
-                        <span dir="auto" className="text-sm font-medium text-foreground">
-                            {selected.name} — {selected.calculatedAmount}{selected.servingUnit}
+                        <span dir="auto" translate="no" className="text-sm font-medium text-foreground">
+                            {localizedFoodName(selected.name, selected.nameAr, isRTL)} — {selected.calculatedAmount}{selected.servingUnit}
                         </span>
                     </div>
                 )}

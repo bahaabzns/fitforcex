@@ -15,6 +15,8 @@ import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import { downloadPdfExport, describePdfExportError } from "@/lib/pdfExport";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const { id, workspaceSlug } = useParams();
@@ -122,6 +124,23 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
 
+    const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportError, setExportError] = useState("");
+    async function handleExportPdf() {
+        if (!selectedPlan?.id) return;
+        setExportingPdf(true);
+        setExportError("");
+        try {
+            await downloadPdfExport("training", selectedPlan.id, `${selectedPlan.name || "training-plan"}.pdf`);
+        } catch (err) {
+            const detail = await describePdfExportError(err);
+            console.error("PDF export failed:", detail.status, detail.message);
+            setExportError(t("exportPdfFailed"));
+        } finally {
+            setExportingPdf(false);
+        }
+    }
+
     // Observation counts per exercise, for the small count chip next to each
     // row's "Exercise insights" action — refetched whenever that modal closes
     // (create/edit/delete all funnel through there), matching the same
@@ -144,7 +163,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
     actionsRef.current = {
-        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan,
+        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, handleExportPdf,
         selectedPlanId: selectedPlan?.id, selectedPlanStatus: selectedPlan?.status,
         submissionId, setActivateModal, setConfigureActivationOpen, setDurationChoicePrompt,
     };
@@ -209,12 +228,48 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         if (!onHeaderActionsChange) return;
         const savePlanVisible = isSelectedPlanDirty;
         const activateVisible = selectedPlan && selectedPlan.status !== "active";
-        if (!showSaveAll && !savePlanVisible && !activateVisible) {
+        const exportVisible = !!selectedPlan?.id;
+        if (!showSaveAll && !savePlanVisible && !activateVisible && !exportVisible) {
             onHeaderActionsChange(null);
             return;
         }
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
+                {selectedPlan?.id && (
+                    // Default popover__trigger styling (inline-block) is required here --
+                    // it's what gives the trigger a real box for the popover to anchor
+                    // to; overriding it with display:contents collapses that box and the
+                    // popover mispositions to the viewport's top-left corner instead of
+                    // the button. inline-block still shrink-wraps the Button with no
+                    // layout impact, so nothing else changes visually.
+                    <NewFeatureTooltip
+                        featureKey="pdf_export_button_hint"
+                        active={!isSelectedPlanDirty && !isSaving && !exportingPdf}
+                        message={
+                            <>
+                                {t('exportPdfHint')}{' '}
+                                {/* New tab, not client-side nav -- keeps whatever's on
+                                    screen in the builder (including unsaved state) intact. */}
+                                <a
+                                    href={`/${workspaceSlug}/settings/pdf`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline font-medium text-primary"
+                                >
+                                    {t('exportPdfHintCustomizeLink')}
+                                </a>
+                            </>
+                        }
+                        dismissLabel={t('exportPdfHintDismiss')}
+                        badgeLabel={t('exportPdfNewFeature')}
+                    >
+                        <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
+                            title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
+                            onClick={() => actionsRef.current.handleExportPdf()}>
+                            {exportingPdf ? t('exportingPdf') : t('exportPdf')}
+                        </Button>
+                    </NewFeatureTooltip>
+                )}
                 {showSaveAll && (
                     <Button variant="outline" isDisabled={!isDirty || isSaving}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
@@ -244,7 +299,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);
@@ -298,6 +353,11 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     basePath="/api/insights"
                     events={["first_training_plan_created", "first_training_plan_activated"]}
                 />
+                {exportError && (
+                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 mt-2">
+                        {exportError}
+                    </p>
+                )}
             </div>
             <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
                 <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>

@@ -91,6 +91,27 @@ flutter build appbundle --release --dart-define-from-file=env.prod.json
 Never commit `key.properties` or the `.jks` — both are gitignored. `env.prod.json`
 holds no secrets (just the public API origin + flavor), so it **is** committed.
 
+## Release signing (iOS)
+
+Same rule as Android: **always build via `env.prod.json`, never a bare `flutter build ipa`
+or a raw Xcode Archive.** Signing/provisioning is handled by Xcode (Runner target,
+your Apple Developer team), but the Dart config still has to be baked in at the
+`flutter build` step, or the archive silently ships pointed at the dev/emulator
+config and refuses to launch past splash (see `AppConfig.fromEnvironment` — this is
+what caused the 2.1(a) App Completeness rejection on the first submission).
+
+```bash
+flutter build ipa --release --dart-define-from-file=env.prod.json
+```
+
+This regenerates `ios/Flutter/flutter_export_environment.sh` with a `DART_DEFINES`
+entry — if that file has no `DART_DEFINES` line, the last build didn't get the
+prod config. Open the generated `build/ios/archive/Runner.xcarchive` in Xcode
+Organizer (or point `xcodebuild -exportArchive` at it) to upload to App Store
+Connect. Bump the build number (`pubspec.yaml` version `x.y.z+N`) before every
+new upload — App Store Connect rejects re-uploading a build number it already has,
+even if that build was rejected in review.
+
 ## Native flavors (follow-up)
 
 Dart-level flavors work today via `FLAVOR`. Native product flavors / Xcode schemes (distinct app ids per env) are wired after `flutter create` generates the platform folders — tracked as a Phase 0 follow-up.

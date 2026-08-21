@@ -27,6 +27,7 @@ import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
 import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import InsightBanner from "@/app/components/insights/InsightBanner";
+import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 
@@ -149,6 +150,17 @@ function WorkspaceContent({ children }) {
     const breadcrumbInteractive = pathname.includes('/clients');
 
     useEffect(() => {
+        // Re-arm the gate on every workspaceSlug change, not just first mount.
+        // This layout persists across client-side navigation between two
+        // workspace slugs (Next.js keeps the same instance, only the param
+        // changes), so without resetting here children below would keep
+        // rendering — and firing API calls — against the previous workspace's
+        // cookie for as long as the /me + switch-workspace round trip takes.
+        // That's a window real network latency (prod) opens up far wider than
+        // it ever does over loopback (local dev), and a write that lands in
+        // it lands permanently in the wrong workspace.
+        setLoading(true);
+
         api.get('/api/auth/me')
             .then(res => {
                 const data = res.data;
@@ -198,6 +210,7 @@ function WorkspaceContent({ children }) {
         <div className="flex h-screen overflow-hidden">
             <Sidebar collapsed={collapsed} />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
+                <SubscriptionReadOnlyBanner />
                 {!headerCollapsed && (
                     <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
                         <Button

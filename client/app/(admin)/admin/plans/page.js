@@ -17,17 +17,17 @@ import { ListBox } from '@heroui/react/list-box';
 // mirrors server/src/lib/planVariationLabel.ts so the admin preview never drifts from
 // what the public landing page actually shows.
 function formatVariationLabel(v) {
-    return v.max_clients === '' || v.max_clients == null
-        ? 'Unlimited clients'
-        : `Up to ${v.max_clients} clients`;
+    const clients = v.max_clients === '' || v.max_clients == null ? 'Unlimited clients' : `Up to ${v.max_clients} clients`;
+    if (v.max_team_seats === '' || v.max_team_seats == null) return clients;
+    const seats = Number(v.max_team_seats) === 0 ? null : `${v.max_team_seats} team seat${Number(v.max_team_seats) === 1 ? '' : 's'}`;
+    return seats ? `${clients} · ${seats}` : clients;
 }
 
 function emptyVariation(isDefault = false) {
     return {
         id: null,
-        max_clients: '', max_team_seats: '', max_workspaces: '',
-        price_monthly: '', currency: 'LE', payment_link: '',
-        has_team_counter: false, price_per_seat: '', min_seat_count: 1, max_seat_count: 20,
+        max_clients: '', max_team_seats: '',
+        price_monthly: '', currency: 'LE',
         is_default: isDefault, is_active: true,
     };
 }
@@ -35,61 +35,66 @@ function emptyVariation(isDefault = false) {
 function variationFromServer(v) {
     return {
         id: v.id,
-        max_clients:      v.max_clients ?? '',
-        max_team_seats:   v.max_team_seats ?? '',
-        max_workspaces:   v.max_workspaces ?? '',
-        price_monthly:    v.price_monthly ?? '',
-        currency:         v.currency ?? 'LE',
-        payment_link:     v.payment_link ?? '',
-        has_team_counter: v.has_team_counter ?? false,
-        price_per_seat:   v.price_per_seat ?? '',
-        min_seat_count:   v.min_seat_count ?? 1,
-        max_seat_count:   v.max_seat_count ?? 20,
-        is_default:       v.is_default ?? false,
-        is_active:        v.is_active ?? true,
+        max_clients:    v.max_clients ?? '',
+        max_team_seats: v.max_team_seats ?? '',
+        price_monthly:  v.price_monthly ?? '',
+        currency:       v.currency ?? 'LE',
+        is_default:     v.is_default ?? false,
+        is_active:      v.is_active ?? true,
     };
 }
 
 const EMPTY_FORM = {
-    name: '', display_name: '',
-    subtitle: '',
+    name: '', display_name: '', display_name_ar: '',
+    subtitle: '', subtitle_ar: '',
     trial_days: '',
+    max_team_seats: '',
     is_active: true, is_default: false,
     is_popular: false, show_on_landing: true,
-    cta_text: "Get Started – It's FREE!", cta_variant: 'outline',
-    features_header: "What's included:", features_subheader: '',
+    cta_text: "Get Started – It's FREE!", cta_text_ar: '', cta_variant: 'outline',
+    features_header: "What's included:", features_header_ar: '',
+    features_subheader: '', features_subheader_ar: '',
     sort_order: 0,
-    features: [],
-    period_links: {}, // { period_key: payment_link }
+    features: [], features_ar: [],
     variations: [emptyVariation(true)],
+    addon_rules: [],
 };
 
 const INPUT_CLS = 'w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const INPUT_SM_CLS = 'px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const SECTION_LABEL_CLS = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground pt-2';
 
-function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
+function PlanModal({ plan, onClose, onSaved, addons }) {
     const isEdit = !!plan;
     const [form, setForm] = useState(
         isEdit
             ? {
                 display_name:      plan.display_name,
+                display_name_ar:   plan.display_name_ar ?? '',
                 subtitle:          plan.subtitle ?? '',
+                subtitle_ar:       plan.subtitle_ar ?? '',
                 trial_days:        plan.trial_days ?? '',
+                max_team_seats:    plan.max_team_seats ?? '',
                 is_active:         plan.is_active,
                 is_default:        plan.is_default,
                 is_popular:        plan.is_popular ?? false,
                 show_on_landing:   plan.show_on_landing ?? true,
                 cta_text:          plan.cta_text ?? "Get Started – It's FREE!",
+                cta_text_ar:       plan.cta_text_ar ?? '',
                 cta_variant:       plan.cta_variant ?? 'outline',
                 features_header:   plan.features_header ?? "What's included:",
+                features_header_ar: plan.features_header_ar ?? '',
                 features_subheader:plan.features_subheader ?? '',
+                features_subheader_ar: plan.features_subheader_ar ?? '',
                 sort_order:        plan.sort_order ?? 0,
                 features:          Array.isArray(plan.features) ? plan.features : [],
-                period_links:      plan.period_links ?? {},
+                features_ar:       Array.isArray(plan.features_ar) ? plan.features_ar : [],
                 variations:        Array.isArray(plan.variations) && plan.variations.length > 0
                     ? plan.variations.map(variationFromServer)
                     : [emptyVariation(true)],
+                addon_rules:       Array.isArray(plan.addon_rules)
+                    ? plan.addon_rules.map(r => ({ addon_id: r.addon_id, max_units: r.max_units ?? '' }))
+                    : [],
               }
             : EMPTY_FORM
     );
@@ -113,6 +118,22 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
         setForm(f => ({ ...f, variations: f.variations.filter((_, i) => i !== index) }));
     }
 
+    function toggleAddon(addonId, enabled) {
+        setForm(f => ({
+            ...f,
+            addon_rules: enabled
+                ? [...f.addon_rules, { addon_id: addonId, max_units: '' }]
+                : f.addon_rules.filter(r => r.addon_id !== addonId),
+        }));
+    }
+
+    function setAddonMaxUnits(addonId, val) {
+        setForm(f => ({
+            ...f,
+            addon_rules: f.addon_rules.map(r => (r.addon_id === addonId ? { ...r, max_units: val } : r)),
+        }));
+    }
+
     function parseOptInt(v) { const n = parseInt(v); return isNaN(n) ? null : n; }
     function parseOptFloat(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
 
@@ -122,33 +143,37 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
         try {
             const payload = {
                 display_name:       form.display_name.trim() || undefined,
+                display_name_ar:    form.display_name_ar.trim() || null,
                 trial_days:         parseOptInt(form.trial_days),
+                max_team_seats:     parseOptInt(form.max_team_seats),
                 is_active:          form.is_active,
                 is_default:         form.is_default,
                 features:           form.features.filter(f => f.trim() !== ''),
+                features_ar:        form.features_ar.filter(f => f.trim() !== ''),
                 subtitle:           form.subtitle.trim() || null,
+                subtitle_ar:        form.subtitle_ar.trim() || null,
                 is_popular:         form.is_popular,
                 cta_text:           form.cta_text.trim() || 'Get Started',
+                cta_text_ar:        form.cta_text_ar.trim() || null,
                 cta_variant:        form.cta_variant,
                 features_header:    form.features_header.trim() || "What's included:",
+                features_header_ar: form.features_header_ar.trim() || null,
                 features_subheader: form.features_subheader.trim() || null,
+                features_subheader_ar: form.features_subheader_ar.trim() || null,
                 sort_order:         parseOptInt(form.sort_order) ?? 0,
                 show_on_landing:    form.show_on_landing,
-                period_links:       form.period_links,
                 variations: form.variations.map(v => ({
-                    id:               v.id || undefined,
-                    max_clients:      parseOptInt(v.max_clients),
-                    max_team_seats:   parseOptInt(v.max_team_seats),
-                    max_workspaces:   parseOptInt(v.max_workspaces),
-                    price_monthly:    parseOptFloat(v.price_monthly),
-                    currency:         v.currency.trim() || 'LE',
-                    payment_link:     v.payment_link.trim() || null,
-                    has_team_counter: v.has_team_counter,
-                    price_per_seat:   parseOptFloat(v.price_per_seat),
-                    min_seat_count:   parseOptInt(v.min_seat_count) ?? 1,
-                    max_seat_count:   parseOptInt(v.max_seat_count) ?? 20,
-                    is_default:       v.is_default,
-                    is_active:        v.is_active,
+                    id:             v.id || undefined,
+                    max_clients:    parseOptInt(v.max_clients),
+                    max_team_seats: parseOptInt(v.max_team_seats),
+                    price_monthly:  parseOptFloat(v.price_monthly),
+                    currency:       v.currency.trim() || 'LE',
+                    is_default:     v.is_default,
+                    is_active:      v.is_active,
+                })),
+                addon_rules: form.addon_rules.map(r => ({
+                    addon_id:  r.addon_id,
+                    max_units: parseOptInt(r.max_units),
                 })),
             };
             if (isEdit) {
@@ -179,18 +204,34 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Display name</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Display name" value={form.display_name} onChange={(val) => set('display_name', val)}>
-                        <Input type="text" placeholder="Pro" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Display name</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Display name" value={form.display_name} onChange={(val) => set('display_name', val)}>
+                            <Input type="text" placeholder="Pro" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Display name (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Display name (Arabic)" value={form.display_name_ar} onChange={(val) => set('display_name_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="برو" />
+                        </TextField>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5 max-w-56">
-                    <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no trial, shared by all variations)</span></FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
-                        <Input type="number" min="1" inputMode="numeric" placeholder="—" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no trial, shared by all variations)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="—" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Team seats included <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Team seats included" value={form.max_team_seats} onChange={(val) => set('max_team_seats', val)}>
+                            <Input type="number" min="0" inputMode="numeric" placeholder="∞" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -201,8 +242,8 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 {/* ── Variations ── */}
                 <p className={SECTION_LABEL_CLS}>Variations</p>
                 <p className="text-xs text-muted-foreground -mt-2">
-                    Every plan needs at least one. Each variation has its own limits, price, and payment link —
-                    the coach picks one via a dropdown on the pricing card; the feature list above is shared by all.
+                    Every plan needs at least one. The coach picks one via a dropdown on the pricing card. Leave a
+                    variation&apos;s team seats blank to inherit the plan-level default above; the feature list is always shared by all.
                 </p>
 
                 <div className="flex flex-col gap-3">
@@ -231,21 +272,16 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 <div className="flex flex-col gap-1">
                                     <FieldLabel>Max clients <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
                                     <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
                                         value={v.max_clients} onChange={e => setVariation(i, 'max_clients', e.target.value)} />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <FieldLabel>Max seats <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
-                                    <input type="number" min="0" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
+                                    <FieldLabel>Team seats <span className="text-muted-foreground">(plan default if blank)</span></FieldLabel>
+                                    <input type="number" min="0" inputMode="numeric" placeholder="—" className={INPUT_SM_CLS}
                                         value={v.max_team_seats} onChange={e => setVariation(i, 'max_team_seats', e.target.value)} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Max workspaces <span className="text-muted-foreground">(∞ blank)</span></FieldLabel>
-                                    <input type="number" min="1" inputMode="numeric" placeholder="∞" className={INPUT_SM_CLS}
-                                        value={v.max_workspaces} onChange={e => setVariation(i, 'max_workspaces', e.target.value)} />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <FieldLabel>Price / mo <span className="text-muted-foreground">(blank = TBD)</span></FieldLabel>
@@ -254,43 +290,11 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Currency</FieldLabel>
-                                    <input type="text" placeholder="LE" className={INPUT_SM_CLS}
-                                        value={v.currency} onChange={e => setVariation(i, 'currency', e.target.value)} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <FieldLabel>Fawaterak payment link</FieldLabel>
-                                    <input type="url" placeholder="https://app.fawaterak.com/pay/..." className={INPUT_SM_CLS}
-                                        value={v.payment_link} onChange={e => setVariation(i, 'payment_link', e.target.value)} />
-                                </div>
+                            <div className="flex flex-col gap-1 max-w-40">
+                                <FieldLabel>Currency</FieldLabel>
+                                <input type="text" placeholder="LE" className={INPUT_SM_CLS}
+                                    value={v.currency} onChange={e => setVariation(i, 'currency', e.target.value)} />
                             </div>
-
-                            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
-                                <input type="checkbox" checked={v.has_team_counter} onChange={e => setVariation(i, 'has_team_counter', e.target.checked)} className="rounded" />
-                                Let the coach buy extra seats beyond the limit above
-                            </label>
-
-                            {v.has_team_counter && (
-                                <div className="grid grid-cols-3 gap-2 ml-5">
-                                    <div className="flex flex-col gap-1">
-                                        <FieldLabel>Price / extra seat</FieldLabel>
-                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" className={INPUT_SM_CLS}
-                                            value={v.price_per_seat} onChange={e => setVariation(i, 'price_per_seat', e.target.value)} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <FieldLabel>Min seats</FieldLabel>
-                                        <input type="number" min="1" inputMode="numeric" placeholder="1" className={INPUT_SM_CLS}
-                                            value={v.min_seat_count} onChange={e => setVariation(i, 'min_seat_count', e.target.value)} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <FieldLabel>Max seats</FieldLabel>
-                                        <input type="number" min="1" inputMode="numeric" placeholder="20" className={INPUT_SM_CLS}
-                                            value={v.max_seat_count} onChange={e => setVariation(i, 'max_seat_count', e.target.value)} />
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     ))}
 
@@ -299,6 +303,36 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                         Add variation
                     </Button>
                 </div>
+
+                {addons?.length > 0 && (
+                    <>
+                        <p className={SECTION_LABEL_CLS}>Add-ons</p>
+                        <p className="text-xs text-muted-foreground -mt-2">
+                            Which add-ons this plan may buy, and an optional cap on how many units of each
+                            (blank = unlimited). An add-on with no cap and enabled here can be bought any number of times.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            {addons.map(a => {
+                                const rule = form.addon_rules.find(r => r.addon_id === a.id);
+                                return (
+                                    <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-secondary/20">
+                                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer flex-1">
+                                            <input type="checkbox" checked={!!rule} onChange={e => toggleAddon(a.id, e.target.checked)} className="rounded" />
+                                            {a.label} <span className="text-muted-foreground">({a.dimension}, +{a.units})</span>
+                                        </label>
+                                        {rule && (
+                                            <div className="flex items-center gap-1.5">
+                                                <FieldLabel>Max units</FieldLabel>
+                                                <input type="number" min="1" inputMode="numeric" placeholder="∞" className={`${INPUT_SM_CLS} w-20`}
+                                                    value={rule.max_units} onChange={e => setAddonMaxUnits(a.id, e.target.value)} />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
@@ -311,11 +345,19 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                 {/* ── Landing page display ── */}
                 <p className={SECTION_LABEL_CLS}>Landing Page Display</p>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Subtitle</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Subtitle" value={form.subtitle} onChange={(val) => set('subtitle', val)}>
-                        <Input type="text" placeholder="For solo coaches" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Subtitle</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Subtitle" value={form.subtitle} onChange={(val) => set('subtitle', val)}>
+                            <Input type="text" placeholder="For solo coaches" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Subtitle (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Subtitle (Arabic)" value={form.subtitle_ar} onChange={(val) => set('subtitle_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="للمدربين الأفراد" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5 max-w-56">
@@ -325,11 +367,19 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     </TextField>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>CTA button text</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="CTA button text" value={form.cta_text} onChange={(val) => set('cta_text', val)}>
-                        <Input type="text" placeholder="Get Started – It's FREE!" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>CTA button text</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="CTA button text" value={form.cta_text} onChange={(val) => set('cta_text', val)}>
+                            <Input type="text" placeholder="Get Started – It's FREE!" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>CTA button text (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="CTA button text (Arabic)" value={form.cta_text_ar} onChange={(val) => set('cta_text_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="ابدأ الآن – مجانًا!" />
+                        </TextField>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -349,72 +399,69 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
                     </Select>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Features section header</FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Features section header" value={form.features_header} onChange={(val) => set('features_header', val)}>
-                        <Input type="text" placeholder="What's included:" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features section header</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features section header" value={form.features_header} onChange={(val) => set('features_header', val)}>
+                            <Input type="text" placeholder="What's included:" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features section header (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features section header (Arabic)" value={form.features_header_ar} onChange={(val) => set('features_header_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="ما تحصل عليه:" />
+                        </TextField>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Features sub-header <span className="text-muted-foreground">(optional)</span></FieldLabel>
-                    <TextField variant="secondary" fullWidth aria-label="Features sub-header" value={form.features_subheader} onChange={(val) => set('features_subheader', val)}>
-                        <Input type="text" placeholder="Team Features" />
-                    </TextField>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features sub-header <span className="text-muted-foreground">(optional)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features sub-header" value={form.features_subheader} onChange={(val) => set('features_subheader', val)}>
+                            <Input type="text" placeholder="Team Features" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features sub-header (Arabic) <span className="text-muted-foreground">(optional)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Features sub-header (Arabic)" value={form.features_subheader_ar} onChange={(val) => set('features_subheader_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="مزايا الفريق" />
+                        </TextField>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Features <span className="text-muted-foreground">(one per line)</span></FieldLabel>
-                    <textarea
-                        rows={6}
-                        placeholder={"∞ Unlimited clients\nWorkout plan delivery\n..."}
-                        value={Array.isArray(form.features) ? form.features.join('\n') : ''}
-                        onChange={e => set('features', e.target.value.split('\n'))}
-                        className={`${INPUT_CLS} resize-y`}
-                    />
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features <span className="text-muted-foreground">(one per line)</span></FieldLabel>
+                        <textarea
+                            rows={6}
+                            placeholder={"∞ Unlimited clients\nWorkout plan delivery\n..."}
+                            value={Array.isArray(form.features) ? form.features.join('\n') : ''}
+                            onChange={e => set('features', e.target.value.split('\n'))}
+                            className={`${INPUT_CLS} resize-y`}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Features (Arabic) <span className="text-muted-foreground">(one per line, same order)</span></FieldLabel>
+                        <textarea
+                            rows={6}
+                            dir="rtl"
+                            placeholder={"عملاء غير محدودين ∞\nتسليم خطة التمرين\n..."}
+                            value={Array.isArray(form.features_ar) ? form.features_ar.join('\n') : ''}
+                            onChange={e => set('features_ar', e.target.value.split('\n'))}
+                            className={`${INPUT_CLS} resize-y`}
+                        />
+                    </div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.is_popular} onChange={e => set('is_popular', e.target.checked)} className="rounded" />
-                    Show "Most Popular" badge
+                    Show &quot;Most Popular&quot; badge
                 </label>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input type="checkbox" checked={form.show_on_landing} onChange={e => set('show_on_landing', e.target.checked)} className="rounded" />
                     Show on landing page
                 </label>
-
-                {/* ── Payment links per billing period ── */}
-                {billingPeriods?.length > 0 && (
-                    <>
-                        <p className={SECTION_LABEL_CLS}>Payment Links per Billing Period</p>
-                        <p className="text-xs text-muted-foreground -mt-2">
-                            Each period needs its own Fawaterak link (different billing amount). Leave blank to fall back to each variation&apos;s own payment link above.
-                        </p>
-                        {billingPeriods.map(d => (
-                            <div key={d.period_key} className="flex flex-col gap-1.5">
-                                <FieldLabel>
-                                    <span className="flex items-center gap-2">
-                                        {d.label}
-                                        {d.save_label && (
-                                            <span className="text-xs text-primary font-semibold">{d.save_label}</span>
-                                        )}
-                                        <span className="text-muted-foreground font-normal">({d.months} mo)</span>
-                                    </span>
-                                </FieldLabel>
-                                <TextField
-                                    variant="secondary"
-                                    fullWidth
-                                    aria-label={d.label}
-                                    value={form.period_links?.[d.period_key] ?? ''}
-                                    onChange={(val) => set('period_links', { ...form.period_links, [d.period_key]: val })}
-                                >
-                                    <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
-                                </TextField>
-                            </div>
-                        ))}
-                    </>
-                )}
 
                 <FieldErrorText msg={error} />
 
@@ -432,7 +479,9 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
 function BillingDiscountEditRow({ discount, onSave, onCancel }) {
     const [form, setForm] = useState({
         label:            discount.label,
+        label_ar:         discount.label_ar ?? '',
         save_label:       discount.save_label ?? '',
+        save_label_ar:    discount.save_label_ar ?? '',
         discount_percent: discount.discount_percent,
         months:           discount.months,
         is_active:        discount.is_active,
@@ -446,7 +495,9 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
         try {
             const res = await api.put(`/api/admin/billing-discounts/${discount.id}`, {
                 ...form,
-                save_label: form.save_label.trim() || null,
+                save_label:    form.save_label.trim() || null,
+                label_ar:      form.label_ar.trim() || null,
+                save_label_ar: form.save_label_ar.trim() || null,
             });
             onSave(res.data);
         } finally {
@@ -457,31 +508,210 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
     const INPUT_SM = 'px-2 py-1 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 
     return (
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center px-4 py-2 border-t border-border bg-secondary/20">
-            <span className="text-sm font-mono text-muted-foreground">{discount.period_key}</span>
-            <input value={form.label} onChange={e => set('label', e.target.value)}
-                className={`${INPUT_SM} w-28`} placeholder="Label" />
-            <input value={form.save_label} onChange={e => set('save_label', e.target.value)}
-                className={`${INPUT_SM} w-24`} placeholder="Save label" />
-            <input type="number" min="0" max="100" value={form.discount_percent} onChange={e => set('discount_percent', parseInt(e.target.value) || 0)}
-                className={`${INPUT_SM} w-16 text-center`} />
-            <input type="number" min="1" value={form.months} onChange={e => set('months', parseInt(e.target.value) || 1)}
-                className={`${INPUT_SM} w-14 text-center`} />
-            <div className="flex items-center gap-1.5">
-                <label className="flex items-center gap-1 text-xs text-foreground cursor-pointer">
-                    <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
-                    On
-                </label>
-                <button onClick={handleSave} disabled={saving}
-                    className="p-1.5 rounded-lg text-green-500 hover:bg-green-500/10 transition-colors" title="Save">
-                    <Check size={14} />
-                </button>
-                <button onClick={onCancel}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors" title="Cancel">
-                    <X size={14} />
-                </button>
+        <div className="flex flex-col gap-2 px-4 py-2.5 border-t border-border bg-secondary/20">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center">
+                <span className="text-sm font-mono text-muted-foreground">{discount.period_key}</span>
+                <input value={form.label} onChange={e => set('label', e.target.value)}
+                    className={`${INPUT_SM} w-28`} placeholder="Label" />
+                <input value={form.save_label} onChange={e => set('save_label', e.target.value)}
+                    className={`${INPUT_SM} w-24`} placeholder="Save label" />
+                <input type="number" min="0" max="100" value={form.discount_percent} onChange={e => set('discount_percent', parseInt(e.target.value) || 0)}
+                    className={`${INPUT_SM} w-16 text-center`} />
+                <input type="number" min="1" value={form.months} onChange={e => set('months', parseInt(e.target.value) || 1)}
+                    className={`${INPUT_SM} w-14 text-center`} />
+                <div className="flex items-center gap-1.5">
+                    <label className="flex items-center gap-1 text-xs text-foreground cursor-pointer">
+                        <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
+                        On
+                    </label>
+                    <button onClick={handleSave} disabled={saving}
+                        className="p-1.5 rounded-lg text-green-500 hover:bg-green-500/10 transition-colors" title="Save">
+                        <Check size={14} />
+                    </button>
+                    <button onClick={onCancel}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors" title="Cancel">
+                        <X size={14} />
+                    </button>
+                </div>
+            </div>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
+                <span className="text-xs text-muted-foreground">Arabic</span>
+                <input value={form.label_ar} onChange={e => set('label_ar', e.target.value)} dir="rtl"
+                    className={`${INPUT_SM} w-28`} placeholder="التسمية" />
+                <input value={form.save_label_ar} onChange={e => set('save_label_ar', e.target.value)} dir="rtl"
+                    className={`${INPUT_SM} w-24`} placeholder="تسمية التوفير" />
             </div>
         </div>
+    );
+}
+
+function AddonModal({ addon, onClose, onSaved }) {
+    const isEdit = !!addon;
+    const [form, setForm] = useState({
+        key:           addon?.key ?? '',
+        label:         addon?.label ?? '',
+        label_ar:      addon?.label_ar ?? '',
+        dimension:     addon?.dimension ?? 'clients',
+        units:         addon?.units ?? '',
+        price_monthly: addon?.price_monthly ?? '',
+        currency:      addon?.currency ?? 'LE',
+        is_active:     addon?.is_active ?? true,
+        sort_order:    addon?.sort_order ?? 0,
+    });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    function set(key, val) { setForm(f => ({ ...f, [key]: val })); }
+
+    async function handleSave() {
+        setSaving(true);
+        setError('');
+        try {
+            const payload = {
+                label:         form.label.trim(),
+                label_ar:      form.label_ar.trim() || null,
+                dimension:     form.dimension.trim(),
+                units:         parseInt(form.units) || 0,
+                price_monthly: parseFloat(form.price_monthly) || 0,
+                currency:      form.currency.trim() || 'LE',
+                is_active:     form.is_active,
+                sort_order:    parseInt(form.sort_order) || 0,
+            };
+            if (isEdit) {
+                await api.put(`/api/admin/addons/${addon.id}`, payload);
+            } else {
+                await api.post('/api/admin/addons', { ...payload, key: form.key.trim() });
+            }
+            onSaved();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to save');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <AppModal open onClose={onClose} title={isEdit ? 'Edit Add-on' : 'New Add-on'}>
+            <div className="flex flex-col gap-4">
+                {!isEdit && (
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Internal key <span className="text-muted-foreground">(e.g. clients_plus_10)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Internal key" value={form.key} onChange={(val) => set('key', val)}>
+                            <Input type="text" placeholder="clients_plus_10" />
+                        </TextField>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Label</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Label" value={form.label} onChange={(val) => set('label', val)}>
+                            <Input type="text" placeholder="+10 Clients" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Label (Arabic)</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Label (Arabic)" value={form.label_ar} onChange={(val) => set('label_ar', val)}>
+                            <Input type="text" dir="rtl" placeholder="+10 عملاء" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Dimension</FieldLabel>
+                        <Select variant="secondary" fullWidth aria-label="Dimension" value={form.dimension} onChange={(key) => set('dimension', key)}>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    <ListBox.Item id="clients" textValue="Clients">Clients<ListBox.ItemIndicator /></ListBox.Item>
+                                    <ListBox.Item id="team_seats" textValue="Team seats">Team seats<ListBox.ItemIndicator /></ListBox.Item>
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Units per purchase</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Units per purchase" value={form.units} onChange={(val) => set('units', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="10" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Price / mo</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Price per month" value={form.price_monthly} onChange={(val) => set('price_monthly', val)}>
+                            <Input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Currency</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Currency" value={form.currency} onChange={(val) => set('currency', val)}>
+                            <Input type="text" placeholder="LE" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
+                    Active
+                </label>
+
+                <FieldErrorText msg={error} />
+
+                <ModalFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </ModalFooter>
+            </div>
+        </AppModal>
+    );
+}
+
+function DeleteAddonConfirmModal({ addon, onClose, onConfirm, error }) {
+    const [deleting, setDeleting] = useState(false);
+
+    async function handleDelete() {
+        setDeleting(true);
+        await onConfirm(addon);
+        setDeleting(false);
+    }
+
+    return (
+        <AlertDialog isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <AlertDialog.Backdrop>
+                <AlertDialog.Container>
+                    <AlertDialog.Dialog>
+                        <AlertDialog.Header>
+                            <AlertDialog.Heading>Delete Add-on</AlertDialog.Heading>
+                        </AlertDialog.Header>
+                        <AlertDialog.Body>
+                            <p className="text-sm text-muted-foreground">
+                                Are you sure you want to delete <span className="font-semibold text-foreground">{addon.label}</span>? This cannot be undone.
+                            </p>
+                            {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+                        </AlertDialog.Body>
+                        <AlertDialog.Footer>
+                            <Button variant="ghost" isDisabled={deleting} onClick={onClose}>Cancel</Button>
+                            <Button
+                                isDisabled={deleting}
+                                onClick={handleDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                {deleting ? 'Deleting…' : 'Delete'}
+                            </Button>
+                        </AlertDialog.Footer>
+                    </AlertDialog.Dialog>
+                </AlertDialog.Container>
+            </AlertDialog.Backdrop>
+        </AlertDialog>
     );
 }
 
@@ -544,6 +774,15 @@ export default function AdminPlansPage() {
     const [discountsLoading, setDiscountsLoading] = useState(true);
     const [editingDiscount, setEditingDiscount] = useState(null);
 
+    const [addons, setAddons] = useState([]);
+    const [addonsLoading, setAddonsLoading] = useState(true);
+    const [addonModal, setAddonModal] = useState(null);
+    const [deleteAddonTarget, setDeleteAddonTarget] = useState(null);
+    const [addonError, setAddonError] = useState('');
+
+    const [trialSettings, setTrialSettings] = useState(null);
+    const [trialSaving, setTrialSaving] = useState(false);
+
     function load() {
         setLoading(true);
         api.get('/api/admin/plans')
@@ -559,7 +798,36 @@ export default function AdminPlansPage() {
             .finally(() => setDiscountsLoading(false));
     }
 
-    useEffect(() => { load(); loadDiscounts(); }, []);
+    function loadAddons() {
+        setAddonsLoading(true);
+        api.get('/api/admin/addons')
+            .then(res => setAddons(res.data))
+            .finally(() => setAddonsLoading(false));
+    }
+
+    function loadTrialSettings() {
+        api.get('/api/admin/trial-settings').then(res => setTrialSettings(res.data));
+    }
+
+    function saveTrialSettings(next) {
+        setTrialSaving(true);
+        api.put('/api/admin/trial-settings', next)
+            .then(res => setTrialSettings(res.data))
+            .finally(() => setTrialSaving(false));
+    }
+
+    async function handleDeleteAddon(addon) {
+        setAddonError('');
+        try {
+            await api.delete(`/api/admin/addons/${addon.id}`);
+            setDeleteAddonTarget(null);
+            loadAddons();
+        } catch (err) {
+            setAddonError(err.response?.data?.message || 'Failed to delete add-on');
+        }
+    }
+
+    useEffect(() => { load(); loadDiscounts(); loadAddons(); loadTrialSettings(); }, []);
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -578,14 +846,15 @@ export default function AdminPlansPage() {
 
             {/* ── Plans table ── */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[90px_1fr_90px_130px_90px_80px_130px_70px_70px] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Name</span>
                     <span>Display</span>
-                    <span>Variations</span>
-                    <span>Price range</span>
-                    <span>Trial days</span>
-                    <span>Workspaces Using</span>
-                    <span>Default</span>
+                    <span className="text-center">Variations</span>
+                    <span className="text-right">Price range</span>
+                    <span className="text-center">Team seats</span>
+                    <span className="text-center">Add-ons</span>
+                    <span className="text-center">Workspaces Using</span>
+                    <span className="text-center">Default</span>
                     <span></span>
                 </div>
 
@@ -605,23 +874,42 @@ export default function AdminPlansPage() {
                             : Math.min(...prices) === Math.max(...prices)
                                 ? `${Math.min(...prices).toLocaleString('en-EG')} ${currency}`.trim()
                                 : `${Math.min(...prices).toLocaleString('en-EG')}–${Math.max(...prices).toLocaleString('en-EG')} ${currency}`.trim();
+
+                        // Each variation inherits the plan's flat seat count when it doesn't carry
+                        // its own (mirrors the COALESCE(pv.max_team_seats, p.max_team_seats) the
+                        // server enforces with) — shown as a range since TeamForce's tiers vary.
+                        const effectiveSeats = variations.length > 0
+                            ? variations.map(v => v.max_team_seats ?? p.max_team_seats)
+                            : [p.max_team_seats];
+                        const numericSeats = effectiveSeats.filter(s => s != null);
+                        const seatsRange = numericSeats.length === 0
+                            ? 'Unlimited'
+                            : numericSeats.length === effectiveSeats.length && Math.min(...numericSeats) === Math.max(...numericSeats)
+                                ? `${numericSeats[0]}`
+                                : numericSeats.length === effectiveSeats.length
+                                    ? `${Math.min(...numericSeats)}–${Math.max(...numericSeats)}`
+                                    : `${Math.min(...numericSeats)}–Unlimited`;
+
+                        const addonCount = Array.isArray(p.addon_rules) ? p.addon_rules.length : 0;
+
                         return (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
+                            className={`grid grid-cols-[90px_1fr_90px_130px_90px_80px_130px_70px_70px] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
                         >
-                            <span className="text-sm font-mono text-muted-foreground w-20">{p.name}</span>
-                            <span className="text-sm font-medium text-foreground">{p.display_name}</span>
-                            <span className="text-sm text-foreground w-20 text-center">{variations.length}</span>
-                            <span className="text-sm text-foreground w-32 text-right">{priceRange}</span>
-                            <span className="text-sm text-foreground w-20 text-center">
-                                {p.trial_days != null ? `${p.trial_days}d` : '—'}
+                            <span className="text-sm font-mono text-muted-foreground block w-full truncate">{p.name}</span>
+                            <span className="text-sm font-medium text-foreground block w-full truncate">{p.display_name}</span>
+                            <span className="text-sm text-foreground block w-full text-center">{variations.length}</span>
+                            <span className="text-sm text-foreground block w-full text-right truncate">{priceRange}</span>
+                            <span className="text-sm text-foreground block w-full text-center truncate">{seatsRange}</span>
+                            <span className="text-sm text-foreground block w-full text-center">
+                                {addonCount > 0 ? addonCount : '—'}
                             </span>
-                            <span className="text-sm text-foreground w-24 text-center">{p.workspace_count}</span>
-                            <span className="w-16 flex justify-center">
+                            <span className="text-sm text-foreground block w-full text-center">{p.workspace_count}</span>
+                            <span className="w-full flex justify-center">
                                 {p.is_default && <Star size={14} className="text-yellow-500" title="Default plan for new registrations" />}
                             </span>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 justify-center">
                                 <button
                                     onClick={() => setModal(p)}
                                     className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors"
@@ -698,12 +986,99 @@ export default function AdminPlansPage() {
                 )}
             </div>
 
+            {/* ── Add-ons ── */}
+            <div className="rounded-xl border border-border overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-secondary/50 border-b border-border">
+                    <div>
+                        <h2 className="text-sm font-semibold text-foreground">Add-ons</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Purchasable extras (+10 clients, +1 team member, …). Enable per-plan in each plan&apos;s edit modal.
+                        </p>
+                    </div>
+                    <Button variant="ghost" onClick={() => setAddonModal('new')}>
+                        <Plus size={14} className="mr-1.5" />
+                        New add-on
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <span>Label</span>
+                    <span className="w-24">Dimension</span>
+                    <span className="w-14 text-center">Units</span>
+                    <span className="w-24 text-right">Price/mo</span>
+                    <span className="w-16">Active</span>
+                    <span></span>
+                </div>
+
+                {addonsLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 border-t border-border rounded-none" />
+                    ))
+                ) : addons.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-muted-foreground border-t border-border">No add-ons yet.</div>
+                ) : (
+                    addons.map((a, idx) => (
+                        <div key={a.id} className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!a.is_active ? 'opacity-40' : ''}`}>
+                            <span className="text-sm font-medium text-foreground">{a.label} <span className="text-xs text-muted-foreground font-mono">({a.key})</span></span>
+                            <span className="text-sm text-muted-foreground w-24">{a.dimension}</span>
+                            <span className="text-sm text-foreground w-14 text-center">+{a.units}</span>
+                            <span className="text-sm text-foreground w-24 text-right">{Number(a.price_monthly).toLocaleString('en-EG')} {a.currency}</span>
+                            <span className={`text-xs font-medium w-16 ${a.is_active ? 'text-green-500' : 'text-muted-foreground'}`}>{a.is_active ? 'On' : 'Off'}</span>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => setAddonModal(a)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors" title="Edit add-on">
+                                    <Pencil size={14} />
+                                </button>
+                                <button onClick={() => setDeleteAddonTarget(a)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors" title="Delete add-on">
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* ── Trial Settings ── */}
+            {trialSettings && (
+                <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="px-4 py-3 bg-secondary/50 border-b border-border">
+                        <h2 className="text-sm font-semibold text-foreground">Trial Settings</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            When enabled, every new workspace starts on a OneForce trial and reverts to Free once it expires.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-6 px-4 py-3">
+                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={trialSettings.trial_enabled}
+                                onChange={e => saveTrialSettings({ ...trialSettings, trial_enabled: e.target.checked })}
+                                className="rounded"
+                            />
+                            Trial enabled
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <FieldLabel>Trial duration (days)</FieldLabel>
+                            <input
+                                type="number" min="1" inputMode="numeric"
+                                className="w-20 px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none"
+                                value={trialSettings.trial_duration_days}
+                                onChange={e => setTrialSettings(s => ({ ...s, trial_duration_days: e.target.value }))}
+                                onBlur={e => saveTrialSettings({ ...trialSettings, trial_duration_days: parseInt(e.target.value) || 14 })}
+                            />
+                        </div>
+                        {trialSaving && <span className="text-xs text-muted-foreground">Saving…</span>}
+                    </div>
+                </div>
+            )}
+
             {modal && (
                 <PlanModal
                     plan={modal === 'new' ? null : modal}
                     onClose={() => setModal(null)}
                     onSaved={load}
-                    billingPeriods={discounts}
+                    addons={addons}
                 />
             )}
 
@@ -712,6 +1087,23 @@ export default function AdminPlansPage() {
                     plan={deleteTarget}
                     onClose={() => setDeleteTarget(null)}
                     onDeleted={load}
+                />
+            )}
+
+            {addonModal && (
+                <AddonModal
+                    addon={addonModal === 'new' ? null : addonModal}
+                    onClose={() => setAddonModal(null)}
+                    onSaved={loadAddons}
+                />
+            )}
+
+            {deleteAddonTarget && (
+                <DeleteAddonConfirmModal
+                    addon={deleteAddonTarget}
+                    error={addonError}
+                    onClose={() => { setDeleteAddonTarget(null); setAddonError(''); }}
+                    onConfirm={handleDeleteAddon}
                 />
             )}
         </div>

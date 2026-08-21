@@ -19,6 +19,12 @@ export default function PlansQueuePage() {
     const [queueItems, setQueueItems] = useState([]);
     const [forms, setForms] = useState([]);
     const [members, setMembers] = useState([]);
+    const [labels, setLabels] = useState([]);
+    // Label management (create/rename/delete) is restricted to the workspace
+    // owner or a 'manager' role — see forms.controller.ts's isManagerOrOwner.
+    // Applying an existing label to a row stays available to anyone who can
+    // see the queue at all, matching assignTo's 'forms' write gate.
+    const [canManageLabels, setCanManageLabels] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [showHistory, setShowHistory] = useState(false);
@@ -131,12 +137,36 @@ export default function PlansQueuePage() {
                     list = [{ id: me.userId, name: `${me.fname ?? ""} ${me.lname ?? ""}`.trim() || me.email }, ...list];
                 }
                 setMembers(list);
+                const role = me.currentWorkspace?.role;
+                setCanManageLabels(role === "owner" || role === "manager");
             } catch {
                 // assignment is optional — leave members empty on failure
             }
         }
         loadMembers();
     }, []);
+
+    // Fetched here (not inside PlansQueueTable) and passed to both the Main
+    // and History table instances as a shared prop — otherwise the two views
+    // could show out-of-sync label lists after a create/rename/delete in
+    // whichever view's Manage Labels modal was used. refreshLabels bumps the
+    // token below rather than calling setLabels directly, matching this
+    // file's existing queueReloadToken pattern for the same reason: an
+    // effect should synchronize with a dependency, not be invoked as a bare
+    // imperative function.
+    const [labelsReloadToken, setLabelsReloadToken] = useState(0);
+    function refreshLabels() { setLabelsReloadToken((n) => n + 1); }
+    useEffect(() => {
+        async function loadLabels() {
+            try {
+                const res = await api.get("/api/forms/queue/labels");
+                setLabels(res.data || []);
+            } catch {
+                // labels are optional UI — leave the existing list on failure
+            }
+        }
+        loadLabels();
+    }, [labelsReloadToken]);
 
     useEffect(() => {
         async function loadQueue() {
@@ -291,6 +321,9 @@ export default function PlansQueuePage() {
                         awaiting={awaiting}
                         forms={forms}
                         members={members}
+                        labels={labels}
+                        canManageLabels={canManageLabels}
+                        onLabelsChange={refreshLabels}
                         title={t('historyTitle')}
                         description={t('historyDescription')}
                         headerAction={historyToggle}
@@ -316,6 +349,9 @@ export default function PlansQueuePage() {
                     awaiting={[]}
                     forms={forms}
                     members={members}
+                    labels={labels}
+                    canManageLabels={canManageLabels}
+                    onLabelsChange={refreshLabels}
                     hideStatusColumn
                     hideActionTakenColumn
                     headerAction={historyToggle}

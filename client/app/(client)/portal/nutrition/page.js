@@ -22,6 +22,7 @@ export default function ClientDashboardPage() {
     usePageTitle(t('title'));
     const locale = useLocale();
     const isRTL  = locale === 'ar';
+    const localizedFoodName = (food) => (isRTL && food?.name_ar) || food?.name || food?.name_ar || '';
 
     const [plan, setPlan]                         = useState(null);
     const [activeCycleIndex, setActiveCycleIndex] = useState(0);
@@ -361,12 +362,12 @@ export default function ClientDashboardPage() {
                                                                         </button>
                                                                         <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
                                                                             <div className="flex flex-col min-w-0">
-                                                                                <span dir="auto" className={`text-xs font-medium text-foreground truncate ${checked ? 'line-through' : ''}`}>{item.name}</span>
+                                                                                <span dir="auto" className={`text-xs font-medium text-foreground truncate ${checked ? 'line-through' : ''}`}>{localizedFoodName(item)}</span>
                                                                                 <span dir="ltr" className="text-[11px] text-muted-foreground">{item.amount}{item.serving_unit}</span>
                                                                                 {item.is_swapped && (
                                                                                     <span className="text-[10px] text-primary flex items-center gap-1 mt-0.5">
                                                                                         <ArrowLeftRight className="w-2.5 h-2.5" />
-                                                                                        {t('foodSwap.swappedFrom', { name: item.original_food_name || item.original_food_name_ar || '' })}
+                                                                                        {t('foodSwap.swappedFrom', { name: (isRTL && item.original_food_name_ar) || item.original_food_name || item.original_food_name_ar || '' })}
                                                                                     </span>
                                                                                 )}
                                                                             </div>
@@ -411,7 +412,7 @@ export default function ClientDashboardPage() {
                                                                             <span className="text-[10px] text-muted-foreground/50 mb-0.5 block">{t('alternatives')}</span>
                                                                             {item.alternatives.map(alt => (
                                                                                 <div key={alt.id} className="flex flex-col py-1">
-                                                                                    <span dir="auto" className="text-xs text-foreground">{alt.name}</span>
+                                                                                    <span dir="auto" className="text-xs text-foreground">{localizedFoodName(alt)}</span>
                                                                                     <span dir="ltr" className="text-xs text-muted-foreground">{alt.amount}{alt.serving_unit}</span>
                                                                                 </div>
                                                                             ))}

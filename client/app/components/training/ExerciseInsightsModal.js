@@ -124,11 +124,12 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
         api.get('/api/auth/me').then(({ data }) => setMe(data)).catch(() => {});
     }, [open]);
 
+    const isRTL = locale === 'ar';
     const exerciseName = exercise
         ? (getLocalizedField(exercise, "library_name", locale) || exercise.name || "")
         : "";
     const meta = exercise
-        ? [exercise.muscle_group, exercise.equipment].filter(Boolean).join(" · ")
+        ? [(isRTL && exercise.muscle_group_ar) || exercise.muscle_group, (isRTL && exercise.equipment_ar) || exercise.equipment].filter(Boolean).join(" · ")
         : "";
 
     const metric     = METRICS.find(m => m.key === activeMetric) ?? METRICS[0];

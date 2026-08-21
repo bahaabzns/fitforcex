@@ -729,10 +729,6 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState("");
 
-    const ownedCount = me?.workspaces?.filter(w => w.role === "owner").length ?? 0;
-    const maxWorkspaces = workspace?.max_workspaces ?? null;
-    const atWorkspaceLimit = maxWorkspaces !== null && ownedCount >= parseInt(maxWorkspaces);
-
     function reset() { setName(""); setSlug(""); setError(""); }
 
     async function handleCreate(e) {
@@ -753,60 +749,40 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
     return (
         <Modal open={open} onClose={() => { reset(); onClose(); }} title={t("createWorkspaceTitle")}>
             <div className="flex flex-col gap-3">
-                {atWorkspaceLimit ? (
-                    <>
-                        <UpgradeBanner
-                            message={t("workspacePlanLimit", { count: maxWorkspaces })}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            {t("ownedWorkspaces", { count: ownedCount })}
+                <form onSubmit={handleCreate} className="flex flex-col gap-5 px-1 py-1">
+                    {error && (
+                        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                            {error}
                         </p>
-                    </>
-                ) : (
-                    <form onSubmit={handleCreate} className="flex flex-col gap-5 px-1 py-1">
-                        {error && (
-                            error.toLowerCase().includes("workspace") && error.toLowerCase().includes("plan") ? (
-                                <UpgradeBanner message={error} />
-                            ) : (
-                                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                                    {error}
-                                </p>
-                            )
-                        )}
-                        <div className="flex flex-col gap-1.5">
-                            <FieldLabel required>{t("workspaceNameLabel")}</FieldLabel>
-                            <TextField variant="secondary" fullWidth isRequired aria-label={t("workspaceNameLabel")} value={name} onChange={setName}>
-                                <Input type="text" placeholder={t("workspaceNamePlaceholder")} autoFocus />
-                            </TextField>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <FieldLabel>
-                                {t("slugLabel")} <span className="font-normal opacity-60">{t("slugOptional")}</span>
-                            </FieldLabel>
-                            <TextField variant="secondary" fullWidth aria-label={t("slugLabel")} value={slug} onChange={setSlug}>
-                                <Input type="text" placeholder={t("slugPlaceholder")} />
-                            </TextField>
-                            <p className="text-xs text-muted-foreground mt-1">{t("slugHint")}</p>
-                        </div>
-                        {maxWorkspaces !== null && (
-                            <p className="text-xs text-muted-foreground">
-                                {t("workspacesUsed", { used: ownedCount, max: maxWorkspaces })}
-                            </p>
-                        )}
-                        <ModalFooter>
-                            <Button type="button" variant="ghost" onClick={() => { reset(); onClose(); }}>
-                                {tCommon("cancel")}
-                            </Button>
-                            <Button
-                                type="submit"
-                                isDisabled={creating || !name.trim()}
-                                variant="primary"
-                            >
-                                {creating ? t("creating") : t("createWorkspace")}
-                            </Button>
-                        </ModalFooter>
+                    )}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t("workspaceNameLabel")}</FieldLabel>
+                        <TextField variant="secondary" fullWidth isRequired aria-label={t("workspaceNameLabel")} value={name} onChange={setName}>
+                            <Input type="text" placeholder={t("workspaceNamePlaceholder")} autoFocus />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
+                            {t("slugLabel")} <span className="font-normal opacity-60">{t("slugOptional")}</span>
+                        </FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t("slugLabel")} value={slug} onChange={setSlug}>
+                            <Input type="text" placeholder={t("slugPlaceholder")} />
+                        </TextField>
+                        <p className="text-xs text-muted-foreground mt-1">{t("slugHint")}</p>
+                    </div>
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={() => { reset(); onClose(); }}>
+                            {tCommon("cancel")}
+                        </Button>
+                        <Button
+                            type="submit"
+                            isDisabled={creating || !name.trim()}
+                            variant="primary"
+                        >
+                            {creating ? t("creating") : t("createWorkspace")}
+                        </Button>
+                    </ModalFooter>
                     </form>
-                )}
             </div>
         </Modal>
     );

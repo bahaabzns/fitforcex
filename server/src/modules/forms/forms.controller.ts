@@ -26,6 +26,21 @@ export function normalizeStatus(value: unknown): string | undefined {
     return FORM_STATUSES.includes(value as string) ? (value as string) : undefined;
 }
 
+// Fixed palette (not a freeform hex picker) so every label renders with the
+// same visual weight as the rest of this table's chips — mirrors the 10
+// color names PlansQueueTable.js already cycles through for package chips.
+export const QUEUE_LABEL_COLORS = ['pink', 'cyan', 'orange', 'teal', 'indigo', 'rose', 'lime', 'sky', 'fuchsia', 'violet'];
+
+// Label management (create/rename/delete) is restricted to the workspace
+// owner or a 'manager' role — deliberately narrower than the 'forms' write
+// permission every other Plans Queue action uses, since labels are a shared
+// workspace-wide taxonomy, not a per-item action. Applying an EXISTING label
+// to a queue item (assignQueueLabel, below) stays under the normal 'forms'
+// write gate already enforced by this router's blanket middleware.
+function isManagerOrOwner(req: Request): boolean {
+    return !!req.user && (req.user.isOwner || req.user.role === 'manager');
+}
+
 // DDL — kept as raw pool (ALTER TABLE cannot run inside Prisma)
 export async function ensureFormsQueueSchema(): Promise<void> {
     if (!schemaReadyPromise) {
@@ -937,17 +952,19 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
         const rows = await prisma.$queryRaw<RequestRow[]>`
             SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
                    fr.scheduled_at, fr.post_action, fr.action_taken_at, fr.assigned_to,
-                   fr.archived_at,
+                   fr.archived_at, fr.label_id,
                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
                    f.form_type, f.post_action AS form_post_action,
                    c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
                    au.fname AS assignee_fname, au.lname AS assignee_lname,
                    c.current_package AS client_package,
+                   pql.name AS label_name, pql.color AS label_color,
                    NULL::text AS subscription_status
             FROM form_requests fr
             JOIN forms f ON f.id = fr.form_id
             JOIN clients c ON c.id = fr.client_id
             LEFT JOIN users au ON au.id = fr.assigned_to
+            LEFT JOIN plans_queue_labels pql ON pql.id = fr.label_id
             WHERE fr.workspace_id = ${req.user!.workspaceId}
               AND ${archivedFilter}
             ORDER BY fr.requested_at DESC
@@ -997,6 +1014,9 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     status: row.status === 'scheduled' ? 'scheduled' : 'awaiting',
                     assignedTo: row.assigned_to ?? null,
                     assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
+                    labelId: row.label_id ?? null,
+                    labelName: row.label_name ?? null,
+                    labelColor: row.label_color ?? null,
                     answers: {}, responses: [],
                     isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
                 };
@@ -1018,6 +1038,9 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 status: row.status === 'reviewed' ? 'action-done' : 'need-action',
                 assignedTo: row.assigned_to ?? null,
                 assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
+                labelId: row.label_id ?? null,
+                labelName: row.label_name ?? null,
+                labelColor: row.label_color ?? null,
                 answers,
                 responses: requestResponses,
                 isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
@@ -1131,6 +1154,128 @@ export async function assignQueue(req: Request, res: Response, next: NextFunctio
         }
 
         res.json({ updatedIds: updated.map(r => r.id), assignedTo: assigneeId });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Plans Queue Labels — workspace-shared, one label per queue item, name + a
+// coach-chosen color from QUEUE_LABEL_COLORS. See DECISIONS/plan doc for why
+// this is a real FK table rather than the string-matched-by-name pattern
+// exercise_muscle_groups/food_categories use: there's no legacy denormalized
+// data here to stay compatible with, so a real relation is simpler and safer.
+export async function getQueueLabels(req: Request, res: Response, next: NextFunction) {
+    try {
+        const labels = await prisma.plans_queue_labels.findMany({
+            where:   { workspace_id: req.user!.workspaceId },
+            orderBy: { name: 'asc' },
+        });
+        res.json(labels);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function createQueueLabel(req: Request, res: Response, next: NextFunction) {
+    if (!isManagerOrOwner(req)) return res.status(403).json({ error: 'Only the workspace owner or a manager can manage labels' });
+
+    const { name, color } = req.body as Record<string, unknown>;
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    if (!trimmedName) return res.status(400).json({ error: 'name is required' });
+    if (!QUEUE_LABEL_COLORS.includes(color as string)) return res.status(400).json({ error: `color must be one of: ${QUEUE_LABEL_COLORS.join(', ')}` });
+
+    try {
+        const existing = await prisma.plans_queue_labels.findFirst({
+            where: { workspace_id: req.user!.workspaceId, name: trimmedName },
+        });
+        if (existing) return res.status(409).json({ error: 'A label with this name already exists' });
+
+        const label = await prisma.plans_queue_labels.create({
+            data: { id: createId(), workspace_id: req.user!.workspaceId, name: trimmedName, color: color as string },
+        });
+        res.status(201).json(label);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateQueueLabel(req: Request, res: Response, next: NextFunction) {
+    if (!isManagerOrOwner(req)) return res.status(403).json({ error: 'Only the workspace owner or a manager can manage labels' });
+
+    const { name, color } = req.body as Record<string, unknown>;
+    const trimmedName = name !== undefined ? (typeof name === 'string' ? name.trim() : '') : undefined;
+    if (trimmedName !== undefined && !trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
+    if (color !== undefined && !QUEUE_LABEL_COLORS.includes(color as string)) {
+        return res.status(400).json({ error: `color must be one of: ${QUEUE_LABEL_COLORS.join(', ')}` });
+    }
+
+    try {
+        const existing = await prisma.plans_queue_labels.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+        });
+        if (!existing) return res.status(404).json({ error: 'Label not found' });
+
+        if (trimmedName !== undefined && trimmedName !== existing.name) {
+            const duplicate = await prisma.plans_queue_labels.findFirst({
+                where: { workspace_id: req.user!.workspaceId, name: trimmedName, id: { not: existing.id } },
+            });
+            if (duplicate) return res.status(409).json({ error: 'A label with this name already exists' });
+        }
+
+        const updated = await prisma.plans_queue_labels.update({
+            where: { id: existing.id },
+            data: {
+                name:       trimmedName ?? undefined,
+                color:      (color as string | undefined) ?? undefined,
+                updated_at: new Date(),
+            },
+        });
+        res.json(updated);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function deleteQueueLabel(req: Request, res: Response, next: NextFunction) {
+    if (!isManagerOrOwner(req)) return res.status(403).json({ error: 'Only the workspace owner or a manager can manage labels' });
+
+    try {
+        const deleted = await prisma.plans_queue_labels.deleteMany({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+        });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Label not found' });
+        // form_requests.label_id is ON DELETE SET NULL — affected queue items
+        // are un-labelled automatically, no separate cleanup needed here.
+        res.json({ deleted: req.params.id });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Applying an existing label to a queue item (or clearing it) is a normal
+// queue action, not label management — gated by the router's blanket 'forms'
+// write permission like assignQueue, not isManagerOrOwner.
+export async function assignQueueLabel(req: Request, res: Response, next: NextFunction) {
+    const { formRequestId, labelId } = req.body as { formRequestId?: unknown; labelId?: string | null };
+    if (!formRequestId || typeof formRequestId !== 'string') {
+        return res.status(400).json({ error: 'formRequestId is required' });
+    }
+
+    try {
+        if (labelId) {
+            const label = await prisma.plans_queue_labels.findFirst({
+                where: { id: labelId, workspace_id: req.user!.workspaceId },
+                select: { id: true },
+            });
+            if (!label) return res.status(400).json({ error: 'Label not found' });
+        }
+
+        const updated = await prisma.form_requests.updateMany({
+            where: { id: formRequestId, workspace_id: req.user!.workspaceId },
+            data:  { label_id: labelId || null },
+        });
+        if (updated.count === 0) return res.status(404).json({ error: 'Queue item not found' });
+        res.json({ id: formRequestId, labelId: labelId || null });
     } catch (err) {
         next(err);
     }

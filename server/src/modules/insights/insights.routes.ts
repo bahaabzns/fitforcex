@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import * as insightsController from './insights.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 router.use((req: Request, res: Response, next: NextFunction) => {
     const action = req.method === 'GET' ? 'read' : 'write';
     requirePermission('insights', action)(req, res, next);

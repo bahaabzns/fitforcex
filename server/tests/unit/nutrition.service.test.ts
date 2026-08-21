@@ -1,4 +1,4 @@
-import { calculateEquivalentAmount, toNumberOrNull } from '../../src/modules/nutrition/nutrition.service';
+import { calculateEquivalentAmount, resolveSwapAmount, toNumberOrNull } from '../../src/modules/nutrition/nutrition.service';
 
 describe('calculateEquivalentAmount', () => {
     it('matches the coach portal\'s calorie-equivalence formula (client/hooks/useNutritionPlan.js)', () => {
@@ -42,6 +42,42 @@ describe('calculateEquivalentAmount', () => {
             { servingSize: 100, caloriesPerServing: 165 }
         );
         expect(amount).toBe(1_000_000);
+    });
+});
+
+describe('resolveSwapAmount', () => {
+    it('returns the calorie-equivalent amount when it can be computed, flagged as matched', () => {
+        const resolved = resolveSwapAmount(
+            { amount: 200, servingSize: 100, caloriesPerServing: 165 },
+            { servingSize: 100, caloriesPerServing: 135 }
+        );
+        expect(resolved).toEqual({ amount: 244.4, isCalorieMatched: true });
+    });
+
+    it('falls back to the target\'s own serving size when the target has 0 calories/serving', () => {
+        // e.g. black coffee, water, spices — calorie-matching is undefined,
+        // but the food is still a legitimate same-category swap option.
+        const resolved = resolveSwapAmount(
+            { amount: 200, servingSize: 100, caloriesPerServing: 165 },
+            { servingSize: 250, caloriesPerServing: 0 }
+        );
+        expect(resolved).toEqual({ amount: 250, isCalorieMatched: false });
+    });
+
+    it('falls back to the target\'s own serving size when the source has no usable calorie data', () => {
+        const resolved = resolveSwapAmount(
+            { amount: 200, servingSize: 100, caloriesPerServing: 0 },
+            { servingSize: 100, caloriesPerServing: 135 }
+        );
+        expect(resolved).toEqual({ amount: 100, isCalorieMatched: false });
+    });
+
+    it('returns null when the target has no serving size at all', () => {
+        const resolved = resolveSwapAmount(
+            { amount: 200, servingSize: 100, caloriesPerServing: 165 },
+            { servingSize: 0, caloriesPerServing: 0 }
+        );
+        expect(resolved).toBeNull();
     });
 });
 

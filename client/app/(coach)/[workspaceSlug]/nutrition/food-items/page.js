@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2, Apple } from "lucide-react";
+import { Pencil, Trash2, Apple, AlertTriangle } from "lucide-react";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
@@ -99,7 +99,17 @@ export default function FoodItemsPage() {
     const categoryOptions = categories.map(c => c.name_en);
     const foodItemColumns = [
         { key: "name_en", label: t("columnNameEn"), filterType: "text", sortable: true },
-        { key: "name_ar", label: t("columnNameAr"), render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
+        { key: "name_ar", label: t("columnNameAr"), render: (row) => row.name_ar
+            ? <span dir="rtl">{row.name_ar}</span>
+            : (
+                <Tooltip>
+                    <span className="inline-flex items-center gap-1 text-amber-500">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span className="text-xs">{t("missingArabicName")}</span>
+                    </span>
+                    <Tooltip.Content>{t("missingArabicNameHint")}</Tooltip.Content>
+                </Tooltip>
+            ) },
         { key: "food_category", label: t("columnCategory"), filterType: "multi", options: categoryOptions, sortable: true },
         { key: "serving_size", label: t("columnServingSize"), sortable: true },
         { key: "serving_unit", label: t("columnUnit") },

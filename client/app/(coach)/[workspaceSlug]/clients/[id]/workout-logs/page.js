@@ -141,7 +141,9 @@ export default function ClientWorkoutLogsPage() {
                                         ) : (
                                             (details[log.id].exercises ?? []).map((exercise, exIdx) => (
                                                 <div key={exIdx} className="flex flex-col gap-1">
-                                                    <span className="text-sm font-medium text-foreground">{exercise.name}</span>
+                                                    <span className="text-sm font-medium text-foreground">
+                                                        {(locale === 'ar' && exercise.library_name_ar) || exercise.library_name_en || exercise.name}
+                                                    </span>
                                                     <div className="grid grid-cols-4 gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
                                                         <span>{t("set")}</span><span>{t("weight")}</span><span>{t("repsShort")}</span><span>{t("rir")}</span>
                                                     </div>

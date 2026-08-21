@@ -5,6 +5,7 @@ import { computeClientStatus, logSubscriptionAudit, getEffectiveAccessForClient 
 import { recordEvent, ownerRecipients } from '../lib/events';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
 import { expireScheduledPrompts } from '../modules/insights/insights.service';
+import { runTrialExpirySweep } from '../lib/trialSweep';
 
 function chunk<T>(items: T[], size: number): T[][] {
     const out: T[][] = [];
@@ -57,6 +58,23 @@ export function scheduleSubscriptionExpiry(): void {
             }
         } catch (err) {
             console.error('[Scheduler] Subscription expiry error:', err);
+        }
+    });
+}
+
+/** Founder decision 10 — reverts an expired trial (status 'trialing') to Free. Kept
+ *  separate from scheduleSubscriptionExpiry above: that one flags lapsed paid renewals for
+ *  the coach to act on, this one auto-completes the trial→Free transition with no action
+ *  needed. Hourly, same cadence as the other lightweight ticks below. */
+export function scheduleTrialExpiry(): void {
+    cron.schedule('0 * * * *', async () => {
+        try {
+            const count = await runTrialExpirySweep();
+            if (count > 0) {
+                console.info(`[Scheduler] Reverted ${count} expired trial(s) to Free`);
+            }
+        } catch (err) {
+            console.error('[Scheduler] Trial expiry sweep error:', err);
         }
     });
 }

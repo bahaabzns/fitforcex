@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Modal } from "@heroui/react/modal";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Chip } from "@heroui/react/chip";
@@ -31,6 +31,8 @@ function SectionLabel({ children }) {
 // insight cards, observations, or workspace-role checks.
 export default function ClientExerciseInsightsModal({ open, onClose, exercise }) {
     const t = useTranslations("portal.training");
+    const isRTL = useLocale() === 'ar';
+    const exerciseName = (isRTL && exercise?.library_name_ar) || exercise?.library_name_en || exercise?.name;
     const { formatDate } = useDateFormatter();
 
     const [insights, setInsights] = useState(null);
@@ -77,7 +79,7 @@ export default function ClientExerciseInsightsModal({ open, onClose, exercise })
                 <Modal.Container className="max-w-2xl w-full">
                     <Modal.Dialog>
                         <Modal.Header>
-                            <Modal.Heading>{exercise?.name ?? t("progress")}</Modal.Heading>
+                            <Modal.Heading>{exerciseName ?? t("progress")}</Modal.Heading>
                             <Modal.CloseTrigger />
                         </Modal.Header>
                         <Modal.Body>

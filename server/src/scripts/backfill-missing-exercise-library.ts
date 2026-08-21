@@ -58,12 +58,12 @@ async function main() {
     const { rows: allOldExercises } = await old.query<{
       id: string; workspace_id: string; name: string; name_ar: string | null;
       muscle_group: string; equipment: string | null; video_url: string | null;
-      created_at: string;
+      gif_image: string | null; created_at: string;
     }>(`
       SELECT id, "workspaceId" AS workspace_id, name,
              "nameArabic" AS name_ar, "muscleGroup" AS muscle_group,
              "equipmentNeeded" AS equipment, "videoUrl" AS video_url,
-             "createdAt" AS created_at
+             "gifImage" AS gif_image, "createdAt" AS created_at
       FROM public."Exercise" WHERE "deletedAt" IS NULL
     `);
 
@@ -80,10 +80,10 @@ async function main() {
     if (missing.length > 0 && !DRY_RUN) {
       for (const e of missing) {
         await db.query(`
-          INSERT INTO exercise_library (id, workspace_id, name_en, name_ar, muscle_group, equipment, youtube_url, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+          INSERT INTO exercise_library (id, workspace_id, name_en, name_ar, muscle_group, equipment, youtube_url, thumbnail_path, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
           ON CONFLICT (id) DO NOTHING
-        `, [e.id, e.workspace_id, e.name, e.name_ar, e.muscle_group, e.equipment, e.video_url, new Date(e.created_at)]);
+        `, [e.id, e.workspace_id, e.name, e.name_ar, e.muscle_group, e.equipment, e.video_url, e.gif_image, new Date(e.created_at)]);
       }
       log(`inserted ${missing.length} exercise_library row(s)`);
     }

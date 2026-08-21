@@ -170,10 +170,65 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *     responses:
  *       200:
  *         description: Locked price resynced
+ *
+ * /admin/workspaces/{id}/manual-payment:
+ *   post:
+ *     summary: Record a payment that happened outside the payment gateway and activate it immediately
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [planId, variationId]
+ *             properties:
+ *               planId:      { type: string }
+ *               variationId: { type: string }
+ *               amount:       { type: number }
+ *               currency:     { type: string }
+ *               durationDays: { type: integer }
+ *               notes:        { type: string }
+ *               startDate:    { type: string, format: date, description: "Backdate/schedule the subscription's effective start; defaults to now" }
+ *     responses:
+ *       201:
+ *         description: Payment recorded and subscription activated
+ *
+ * /admin/workspaces/{id}/manual-addon:
+ *   post:
+ *     summary: Grant an add-on to a workspace outside the payment gateway and apply it immediately
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [addonId]
+ *             properties:
+ *               addonId:      { type: string }
+ *               quantity:     { type: integer, description: "Units of this add-on to grant at once; defaults to 1" }
+ *               amount:       { type: number, description: "Total price for all units; defaults to the add-on's catalog price × quantity" }
+ *               currency:     { type: string }
+ *               durationDays: { type: integer }
+ *               notes:        { type: string }
+ *     responses:
+ *       201:
+ *         description: Add-on recorded and applied
  */
 router.get('/workspaces',                     adminAuthMiddleware, adminController.getWorkspaces);
 router.get('/workspaces/:id',                 adminAuthMiddleware, adminController.getWorkspaceById);
 router.put('/workspaces/:id/subscription',    adminAuthMiddleware, adminController.updateWorkspaceSubscription);
+router.post('/workspaces/:id/manual-payment', adminAuthMiddleware, adminController.createManualPayment);
+router.post('/workspaces/:id/manual-addon',   adminAuthMiddleware, adminController.createManualAddonPayment);
 router.post('/workspaces/:id/resync-price',   adminAuthMiddleware, adminController.resyncSubscriptionPrice);
 router.post('/workspaces/:id/restore',        adminAuthMiddleware, adminController.restoreWorkspace);
 router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminController.archiveWorkspace);
@@ -252,6 +307,74 @@ router.put('/billing-discounts/:id',   adminAuthMiddleware, adminController.upda
 
 /**
  * @openapi
+ * /admin/addons:
+ *   get:
+ *     summary: List all add-ons (catalog)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of add-ons
+ *   post:
+ *     summary: Create an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201:
+ *         description: Add-on created
+ *
+ * /admin/addons/{id}:
+ *   put:
+ *     summary: Update an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Add-on updated
+ *   delete:
+ *     summary: Delete an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       204:
+ *         description: Add-on deleted
+ *
+ * /admin/trial-settings:
+ *   get:
+ *     summary: Get the global trial toggle/duration
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial settings
+ *   put:
+ *     summary: Update the global trial toggle/duration
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial settings updated
+ */
+router.get('/addons',           adminAuthMiddleware, adminController.getAddons);
+router.post('/addons',          adminAuthMiddleware, adminController.createAddon);
+router.put('/addons/:id',       adminAuthMiddleware, adminController.updateAddon);
+router.delete('/addons/:id',    adminAuthMiddleware, adminController.deleteAddon);
+
+router.get('/trial-settings',   adminAuthMiddleware, adminController.getTrialSettings);
+router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrialSettings);
+
+/**
+ * @openapi
  * /admin/payments/stats:
  *   get:
  *     summary: Get payment aggregate stats
@@ -295,11 +418,38 @@ router.put('/billing-discounts/:id',   adminAuthMiddleware, adminController.upda
  *     responses:
  *       200:
  *         description: Status updated
+ *
+ * /admin/payments/{id}:
+ *   put:
+ *     summary: Correct a payment record's fields after the fact
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:             { type: number }
+ *               currency:           { type: string }
+ *               durationDays:       { type: integer }
+ *               notes:              { type: string }
+ *               planId:             { type: string }
+ *               variationId:        { type: string, nullable: true }
+ *               resyncSubscription: { type: boolean, description: "Also push the corrected values onto the workspace's live subscription" }
+ *               startDate:          { type: string, format: date, description: "Backdate/schedule the resynced subscription's effective start; only used when resyncSubscription is true" }
+ *     responses:
+ *       200:
+ *         description: Payment updated
  */
 router.get('/payments/stats',              adminAuthMiddleware, adminController.getPaymentStats);
 router.get('/payments',                    adminAuthMiddleware, adminController.getPayments);
 router.post('/payments/:id/mark-paid',     adminAuthMiddleware, adminController.markPaymentPaid);
 router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.updatePaymentStatus);
+router.put('/payments/:id',                adminAuthMiddleware, adminController.updatePayment);
 
 /**
  * @openapi

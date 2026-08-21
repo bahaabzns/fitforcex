@@ -50,8 +50,14 @@ export default function InsightBanner({ activePromptUrl, respondUrlPrefix }) {
         }
     }
 
+    // bottom offset cleared to sit above the various per-page floating action
+    // buttons (Start Training, Continue Day, Shopping List, …), which all
+    // anchor at bottom: 4.5rem — at the old 5rem offset this card's own
+    // height overlapped that button's clickable area and silently ate its
+    // clicks (confirmed: "Start Training" stopped responding whenever this
+    // prompt was showing).
     return (
-        <div className="fixed inset-x-0 z-60 flex justify-center px-4 pointer-events-none bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 z-60 flex justify-center px-4 pointer-events-none bottom-[calc(7rem+1rem+env(safe-area-inset-bottom))]">
             <div className="pointer-events-auto w-full max-w-md rounded-xl border border-border bg-card shadow-lg px-4 py-3">
                 <PromptCard
                     prompt={prompt}
