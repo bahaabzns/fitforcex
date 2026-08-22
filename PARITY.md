@@ -33,9 +33,6 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [ ] 2026-08-23 — 0a7f9bc — training — Post-session completion page (chime, stats, star+text feedback); mobile goes straight from Finish to History. Medium-Large, depends on the Insights subsystem item below.
 - [ ] 2026-08-23 — 83821a8 — training — First-time hint tooltip mechanism doesn't exist on mobile at all; mostly blocked until the features above ship. Small.
 
-**Home**
-- [ ] 2026-08-23 — 6d7e627 — home — Action Items strip (pending forms + unread plan notifications + subscription-grace prompt) on Home; backend endpoint already exists and is generic, mobile has the underlying data but no UI. Medium.
-
 **Nutrition**
 - [ ] 2026-08-23 — 93424dc — nutrition — Food swap (swap a prescribed food for an equivalent, gated behind a new `allow_food_swap` access flag); entirely absent on mobile — no flag, no model fields, no endpoints called. Large.
 
@@ -55,6 +52,7 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — 19e00c0 — training — Arabic exercise/muscle/equipment names, added. mobile `9ea06d5`.
 - [x] 2026-08-23 — cd6f287 — training — History cards redesigned, client-initiated delete added. mobile `c8e5410`.
 - [x] 2026-08-23 — 1cd7303 — training — YouTube playback-error fallback (external link), added. mobile `a5aee7d`.
+- [x] 2026-08-23 — 6d7e627 — home — Action Needed strip, added. mobile `6fd9bb0`.
 
 ---
 
