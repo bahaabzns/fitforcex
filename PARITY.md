@@ -31,7 +31,6 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [ ] 2026-08-23 — 0c7b7fa — training — Exercise tracking categories (Sets&Reps vs Time-Based) + coach-selectable metrics + RPE; mobile's session model has none of these fields. Large.
 - [ ] 2026-08-23 — cf0500a — training — Day-preview re-architecture: shares session-page UI, resumable/minimizable sessions, live "Continue {day}" state; mobile still has the old separate card layout. Large.
 - [ ] 2026-08-23 — 0a7f9bc — training — Post-session completion page (chime, stats, star+text feedback); mobile goes straight from Finish to History. Medium-Large, depends on the Insights subsystem item below.
-- [ ] 2026-08-23 — cd6f287 — training — History cards redesign + client-initiated delete (`DELETE /workout-logs/:id`); mobile has old layout, no delete. Medium.
 - [ ] 2026-08-23 — 1cd7303 — training — YouTube embed error → "Watch on YouTube" fallback; mobile's video player has no error handling at all. Small-Medium.
 - [ ] 2026-08-23 — 83821a8 — training — First-time hint tooltip mechanism doesn't exist on mobile at all; mostly blocked until the features above ship. Small.
 
@@ -55,6 +54,7 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — 3b13794 — messenger — Composer send/edit/attachment failures now surfaced, fixed. mobile `49ea234`.
 - [x] 2026-08-23 — 6d7e627 — home — Duplicate Progress-tab submission timeline, removed. mobile `dc8185d`.
 - [x] 2026-08-23 — 19e00c0 — training — Arabic exercise/muscle/equipment names, added. mobile `9ea06d5`.
+- [x] 2026-08-23 — cd6f287 — training — History cards redesigned, client-initiated delete added. mobile `c8e5410`.
 
 ---
 
