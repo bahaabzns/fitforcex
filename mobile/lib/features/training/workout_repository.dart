@@ -121,6 +121,14 @@ class WorkoutRepository {
       throw ApiException.fromDio(e);
     }
   }
+
+  Future<void> deleteLog(String id) async {
+    try {
+      await _dio.delete<void>('/api/client-portal/workout-logs/$id');
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 }
 
 final workoutRepositoryProvider = Provider<WorkoutRepository>(

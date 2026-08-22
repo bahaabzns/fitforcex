@@ -11,6 +11,7 @@ abstract class WorkoutLogSummary with _$WorkoutLogSummary {
   const factory WorkoutLogSummary({
     required String id,
     required String date,
+    @JsonKey(name: 'start_time') String? startTime,
     @JsonKey(name: 'day_name') String? dayName,
     @JsonKey(name: 'duration_seconds') int? durationSeconds,
     @JsonKey(name: 'total_volume')
