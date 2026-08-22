@@ -8,15 +8,16 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/line_chart.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/transformation.dart';
-import '../../shared/utils/localization.dart';
 import 'progress_repository.dart';
 
 enum _RangePreset { d30, d90, m6, all }
 
 /// Body-transformation tracker: metric charts (weight, measurements, ...)
-/// extracted from check-in answers, progress photos with a first/latest
-/// compare, and a submission timeline. This IS the Home tab's content — the
-/// web client portal's `/portal/home` is exclusively this `ProgressSection`,
+/// extracted from check-in answers, and progress photos with a first/latest
+/// compare. (The submission timeline that used to live here was removed to
+/// match web — full submission history now lives in the Forms > Submitted
+/// tab instead, avoiding the duplication.) This IS the Home tab's content —
+/// the web client portal's `/portal/home` is exclusively this `ProgressSection`,
 /// so mobile's Home mirrors that 1:1 instead of hiding it behind another
 /// screen. No Scaffold/AppBar here; [HomePage] provides those (the shell
 /// already renders the top bar).
@@ -59,7 +60,7 @@ class _ProgressDashboardBodyState extends ConsumerState<ProgressDashboardBody> {
       value: data,
       onRetry: () => ref.invalidate(transformationProvider),
       data: (payload) {
-        if (payload.metrics.isEmpty && payload.timeline.isEmpty) {
+        if (payload.metrics.isEmpty) {
           return EmptyState(
             icon: Icons.trending_up,
             title: l10n.progressEmptyTitle,
@@ -85,14 +86,6 @@ class _ProgressDashboardBodyState extends ConsumerState<ProgressDashboardBody> {
             for (final m in images) ...[
               _PhotoMetricCard(metric: m, points: _inRange(m.history)),
               const SizedBox(height: 12),
-            ],
-            if (payload.timeline.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(l10n.progressTimeline,
-                  style:
-                      const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              for (final s in payload.timeline) _TimelineEntry(submission: s),
             ],
           ],
         );
@@ -365,69 +358,6 @@ class _PhotoViewer extends StatelessWidget {
         itemBuilder: (context, i) => InteractiveViewer(
           child: Center(child: Image.network(points[i].value)),
         ),
-      ),
-    );
-  }
-}
-
-class _TimelineEntry extends StatelessWidget {
-  const _TimelineEntry({required this.submission});
-
-  final TransformationSubmission submission;
-
-  @override
-  Widget build(BuildContext context) {
-    final locale = Localizations.localeOf(context);
-    final title = localizedField(
-      base: submission.formTitle,
-      arabic: submission.formTitleAr,
-      localeCode: locale.languageCode,
-    );
-    final d = DateTime.tryParse(submission.submittedAt ?? '');
-    final dateLabel =
-        d != null ? DateFormat.yMMMd(locale.toString()).format(d) : '';
-
-    return Card(
-      child: ExpansionTile(
-        title: Text(title, style: const TextStyle(fontSize: 13)),
-        subtitle: Text(dateLabel,
-            style:
-                TextStyle(fontSize: 11, color: context.appColors.mutedForeground)),
-        children: [
-          for (final a in submission.answers)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      localizedField(
-                        base: a.label,
-                        arabic: a.labelAr,
-                        localeCode: locale.languageCode,
-                      ),
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: context.appColors.mutedForeground),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: a.metricType == metricTypeImage
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(a.answer,
-                                height: 48, fit: BoxFit.cover),
-                          )
-                        : Text(a.answer,
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
-            ),
-        ],
       ),
     );
   }
