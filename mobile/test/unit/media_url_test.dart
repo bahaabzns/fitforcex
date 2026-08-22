@@ -46,6 +46,10 @@ void main() {
     test('extracts from embed URLs', () {
       expect(youtubeVideoId('https://www.youtube.com/embed/abc123'), 'abc123');
     });
+    test('extracts from Shorts URLs', () {
+      expect(
+          youtubeVideoId('https://www.youtube.com/shorts/abc123'), 'abc123');
+    });
     test('returns null for non-YouTube or empty', () {
       expect(youtubeVideoId('https://vimeo.com/123'), isNull);
       expect(youtubeVideoId(null), isNull);
