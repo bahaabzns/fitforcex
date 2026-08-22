@@ -9,6 +9,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/access/access_controller.dart';
 import '../../core/auth/token_storage.dart';
 import '../../core/config/providers.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/message.dart';
@@ -112,6 +113,13 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     }
   }
 
+  void _showSendError(Object error) {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final message = error is ApiException ? error.message : l10n.commonSomethingWentWrong;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
@@ -138,8 +146,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         _draft.clear();
       });
       _scrollToBottom();
-    } catch (_) {
+    } catch (e) {
       // Leave the draft in place so the user can retry.
+      _showSendError(e);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -175,8 +184,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         _editing = null;
         _draft.clear();
       });
-    } catch (_) {
+    } catch (e) {
       // Leave the draft + edit mode in place so the user can retry.
+      _showSendError(e);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -230,8 +240,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         _draft.clear();
       });
       _scrollToBottom();
-    } catch (_) {
+    } catch (e) {
       // Best-effort — the draft caption stays so the user can retry.
+      _showSendError(e);
     } finally {
       if (mounted) setState(() => _attaching = false);
     }
