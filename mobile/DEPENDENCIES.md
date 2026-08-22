@@ -8,3 +8,7 @@
 - Also note the Dart API differs from 11.x: use `FilePicker.platform.pickFiles(...)`, not the 11.x static `FilePicker.pickFiles(...)`.
 
 Revisit this pin if `app_links` ships a build.gradle.kts fix for the AGP-version mismatch, or if `file_picker` fixes its AGP-9 detection to respect `android.builtInKotlin` instead of just the AGP major version — either would let the project move to built-in Kotlin cleanly and unpin both.
+
+## url_launcher (`^6.3.1`)
+
+Already declared in `pubspec.yaml` from an earlier scaffold but had zero real usages until the 2026-08-23 mobile-parity pass. First used in `features/training/widgets/exercise_video.dart` to open a YouTube video externally when the in-app iframe player reports a playback error (owner-restricted embedding, region locks). Standard maintained plugin, no known issues — noting the pin only because it went from unused to load-bearing.
