@@ -238,6 +238,21 @@ class _ExerciseCard extends StatelessWidget {
       arabic: exercise.instructionsAr,
       localeCode: locale,
     );
+    final exerciseName = localizedField(
+      base: exercise.libraryNameEn ?? exercise.name,
+      arabic: exercise.libraryNameAr,
+      localeCode: locale,
+    );
+    final muscleGroup = localizedField(
+      base: exercise.muscleGroup ?? '',
+      arabic: exercise.muscleGroupAr,
+      localeCode: locale,
+    );
+    final equipment = localizedField(
+      base: exercise.equipment ?? '',
+      arabic: exercise.equipmentAr,
+      localeCode: locale,
+    );
 
     return Card(
       child: Padding(
@@ -264,7 +279,7 @@ class _ExerciseCard extends StatelessWidget {
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: primary)),
-                          Text(exercise.name,
+                          Text(exerciseName,
                               style: const TextStyle(
                                   fontSize: 14, fontWeight: FontWeight.w600)),
                           if (hasVideo)
@@ -281,11 +296,10 @@ class _ExerciseCard extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          if ((exercise.muscleGroup ?? '').isNotEmpty)
-                            _Chip(label: exercise.muscleGroup!),
-                          if ((exercise.equipment ?? '').isNotEmpty)
+                          if (muscleGroup.isNotEmpty) _Chip(label: muscleGroup),
+                          if (equipment.isNotEmpty)
                             _Chip(
-                              label: exercise.equipment!,
+                              label: equipment,
                               color: const Color(0xFF8B5CF6),
                             ),
                         ],
@@ -543,9 +557,19 @@ class _Alternatives extends StatelessWidget {
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
-                  if ((alt.muscleGroup ?? '').isNotEmpty)
-                    Text(alt.muscleGroup!,
-                        style: TextStyle(fontSize: 11, color: muted)),
+                  if (localizedField(
+                    base: alt.muscleGroup ?? '',
+                    arabic: alt.muscleGroupAr,
+                    localeCode: locale,
+                  ).isNotEmpty)
+                    Text(
+                      localizedField(
+                        base: alt.muscleGroup ?? '',
+                        arabic: alt.muscleGroupAr,
+                        localeCode: locale,
+                      ),
+                      style: TextStyle(fontSize: 11, color: muted),
+                    ),
                 ],
               ),
             ),

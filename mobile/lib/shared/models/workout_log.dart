@@ -48,6 +48,8 @@ abstract class WorkoutLogDetail with _$WorkoutLogDetail {
 abstract class LoggedExerciseDetail with _$LoggedExerciseDetail {
   const factory LoggedExerciseDetail({
     @Default('') String name,
+    @JsonKey(name: 'library_name_en') String? libraryNameEn,
+    @JsonKey(name: 'library_name_ar') String? libraryNameAr,
     String? note,
     @Default(<LoggedSet>[]) List<LoggedSet> sets,
   }) = _LoggedExerciseDetail;

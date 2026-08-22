@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
+import '../../shared/utils/localization.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
 import 'workout_repository.dart';
@@ -95,6 +96,12 @@ class _ExerciseCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final muted = context.appColors.mutedForeground;
     final primary = Theme.of(context).colorScheme.primary;
+    final locale = Localizations.localeOf(context).languageCode;
+    final exerciseName = localizedField(
+      base: exercise.libraryNameEn ?? exercise.name,
+      arabic: exercise.libraryNameAr,
+      localeCode: locale,
+    );
     final header = TextStyle(
       fontSize: 10,
       fontWeight: FontWeight.w600,
@@ -119,7 +126,7 @@ class _ExerciseCard extends StatelessWidget {
                         color: primary)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(exercise.name,
+                  child: Text(exerciseName,
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
                 ),

@@ -126,11 +126,15 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             exerciseId: ex.id,
             exerciseLibraryId: ex.exerciseLibraryId,
             name: ex.name,
+            libraryNameEn: ex.libraryNameEn,
+            libraryNameAr: ex.libraryNameAr,
             thumbnailPath: ex.thumbnailPath,
             youtubeUrl: ex.youtubeUrl,
             videoPath: ex.videoPath,
             muscleGroup: ex.muscleGroup,
+            muscleGroupAr: ex.muscleGroupAr,
             equipment: ex.equipment,
+            equipmentAr: ex.equipmentAr,
             instructionsEn: ex.instructionsEn,
             instructionsAr: ex.instructionsAr,
             prescribed: [
@@ -256,6 +260,8 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             'exercise_id': ex.exerciseId,
             'exercise_library_id': ex.exerciseLibraryId,
             'name': ex.name,
+            'library_name_en': ex.libraryNameEn,
+            'library_name_ar': ex.libraryNameAr,
             'note': ex.note.trim().isEmpty ? null : ex.note.trim(),
             'sets': [
               for (final s in ex.sets)

@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/workout_log.dart';
 import '../../../shared/models/workout_session.dart';
+import '../../../shared/utils/localization.dart';
 import 'coach_note_modal.dart';
 import 'exercise_insights_modal.dart';
 import 'exercise_notes_modal.dart';
@@ -98,6 +99,22 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
     final l10n = AppLocalizations.of(context);
     final muted = context.appColors.mutedForeground;
     final exercise = widget.exercise;
+    final locale = Localizations.localeOf(context).languageCode;
+    final exerciseName = localizedField(
+      base: exercise.libraryNameEn ?? exercise.name,
+      arabic: exercise.libraryNameAr,
+      localeCode: locale,
+    );
+    final muscleGroup = localizedField(
+      base: exercise.muscleGroup ?? '',
+      arabic: exercise.muscleGroupAr,
+      localeCode: locale,
+    );
+    final equipment = localizedField(
+      base: exercise.equipment ?? '',
+      arabic: exercise.equipmentAr,
+      localeCode: locale,
+    );
 
     // Flat, borderless layout (Strong-style) — exercises are separated by the
     // list's own spacing/dividers rather than a card container, so the video,
@@ -121,7 +138,7 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(exercise.name,
+                  Text(exerciseName,
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
@@ -130,10 +147,9 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if ((exercise.muscleGroup ?? '').isNotEmpty)
-                        _chip(context, exercise.muscleGroup!),
-                      if ((exercise.equipment ?? '').isNotEmpty)
-                        _chip(context, exercise.equipment!,
+                      if (muscleGroup.isNotEmpty) _chip(context, muscleGroup),
+                      if (equipment.isNotEmpty)
+                        _chip(context, equipment,
                             color: const Color(0xFF8B5CF6)),
                     ],
                   ),
@@ -150,7 +166,7 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
                 builder: (_) => ExerciseInsightsModal(
                   exerciseLibraryId: exercise.exerciseLibraryId,
                   exerciseId: exercise.exerciseId,
-                  exerciseName: exercise.name,
+                  exerciseName: exerciseName,
                 ),
               ),
             ),
