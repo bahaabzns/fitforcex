@@ -81,6 +81,7 @@ class _SessionPageState extends ConsumerState<SessionPage> {
           ? plan.days[widget.dayIndex]
           : null;
       if (day == null || day.exercises.isEmpty) {
+        await ref.read(sessionStoreProvider).clear();
         _exit();
         return;
       }
@@ -103,6 +104,7 @@ class _SessionPageState extends ConsumerState<SessionPage> {
         });
       }
     } catch (_) {
+      await ref.read(sessionStoreProvider).clear();
       _exit();
     }
   }
