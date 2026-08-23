@@ -33,9 +33,6 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [ ] 2026-08-23 — 0a7f9bc — training — Post-session completion page (chime, stats, star+text feedback); mobile goes straight from Finish to History. Medium-Large, depends on the Insights subsystem item below.
 - [ ] 2026-08-23 — 83821a8 — training — First-time hint tooltip mechanism doesn't exist on mobile at all; mostly blocked until the features above ship. Small.
 
-**Nutrition**
-- [ ] 2026-08-23 — 93424dc — nutrition — Food swap (swap a prescribed food for an equivalent, gated behind a new `allow_food_swap` access flag); entirely absent on mobile — no flag, no model fields, no endpoints called. Large.
-
 ## Ported
 
 - [x] 2026-08-23 — fbf2f9e — training — Stale/invalid resumed session redirect loop, fixed. mobile `62991d3`.
@@ -49,6 +46,7 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — 6d7e627 — home — Action Needed strip, added. mobile `6fd9bb0`.
 - [x] 2026-08-23 — dd9c85f — forms — Edit a submitted answer + view its edit history, added. mobile `9c3f133`.
 - [x] 2026-08-23 — fa12b25 — insights — Insights/Feedback subsystem (banner, prompts, feedback entry), added. mobile `843c8a7`.
+- [x] 2026-08-23 — 93424dc — nutrition — Food swap (search/swap/reset, allow_food_swap flag), added. mobile `e2b527f`.
 
 ---
 
