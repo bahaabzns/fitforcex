@@ -1,6 +1,7 @@
 import '../models/workout_log.dart';
 import '../models/workout_session.dart';
 import 'exercise_tracking_types.dart' as tracking;
+import 'format_amount.dart';
 
 /// Client-side workout math, mirroring the web `utils/workout.js` so the session
 /// screen can show live totals while logging without a round-trip.
@@ -73,9 +74,6 @@ bool hasTempoValue(String? tempo) {
 /// RIR has no placeholder sentinel like tempo — null is the only "not set" state.
 bool hasRirValue(int? rir) => rir != null;
 
-String _formatCompact(double v) =>
-    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
-
 /// "80kg × 8" (sets_reps) or "45s · 2km" (time_based) for a previous logged
 /// set, or null when there's nothing to show. Shared by the live session card
 /// and the day-preview grid so both read the same "Previous" column the same way.
@@ -83,14 +81,24 @@ String? previousSetLabel(PreviousSet? previous, String category) {
   if (previous == null) return null;
   if (category == tracking.setsReps) {
     if (previous.weight == null || previous.reps == null) return null;
-    return '${_formatCompact(previous.weight!)}kg × ${_formatCompact(previous.reps!)}';
+    return '${prettyAmount(previous.weight!)}kg × ${prettyAmount(previous.reps!)}';
   }
   final parts = <String>[];
   if (previous.durationSeconds != null) {
     parts.add(formatClock(previous.durationSeconds!));
   }
   if (previous.distanceKm != null) {
-    parts.add('${_formatCompact(previous.distanceKm!)}km');
+    parts.add('${prettyAmount(previous.distanceKm!)}km');
   }
   return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// Finds the previous-session set matching a given set order, or null when
+/// there's no logged history for that set slot. Shared by the live session
+/// card and the day-preview grid's "Previous" column lookup.
+PreviousSet? previousSetFor(List<PreviousSet> previous, int setOrder) {
+  for (final p in previous) {
+    if (p.setOrder == setOrder) return p;
+  }
+  return null;
 }

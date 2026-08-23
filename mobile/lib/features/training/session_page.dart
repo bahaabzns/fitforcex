@@ -15,6 +15,7 @@ import '../../shared/models/training_plan.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/models/workout_session.dart';
 import '../../shared/utils/exercise_tracking_types.dart';
+import '../../shared/utils/format_amount.dart';
 import '../../shared/utils/media_url.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
@@ -75,11 +76,15 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   // "error" only after several *consecutive* failures — a transient blip on
   // one save isn't worth interrupting anyone.
   int _autosaveFailStreak = 0;
+  // The in-flight autosave PUT, if any — Discard awaits this before deleting
+  // the row (see _discard) so the delete is always the last write to land,
+  // never raced by a PUT that was already on the wire.
+  Future<void>? _pendingAutosave;
   // Set the instant Finish/Discard is tapped so any autosave already queued
   // behind the debounce timer skips firing — Finish's/Discard's own action
-  // supersedes it. Doesn't cancel a request already in flight; the server's
+  // supersedes it. A request already in flight isn't cancelled: the server's
   // own check (a completed row is never mutated again) covers that narrower
-  // race for Finish, and delete-then-clear covers Discard.
+  // race for Finish; Discard instead waits for it via _pendingAutosave.
   bool _finishing = false;
 
   @override
@@ -211,11 +216,11 @@ class _SessionPageState extends ConsumerState<SessionPage> {
                   restSeconds: s.restSeconds,
                   rir: s.rir?.toString(),
                   tempo: s.tempo,
-                  rpe: s.rpe?.toString(),
+                  rpe: s.rpe != null ? prettyAmount(s.rpe!) : null,
                   durationSeconds: s.durationSeconds?.toString(),
-                  distanceKm: s.distanceKm?.toString(),
-                  inclinePercent: s.inclinePercent?.toString(),
-                  speedKmh: s.speedKmh?.toString(),
+                  distanceKm: s.distanceKm != null ? prettyAmount(s.distanceKm!) : null,
+                  inclinePercent: s.inclinePercent != null ? prettyAmount(s.inclinePercent!) : null,
+                  speedKmh: s.speedKmh != null ? prettyAmount(s.speedKmh!) : null,
                 ),
             ],
             sets: List.generate(
@@ -303,17 +308,19 @@ class _SessionPageState extends ConsumerState<SessionPage> {
 
     final requestId = ++_autosaveRequestId;
     setState(() => _autosaveState = 'saving');
+    final request = ref.read(workoutRepositoryProvider).upsertLog(session.id!, {
+      'plan_id': session.planId,
+      'day_id': session.dayId,
+      'day_index': session.dayIndex,
+      'notes': null,
+      'started_at': session.startedAt,
+      'ended_at': DateTime.now().toUtc().toIso8601String(),
+      'exercises': [for (final ex in session.exercises) _serializeExercise(ex)],
+      'completed': false,
+    });
+    _pendingAutosave = request.then((_) {}, onError: (_) {});
     try {
-      await ref.read(workoutRepositoryProvider).upsertLog(session.id!, {
-        'plan_id': session.planId,
-        'day_id': session.dayId,
-        'day_index': session.dayIndex,
-        'notes': null,
-        'started_at': session.startedAt,
-        'ended_at': DateTime.now().toUtc().toIso8601String(),
-        'exercises': [for (final ex in session.exercises) _serializeExercise(ex)],
-        'completed': false,
-      });
+      await request;
       if (requestId != _autosaveRequestId || !mounted) return;
       _autosaveFailStreak = 0;
       setState(() => _autosaveState = 'saved');
@@ -417,9 +424,13 @@ class _SessionPageState extends ConsumerState<SessionPage> {
         await _confirm(l10n.trainingDiscardConfirm, l10n.trainingDiscard);
     if (ok != true) return;
     // Stop any queued autosave from resurrecting the row we're about to
-    // delete.
+    // delete. A PUT already on the wire can't be cancelled, so wait for it
+    // to land first — the delete below then always runs strictly after,
+    // instead of racing it and risking the PUT's response resurrecting the
+    // row moments after it's deleted.
     _finishing = true;
     _autosaveDebounce?.cancel();
+    await _pendingAutosave;
     final id = _session?.id;
     await ref.read(sessionStoreProvider).clear();
     // Best-effort — an explicit discard should remove the autosaved draft

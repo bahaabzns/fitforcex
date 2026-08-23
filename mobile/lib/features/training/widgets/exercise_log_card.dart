@@ -5,28 +5,13 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/workout_log.dart';
 import '../../../shared/models/workout_session.dart';
 import '../../../shared/utils/exercise_tracking_types.dart' as tracking;
+import '../../../shared/utils/format_amount.dart';
 import '../../../shared/utils/localization.dart';
 import '../../../shared/utils/workout.dart';
 import 'coach_note_modal.dart';
 import 'exercise_insights_modal.dart';
 import 'exercise_notes_modal.dart';
 import 'exercise_video.dart';
-
-String _n(double v) =>
-    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
-
-String _fieldLabel(AppLocalizations l10n, String field) => switch (field) {
-      'reps' => l10n.trainingRepsShort,
-      'weight' => l10n.trainingWeight,
-      'tempo' => l10n.trainingTempo,
-      'rir' => l10n.trainingRir,
-      'rpe' => l10n.trainingRpe,
-      'duration_seconds' => l10n.trainingDuration,
-      'distance_km' => l10n.trainingDistance,
-      'incline_percent' => l10n.trainingIncline,
-      'speed_kmh' => l10n.trainingSpeed,
-      _ => field,
-    };
 
 /// Reads one named field off a [PrescribedSet] — the coach's target, shown
 /// either as a read-only column (tempo/rir/rpe) or as an editable field's
@@ -67,7 +52,7 @@ String _placeholderFor(
   PreviousSet? previous,
 ) {
   if (field == 'weight') {
-    return previous?.weight != null ? '${_n(previous!.weight!)}kg' : 'kg';
+    return previous?.weight != null ? '${prettyAmount(previous!.weight!)}kg' : 'kg';
   }
   final raw = _prescribedValue(target, field);
   if (raw == null || raw.isEmpty) return '—';
@@ -146,13 +131,6 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
       node.dispose();
     }
     super.dispose();
-  }
-
-  PreviousSet? _previousFor(int setOrder) {
-    for (final p in widget.previous) {
-      if (p.setOrder == setOrder) return p;
-    }
-    return null;
   }
 
   bool get _hasVideo =>
@@ -294,7 +272,7 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
           _SetRow(
             index: i,
             set: exercise.sets[i],
-            previous: _previousFor(exercise.sets[i].setOrder),
+            previous: previousSetFor(widget.previous, exercise.sets[i].setOrder),
             target:
                 i < exercise.prescribed.length ? exercise.prescribed[i] : null,
             category: category,
@@ -428,9 +406,9 @@ class _SetRow extends StatelessWidget {
           const SizedBox(width: 4),
           header(l10n!.trainingPreviousShort),
           for (final field in editableFields)
-            header(_fieldLabel(l10n!, field)),
+            header(tracking.fieldLabel(l10n!, field)),
           for (final field in targetFields)
-            header(_fieldLabel(l10n!, field), width: 34),
+            header(tracking.fieldLabel(l10n!, field), width: 34),
           SizedBox(
             width: 32,
             child: Icon(Icons.check, size: 14, color: style.color),

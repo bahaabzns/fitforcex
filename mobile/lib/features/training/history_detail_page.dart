@@ -9,6 +9,7 @@ import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/utils/exercise_tracking_types.dart';
+import '../../shared/utils/format_amount.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
@@ -60,7 +61,7 @@ class HistoryDetailPage extends ConsumerWidget {
                         _stat(formatDuration(log.durationSeconds), muted),
                         const SizedBox(width: 12),
                         _stat(
-                            '${_n(log.totalVolume)} ${l10n.trainingVolumeUnit}',
+                            '${prettyAmount(log.totalVolume)} ${l10n.trainingVolumeUnit}',
                             muted),
                         const SizedBox(width: 12),
                         _stat('${log.totalSets} ${l10n.trainingSetsShort}',
@@ -81,9 +82,6 @@ class HistoryDetailPage extends ConsumerWidget {
 
   Widget _stat(String text, Color muted) =>
       Text(text, style: TextStyle(fontSize: 12, color: muted));
-
-  static String _n(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 }
 
 class _ExerciseCard extends StatelessWidget {
@@ -138,7 +136,7 @@ class _ExerciseCard extends StatelessWidget {
               children: [
                 cell(l10n.trainingSet.toUpperCase(), header),
                 for (final field in _loggedFields)
-                  cell(_fieldLabel(l10n, field).toUpperCase(), header),
+                  cell(fieldLabel(l10n, field).toUpperCase(), header),
               ],
             ),
             const SizedBox(height: 4),
@@ -181,21 +179,7 @@ class _ExerciseCard extends StatelessWidget {
   List<String> get _loggedFields =>
       loggedFieldsFor(exercise.trackingType, exercise.trackedMetrics);
 
-  static String _n(double? v) {
-    if (v == null) return '—';
-    return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
-  }
-
-  static String _fieldLabel(AppLocalizations l10n, String field) =>
-      switch (field) {
-        'weight' => l10n.trainingWeight,
-        'reps' => l10n.trainingRepsShort,
-        'duration_seconds' => l10n.trainingDuration,
-        'distance_km' => l10n.trainingDistance,
-        'incline_percent' => l10n.trainingIncline,
-        'speed_kmh' => l10n.trainingSpeed,
-        _ => field,
-      };
+  static String _n(double? v) => v != null ? prettyAmount(v) : '—';
 
   static String _fieldValue(LoggedSet set, String field) => switch (field) {
         'weight' => _n(set.weight),

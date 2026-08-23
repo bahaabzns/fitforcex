@@ -19,6 +19,7 @@ import '../../shared/models/training_plan.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/models/workout_session.dart';
 import '../../shared/utils/exercise_tracking_types.dart';
+import '../../shared/utils/format_amount.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/media_url.dart';
 import '../../shared/utils/workout.dart';
@@ -167,6 +168,10 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
     final previous = hasExercises
         ? ref.watch(dayPreviousProvider(day.id)).asData?.value ?? const {}
         : const <String, List<PreviousSet>>{};
+    // Captured once per build: _activeSession is refreshed by a 1s ticker
+    // and could otherwise go null between this render and a tap landing,
+    // null-checking the _ContinueTrigger onTap closure below.
+    final activeSession = _activeSession;
 
     _resumeHintShown = maybeShowFeatureHint(
       context,
@@ -275,11 +280,11 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
           child: SafeArea(
             top: false,
             child: Center(
-              child: _activeSession != null
+              child: activeSession != null
                   ? _ContinueTrigger(
-                      session: _activeSession!,
+                      session: activeSession,
                       nowMs: _nowMs,
-                      onTap: () => _openSession(_activeSession!.dayIndex),
+                      onTap: () => _openSession(activeSession.dayIndex),
                     )
                   : (hasExercises
                       ? _StartTrigger(onTap: () => _openSession(_activeDay))
@@ -539,24 +544,12 @@ String? _trainingSetValue(TrainingSet set, String field) => switch (field) {
       'reps' => set.reps,
       'tempo' => set.tempo,
       'rir' => set.rir?.toString(),
-      'rpe' => set.rpe?.toString(),
+      'rpe' => set.rpe != null ? prettyAmount(set.rpe!) : null,
       'duration_seconds' => set.durationSeconds?.toString(),
-      'distance_km' => set.distanceKm?.toString(),
-      'incline_percent' => set.inclinePercent?.toString(),
-      'speed_kmh' => set.speedKmh?.toString(),
+      'distance_km' => set.distanceKm != null ? prettyAmount(set.distanceKm!) : null,
+      'incline_percent' => set.inclinePercent != null ? prettyAmount(set.inclinePercent!) : null,
+      'speed_kmh' => set.speedKmh != null ? prettyAmount(set.speedKmh!) : null,
       _ => null,
-    };
-
-String _fieldLabel(AppLocalizations l10n, String field) => switch (field) {
-      'reps' => l10n.trainingReps,
-      'tempo' => l10n.trainingTempo,
-      'rir' => l10n.trainingRir,
-      'rpe' => l10n.trainingRpe,
-      'duration_seconds' => l10n.trainingDuration,
-      'distance_km' => l10n.trainingDistance,
-      'incline_percent' => l10n.trainingIncline,
-      'speed_kmh' => l10n.trainingSpeed,
-      _ => field,
     };
 
 String _formatFieldValue(String field, String? value) {
@@ -581,13 +574,6 @@ class _SetsTable extends StatelessWidget {
   final List<String>? trackedMetrics;
   final List<PreviousSet> previous;
 
-  PreviousSet? _previousFor(int setOrder) {
-    for (final p in previous) {
-      if (p.setOrder == setOrder) return p;
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -607,22 +593,11 @@ class _SetsTable extends StatelessWidget {
         .toList();
     final primaryFields =
         category == setsReps ? fields.where((f) => f == 'reps').toList() : fields;
-    var targetFields = category == setsReps
+    // Column set is entirely the coach's choice (trackedMetrics) — not
+    // whether a particular set happens to have a value, matching web.
+    final targetFields = category == setsReps
         ? fields.where((f) => f != 'reps').toList()
         : const <String>[];
-
-    if (category == setsReps) {
-      // Tempo/RIR are per-exercise coach choices — hide the column entirely
-      // when the coach never filled it in for any set, including the
-      // builder's "-" placeholder for tempo.
-      final showTempo = sets.any((s) => hasTempoValue(s.tempo));
-      final showRir = sets.any((s) => hasRirValue(s.rir));
-      targetFields = targetFields.where((f) {
-        if (f == 'tempo') return showTempo;
-        if (f == 'rir') return showRir;
-        return true;
-      }).toList();
-    }
 
     Widget cell(String text, TextStyle? style) => Expanded(
         child: Text(text,
@@ -635,7 +610,7 @@ class _SetsTable extends StatelessWidget {
             cell(l10n.trainingSet.toUpperCase(), header),
             cell(l10n.trainingPreviousShort.toUpperCase(), header),
             for (final field in [...primaryFields, ...targetFields])
-              cell(_fieldLabel(l10n, field).toUpperCase(), header),
+              cell(fieldLabel(l10n, field, shortReps: false).toUpperCase(), header),
           ],
         ),
         const SizedBox(height: 4),
@@ -646,7 +621,7 @@ class _SetsTable extends StatelessWidget {
               children: [
                 cell('${i + 1}', TextStyle(fontSize: 12, color: muted)),
                 cell(
-                  previousSetLabel(_previousFor(sets[i].setOrder), category) ?? '—',
+                  previousSetLabel(previousSetFor(previous, sets[i].setOrder), category) ?? '—',
                   TextStyle(fontSize: 10, color: muted.withValues(alpha: 0.6)),
                 ),
                 for (final field in [...primaryFields, ...targetFields])

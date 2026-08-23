@@ -10,6 +10,8 @@
 /// exercise might track tempo + rir, another just rir, another neither.
 library;
 
+import '../../l10n/generated/app_localizations.dart';
+
 const setsReps = 'sets_reps';
 const timeBased = 'time_based';
 const exerciseCategories = [setsReps, timeBased];
@@ -109,3 +111,21 @@ List<String> targetOnlyFieldsFor(String? trackingType, List<String>? trackedMetr
       .where((f) => !logged.contains(f))
       .toList();
 }
+
+/// Localized label for a tracked-field key, shared by every screen that
+/// renders a field-name column header (day preview, live session log,
+/// history). `shortReps` picks `trainingRepsShort` ('Reps') over the full
+/// `trainingReps` label for tighter table headers.
+String fieldLabel(AppLocalizations l10n, String field, {bool shortReps = true}) =>
+    switch (field) {
+      'reps' => shortReps ? l10n.trainingRepsShort : l10n.trainingReps,
+      'weight' => l10n.trainingWeight,
+      'tempo' => l10n.trainingTempo,
+      'rir' => l10n.trainingRir,
+      'rpe' => l10n.trainingRpe,
+      'duration_seconds' => l10n.trainingDuration,
+      'distance_km' => l10n.trainingDistance,
+      'incline_percent' => l10n.trainingIncline,
+      'speed_kmh' => l10n.trainingSpeed,
+      _ => field,
+    };
