@@ -36,9 +36,6 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 **Nutrition**
 - [ ] 2026-08-23 — 93424dc — nutrition — Food swap (swap a prescribed food for an equivalent, gated behind a new `allow_food_swap` access flag); entirely absent on mobile — no flag, no model fields, no endpoints called. Large.
 
-**Insights / Feedback (new subsystem)**
-- [ ] 2026-08-23 — fa12b25 — insights — Entire feedback/prompts subsystem (banner host, feedback modal, contextual triggers on Messages/Forms/Training-history) has zero mobile equivalent. Large.
-
 ## Ported
 
 - [x] 2026-08-23 — fbf2f9e — training — Stale/invalid resumed session redirect loop, fixed. mobile `62991d3`.
@@ -51,6 +48,7 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — 1cd7303 — training — YouTube playback-error fallback (external link), added. mobile `a5aee7d`.
 - [x] 2026-08-23 — 6d7e627 — home — Action Needed strip, added. mobile `6fd9bb0`.
 - [x] 2026-08-23 — dd9c85f — forms — Edit a submitted answer + view its edit history, added. mobile `9c3f133`.
+- [x] 2026-08-23 — fa12b25 — insights — Insights/Feedback subsystem (banner, prompts, feedback entry), added. mobile `843c8a7`.
 
 ---
 
