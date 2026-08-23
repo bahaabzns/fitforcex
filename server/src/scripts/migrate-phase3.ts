@@ -67,7 +67,6 @@ async function migratePlans() {
         cta_text:        'Get Started',
         cta_variant:     'outline',
         features_header: "What's included:",
-        has_team_counter: false,
         created_at:      new Date(p.createdAt),
       })),
       skipDuplicates: true,
