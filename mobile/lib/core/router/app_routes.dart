@@ -19,6 +19,9 @@ class AppRoutes {
   static const trainingProgress = '/training/progress';
   static String trainingHistoryDetail(String id) => '/training/history/$id';
 
+  // Nutrition (pushed full-screen over the shell)
+  static const nutritionDiary = '/nutrition/diary';
+
   // Forms
   static String formFill(String id) => '/forms/$id';
 

@@ -8,6 +8,7 @@ import '../../features/forms/forms_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/messages/messages_page.dart';
 import '../../features/notifications/notifications_page.dart';
+import '../../features/nutrition/food_diary_history_page.dart';
 import '../../features/nutrition/nutrition_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/shell/shell_page.dart';
@@ -104,6 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.trainingProgress,
         builder: (context, state) => const ProgressPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.nutritionDiary,
+        builder: (context, state) => const FoodDiaryHistoryPage(),
       ),
       GoRoute(
         path: '/forms/:id',

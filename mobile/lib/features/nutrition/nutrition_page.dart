@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/access/access_controller.dart';
+import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
@@ -12,14 +14,29 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../access/restricted_view.dart';
+import '../../shared/models/food_diary.dart';
 import '../../shared/models/nutrition_plan.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/nutrition_calc.dart';
+import 'food_diary_controller.dart';
 import 'food_swap_repository.dart';
 import 'nutrition_repository.dart';
+import 'widgets/food_diary_amount_editor.dart';
 import 'widgets/food_swap_modal.dart';
 import 'widgets/macros_donut.dart';
 import 'widgets/shopping_list_sheet.dart';
+
+/// How much of [mealItemId] today's diary snapshot says was eaten — 0
+/// (untracked) if the diary hasn't loaded yet, or this item's id isn't in
+/// the snapshot (most likely: the coach edited the plan after today's diary
+/// was already created — the snapshot is deliberately frozen for the day,
+/// same tradeoff workout_logs makes).
+double diaryAmountEatenFor(FoodDiaryEntry? diary, String mealItemId) {
+  for (final item in diary?.items ?? const <FoodDiaryItem>[]) {
+    if (item.mealItemId == mealItemId) return item.amountEaten;
+  }
+  return 0;
+}
 
 /// The client's active nutrition plan. Parity port of the web portal nutrition
 /// page: macros donut, cycle tabs, collapsible coach notes, expandable meals
@@ -103,8 +120,33 @@ class _NutritionView extends ConsumerStatefulWidget {
 class _NutritionViewState extends ConsumerState<_NutritionView> {
   int _activeCycle = 0;
   final _expandedMeals = <String>{};
-  final _checkedItems = <String>{};
   String? _resettingItemId;
+
+  Future<void> _toggleItem(NutritionMealItem item, FoodDiaryEntry? diary) {
+    final prescribed = item.amount;
+    final eaten = diaryAmountEatenFor(diary, item.id);
+    final isFullyEaten = prescribed > 0 && eaten >= prescribed;
+    return ref.read(foodDiaryControllerProvider.notifier).setAmountEaten(
+          item.id,
+          isFullyEaten ? 0 : prescribed,
+          cycleId: widget.plan.cycles[_activeCycle].id,
+        );
+  }
+
+  Future<void> _editAmount(NutritionMealItem item, FoodDiaryEntry? diary) async {
+    final amount = await FoodDiaryAmountEditor.show(
+      context,
+      initialAmount: diaryAmountEatenFor(diary, item.id),
+      prescribedAmount: item.amount,
+      servingUnit: item.servingUnit,
+    );
+    if (amount == null || !mounted) return;
+    await ref.read(foodDiaryControllerProvider.notifier).setAmountEaten(
+          item.id,
+          amount,
+          cycleId: widget.plan.cycles[_activeCycle].id,
+        );
+  }
 
   Future<void> _openSwapModal(NutritionMealItem item, String locale) async {
     final name = localizedField(
@@ -137,6 +179,7 @@ class _NutritionViewState extends ConsumerState<_NutritionView> {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).languageCode;
     final canSwapFood = ref.watch(clientAccessProvider).canSwapFood;
+    final diary = ref.watch(foodDiaryControllerProvider).asData?.value;
     final plan = widget.plan;
     final cycle = plan.cycles[_activeCycle.clamp(0, plan.cycles.length - 1)];
     final totals = calcCycle(cycle);
@@ -146,13 +189,34 @@ class _NutritionViewState extends ConsumerState<_NutritionView> {
         ListView(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 96),
           children: [
-            Text(
-              plan.name.isEmpty ? l10n.nutritionTitle : plan.name,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    plan.name.isEmpty ? l10n.nutritionTitle : plan.name,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Tooltip(
+                  message: l10n.nutritionFoodDiaryViewHistory,
+                  child: InkWell(
+                    onTap: () => context.push(AppRoutes.nutritionDiary),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: context.appColors.border),
+                      ),
+                      child: Icon(Icons.history,
+                          size: 20, color: context.appColors.mutedForeground),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -206,17 +270,14 @@ class _NutritionViewState extends ConsumerState<_NutritionView> {
                   meal: meal,
                   locale: locale,
                   expanded: _expandedMeals.contains(meal.id),
-                  checkedItems: _checkedItems,
+                  diary: diary,
                   onToggleMeal: () => setState(() {
                     _expandedMeals.contains(meal.id)
                         ? _expandedMeals.remove(meal.id)
                         : _expandedMeals.add(meal.id);
                   }),
-                  onToggleItem: (id) => setState(() {
-                    _checkedItems.contains(id)
-                        ? _checkedItems.remove(id)
-                        : _checkedItems.add(id);
-                  }),
+                  onToggleItem: (item) => _toggleItem(item, diary),
+                  onEditAmount: (item) => _editAmount(item, diary),
                   canSwapFood: canSwapFood,
                   resettingItemId: _resettingItemId,
                   onSwap: (item) => _openSwapModal(item, locale),
@@ -251,9 +312,10 @@ class _MealCard extends StatelessWidget {
     required this.meal,
     required this.locale,
     required this.expanded,
-    required this.checkedItems,
+    required this.diary,
     required this.onToggleMeal,
     required this.onToggleItem,
+    required this.onEditAmount,
     required this.canSwapFood,
     required this.resettingItemId,
     required this.onSwap,
@@ -263,9 +325,10 @@ class _MealCard extends StatelessWidget {
   final NutritionMeal meal;
   final String locale;
   final bool expanded;
-  final Set<String> checkedItems;
+  final FoodDiaryEntry? diary;
   final VoidCallback onToggleMeal;
-  final ValueChanged<String> onToggleItem;
+  final ValueChanged<NutritionMealItem> onToggleItem;
+  final ValueChanged<NutritionMealItem> onEditAmount;
   final bool canSwapFood;
   final String? resettingItemId;
   final ValueChanged<NutritionMealItem> onSwap;
@@ -325,8 +388,10 @@ class _MealCard extends StatelessWidget {
                     _ItemRow(
                       item: item,
                       locale: locale,
-                      checked: checkedItems.contains(item.id),
-                      onToggle: () => onToggleItem(item.id),
+                      eaten: diaryAmountEatenFor(diary, item.id),
+                      diaryReady: diary != null,
+                      onToggle: () => onToggleItem(item),
+                      onEditAmount: () => onEditAmount(item),
                       canSwapFood: canSwapFood,
                       resetting: resettingItemId == item.id,
                       onSwap: () => onSwap(item),
@@ -368,8 +433,10 @@ class _ItemRow extends StatelessWidget {
   const _ItemRow({
     required this.item,
     required this.locale,
-    required this.checked,
+    required this.eaten,
+    required this.diaryReady,
     required this.onToggle,
+    required this.onEditAmount,
     required this.canSwapFood,
     required this.resetting,
     required this.onSwap,
@@ -378,8 +445,15 @@ class _ItemRow extends StatelessWidget {
 
   final NutritionMealItem item;
   final String locale;
-  final bool checked;
+
+  /// How much of this item today's diary says was eaten.
+  final double eaten;
+
+  /// False until today's diary entry has loaded — the checkbox and amount
+  /// editor stay disabled until then (matches web: `disabled={!diaryEntry}`).
+  final bool diaryReady;
   final VoidCallback onToggle;
+  final VoidCallback onEditAmount;
   final bool canSwapFood;
   final bool resetting;
   final VoidCallback onSwap;
@@ -392,6 +466,9 @@ class _ItemRow extends StatelessWidget {
     final macros = calcItem(item);
     final name = localizedField(
         base: item.name, arabic: item.nameAr, localeCode: locale);
+    final prescribed = item.amount;
+    final checked = prescribed > 0 && eaten >= prescribed;
+    final isPartial = eaten > 0 && !checked;
 
     return Opacity(
       opacity: checked ? 0.4 : 1,
@@ -402,7 +479,7 @@ class _ItemRow extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _checkbox(context),
+                _checkbox(context, checked: checked, isPartial: isPartial),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -417,9 +494,21 @@ class _ItemRow extends StatelessWidget {
                               checked ? TextDecoration.lineThrough : null,
                         ),
                       ),
-                      Text(
-                        '${_pretty(item.amount)}${item.servingUnit}',
-                        style: TextStyle(fontSize: 11, color: muted),
+                      InkWell(
+                        onTap: diaryReady ? onEditAmount : null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              isPartial
+                                  ? '${_pretty(eaten)}/${_pretty(item.amount)}${item.servingUnit}'
+                                  : '${_pretty(item.amount)}${item.servingUnit}',
+                              style: TextStyle(fontSize: 11, color: muted),
+                            ),
+                            const SizedBox(width: 3),
+                            Icon(Icons.edit, size: 10, color: muted.withValues(alpha: 0.5)),
+                          ],
+                        ),
                       ),
                       if (item.isSwapped)
                         Padding(
@@ -556,24 +645,35 @@ class _ItemRow extends StatelessWidget {
     );
   }
 
-  Widget _checkbox(BuildContext context) {
+  Widget _checkbox(BuildContext context,
+      {required bool checked, required bool isPartial}) {
     final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
-      onTap: onToggle,
+      key: Key('food_diary_checkbox_${item.id}'),
+      onTap: diaryReady ? onToggle : null,
       child: Container(
         width: 18,
         height: 18,
         margin: const EdgeInsets.only(top: 1),
         decoration: BoxDecoration(
           color: checked ? primary : Colors.transparent,
-          border:
-              Border.all(color: checked ? primary : context.appColors.border),
+          border: Border.all(
+              color: checked || isPartial ? primary : context.appColors.border),
           borderRadius: BorderRadius.circular(4),
         ),
         child: checked
             ? Icon(Icons.check,
                 size: 12, color: Theme.of(context).colorScheme.onPrimary)
-            : null,
+            : isPartial
+                ? Center(
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration:
+                          BoxDecoration(color: primary, shape: BoxShape.circle),
+                    ),
+                  )
+                : null,
       ),
     );
   }
