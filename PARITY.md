@@ -28,7 +28,6 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 
 **Training Mode**
 - [ ] 2026-08-23 — 17a0627 — training — Autosave/draft-resume: web PUTs progress every 700ms + recovers an in-progress session on reload; mobile only POSTs once at Finish and loses everything if killed mid-workout. Large.
-- [ ] 2026-08-23 — 0c7b7fa — training — Exercise tracking categories (Sets&Reps vs Time-Based) + coach-selectable metrics + RPE; mobile's session model has none of these fields. Large.
 - [ ] 2026-08-23 — cf0500a — training — Day-preview re-architecture: shares session-page UI, resumable/minimizable sessions, live "Continue {day}" state; mobile still has the old separate card layout. Large.
 - [ ] 2026-08-23 — 0a7f9bc — training — Post-session completion page (chime, stats, star+text feedback); mobile goes straight from Finish to History. Medium-Large, depends on the Insights subsystem item below.
 - [ ] 2026-08-23 — 83821a8 — training — First-time hint tooltip mechanism doesn't exist on mobile at all; mostly blocked until the features above ship. Small.
@@ -47,6 +46,7 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — dd9c85f — forms — Edit a submitted answer + view its edit history, added. mobile `9c3f133`.
 - [x] 2026-08-23 — fa12b25 — insights — Insights/Feedback subsystem (banner, prompts, feedback entry), added. mobile `843c8a7`.
 - [x] 2026-08-23 — 93424dc — nutrition — Food swap (search/swap/reset, allow_food_swap flag), added. mobile `e2b527f`.
+- [x] 2026-08-23 — 0c7b7fa — training — Exercise tracking categories (Sets&Reps/Time-Based) + RPE, added. mobile `302f612`.
 
 ---
 
