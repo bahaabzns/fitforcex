@@ -24,7 +24,11 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 
 ## Pending
 
-Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md`](docs/mobile-parity-audit-2026-08-23.md)) — drift since the 2026-07-10 baseline. All 17 items are now ported (see below). Two more uncommitted web features (Food Diary/Adherence, Subscription page) — already fully planned, not listed here — remain outstanding as the original, separate request that triggered this audit.
+Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md`](docs/mobile-parity-audit-2026-08-23.md)) — drift since the 2026-07-10 baseline. All 17 items are now ported (see below).
+
+**Uncommitted web features** — the original, separate request that triggered the audit:
+- [x] Food Diary + Adherence (checklist + history), added. mobile `54e22a6`.
+- [ ] Subscription page (client-facing plan/billing details) — not yet ported.
 
 ## Ported
 
