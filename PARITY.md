@@ -27,7 +27,6 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md`](docs/mobile-parity-audit-2026-08-23.md)) — drift since the 2026-07-10 baseline. Two more uncommitted web features (Food Diary/Adherence, Subscription page) are tracked separately — already fully planned, not listed here.
 
 **Training Mode**
-- [ ] 2026-08-23 — cf0500a — training — Day-preview re-architecture: shares session-page UI, resumable/minimizable sessions, live "Continue {day}" state; mobile still has the old separate card layout. Large.
 - [ ] 2026-08-23 — 0a7f9bc — training — Post-session completion page (chime, stats, star+text feedback); mobile goes straight from Finish to History. Medium-Large, depends on the Insights subsystem item below.
 - [ ] 2026-08-23 — 83821a8 — training — First-time hint tooltip mechanism doesn't exist on mobile at all; mostly blocked until the features above ship. Small.
 
@@ -47,6 +46,7 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — 93424dc — nutrition — Food swap (search/swap/reset, allow_food_swap flag), added. mobile `e2b527f`.
 - [x] 2026-08-23 — 0c7b7fa — training — Exercise tracking categories (Sets&Reps/Time-Based) + RPE, added. mobile `302f612`.
 - [x] 2026-08-23 — 17a0627 — training — Autosave/draft-resume (debounced PUT + server-side draft recovery), added. mobile `0b17c32`.
+- [x] 2026-08-23 — cf0500a — training — Day-preview re-architecture (shared session UI, resumable/minimizable sessions, live "Continue {day}" state), added. mobile `9298d1c`.
 
 ---
 
