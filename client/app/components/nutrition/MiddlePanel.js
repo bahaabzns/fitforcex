@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { Target } from "lucide-react";
 import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
+import FoodDiaryAdherenceModal from "./FoodDiaryAdherenceModal";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
+import { adherenceColor } from "@/utils/adherence";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
@@ -40,9 +43,12 @@ export default function MiddlePanel({
     setActivateModal,
     activating,
     handleActivateAndMark,
+    foodAdherence,
 }) {
     const t = useTranslations('nutrition');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["meals", "notes"]));
+    const [adherenceModalOpen, setAdherenceModalOpen] = useState(false);
+    const planAdherence = (foodAdherence?.plans ?? []).find((p) => p.planId === selectedPlan?.id) ?? null;
 
     const planTitleRef = useRef(null);
     const cycleTitleRef = useRef(null);
@@ -100,6 +106,17 @@ export default function MiddlePanel({
                     <Chip size="sm" className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 shrink-0">
                         {t('saved')}
                     </Chip>
+                )}
+                {planAdherence && (
+                    <button
+                        type="button"
+                        title={t('planAdherenceHint')}
+                        onClick={() => setAdherenceModalOpen(true)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full border border-border text-xs font-semibold shrink-0 hover:bg-default transition-colors cursor-pointer ${adherenceColor(planAdherence.avgAdherence)}`}
+                    >
+                        <Target className="w-3.5 h-3.5" />
+                        {planAdherence.avgAdherence !== null ? `${planAdherence.avgAdherence}%` : t('noGoalSet')}
+                    </button>
                 )}
                 <button
                     title={t('closePanel')}
@@ -401,6 +418,16 @@ export default function MiddlePanel({
                 </Modal.Container>
             </Modal.Backdrop>
         </Modal>
+        {/* Keyed by plan id so switching plans in the builder resets the modal's
+            own selected-plan state instead of reopening on whatever plan was
+            last picked -- the modal doesn't unmount on close, only on this. */}
+        <FoodDiaryAdherenceModal
+            key={selectedPlan.id}
+            open={adherenceModalOpen}
+            onClose={() => setAdherenceModalOpen(false)}
+            data={foodAdherence}
+            planId={selectedPlan.id}
+        />
         </>
     );
 }

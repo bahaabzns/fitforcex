@@ -11,6 +11,7 @@ import LeftPanel from "@/app/components/nutrition/LeftPanel";
 import MiddlePanel from "@/app/components/nutrition/MiddlePanel";
 import RightPanel from "@/app/components/nutrition/RightPanel";
 import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
+import FoodDiaryAdherenceModal from "@/app/components/nutrition/FoodDiaryAdherenceModal";
 import ConfigureActivationModal from "@/app/components/ConfigureActivationModal";
 import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
@@ -176,6 +177,18 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     }, [id]);
     useEffect(() => { fetchObservationCounts(); }, [fetchObservationCounts]);
 
+    // Food diary adherence, rolled up per plan — fetched once and handed down
+    // to both the "Food Diary" overview modal below and MiddlePanel's
+    // per-plan badge, so neither has to fetch it on its own.
+    const [foodAdherence, setFoodAdherence] = useState(null);
+    const [foodDiaryModalOpen, setFoodDiaryModalOpen] = useState(false);
+    useEffect(() => {
+        if (!id) return;
+        api.get(`/api/clients/${id}/food-diary/adherence`)
+            .then(({ data }) => setFoodAdherence(data))
+            .catch(() => setFoodAdherence({ plans: [], leastAdherentItems: [] }));
+    }, [id]);
+
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
     actionsRef.current = {
@@ -254,12 +267,11 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         const savePlanVisible = isSelectedPlanDirty;
         const activateVisible = selectedPlan && selectedPlan.status !== "active";
         const exportVisible = !!selectedPlan?.id;
-        if (!showSaveAll && !savePlanVisible && !activateVisible && !exportVisible) {
-            onHeaderActionsChange(null);
-            return;
-        }
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setFoodDiaryModalOpen(true)}>
+                    {t('viewFoodDiary')}
+                </Button>
                 {selectedPlan?.id && (
                     // Default popover__trigger styling (inline-block) is required here --
                     // it's what gives the trigger a real box for the popover to anchor
@@ -326,7 +338,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug, id, router]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);
@@ -464,6 +476,7 @@ return (
                     setActivateModal={setActivateModal}
                     activating={activating}
                     handleActivateAndMark={handleActivateAndMark}
+                    foodAdherence={foodAdherence}
                 />
             ) : (
                 <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-2xl shadow-surface">
@@ -561,6 +574,11 @@ return (
             onConfirm={handleRestartConfigureConfirm}
             confirming={savingDurationChoice}
             titleKey="restartConfigureTitle"
+        />
+        <FoodDiaryAdherenceModal
+            open={foodDiaryModalOpen}
+            onClose={() => setFoodDiaryModalOpen(false)}
+            data={foodAdherence}
         />
     </div>
     </div>
