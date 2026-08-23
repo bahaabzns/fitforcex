@@ -113,10 +113,26 @@ abstract class FormResponse with _$FormResponse {
   const factory FormResponse({
     @JsonKey(name: 'question_id') required String questionId,
     String? answer,
+    @Default(false) bool edited,
+    @Default(<AnswerEditEntry>[]) List<AnswerEditEntry> history,
   }) = _FormResponse;
 
   factory FormResponse.fromJson(Map<String, dynamic> json) =>
       _$FormResponseFromJson(json);
+}
+
+/// One entry in an answer's edit trail (oldest first), as returned inline on
+/// each `FormResponse` by `attachEditHistory` server-side.
+@freezed
+abstract class AnswerEditEntry with _$AnswerEditEntry {
+  const factory AnswerEditEntry({
+    @JsonKey(name: 'previous_answer') String? previousAnswer,
+    @JsonKey(name: 'new_answer') String? newAnswer,
+    @JsonKey(name: 'edited_at') required String editedAt,
+  }) = _AnswerEditEntry;
+
+  factory AnswerEditEntry.fromJson(Map<String, dynamic> json) =>
+      _$AnswerEditEntryFromJson(json);
 }
 
 /// Options arrive as a JSON array (or null); coerce every element to a string.

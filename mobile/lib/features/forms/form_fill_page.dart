@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/access/access_controller.dart';
 import '../../core/media/attachment_answer_field.dart';
 import '../../core/media/photo_answer_field.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -62,6 +63,18 @@ class _FormBodyState extends ConsumerState<_FormBody> {
   bool _submitting = false;
   String? _error;
 
+  // Per-question edit state — only one answer can be edited at a time, and
+  // only after the form has already been submitted once (matches web).
+  String? _editingQuestionId;
+  String? _savingQuestionId;
+  String? _editError;
+
+  // Bumped on cancel to force the question fields to remount — a bare
+  // TextFormField only reads `initialValue` on its first build, so
+  // programmatically reverting `_answers` alone wouldn't update what's
+  // actually displayed.
+  int _fieldGeneration = 0;
+
   bool get _isSubmitted => widget.detail.status != formStatusPending;
 
   @override
@@ -69,6 +82,64 @@ class _FormBodyState extends ConsumerState<_FormBody> {
     super.initState();
     for (final r in widget.detail.responses) {
       if (r.answer != null) _answers[r.questionId] = r.answer!;
+    }
+  }
+
+  FormResponse? _responseFor(String questionId) {
+    for (final r in widget.detail.responses) {
+      if (r.questionId == questionId) return r;
+    }
+    return null;
+  }
+
+  void _startEdit(String questionId) {
+    setState(() {
+      _editingQuestionId = questionId;
+      _editError = null;
+    });
+  }
+
+  void _cancelEdit(String questionId) {
+    final response = _responseFor(questionId);
+    setState(() {
+      _answers[questionId] = response?.answer ?? '';
+      _editingQuestionId = null;
+      _editError = null;
+      _fieldGeneration++;
+    });
+  }
+
+  Future<void> _saveEdit(FormQuestion question) async {
+    final l10n = AppLocalizations.of(context);
+    if (question.required && (_answers[question.id] ?? '').trim().isEmpty) {
+      setState(() => _editError = l10n.formsRequiredError(1));
+      return;
+    }
+
+    setState(() {
+      _savingQuestionId = question.id;
+      _editError = null;
+    });
+    try {
+      await ref.read(formsRepositoryProvider).editAnswer(
+            widget.requestId,
+            question.id,
+            _answers[question.id] ?? '',
+          );
+      ref.invalidate(formRequestProvider(widget.requestId));
+      if (mounted) {
+        setState(() {
+          _editingQuestionId = null;
+          _savingQuestionId = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _savingQuestionId = null;
+          _editError = e is ApiException ? e.message : l10n.formsEditFailed;
+        });
+      }
     }
   }
 
@@ -142,13 +213,26 @@ class _FormBodyState extends ConsumerState<_FormBody> {
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: _QuestionField(
+              key: ValueKey('${detail.questions[i].id}_g$_fieldGeneration'),
               index: i,
               question: detail.questions[i],
               locale: locale,
               value: _answers[detail.questions[i].id],
-              enabled: !_isSubmitted,
+              enabled: !_isSubmitted ||
+                  _editingQuestionId == detail.questions[i].id,
               onChanged: (v) =>
                   setState(() => _answers[detail.questions[i].id] = v),
+              isSubmitted: _isSubmitted,
+              canEdit: ref.watch(clientAccessProvider).canSubmitCheckins,
+              response: _responseFor(detail.questions[i].id),
+              isEditing: _editingQuestionId == detail.questions[i].id,
+              isSaving: _savingQuestionId == detail.questions[i].id,
+              editError: _editingQuestionId == detail.questions[i].id
+                  ? _editError
+                  : null,
+              onStartEdit: () => _startEdit(detail.questions[i].id),
+              onCancelEdit: () => _cancelEdit(detail.questions[i].id),
+              onSaveEdit: () => _saveEdit(detail.questions[i]),
             ),
           ),
         if (_error != null) ...[
@@ -178,12 +262,22 @@ class _FormBodyState extends ConsumerState<_FormBody> {
 
 class _QuestionField extends StatelessWidget {
   const _QuestionField({
+    super.key,
     required this.index,
     required this.question,
     required this.locale,
     required this.value,
     required this.enabled,
     required this.onChanged,
+    required this.isSubmitted,
+    required this.canEdit,
+    required this.response,
+    required this.isEditing,
+    required this.isSaving,
+    required this.editError,
+    required this.onStartEdit,
+    required this.onCancelEdit,
+    required this.onSaveEdit,
   });
 
   final int index;
@@ -192,6 +286,21 @@ class _QuestionField extends StatelessWidget {
   final String? value;
   final bool enabled;
   final ValueChanged<String> onChanged;
+
+  /// Whether the form as a whole has been submitted — edit controls only
+  /// ever show once this is true.
+  final bool isSubmitted;
+
+  /// Whether the client's subscription plan allows editing (same access
+  /// flag the submit button already gates on server-side).
+  final bool canEdit;
+  final FormResponse? response;
+  final bool isEditing;
+  final bool isSaving;
+  final String? editError;
+  final VoidCallback onStartEdit;
+  final VoidCallback onCancelEdit;
+  final VoidCallback onSaveEdit;
 
   List<String> get _options {
     if (locale == 'ar' && question.optionsAr.isNotEmpty) {
@@ -203,6 +312,7 @@ class _QuestionField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final muted = context.appColors.mutedForeground;
     final label = localizedField(
       base: question.labelEn,
       arabic: question.labelAr,
@@ -220,23 +330,89 @@ class _QuestionField extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text.rich(
-              TextSpan(
-                text: '${index + 1}. $label',
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                children: [
-                  if (question.required)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text.rich(
                     TextSpan(
-                      text: ' *',
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
+                      text: '${index + 1}. $label',
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
+                      children: [
+                        if (question.required)
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error),
+                          ),
+                      ],
                     ),
+                  ),
+                ),
+                if (response?.edited ?? false) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: muted.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(l10n.formsAnswerEdited,
+                        style: TextStyle(fontSize: 11, color: muted)),
+                  ),
                 ],
-              ),
+              ],
             ),
             const SizedBox(height: 8),
             _input(context, l10n, hint),
+            if (isSubmitted && canEdit) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: isEditing
+                    ? [
+                        TextButton(
+                          onPressed: isSaving ? null : onCancelEdit,
+                          child: Text(l10n.commonCancel),
+                        ),
+                        const SizedBox(width: 4),
+                        FilledButton(
+                          // The theme's FilledButton default is full-width
+                          // (Size.fromHeight), meant for standalone primary
+                          // actions — override it here since this button
+                          // shares a row with Cancel.
+                          style: FilledButton.styleFrom(
+                              minimumSize: const Size(64, 40)),
+                          onPressed: isSaving ? null : onSaveEdit,
+                          child: isSaving
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text(l10n.commonSave),
+                        ),
+                      ]
+                    : [
+                        OutlinedButton(
+                          onPressed: onStartEdit,
+                          child: Text(l10n.formsEditAnswer),
+                        ),
+                      ],
+              ),
+            ],
+            if (editError != null) ...[
+              const SizedBox(height: 4),
+              Text(editError!,
+                  style: TextStyle(
+                      fontSize: 12, color: Theme.of(context).colorScheme.error)),
+            ],
+            if ((response?.edited ?? false) && !isEditing) ...[
+              _AnswerEditHistory(history: response!.history, locale: locale),
+            ],
           ],
         ),
       ),
@@ -466,6 +642,73 @@ class _MultiSelectInput extends StatelessWidget {
                 : null,
           ),
       ],
+    );
+  }
+}
+
+/// Read-only trail of previous → new values for one answer, oldest first.
+/// Web shows a relative "2h ago"-style timestamp per entry; this follows the
+/// app's own established convention (locale-native absolute DateFormat, same
+/// as notifications_page.dart) instead of building a parallel relative-time
+/// string system just for this one feature.
+class _AnswerEditHistory extends StatelessWidget {
+  const _AnswerEditHistory({required this.history, required this.locale});
+
+  final List<AnswerEditEntry> history;
+  final String locale;
+
+  @override
+  Widget build(BuildContext context) {
+    if (history.isEmpty) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
+    final muted = context.appColors.mutedForeground;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: context.appColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.formsEditHistory.toUpperCase(),
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w600, color: muted),
+          ),
+          const SizedBox(height: 4),
+          for (final entry in history) _entryRow(context, entry, muted),
+        ],
+      ),
+    );
+  }
+
+  Widget _entryRow(BuildContext context, AnswerEditEntry entry, Color muted) {
+    final date = DateTime.tryParse(entry.editedAt);
+    final dateLabel =
+        date != null ? DateFormat.MMMd(locale).add_jm().format(date) : '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        children: [
+          Text(
+            (entry.previousAnswer ?? '').isEmpty ? '—' : entry.previousAnswer!,
+            style: TextStyle(
+                fontSize: 12,
+                color: muted,
+                decoration: TextDecoration.lineThrough),
+          ),
+          Text('→', style: TextStyle(fontSize: 12, color: muted)),
+          Text(
+            (entry.newAnswer ?? '').isEmpty ? '—' : entry.newAnswer!,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          Text(dateLabel, style: TextStyle(fontSize: 11, color: muted)),
+        ],
+      ),
     );
   }
 }
