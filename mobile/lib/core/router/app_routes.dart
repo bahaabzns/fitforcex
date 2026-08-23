@@ -27,5 +27,6 @@ class AppRoutes {
 
   // Top-bar destinations (pushed over the shell)
   static const profile = '/profile';
+  static const subscription = '/subscription';
   static const notifications = '/notifications';
 }

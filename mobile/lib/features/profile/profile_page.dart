@@ -7,10 +7,13 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/i18n/locale_controller.dart';
+import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../insights/widgets/feedback_entry_modal.dart';
+import 'subscription_repository.dart';
+import 'widgets/subscription_status_chip.dart';
 
 /// Profile: identity + preferences (theme, language) + logout. Mirror of the
 /// web portal profile page.
@@ -22,6 +25,7 @@ class ProfilePage extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final auth = ref.watch(authControllerProvider);
     final client = auth.clientOrNull;
+    final subscription = ref.watch(subscriptionProvider).asData?.value;
     final scheme = Theme.of(context).colorScheme;
     final muted = context.appColors.mutedForeground;
 
@@ -69,7 +73,51 @@ class ProfilePage extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
+
+          // Subscription
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => context.push(AppRoutes.subscription),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: context.appColors.secondary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.credit_card, size: 16, color: muted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        text: l10n.subscriptionCardLabel,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500),
+                        children: [
+                          if ((subscription?.plan?.name ?? '').isNotEmpty)
+                            TextSpan(
+                              text: ' — ${subscription!.plan!.name}',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.normal, color: muted),
+                            ),
+                        ],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (subscription?.status != null) ...[
+                    SubscriptionStatusChip(status: subscription!.status),
+                    const SizedBox(width: 8),
+                  ],
+                  Icon(Icons.chevron_right, size: 16, color: muted),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // Preferences
           Text(

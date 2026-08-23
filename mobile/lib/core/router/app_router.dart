@@ -11,6 +11,7 @@ import '../../features/notifications/notifications_page.dart';
 import '../../features/nutrition/food_diary_history_page.dart';
 import '../../features/nutrition/nutrition_page.dart';
 import '../../features/profile/profile_page.dart';
+import '../../features/profile/subscription_page.dart';
 import '../../features/shell/shell_page.dart';
 import '../../features/splash/splash_page.dart';
 import '../../features/training/history_detail_page.dart';
@@ -68,6 +69,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.profile,
         builder: (context, state) => const ProfilePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.subscription,
+        builder: (context, state) => const SubscriptionPage(),
       ),
       GoRoute(
         path: AppRoutes.notifications,
