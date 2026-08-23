@@ -19,6 +19,7 @@ import {
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
+import { serializeDiaryEntry, summarizeFoodDiaryAdherence, FOOD_DIARY_HISTORY_LIMIT } from '../../utils/foodDiaryStats';
 
 type ClientRow = Record<string, unknown>;
 type FreezeRow = Record<string, unknown>;
@@ -727,6 +728,60 @@ export async function getClientWorkoutLog(req: Request, res: Response, next: Nex
             exercises:  parseLoggedExercises(log.exercises),
             ...summarizeLog(toLogRow(log)),
         });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const LEAST_ADHERENT_ITEMS_LIMIT = 5;
+
+// Coach view — a client's own food diary history, same shape and same
+// unlimited-history behavior as getFoodDiaryHistory (client-portal). Each
+// entry already carries its own `adherence` (see foodDiaryStats.ts), so a
+// day-by-day or trend view is just this array. Cross-day rollups (per-plan
+// average, weakest items) live in getClientFoodDiaryAdherence below.
+export async function getClientFoodDiary(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'desc' },
+            take:    FOOD_DIARY_HISTORY_LIMIT,
+        });
+        res.json(entries.map(serializeDiaryEntry));
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Coach view — adherence rolled up per nutrition plan (not per day), plus
+// the food items this client eats least of what's prescribed. Backs the
+// nutrition builder's plan-level adherence badge (scoped to one plan via a
+// client-side filter of `plans`) and the "Food Diary" overview modal (the
+// full response). No `take` limit here, unlike getClientFoodDiary above --
+// a per-plan average needs every entry for that plan, not just the most
+// recent page of history, and per-client row counts stay small (~1/day).
+export async function getClientFoodDiaryAdherence(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'asc' },
+        });
+
+        const planIds = [...new Set(entries.map((e) => e.plan_id).filter((v): v is string => !!v))];
+        const plans = planIds.length > 0
+            ? await prisma.nutrition_plans.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true } })
+            : [];
+        const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+
+        res.json(summarizeFoodDiaryAdherence(entries, planNameById, LEAST_ADHERENT_ITEMS_LIMIT));
     } catch (err) {
         next(err);
     }
