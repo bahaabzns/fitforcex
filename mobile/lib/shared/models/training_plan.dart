@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'json_converters.dart';
+
 part 'training_plan.freezed.dart';
 part 'training_plan.g.dart';
 
@@ -55,6 +57,9 @@ abstract class TrainingExercise with _$TrainingExercise {
     @JsonKey(name: 'instructions_ar') String? instructionsAr,
     @Default(<TrainingSet>[]) List<TrainingSet> sets,
     @Default(<TrainingAlternative>[]) List<TrainingAlternative> alternatives,
+    @JsonKey(name: 'tracking_type') String? trackingType,
+    @JsonKey(name: 'tracked_metrics', fromJson: _stringListOrNull)
+    List<String>? trackedMetrics,
   }) = _TrainingExercise;
 
   factory TrainingExercise.fromJson(Map<String, dynamic> json) =>
@@ -71,6 +76,13 @@ abstract class TrainingSet with _$TrainingSet {
     @JsonKey(name: 'rest_seconds') int? restSeconds,
     String? tempo,
     int? rir,
+    @NumToDoubleOrNull() double? rpe,
+    @JsonKey(name: 'duration_seconds') int? durationSeconds,
+    @JsonKey(name: 'distance_km') @NumToDoubleOrNull() double? distanceKm,
+    @JsonKey(name: 'incline_percent')
+    @NumToDoubleOrNull()
+    double? inclinePercent,
+    @JsonKey(name: 'speed_kmh') @NumToDoubleOrNull() double? speedKmh,
   }) = _TrainingSet;
 
   factory TrainingSet.fromJson(Map<String, dynamic> json) =>
@@ -98,3 +110,6 @@ abstract class TrainingAlternative with _$TrainingAlternative {
 }
 
 String? _toStringOrNull(dynamic value) => value?.toString();
+
+List<String>? _stringListOrNull(dynamic value) =>
+    value is List ? value.map((e) => e.toString()).toList() : null;

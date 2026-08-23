@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
+import '../../shared/utils/exercise_tracking_types.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
@@ -136,9 +137,8 @@ class _ExerciseCard extends StatelessWidget {
             Row(
               children: [
                 cell(l10n.trainingSet.toUpperCase(), header),
-                cell(l10n.trainingWeight.toUpperCase(), header),
-                cell(l10n.trainingRepsShort.toUpperCase(), header),
-                cell(l10n.trainingRir.toUpperCase(), header),
+                for (final field in _loggedFields)
+                  cell(_fieldLabel(l10n, field).toUpperCase(), header),
               ],
             ),
             const SizedBox(height: 4),
@@ -154,9 +154,8 @@ class _ExerciseCard extends StatelessWidget {
                     return Row(
                       children: [
                         cell('${i + 1}', TextStyle(fontSize: 12, color: muted)),
-                        cell(_n(s.weight), style),
-                        cell(_n(s.reps), style),
-                        cell(_n(s.rir), style),
+                        for (final field in _loggedFields)
+                          cell(_fieldValue(s, field), style),
                       ],
                     );
                   },
@@ -174,8 +173,38 @@ class _ExerciseCard extends StatelessWidget {
     );
   }
 
+  // Snapshotted at submission time, so history renders exactly what was
+  // prescribed then even if the coach later changes the catalog exercise's
+  // type/metrics. Only ever the *loggable* fields — tempo/rir/rpe are
+  // prescribed targets, and a completed log has no "prescribed" data to
+  // show a target from, only what was actually logged.
+  List<String> get _loggedFields =>
+      loggedFieldsFor(exercise.trackingType, exercise.trackedMetrics);
+
   static String _n(double? v) {
     if (v == null) return '—';
     return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
   }
+
+  static String _fieldLabel(AppLocalizations l10n, String field) =>
+      switch (field) {
+        'weight' => l10n.trainingWeight,
+        'reps' => l10n.trainingRepsShort,
+        'duration_seconds' => l10n.trainingDuration,
+        'distance_km' => l10n.trainingDistance,
+        'incline_percent' => l10n.trainingIncline,
+        'speed_kmh' => l10n.trainingSpeed,
+        _ => field,
+      };
+
+  static String _fieldValue(LoggedSet set, String field) => switch (field) {
+        'weight' => _n(set.weight),
+        'reps' => _n(set.reps),
+        'duration_seconds' =>
+          set.durationSeconds != null ? formatClock(set.durationSeconds!) : '—',
+        'distance_km' => _n(set.distanceKm),
+        'incline_percent' => _n(set.inclinePercent),
+        'speed_kmh' => _n(set.speedKmh),
+        _ => '—',
+      };
 }

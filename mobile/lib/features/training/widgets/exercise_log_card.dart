@@ -4,7 +4,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/workout_log.dart';
 import '../../../shared/models/workout_session.dart';
+import '../../../shared/utils/exercise_tracking_types.dart' as tracking;
 import '../../../shared/utils/localization.dart';
+import '../../../shared/utils/workout.dart';
 import 'coach_note_modal.dart';
 import 'exercise_insights_modal.dart';
 import 'exercise_notes_modal.dart';
@@ -13,10 +15,93 @@ import 'exercise_video.dart';
 String _n(double v) =>
     v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
+String _fieldLabel(AppLocalizations l10n, String field) => switch (field) {
+      'reps' => l10n.trainingRepsShort,
+      'weight' => l10n.trainingWeight,
+      'tempo' => l10n.trainingTempo,
+      'rir' => l10n.trainingRir,
+      'rpe' => l10n.trainingRpe,
+      'duration_seconds' => l10n.trainingDuration,
+      'distance_km' => l10n.trainingDistance,
+      'incline_percent' => l10n.trainingIncline,
+      'speed_kmh' => l10n.trainingSpeed,
+      _ => field,
+    };
+
+/// Reads one named field off a [PrescribedSet] — the coach's target, shown
+/// either as a read-only column (tempo/rir/rpe) or as an editable field's
+/// placeholder (duration/distance/incline/speed, reps).
+String? _prescribedValue(PrescribedSet? target, String field) {
+  if (target == null) return null;
+  return switch (field) {
+    'reps' => target.reps,
+    'tempo' => target.tempo,
+    'rir' => target.rir,
+    'rpe' => target.rpe,
+    'duration_seconds' => target.durationSeconds,
+    'distance_km' => target.distanceKm,
+    'incline_percent' => target.inclinePercent,
+    'speed_kmh' => target.speedKmh,
+    _ => null,
+  };
+}
+
+/// Reads one named editable field off a [SessionSet] being logged.
+String _setValue(SessionSet set, String field) => switch (field) {
+      'weight' => set.weight,
+      'reps' => set.reps,
+      'duration_seconds' => set.durationSeconds,
+      'distance_km' => set.distanceKm,
+      'incline_percent' => set.inclinePercent,
+      'speed_kmh' => set.speedKmh,
+      _ => '',
+    };
+
+/// Weight has no prescribed counterpart — its placeholder stays "what the
+/// client did last time". Every other editable field IS something the coach
+/// set a target for on this set, so showing that target as the placeholder
+/// tells the client what to aim for.
+String _placeholderFor(
+  String field,
+  PrescribedSet? target,
+  PreviousSet? previous,
+) {
+  if (field == 'weight') {
+    return previous?.weight != null ? '${_n(previous!.weight!)}kg' : 'kg';
+  }
+  final raw = _prescribedValue(target, field);
+  if (raw == null || raw.isEmpty) return '—';
+  if (field == 'duration_seconds') {
+    final secs = int.tryParse(raw);
+    return secs != null ? formatClock(secs) : raw;
+  }
+  if (field == 'distance_km') return '${raw}km';
+  if (field == 'incline_percent') return '$raw%';
+  if (field == 'speed_kmh') return '${raw}km/h';
+  return raw;
+}
+
+String? _previousText(PreviousSet? previous, String category) {
+  if (previous == null) return null;
+  if (category == tracking.setsReps) {
+    if (previous.weight == null || previous.reps == null) return null;
+    return '${_n(previous.weight!)}kg × ${_n(previous.reps!)}';
+  }
+  final parts = <String>[];
+  if (previous.durationSeconds != null) {
+    parts.add(formatClock(previous.durationSeconds!));
+  }
+  if (previous.distanceKm != null) {
+    parts.add('${_n(previous.distanceKm!)}km');
+  }
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
 /// One exercise within a Training Mode session: a lazy video, per-set targets
 /// shown alongside each row, and an editable grid of logged sets (previous ·
-/// weight · reps · done). Set structure is fixed by the coach's plan — the
-/// client logs the assigned workout only, matching the web `ExerciseLogCard`.
+/// [logged fields] · [target fields] · done). Which fields are editable vs.
+/// read-only targets is entirely the coach's choice (tracking_type +
+/// tracked_metrics) — see shared/utils/exercise_tracking_types.dart.
 class ExerciseLogCard extends StatefulWidget {
   const ExerciseLogCard({
     super.key,
@@ -33,8 +118,8 @@ class ExerciseLogCard extends StatefulWidget {
   final List<PreviousSet> previous;
   final String? videoUrl;
 
-  /// Index of the set whose weight field should take keyboard focus once
-  /// the set before it is marked done. Null outside of that moment.
+  /// Index of the set whose first editable field should take keyboard focus
+  /// once the set before it is marked done. Null outside of that moment.
   final int? focusSetIndex;
   final void Function(int setIndex, String field, String value) onChangeSet;
   final void Function(int setIndex) onToggleSet;
@@ -81,9 +166,7 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
 
   PreviousSet? _previousFor(int setOrder) {
     for (final p in widget.previous) {
-      if (p.setOrder == setOrder && p.weight != null && p.reps != null) {
-        return p;
-      }
+      if (p.setOrder == setOrder) return p;
     }
     return null;
   }
@@ -115,6 +198,16 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
       arabic: exercise.equipmentAr,
       localeCode: locale,
     );
+
+    final category = tracking.categoryOf(exercise.trackingType);
+    // rest_seconds is prescribed (a base field, always) but never a
+    // displayed column — it drives the rest timer, not a table cell.
+    final editableFields = tracking
+        .loggedFieldsFor(exercise.trackingType, exercise.trackedMetrics);
+    final targetFields = tracking
+        .targetOnlyFieldsFor(exercise.trackingType, exercise.trackedMetrics)
+        .where((f) => f != 'rest_seconds')
+        .toList();
 
     // Flat, borderless layout (Strong-style) — exercises are separated by the
     // list's own spacing/dividers rather than a card container, so the video,
@@ -203,7 +296,12 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
         const SizedBox(height: 12),
 
         // Column headers
-        _SetRow.header(l10n: l10n, muted: muted),
+        _SetRow.header(
+          l10n: l10n,
+          muted: muted,
+          editableFields: editableFields,
+          targetFields: targetFields,
+        ),
         const SizedBox(height: 4),
         for (var i = 0; i < exercise.sets.length; i++)
           _SetRow(
@@ -212,6 +310,9 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
             previous: _previousFor(exercise.sets[i].setOrder),
             target:
                 i < exercise.prescribed.length ? exercise.prescribed[i] : null,
+            category: category,
+            editableFields: editableFields,
+            targetFields: targetFields,
             weightFocusNode: _weightFocusNodes[i],
             onChange: (field, value) => widget.onChangeSet(i, field, value),
             onToggle: () => widget.onToggleSet(i),
@@ -264,15 +365,20 @@ class _IconAction extends StatelessWidget {
   }
 }
 
-/// A 5-column set row: # · previous · weight · reps (target as hint) ·
-/// RIR-target (read-only) · done. Rest lives entirely in the floating
-/// [RestTimerBar] once a set completes — it never occupies table space.
+/// A dynamic set row: # · previous · [editable logged fields] · [read-only
+/// target fields] · done. Column set is entirely the coach's choice
+/// (tracked_metrics), not whether a particular set happens to have a value.
+/// Rest lives entirely in the floating [RestTimerBar] once a set completes —
+/// it never occupies table space.
 class _SetRow extends StatelessWidget {
   const _SetRow({
     required this.index,
     required this.set,
     required this.previous,
     required this.target,
+    required this.category,
+    required this.editableFields,
+    required this.targetFields,
     required this.onChange,
     required this.onToggle,
     this.weightFocusNode,
@@ -280,12 +386,17 @@ class _SetRow extends StatelessWidget {
         l10n = null,
         muted = null;
 
-  const _SetRow.header({required this.l10n, required this.muted})
-      : isHeader = true,
+  const _SetRow.header({
+    required this.l10n,
+    required this.muted,
+    required this.editableFields,
+    required this.targetFields,
+  })  : isHeader = true,
         index = 0,
         set = null,
         previous = null,
         target = null,
+        category = tracking.setsReps,
         onChange = null,
         onToggle = null,
         weightFocusNode = null;
@@ -295,6 +406,9 @@ class _SetRow extends StatelessWidget {
   final SessionSet? set;
   final PreviousSet? previous;
   final PrescribedSet? target;
+  final String category;
+  final List<String> editableFields;
+  final List<String> targetFields;
   final void Function(String field, String value)? onChange;
   final VoidCallback? onToggle;
   final AppLocalizations? l10n;
@@ -303,10 +417,6 @@ class _SetRow extends StatelessWidget {
   /// Takes keyboard focus once the previous set is marked done — the row
   /// itself carries no visual "next up" treatment, just the moved focus.
   final FocusNode? weightFocusNode;
-
-  String? get _previousText => previous == null
-      ? null
-      : '${_n(previous!.weight!)}kg × ${_n(previous!.reps!)}';
 
   @override
   Widget build(BuildContext context) {
@@ -317,23 +427,23 @@ class _SetRow extends StatelessWidget {
         letterSpacing: 0.5,
         color: muted!.withValues(alpha: 0.7),
       );
-      Widget header(String label, {int? flex, double? width}) {
+      Widget header(String label, {double? width}) {
         final text = Text(label.toUpperCase(),
-            style: style, textAlign: TextAlign.center);
+            style: style, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis);
         return width != null
             ? SizedBox(width: width, child: text)
-            : Expanded(flex: flex ?? 1, child: text);
+            : Expanded(child: text);
       }
 
       return Row(
         children: [
           header(l10n!.trainingSet, width: 24),
           const SizedBox(width: 4),
-          // Previous, Weight and Reps share the row equally.
-          header(l10n!.trainingPreviousShort, flex: 1),
-          header(l10n!.trainingWeight, flex: 1),
-          header(l10n!.trainingRepsShort, flex: 1),
-          header(l10n!.trainingRir, width: 32),
+          header(l10n!.trainingPreviousShort),
+          for (final field in editableFields)
+            header(_fieldLabel(l10n!, field)),
+          for (final field in targetFields)
+            header(_fieldLabel(l10n!, field), width: 34),
           SizedBox(
             width: 32,
             child: Icon(Icons.check, size: 14, color: style.color),
@@ -345,7 +455,8 @@ class _SetRow extends StatelessWidget {
     final s = set!;
     final mutedColor = context.appColors.mutedForeground;
     final success = context.appColors.success;
-    final weightHint = previous != null ? '${_n(previous!.weight!)}kg' : 'kg';
+    final previousText = _previousText(previous, category);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       padding: const EdgeInsets.symmetric(vertical: 1),
@@ -363,8 +474,7 @@ class _SetRow extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Expanded(
-            flex: 1,
-            child: Text(_previousText ?? '—',
+            child: Text(previousText ?? '—',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 10,
@@ -372,24 +482,28 @@ class _SetRow extends StatelessWidget {
                     color: mutedColor.withValues(alpha: 0.6)),
                 overflow: TextOverflow.ellipsis),
           ),
-          Expanded(
-              flex: 1,
-              child: _input(context, s.weight, weightHint, 'weight',
-                  decimal: true,
-                  focusNode: weightFocusNode,
-                  plain: s.completed)),
-          Expanded(
-              flex: 1,
-              child: _input(context, s.reps, target?.reps ?? '—', 'reps',
-                  plain: s.completed)),
-          SizedBox(
-            width: 32,
-            child: Text(
-              target?.rir ?? '—',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: mutedColor),
+          for (var i = 0; i < editableFields.length; i++)
+            Expanded(
+              child: _input(
+                context,
+                _setValue(s, editableFields[i]),
+                _placeholderFor(editableFields[i], target, previous),
+                editableFields[i],
+                decimal: editableFields[i] != 'reps' &&
+                    editableFields[i] != 'duration_seconds',
+                focusNode: i == 0 ? weightFocusNode : null,
+                plain: s.completed,
+              ),
             ),
-          ),
+          for (final field in targetFields)
+            SizedBox(
+              width: 34,
+              child: Text(
+                _prescribedValue(target, field) ?? '—',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: mutedColor),
+              ),
+            ),
           SizedBox(
             width: 32,
             child: Center(child: _doneButton(context, s.completed, success)),
@@ -408,8 +522,8 @@ class _SetRow extends StatelessWidget {
         focusNode: focusNode,
         onChanged: (v) => onChange!(field, v),
         textAlign: TextAlign.center,
-        keyboardType:
-            TextInputType.numberWithOptions(decimal: decimal, signed: false),
+        keyboardType: TextInputType.numberWithOptions(
+            decimal: decimal, signed: false),
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           isDense: true,

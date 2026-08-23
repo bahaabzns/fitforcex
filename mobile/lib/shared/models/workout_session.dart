@@ -39,6 +39,9 @@ abstract class SessionExercise with _$SessionExercise {
     String? equipmentAr,
     String? instructionsEn,
     String? instructionsAr,
+    // 'sets_reps' or 'time_based' — see shared/utils/exercise_tracking_types.dart.
+    @Default('sets_reps') String trackingType,
+    @Default(<String>[]) List<String> trackedMetrics,
     @Default(<PrescribedSet>[]) List<PrescribedSet> prescribed,
     @Default('') String note,
     @Default(<SessionSet>[]) List<SessionSet> sets,
@@ -48,7 +51,8 @@ abstract class SessionExercise with _$SessionExercise {
       _$SessionExerciseFromJson(json);
 }
 
-/// The coach-prescribed target for a set (shown as faint guidance).
+/// The coach-prescribed target for a set (shown as faint guidance, or —
+/// for time_based's loggable metrics — as the input's placeholder).
 @freezed
 abstract class PrescribedSet with _$PrescribedSet {
   const factory PrescribedSet({
@@ -56,21 +60,33 @@ abstract class PrescribedSet with _$PrescribedSet {
     int? restSeconds,
     String? rir,
     String? tempo,
+    String? rpe,
+    String? durationSeconds,
+    String? distanceKm,
+    String? inclinePercent,
+    String? speedKmh,
   }) = _PrescribedSet;
 
   factory PrescribedSet.fromJson(Map<String, dynamic> json) =>
       _$PrescribedSetFromJson(json);
 }
 
-/// A logged set being edited. Weight/reps/rir stay as text while the user types
-/// (parsed to numbers on save), matching the web inputs.
+/// A logged set being edited. Every field stays as text while the user types
+/// (parsed to numbers on save), matching the web inputs. Which fields are
+/// actually editable/shown depends on the exercise's category — see
+/// loggedFieldsFor in exercise_tracking_types.dart. RIR/tempo/RPE are never
+/// logged (sets_reps target-only, read from PrescribedSet instead), so they
+/// have no field here.
 @freezed
 abstract class SessionSet with _$SessionSet {
   const factory SessionSet({
     required int setOrder,
     @Default('') String weight,
     @Default('') String reps,
-    @Default('') String rir,
+    @Default('') String durationSeconds,
+    @Default('') String distanceKm,
+    @Default('') String inclinePercent,
+    @Default('') String speedKmh,
     int? restSeconds,
     @Default(false) bool completed,
   }) = _SessionSet;

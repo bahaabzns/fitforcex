@@ -12,6 +12,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/training_plan.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/models/workout_session.dart';
+import '../../shared/utils/exercise_tracking_types.dart';
 import '../../shared/utils/media_url.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
@@ -137,6 +138,8 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             equipmentAr: ex.equipmentAr,
             instructionsEn: ex.instructionsEn,
             instructionsAr: ex.instructionsAr,
+            trackingType: categoryOf(ex.trackingType),
+            trackedMetrics: trackedMetricsOf(ex.trackingType, ex.trackedMetrics),
             prescribed: [
               for (final s in ex.sets)
                 PrescribedSet(
@@ -144,6 +147,11 @@ class _SessionPageState extends ConsumerState<SessionPage> {
                   restSeconds: s.restSeconds,
                   rir: s.rir?.toString(),
                   tempo: s.tempo,
+                  rpe: s.rpe?.toString(),
+                  durationSeconds: s.durationSeconds?.toString(),
+                  distanceKm: s.distanceKm?.toString(),
+                  inclinePercent: s.inclinePercent?.toString(),
+                  speedKmh: s.speedKmh?.toString(),
                 ),
             ],
             sets: List.generate(
@@ -175,7 +183,10 @@ class _SessionPageState extends ConsumerState<SessionPage> {
       sets[setIdx] = switch (field) {
         'weight' => cur.copyWith(weight: value),
         'reps' => cur.copyWith(reps: value),
-        'rir' => cur.copyWith(rir: value),
+        'duration_seconds' => cur.copyWith(durationSeconds: value),
+        'distance_km' => cur.copyWith(distanceKm: value),
+        'incline_percent' => cur.copyWith(inclinePercent: value),
+        'speed_kmh' => cur.copyWith(speedKmh: value),
         _ => cur,
       };
       return ex.copyWith(sets: sets);
@@ -263,14 +274,19 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             'library_name_en': ex.libraryNameEn,
             'library_name_ar': ex.libraryNameAr,
             'note': ex.note.trim().isEmpty ? null : ex.note.trim(),
+            'tracking_type': ex.trackingType,
+            'tracked_metrics': ex.trackedMetrics,
             'sets': [
               for (final s in ex.sets)
                 {
                   'set_order': s.setOrder,
                   'weight': toNumber(s.weight),
                   'reps': toNumber(s.reps),
-                  'rir': toNumber(s.rir),
                   'rest_seconds': s.restSeconds,
+                  'duration_seconds': toNumber(s.durationSeconds)?.round(),
+                  'distance_km': toNumber(s.distanceKm),
+                  'incline_percent': toNumber(s.inclinePercent),
+                  'speed_kmh': toNumber(s.speedKmh),
                   'completed': s.completed,
                 },
             ],

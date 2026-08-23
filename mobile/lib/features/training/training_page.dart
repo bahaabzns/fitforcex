@@ -15,8 +15,10 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/training_plan.dart';
+import '../../shared/utils/exercise_tracking_types.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/media_url.dart';
+import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
 import 'training_repository.dart';
 import 'widgets/exercise_video.dart';
@@ -328,7 +330,11 @@ class _ExerciseCard extends StatelessWidget {
             ],
             if (exercise.sets.isNotEmpty) ...[
               const SizedBox(height: 12),
-              _SetsTable(sets: exercise.sets),
+              _SetsTable(
+                sets: exercise.sets,
+                trackingType: exercise.trackingType,
+                trackedMetrics: exercise.trackedMetrics,
+              ),
             ],
             if (exercise.alternatives.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -446,9 +452,52 @@ class _Chip extends StatelessWidget {
   }
 }
 
+/// Reads one named field off a [TrainingSet] by the tracking-config's field
+/// name string. Used both for the read-only target columns (tempo/rir/rpe)
+/// and the primary columns (reps, or duration/distance/incline/speed).
+String? _trainingSetValue(TrainingSet set, String field) => switch (field) {
+      'reps' => set.reps,
+      'tempo' => set.tempo,
+      'rir' => set.rir?.toString(),
+      'rpe' => set.rpe?.toString(),
+      'duration_seconds' => set.durationSeconds?.toString(),
+      'distance_km' => set.distanceKm?.toString(),
+      'incline_percent' => set.inclinePercent?.toString(),
+      'speed_kmh' => set.speedKmh?.toString(),
+      _ => null,
+    };
+
+String _fieldLabel(AppLocalizations l10n, String field) => switch (field) {
+      'reps' => l10n.trainingReps,
+      'tempo' => l10n.trainingTempo,
+      'rir' => l10n.trainingRir,
+      'rpe' => l10n.trainingRpe,
+      'duration_seconds' => l10n.trainingDuration,
+      'distance_km' => l10n.trainingDistance,
+      'incline_percent' => l10n.trainingIncline,
+      'speed_kmh' => l10n.trainingSpeed,
+      _ => field,
+    };
+
+String _formatFieldValue(String field, String? value) {
+  if (value == null || value.isEmpty) return '—';
+  if (field == 'duration_seconds') {
+    final secs = int.tryParse(value);
+    return secs != null ? formatClock(secs) : value;
+  }
+  return value;
+}
+
 class _SetsTable extends StatelessWidget {
-  const _SetsTable({required this.sets});
+  const _SetsTable({
+    required this.sets,
+    required this.trackingType,
+    required this.trackedMetrics,
+  });
+
   final List<TrainingSet> sets;
+  final String? trackingType;
+  final List<String>? trackedMetrics;
 
   @override
   Widget build(BuildContext context) {
@@ -461,18 +510,27 @@ class _SetsTable extends StatelessWidget {
       color: muted.withValues(alpha: 0.7),
     );
 
+    final category = categoryOf(trackingType);
+    // rest_seconds is prescribed but never a displayed column here (matches
+    // the live session log card and web's day preview).
+    final fields = prescribedFieldsFor(trackingType, trackedMetrics)
+        .where((f) => f != 'rest_seconds')
+        .toList();
+    final primaryFields =
+        category == setsReps ? fields.where((f) => f == 'reps').toList() : fields;
+    final targetFields =
+        category == setsReps ? fields.where((f) => f != 'reps').toList() : const <String>[];
+
     Widget cell(String text, TextStyle? style) =>
-        Expanded(child: Text(text, style: style));
+        Expanded(child: Text(text, style: style, textAlign: TextAlign.center));
 
     return Column(
       children: [
         Row(
           children: [
             cell(l10n.trainingSet.toUpperCase(), header),
-            cell(l10n.trainingReps.toUpperCase(), header),
-            cell(l10n.trainingRest.toUpperCase(), header),
-            cell(l10n.trainingTempo.toUpperCase(), header),
-            cell(l10n.trainingRir.toUpperCase(), header),
+            for (final field in [...primaryFields, ...targetFields])
+              cell(_fieldLabel(l10n, field).toUpperCase(), header),
           ],
         ),
         const SizedBox(height: 4),
@@ -482,15 +540,11 @@ class _SetsTable extends StatelessWidget {
             child: Row(
               children: [
                 cell('${i + 1}', TextStyle(fontSize: 12, color: muted)),
-                cell(sets[i].reps ?? '—', const TextStyle(fontSize: 13)),
-                cell(
-                    sets[i].restSeconds != null
-                        ? '${sets[i].restSeconds}s'
-                        : '—',
-                    const TextStyle(fontSize: 13)),
-                cell(sets[i].tempo ?? '—', const TextStyle(fontSize: 13)),
-                cell(sets[i].rir?.toString() ?? '—',
-                    const TextStyle(fontSize: 13)),
+                for (final field in [...primaryFields, ...targetFields])
+                  cell(
+                    _formatFieldValue(field, _trainingSetValue(sets[i], field)),
+                    const TextStyle(fontSize: 13),
+                  ),
               ],
             ),
           ),

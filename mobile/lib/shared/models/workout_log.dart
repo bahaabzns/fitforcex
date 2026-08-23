@@ -52,6 +52,12 @@ abstract class LoggedExerciseDetail with _$LoggedExerciseDetail {
     @JsonKey(name: 'library_name_en') String? libraryNameEn,
     @JsonKey(name: 'library_name_ar') String? libraryNameAr,
     String? note,
+    // Snapshotted at submission time — history renders exactly what was
+    // prescribed then, even if the coach later changes the catalog
+    // exercise's type/metrics. See exercise_tracking_types.dart.
+    @JsonKey(name: 'tracking_type') String? trackingType,
+    @JsonKey(name: 'tracked_metrics', fromJson: _stringListOrNull)
+    List<String>? trackedMetrics,
     @Default(<LoggedSet>[]) List<LoggedSet> sets,
   }) = _LoggedExerciseDetail;
 
@@ -65,7 +71,16 @@ abstract class LoggedSet with _$LoggedSet {
     @JsonKey(name: 'set_order') @Default(0) int setOrder,
     @NumToDoubleOrNull() double? weight,
     @NumToDoubleOrNull() double? reps,
+    // Retained for older logs predating this feature; never rendered by the
+    // new dynamic history columns (RIR is a target, never something a
+    // client actually logs — see exercise_tracking_types.dart).
     @NumToDoubleOrNull() double? rir,
+    @JsonKey(name: 'duration_seconds') int? durationSeconds,
+    @JsonKey(name: 'distance_km') @NumToDoubleOrNull() double? distanceKm,
+    @JsonKey(name: 'incline_percent')
+    @NumToDoubleOrNull()
+    double? inclinePercent,
+    @JsonKey(name: 'speed_kmh') @NumToDoubleOrNull() double? speedKmh,
     @Default(false) bool completed,
   }) = _LoggedSet;
 
@@ -113,8 +128,18 @@ abstract class PreviousSet with _$PreviousSet {
     @JsonKey(name: 'set_order') @Default(0) int setOrder,
     @NumToDoubleOrNull() double? weight,
     @NumToDoubleOrNull() double? reps,
+    @NumToDoubleOrNull() double? rpe,
+    @JsonKey(name: 'duration_seconds') int? durationSeconds,
+    @JsonKey(name: 'distance_km') @NumToDoubleOrNull() double? distanceKm,
+    @JsonKey(name: 'incline_percent')
+    @NumToDoubleOrNull()
+    double? inclinePercent,
+    @JsonKey(name: 'speed_kmh') @NumToDoubleOrNull() double? speedKmh,
   }) = _PreviousSet;
 
   factory PreviousSet.fromJson(Map<String, dynamic> json) =>
       _$PreviousSetFromJson(json);
 }
+
+List<String>? _stringListOrNull(dynamic value) =>
+    value is List ? value.map((e) => e.toString()).toList() : null;
