@@ -15,7 +15,9 @@ import '../access/restricted_view.dart';
 import '../../shared/models/nutrition_plan.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/nutrition_calc.dart';
+import 'food_swap_repository.dart';
 import 'nutrition_repository.dart';
+import 'widgets/food_swap_modal.dart';
 import 'widgets/macros_donut.dart';
 import 'widgets/shopping_list_sheet.dart';
 
@@ -102,11 +104,39 @@ class _NutritionViewState extends ConsumerState<_NutritionView> {
   int _activeCycle = 0;
   final _expandedMeals = <String>{};
   final _checkedItems = <String>{};
+  String? _resettingItemId;
+
+  Future<void> _openSwapModal(NutritionMealItem item, String locale) async {
+    final name = localizedField(
+        base: item.name, arabic: item.nameAr, localeCode: locale);
+    final swapped = await FoodSwapModal.show(
+      context,
+      mealItemId: item.id,
+      currentFoodName: name,
+    );
+    if (swapped == true) {
+      ref.invalidate(activeNutritionPlanProvider);
+    }
+  }
+
+  Future<void> _resetSwap(String itemId) async {
+    setState(() => _resettingItemId = itemId);
+    try {
+      await ref.read(foodSwapRepositoryProvider).reset(itemId);
+      ref.invalidate(activeNutritionPlanProvider);
+    } catch (_) {
+      // Swallowed — matches web: the item simply stays swapped and the
+      // client can retry the reset button.
+    } finally {
+      if (mounted) setState(() => _resettingItemId = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).languageCode;
+    final canSwapFood = ref.watch(clientAccessProvider).canSwapFood;
     final plan = widget.plan;
     final cycle = plan.cycles[_activeCycle.clamp(0, plan.cycles.length - 1)];
     final totals = calcCycle(cycle);
@@ -187,6 +217,10 @@ class _NutritionViewState extends ConsumerState<_NutritionView> {
                         ? _checkedItems.remove(id)
                         : _checkedItems.add(id);
                   }),
+                  canSwapFood: canSwapFood,
+                  resettingItemId: _resettingItemId,
+                  onSwap: (item) => _openSwapModal(item, locale),
+                  onReset: _resetSwap,
                 ),
                 const SizedBox(height: 12),
               ],
@@ -220,6 +254,10 @@ class _MealCard extends StatelessWidget {
     required this.checkedItems,
     required this.onToggleMeal,
     required this.onToggleItem,
+    required this.canSwapFood,
+    required this.resettingItemId,
+    required this.onSwap,
+    required this.onReset,
   });
 
   final NutritionMeal meal;
@@ -228,6 +266,10 @@ class _MealCard extends StatelessWidget {
   final Set<String> checkedItems;
   final VoidCallback onToggleMeal;
   final ValueChanged<String> onToggleItem;
+  final bool canSwapFood;
+  final String? resettingItemId;
+  final ValueChanged<NutritionMealItem> onSwap;
+  final ValueChanged<String> onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -285,6 +327,10 @@ class _MealCard extends StatelessWidget {
                       locale: locale,
                       checked: checkedItems.contains(item.id),
                       onToggle: () => onToggleItem(item.id),
+                      canSwapFood: canSwapFood,
+                      resetting: resettingItemId == item.id,
+                      onSwap: () => onSwap(item),
+                      onReset: () => onReset(item.id),
                     ),
                 ],
               ),
@@ -324,12 +370,20 @@ class _ItemRow extends StatelessWidget {
     required this.locale,
     required this.checked,
     required this.onToggle,
+    required this.canSwapFood,
+    required this.resetting,
+    required this.onSwap,
+    required this.onReset,
   });
 
   final NutritionMealItem item;
   final String locale;
   final bool checked;
   final VoidCallback onToggle;
+  final bool canSwapFood;
+  final bool resetting;
+  final VoidCallback onSwap;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -367,6 +421,33 @@ class _ItemRow extends StatelessWidget {
                         '${_pretty(item.amount)}${item.servingUnit}',
                         style: TextStyle(fontSize: 11, color: muted),
                       ),
+                      if (item.isSwapped)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.swap_horiz,
+                                  size: 10,
+                                  color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  l10n.nutritionSwappedFrom(localizedField(
+                                    base: item.originalFoodName ?? '',
+                                    arabic: item.originalFoodNameAr,
+                                    localeCode: locale,
+                                  )),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -399,6 +480,55 @@ class _ItemRow extends StatelessWidget {
                 ),
               ],
             ),
+            if (canSwapFood)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 26, top: 4),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: onSwap,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swap_horiz,
+                              size: 11,
+                              color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 3),
+                          Text(
+                            l10n.nutritionSwapFood,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (item.isSwapped) ...[
+                      const SizedBox(width: 12),
+                      InkWell(
+                        onTap: resetting ? null : onReset,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.undo, size: 11, color: muted),
+                            const SizedBox(width: 3),
+                            Text(
+                              l10n.nutritionResetToCoachPlan,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             if (item.alternatives.isNotEmpty)
               Padding(
                 padding: const EdgeInsetsDirectional.only(start: 28, top: 6),
