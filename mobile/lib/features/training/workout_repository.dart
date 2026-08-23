@@ -168,12 +168,18 @@ class WorkoutRepository {
   /// Finish (`completed: true`), so both target the same workout_logs row.
   /// A completed row is an immutable snapshot server-side: a stray autosave
   /// racing in after Finish is a no-op there, not a mutation.
-  Future<void> upsertLog(String id, Map<String, dynamic> payload) async {
+  /// Returns the server's response body — for a `completed: true` upsert
+  /// (Finish), this carries the authoritative `duration_seconds`/
+  /// `total_volume`/`total_sets` for the completion page; autosave calls
+  /// just ignore it.
+  Future<Map<String, dynamic>?> upsertLog(
+      String id, Map<String, dynamic> payload) async {
     try {
-      await _dio.put<Map<String, dynamic>>(
+      final res = await _dio.put<Map<String, dynamic>>(
         '/api/client-portal/workout-logs/$id',
         data: payload,
       );
+      return res.data;
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

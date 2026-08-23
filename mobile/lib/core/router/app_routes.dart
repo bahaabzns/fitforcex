@@ -14,6 +14,7 @@ class AppRoutes {
 
   // Training Mode (pushed full-screen over the shell)
   static const trainingSession = '/training/session';
+  static const trainingSessionComplete = '/training/session/complete';
   static const trainingHistory = '/training/history';
   static const trainingProgress = '/training/progress';
   static String trainingHistoryDetail(String id) => '/training/history/$id';

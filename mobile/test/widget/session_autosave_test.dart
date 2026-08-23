@@ -59,6 +59,7 @@ class _FakeWorkoutRepository extends WorkoutRepository {
   final WorkoutDraft? draft;
   final List<String> upsertIds = [];
   final List<Map<String, dynamic>> upsertPayloads = [];
+  Map<String, dynamic>? upsertResponse;
 
   @override
   Future<Map<String, List<PreviousSet>>> fetchPrevious(String dayId) async =>
@@ -68,9 +69,11 @@ class _FakeWorkoutRepository extends WorkoutRepository {
   Future<WorkoutDraft?> fetchDraft(String dayId) async => draft;
 
   @override
-  Future<void> upsertLog(String id, Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>?> upsertLog(
+      String id, Map<String, dynamic> payload) async {
     upsertIds.add(id);
     upsertPayloads.add(payload);
+    return upsertResponse;
   }
 
   bool deleteLogCalled = false;
@@ -108,6 +111,16 @@ Future<_FakeWorkoutRepository> _pumpSession(
       GoRoute(
         path: '/training/history',
         builder: (_, __) => const Scaffold(body: Text('history-tab')),
+      ),
+      GoRoute(
+        path: '/training/session/complete',
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return Scaffold(
+            body: Text('complete dayName=${q['dayName']} '
+                'duration=${q['duration']} volume=${q['volume']} sets=${q['sets']}'),
+          );
+        },
       ),
     ],
   );
@@ -284,5 +297,34 @@ void main() {
 
     expect(find.text('training-tab'), findsOneWidget);
     expect(workoutRepo.deleteLogCalled, isTrue);
+  });
+
+  testWidgets(
+      "finishing navigates to the completion page with the server's stats",
+      (tester) async {
+    final workoutRepo = _FakeWorkoutRepository()
+      ..upsertResponse = {
+        'id': 'log-1',
+        'duration_seconds': 620,
+        'total_volume': 450.5,
+        'total_sets': 3,
+      };
+
+    await _pumpSession(
+      tester,
+      trainingRepo: _FakeTrainingRepository(_planWithOneExercise()),
+      workoutRepo: workoutRepo,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish'));
+    await tester.pumpAndSettle();
+    // No sets were marked done — confirm the "finish anyway?" dialog.
+    await tester.tap(find.text('Finish').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('complete dayName=Push Day duration=620 volume=450.5 sets=3'),
+      findsOneWidget,
+    );
   });
 }

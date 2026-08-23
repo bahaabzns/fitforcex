@@ -15,6 +15,7 @@ import '../../features/splash/splash_page.dart';
 import '../../features/training/history_detail_page.dart';
 import '../../features/training/history_page.dart';
 import '../../features/training/progress_page.dart';
+import '../../features/training/session_complete_page.dart';
 import '../../features/training/session_page.dart';
 import '../../features/training/training_page.dart';
 import '../auth/auth_controller.dart';
@@ -77,6 +78,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           final day =
               int.tryParse(state.uri.queryParameters['day'] ?? '0') ?? 0;
           return SessionPage(dayIndex: day);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.trainingSessionComplete,
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return SessionCompletePage(
+            dayName: q['dayName'],
+            durationSeconds: int.tryParse(q['duration'] ?? ''),
+            volume: q['volume'],
+            sets: int.tryParse(q['sets'] ?? ''),
+          );
         },
       ),
       GoRoute(

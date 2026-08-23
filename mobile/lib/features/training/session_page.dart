@@ -455,10 +455,20 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     };
 
     try {
-      await ref.read(workoutRepositoryProvider).upsertLog(session.id!, payload);
+      final result =
+          await ref.read(workoutRepositoryProvider).upsertLog(session.id!, payload);
       await ref.read(sessionStoreProvider).clear();
       ref.invalidate(workoutLogsProvider);
-      if (mounted) context.go(AppRoutes.trainingHistory);
+      if (mounted) {
+        final query = Uri(queryParameters: {
+          'dayName': session.dayName,
+          if (result?['duration_seconds'] != null)
+            'duration': '${result!['duration_seconds']}',
+          if (result?['total_volume'] != null) 'volume': '${result!['total_volume']}',
+          if (result?['total_sets'] != null) 'sets': '${result!['total_sets']}',
+        }).query;
+        context.go('${AppRoutes.trainingSessionComplete}?$query');
+      }
     } catch (_) {
       if (mounted) {
         _finishing = false; // let autosave resume if the client keeps editing and retries
