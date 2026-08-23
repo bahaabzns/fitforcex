@@ -246,6 +246,24 @@
   }
   .sidebar.collapsed { width: 4rem; }
 
+  /* Mobile/tablet (< lg): before JS hydrates, Sidebar always renders the plain
+     <aside> (see useMediaQuery's flash-free desktop-first default). Force it
+     off-canvas and out of flow here so there is zero layout shift once the
+     component switches to the Drawer-based overlay after hydration. This rule
+     only ever targets the plain <aside> — the mobile Drawer panel uses its own
+     className (not .sidebar), so it isn't affected by this positioning. */
+  @media (max-width: 1023px) {
+    .sidebar {
+      position: fixed;
+      inset-block: 0;
+      inset-inline-start: 0;
+      transform: translateX(-100%);
+    }
+    [dir="rtl"] .sidebar {
+      transform: translateX(100%);
+    }
+  }
+
   /* Action Bar — floating pill toolbar for bulk/contextual actions.
      The band is fixed to the bottom of the CONTENT area (offset past the
      sidebar so the pill centers under the data table, not the whole viewport)
@@ -273,6 +291,17 @@
   .sidebar.collapsed ~ div .action-bar {
     inset-inline-start: 4rem;
   }
+  /* Below lg (< 1024px) the sidebar is an off-canvas drawer (see the .sidebar
+     media query above) and reserves no layout space at all, so the "clear the
+     sidebar" offset above no longer applies — without this the bar stayed
+     pinned 16rem from the left on every phone/tablet width regardless of
+     whether the sidebar was even in the DOM. */
+  @media (max-width: 1023px) {
+    .action-bar {
+      inset-inline-start: 0;
+      padding-inline: 0.75rem;
+    }
+  }
   .action-bar[data-open="true"] {
     opacity: 1;
     visibility: visible;
@@ -284,6 +313,16 @@
     pointer-events: auto;
     transform: translateY(0.5rem) scale(0.98);
     transition: transform 200ms ease;
+    /* The pill's content (up to 4 icon+label buttons, separators, a counter,
+       a close button) doesn't reliably fit one line under ~1024px even after
+       the offset fix above — scroll it horizontally within itself rather than
+       letting it push past the viewport edge. */
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .action-bar__wrapper::-webkit-scrollbar {
+    display: none;
   }
   .action-bar[data-open="true"] .action-bar__wrapper {
     transform: translateY(0) scale(1);

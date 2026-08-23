@@ -173,7 +173,10 @@ function PinnedFilterButton({ col, filterRules, upsertFilter }) {
             {open && (
                 // z-50: must clear the table's stickyEnd column (z-20) below — ties break
                 // by DOM order, and the table (later in the DOM) would otherwise paint on top.
-                <div className="absolute z-50 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                // sm:end-0: anchors to the trigger's end edge from `sm` up, where pinned
+                // filters cluster near the toolbar's right side (see the general Filter
+                // button's comment above for why this doesn't apply below `sm`).
+                <div className="absolute z-50 top-full sm:end-0 mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56 max-w-[85vw]">
                     {renderFilterFields(col, value, (next) => upsertFilter(col.key, next))}
                 </div>
             )}
@@ -483,10 +486,13 @@ export default function DataTable({
     // ── Render ────────────────────────────────────────────────
     return (
         <div>
-            {/* ── Toolbar row 1: search + filter + toolbarEnd ── */}
-            <div className="flex items-center gap-2 mt-4">
+            {/* ── Toolbar row 1: search + filter + toolbarEnd ──
+                 Stacks to two rows below `sm` (search alone, then actions) since
+                 the search field, Filter button, and toolbarEnd's primary action
+                 can't all shrink enough to share one row on a phone-width screen. */}
+            <div className="flex flex-col gap-2 mt-4 sm:flex-row sm:items-center">
                 {quickSearch && (
-                    <div ref={searchContainerRef}>
+                    <div ref={searchContainerRef} className="min-w-0 sm:flex-1">
                         <SearchField
                             value={quickSearchValue}
                             onChange={setQuickSearchValue}
@@ -525,54 +531,69 @@ export default function DataTable({
                     </div>
                 )}
 
-                {/* Pinned filters — opt-in per column (col.pinned), reachable in one
-                    click instead of living inside the general dropdown below. */}
-                {columns.filter(c => c.filterType && c.pinned).map(col => (
-                    <PinnedFilterButton key={col.key} col={col} filterRules={filterRules} upsertFilter={upsertFilter} />
-                ))}
+                {/* Actions row — pinned filters, the general Filter button, and
+                    toolbarEnd stay together on their own line so stacking on
+                    mobile (see above) doesn't scatter them across the row. */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Pinned filters — opt-in per column (col.pinned), reachable in one
+                        click instead of living inside the general dropdown below. */}
+                    {columns.filter(c => c.filterType && c.pinned).map(col => (
+                        <PinnedFilterButton key={col.key} col={col} filterRules={filterRules} upsertFilter={upsertFilter} />
+                    ))}
 
-                {/* Filter — every remaining (non-pinned) filterable column */}
-                {columns.some(c => c.filterType && !c.pinned) && (
-                    <div className="relative">
-                        {addFilterOpen && (
-                            <div className="fixed inset-0 z-40" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
-                        )}
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setAddFilterOpen(v => !v)}
-                        >
-                            <ListFilter size={14} />
-                            {filterButtonLabel ?? t('filterButton')}
-                        </Button>
-                        {addFilterOpen && (
-                            // z-50/z-60: must clear the table's stickyEnd column (z-20) below —
-                            // ties break by DOM order, and the table (later in the DOM) would
-                            // otherwise paint on top, hiding this menu behind a pinned column.
-                            <div className="absolute z-50 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
-                                {columns.filter(c => c.filterType && !c.pinned).map(col => (
-                                    <div key={col.key} className="relative">
-                                        <button
-                                            className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
-                                            onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
-                                        >
-                                            {col.label}
-                                            <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
-                                        </button>
+                    {/* Filter — every remaining (non-pinned) filterable column */}
+                    {columns.some(c => c.filterType && !c.pinned) && (
+                        <div className="relative">
+                            {addFilterOpen && (
+                                <div className="fixed inset-0 z-40" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
+                            )}
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setAddFilterOpen(v => !v)}
+                            >
+                                <ListFilter size={14} />
+                                {filterButtonLabel ?? t('filterButton')}
+                            </Button>
+                            {addFilterOpen && (
+                                // z-50/z-60: must clear the table's stickyEnd column (z-20) below —
+                                // ties break by DOM order, and the table (later in the DOM) would
+                                // otherwise paint on top, hiding this menu behind a pinned column.
+                                // sm:end-0: from `sm` up, this trigger sits near the right/end edge
+                                // of the (single-row) toolbar, right before toolbarEnd, so anchoring
+                                // the menu to its end edge keeps it from running past the viewport
+                                // edge. Below `sm` the toolbar stacks (see the row-1 container above)
+                                // and this button sits at the *start* of its own row instead — the
+                                // default start-aligned position (no override) is what's safe there.
+                                <div className="absolute z-50 top-full sm:end-0 mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48 max-w-[85vw]">
+                                    {columns.filter(c => c.filterType && !c.pinned).map(col => (
+                                        <div key={col.key} className="relative">
+                                            <button
+                                                className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                                onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
+                                            >
+                                                {col.label}
+                                                <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
+                                            </button>
 
-                                        {pendingColKey === col.key && pendingValue !== null && (
-                                            <div className="absolute z-60 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
-                                                {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
+                                            {pendingColKey === col.key && pendingValue !== null && (
+                                                // Below `sm`, the side flyout (ltr:left-full) has nowhere to
+                                                // open into without running off-screen, so it drops to a
+                                                // stacked, full-width panel under the button instead —
+                                                // exactly the space the column list itself already occupies.
+                                                <div className="static mt-2 w-full sm:absolute sm:z-60 sm:mt-0 sm:ltr:left-full sm:rtl:right-full sm:top-0 sm:ltr:ml-1 sm:rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 sm:w-auto sm:min-w-56">
+                                                    {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
-                {toolbarEnd && <div className="ms-auto">{toolbarEnd}</div>}
+                    {toolbarEnd && <div className="ms-auto">{toolbarEnd}</div>}
+                </div>
             </div>
 
             {/* ── Toolbar row 2: active filter chips ── */}
@@ -599,8 +620,13 @@ export default function DataTable({
             )}
 
 
-            {/* ── Desktop: HeroUI Table ── */}
-            <div className={`hidden md:block mt-4 ${scrollable ? "overflow-x-auto" : ""}`}>
+            {/* ── Desktop: HeroUI Table ──
+                 lg (1024px), not md (768px) — matches the app's one other
+                 JS-driven "mobile" threshold (Sidebar's drawer breakpoint, see
+                 useMediaQuery("(max-width: 1023px)") in the coach layout), so
+                 the whole page switches to its mobile treatment together
+                 instead of the table going desktop-dense mid-tablet. */}
+            <div className={`hidden lg:block mt-4 ${scrollable ? "overflow-x-auto" : ""}`}>
                 <Table>
                     <Table.ScrollContainer>
                         <Table.Content
@@ -883,8 +909,8 @@ export default function DataTable({
                 </div>
             </div>
 
-            {/* ── Mobile cards ── */}
-            <div className="md:hidden mt-4 flex flex-col gap-3">
+            {/* ── Mobile cards ── (see the lg: note above) */}
+            <div className="lg:hidden mt-4 flex flex-col gap-3">
                 {paginatedData.map(row => {
                     const key       = row[rowKey];
                     const isExpanded = expandedCards.has(key);
@@ -899,21 +925,26 @@ export default function DataTable({
                         >
                             <div className="flex items-start gap-3">
                                 {selectable && (
-                                    <Checkbox
-                                        isSelected={isSelected || false}
-                                        onChange={() => {
-                                            if (!onSelectionChange) return;
-                                            const next = new Set(selectedKeys);
-                                            if (next.has(key)) next.delete(key); else next.add(key);
-                                            onSelectionChange(next);
-                                        }}
-                                        aria-label={`Select row ${key}`}
-                                        className="mt-1 shrink-0"
-                                    >
-                                        <Checkbox.Control>
-                                            <Checkbox.Indicator />
-                                        </Checkbox.Control>
-                                    </Checkbox>
+                                    // The visual control is 16px (HeroUI's .checkbox), well under a
+                                    // usable touch target — this wrapper pads the hit area out to
+                                    // ~44px without changing how the checkbox looks or where it sits.
+                                    <div className="-m-3.5 p-3.5 shrink-0 flex items-start">
+                                        <Checkbox
+                                            isSelected={isSelected || false}
+                                            onChange={() => {
+                                                if (!onSelectionChange) return;
+                                                const next = new Set(selectedKeys);
+                                                if (next.has(key)) next.delete(key); else next.add(key);
+                                                onSelectionChange(next);
+                                            }}
+                                            aria-label={`Select row ${key}`}
+                                            className="mt-1"
+                                        >
+                                            <Checkbox.Control>
+                                                <Checkbox.Indicator />
+                                            </Checkbox.Control>
+                                        </Checkbox>
+                                    </div>
                                 )}
                                 <div className="flex-1 min-w-0">
                                     {primaryCols.map(col => (
@@ -957,6 +988,34 @@ export default function DataTable({
                     );
                 })}
             </div>
+
+            {/* ── Mobile/tablet pagination — the desktop footer above (with the
+                 numbered-page row and rows-per-page select) is hidden here; this
+                 is a condensed Prev/Next equivalent so paged data stays reachable
+                 below lg, where it would otherwise be stuck on page 1 forever. */}
+            {sortedData.length > 0 && (
+                <div className="lg:hidden mt-3 flex items-center justify-between gap-2">
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        isDisabled={safePage === 1}
+                        onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                        {t('previous')}
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                        {t('pageOf', { page: safePage, total: totalPages })}
+                    </span>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        isDisabled={safePage === totalPages}
+                        onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    >
+                        {t('next')}
+                    </Button>
+                </div>
+            )}
 
             {sortedData.length === 0 && (
                 data.length === 0 ? (

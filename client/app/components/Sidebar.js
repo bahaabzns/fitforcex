@@ -32,7 +32,8 @@ import { Chip } from "@heroui/react/chip";
 import { Disclosure } from "@heroui/react/disclosure";
 import { Separator } from "@heroui/react/separator";
 import { Modal } from "@heroui/react/modal";
-import { useTranslations } from "next-intl";
+import { Drawer } from "@heroui/react/drawer";
+import { useTranslations, useLocale } from "next-intl";
 
 const navLink = (active) =>
     `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-start transition-colors duration-150 ${
@@ -48,11 +49,16 @@ const subLink = (active) =>
             : "text-muted-foreground hover:bg-sidebar-accent"
     }`;
 
-export default function Sidebar({ collapsed }) {
+export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mobileOpen = false, onMobileOpenChange = () => {} }) {
     const tNav = useTranslations('nav');
     const tSidebar = useTranslations('sidebar');
+    const locale = useLocale();
+    const isRTL = locale === 'ar';
     const pathname = usePathname();
     const router = useRouter();
+    // The icon-only "collapsed" desktop mode never applies inside the mobile drawer —
+    // the drawer always shows full labels regardless of leftover desktop state.
+    const collapsed = collapsedProp && !isMobile;
     const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition') && !pathname.includes('/clients/'));
     const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training') && !pathname.includes('/clients/'));
     const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
@@ -157,9 +163,8 @@ export default function Sidebar({ collapsed }) {
     const allWorkspaces = user?.workspaces ?? [];
     const pendingCount = user?.pendingInvitationsCount ?? 0;
 
-    return (
+    const sidebarPanel = (
         <>
-        <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
             {/* Brand */}
             <div className={`flex items-center px-4 h-16 shrink-0 ${collapsed ? 'justify-center' : 'gap-2'}`}>
                 {collapsed
@@ -552,7 +557,26 @@ export default function Sidebar({ collapsed }) {
                     </div>
                 )}
             </div>
-        </aside>
+        </>
+    );
+
+    return (
+        <>
+        {isMobile ? (
+            <Drawer isOpen={mobileOpen} onOpenChange={onMobileOpenChange}>
+                <Drawer.Backdrop isDismissable>
+                    <Drawer.Content placement={isRTL ? 'right' : 'left'}>
+                        <Drawer.Dialog className="h-full w-64 max-w-[85vw] rounded-none p-0 flex flex-col overflow-hidden bg-sidebar">
+                            {sidebarPanel}
+                        </Drawer.Dialog>
+                    </Drawer.Content>
+                </Drawer.Backdrop>
+            </Drawer>
+        ) : (
+            <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
+                {sidebarPanel}
+            </aside>
+        )}
 
         <Modal isOpen={showLogoutConfirm} onOpenChange={(o) => !o && setShowLogoutConfirm(false)}>
             <Modal.Backdrop>

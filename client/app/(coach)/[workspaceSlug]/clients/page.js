@@ -9,6 +9,7 @@ import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import Stepper from "@/app/components/Stepper";
 import ActionBar from "@/app/components/ActionBar";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import TransactionModal from "@/app/components/TransactionModal";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
@@ -139,6 +140,10 @@ export default function ClientsPage() {
     const locale = useLocale();
     const { formatDate } = useDateFormatter();
     const { workspaceSlug } = useParams();
+    // Below `sm` the Add Client wizard's stepper switches from a fixed-width
+    // side rail to a horizontal strip above the form — a vertical rail eats
+    // ~176px of an already-narrow modal and leaves almost nothing for fields.
+    const isNarrowModal = useMediaQuery("(max-width: 639px)");
 
     // Forms store localized titles (title_en / title_ar); resolve by active locale.
     const formTitle = (f) => (locale === "ar" ? f.title_ar || f.title_en : f.title_en) || f.title_en;
@@ -662,6 +667,10 @@ export default function ClientsPage() {
             filterType: "multi",
             options: ["Active", "Expired", "Frozen", "Pre-start", "Archived", "No Subscriptions", "Cancelled", "Refunded"],
             sortable: true,
+            // Shown on the mobile card front (not collapsed behind "show more")
+            // — a client's active/frozen/expired status is the field a coach
+            // most needs at a glance when scanning the roster on a phone.
+            cardPriority: "primary",
             render: (row) => (
                 <Chip size="sm" variant="soft" color={statusChipColor(row.currentSubscriptionStatus)}>
                     {row.currentSubscriptionStatus}
@@ -679,8 +688,8 @@ export default function ClientsPage() {
 
     if (loading) {
         return (
-            <div className="p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-6">{t('pageTitle')}</h1>
+            <div className="p-4 sm:p-6 lg:p-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">{t('pageTitle')}</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
@@ -689,10 +698,10 @@ export default function ClientsPage() {
     }
 
     return (
-        <div className="p-8 flex flex-col gap-6">
+        <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">{t('pageTitle')}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t('pageTitle')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('pageDescription')}</p>
             </div>
 
@@ -705,13 +714,19 @@ export default function ClientsPage() {
             <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={t('addClientTitle')} dialogClassName="max-w-[40.04rem]">
                 {/* noValidate: native required-field validation would block submit before our
                     per-step validateStep() runs; we own validation/highlighting in JS. */}
-                <form onSubmit={handleFormSubmit} noValidate className="flex gap-6 px-1 py-1">
-                    {/* Vertical stepper (left column) */}
-                    <div className="w-44 shrink-0 pt-1">
-                        <Stepper steps={WIZARD_STEPS} current={currentStep} orientation="vertical" onStepClick={(i) => { clearErrors(); setCurrentStep(i); }} />
+                <form onSubmit={handleFormSubmit} noValidate className="flex flex-col sm:flex-row gap-4 sm:gap-6 px-1 py-1">
+                    {/* Stepper — horizontal strip above the form on mobile,
+                        vertical rail beside it from `sm` up. */}
+                    <div className="w-full sm:w-44 sm:shrink-0 sm:pt-1">
+                        <Stepper
+                            steps={WIZARD_STEPS}
+                            current={currentStep}
+                            orientation={isNarrowModal ? "horizontal" : "vertical"}
+                            onStepClick={(i) => { clearErrors(); setCurrentStep(i); }}
+                        />
                     </div>
 
-                    {/* Step content (right column) */}
+                    {/* Step content */}
                     <div className="flex min-w-0 flex-1 flex-col gap-5">
                     {/* Submit-level error */}
                     {generalError && (
