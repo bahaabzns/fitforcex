@@ -90,9 +90,22 @@ cd "$APP_DIR/client"
 NODE_ENV=development npm ci
 ok "Client deps installed"
 
-step "Building Next.js..."
-npm run build
+step "Building Next.js into a staging directory..."
+# Building straight into .next while `next start` is still live reading from
+# it caused ChunkLoadError/MODULE_NOT_FOUND for requests served mid-build
+# (the running process would look up a chunk the in-progress build had just
+# renamed or deleted). Build into .next-staging instead, untouched by the
+# live process, then swap it into place atomically once it's complete.
+rm -rf .next-staging
+NEXT_DIST_DIR=.next-staging npm run build
 ok "Build complete"
+
+step "Swapping in new build..."
+rm -rf .next-old
+[ -d .next ] && mv .next .next-old
+mv .next-staging .next
+rm -rf .next-old
+ok "Build swapped in"
 
 step "Restarting apps..."
 pm2 restart fitforce-api
