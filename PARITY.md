@@ -23,6 +23,8 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
+- [ ] 2026-08-23 — feb9e68 — TODO(area) — "feat(web): add client subscription page" touched: client/app/(client)/portal/layout.js client/app/(client)/portal/profile/page.js client/app/(client)/portal/subscription/page.js — fill in what changed and why it matters for mobile
+- [ ] 2026-08-23 — 76da43d — TODO(area) — "feat(web): add client-portal food diary tracking UI" touched: client/app/(client)/portal/nutrition/diary/page.js client/app/(client)/portal/nutrition/page.js client/app/components/nutrition/FoodDiaryAdherenceModal.js client/app/components/nutrition/MiddlePanel.js client/utils/adherence.js — fill in what changed and why it matters for mobile
 
 Nothing outstanding — the 2026-08-23 audit backlog (17 items) and the two uncommitted web features that triggered it (Food Diary + Adherence, Subscription page) are all ported. See **Ported** below.
 
