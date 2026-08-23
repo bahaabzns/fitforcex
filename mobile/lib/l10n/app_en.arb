@@ -157,6 +157,7 @@
   "trainingDiscardConfirm": "Discard this workout? Your logged sets will be lost.",
   "trainingFinishEmptyConfirm": "No sets marked done. Finish anyway?",
   "trainingSaveFailed": "Could not save your workout — check your connection and try again.",
+  "trainingNotSaved": "Not saved — check your connection",
   "trainingRestDone": "Rest done",
   "trainingSkip": "Skip",
   "trainingPrevious": "Previous",

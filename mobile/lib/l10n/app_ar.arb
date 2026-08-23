@@ -154,6 +154,7 @@
   "trainingDiscardConfirm": "هل تريد إلغاء هذا التمرين؟ ستفقد المجموعات المسجلة.",
   "trainingFinishEmptyConfirm": "لم يتم تحديد أي مجموعة كمكتملة. هل تريد الإنهاء على أي حال؟",
   "trainingSaveFailed": "تعذّر حفظ تمرينك — تحقق من اتصالك وحاول مرة أخرى.",
+  "trainingNotSaved": "لم يتم الحفظ — تحقق من اتصالك",
   "trainingRestDone": "انتهت الراحة",
   "trainingSkip": "تخطٍ",
   "trainingPrevious": "السابق",

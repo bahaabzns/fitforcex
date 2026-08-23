@@ -10,6 +10,12 @@ part 'workout_session.g.dart';
 @freezed
 abstract class WorkoutSession with _$WorkoutSession {
   const factory WorkoutSession({
+    // Minted client-side the moment a session starts (not server-generated)
+    // so every debounced autosave and the final Finish both target the same
+    // workout_logs row via upsert. Nullable only so a session cached before
+    // this field existed can still be parsed — session_page.dart mints one
+    // on resume if missing.
+    String? id,
     String? planId,
     required String dayId,
     required int dayIndex,

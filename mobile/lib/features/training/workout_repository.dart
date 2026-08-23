@@ -5,6 +5,58 @@ import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
 import '../../shared/models/exercise_insights.dart';
 import '../../shared/models/workout_log.dart';
+import '../../shared/models/workout_session.dart';
+
+/// A server-side in-progress session (`GET /client-portal/workout-logs/draft`)
+/// — the cross-device/cleared-storage fallback local shared_preferences alone
+/// can't cover. Only the client's own entered values (note, sets) and
+/// identity (id, started_at) are meaningful here; every other field
+/// (thumbnails, prescribed targets, tracking config) is re-derived from the
+/// freshly-fetched plan on resume, in case a coach edited it meanwhile.
+class WorkoutDraft {
+  WorkoutDraft({
+    required this.id,
+    required this.startedAt,
+    required this.exercisesById,
+  });
+
+  final String id;
+  final String startedAt;
+  final Map<String, ({String note, List<SessionSet> sets})> exercisesById;
+
+  static WorkoutDraft? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final rawExercises = json['exercises'] as List<dynamic>? ?? [];
+    return WorkoutDraft(
+      id: json['id'] as String,
+      startedAt: json['started_at'] as String? ??
+          DateTime.now().toUtc().toIso8601String(),
+      exercisesById: {
+        for (final e in rawExercises)
+          (e as Map<String, dynamic>)['exercise_id'] as String: (
+            note: e['note'] as String? ?? '',
+            sets: ((e['sets'] as List<dynamic>? ?? [])
+                .map((s) => _sessionSetFromDraft(s as Map<String, dynamic>))
+                .toList()),
+          ),
+      },
+    );
+  }
+}
+
+String _asText(dynamic value) => value == null ? '' : value.toString();
+
+SessionSet _sessionSetFromDraft(Map<String, dynamic> s) => SessionSet(
+      setOrder: (s['set_order'] as num?)?.toInt() ?? 0,
+      completed: s['completed'] == true,
+      restSeconds: (s['rest_seconds'] as num?)?.toInt(),
+      weight: _asText(s['weight']),
+      reps: _asText(s['reps']),
+      durationSeconds: _asText(s['duration_seconds']),
+      distanceKm: _asText(s['distance_km']),
+      inclinePercent: _asText(s['incline_percent']),
+      speedKmh: _asText(s['speed_kmh']),
+    );
 
 /// Talks to `/client-portal/workout-logs/*` — Training Mode history, progress,
 /// previous-set hints, and saving a finished session.
@@ -111,14 +163,34 @@ class WorkoutRepository {
     }
   }
 
-  Future<void> createLog(Map<String, dynamic> payload) async {
+  /// Upserts one session by client-minted id — the same call for a
+  /// debounced background autosave (`completed: false`) and the final
+  /// Finish (`completed: true`), so both target the same workout_logs row.
+  /// A completed row is an immutable snapshot server-side: a stray autosave
+  /// racing in after Finish is a no-op there, not a mutation.
+  Future<void> upsertLog(String id, Map<String, dynamic> payload) async {
     try {
-      await _dio.post<Map<String, dynamic>>(
-        '/api/client-portal/workout-logs',
+      await _dio.put<Map<String, dynamic>>(
+        '/api/client-portal/workout-logs/$id',
         data: payload,
       );
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
+    }
+  }
+
+  /// The cross-device/cleared-storage fallback: an in-progress draft from
+  /// the server (bounded to the last 24h), if any. Best-effort — returns
+  /// null on failure so a fresh session can always start blank instead.
+  Future<WorkoutDraft?> fetchDraft(String dayId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>?>(
+        '/api/client-portal/workout-logs/draft',
+        queryParameters: {'day_id': dayId},
+      );
+      return WorkoutDraft.fromJson(res.data);
+    } catch (_) {
+      return null;
     }
   }
 

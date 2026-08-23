@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +24,18 @@ import 'widgets/rest_timer_bar.dart';
 import 'workout_repository.dart';
 
 const _defaultRest = 90;
+
+/// Minted client-side (not server-generated) the moment a session starts, so
+/// every debounced autosave and the final Finish both target the same
+/// workout_logs row via upsert (PUT /workout-logs/:id) instead of Finish
+/// creating a second one. Any sufficiently-unique string works — the server
+/// never validates the format, just stores it as the row's id.
+String _newSessionId() {
+  final rand = Random.secure();
+  final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
+  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
+}
 
 /// Training Mode: live set logging with a rest timer, resumable across restarts
 /// (shared_preferences draft). Port of the web training/session page.
@@ -49,6 +62,23 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   int _restTarget = 0;
   ({int exIdx, int setIdx, int atMs})? _lastCompletion;
 
+  // Instant Save — debounced background autosave of the whole session while
+  // the client is still working, so weights/reps typed mid-workout survive a
+  // closed app/crash/lost connection without waiting for Finish.
+  Timer? _autosaveDebounce;
+  String _autosaveState = 'idle'; // idle | saving | saved | error
+  // Discards a stale autosave response if a newer one has since fired.
+  int _autosaveRequestId = 0;
+  // "error" only after several *consecutive* failures — a transient blip on
+  // one save isn't worth interrupting anyone.
+  int _autosaveFailStreak = 0;
+  // Set the instant Finish/Discard is tapped so any autosave already queued
+  // behind the debounce timer skips firing — Finish's/Discard's own action
+  // supersedes it. Doesn't cancel a request already in flight; the server's
+  // own check (a completed row is never mutated again) covers that narrower
+  // race for Finish, and delete-then-clear covers Discard.
+  bool _finishing = false;
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +101,7 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _autosaveDebounce?.cancel();
     super.dispose();
   }
 
@@ -95,8 +126,37 @@ class _SessionPageState extends ConsumerState<SessionPage> {
       };
 
       final saved = await ref.read(sessionStoreProvider).read();
-      final session =
-          (saved != null && saved.dayId == day.id) ? saved : _build(plan!, day);
+      WorkoutSession session;
+      if (saved != null && saved.dayId == day.id) {
+        // Pre-existing saved sessions (from before Instant Save shipped)
+        // won't have an id yet — mint one rather than losing the ability
+        // to autosave.
+        session = _resumeSession(
+          plan!,
+          day,
+          id: saved.id ?? _newSessionId(),
+          startedAt: saved.startedAt,
+          restoredByExerciseId: {
+            for (final ex in saved.exercises)
+              ex.exerciseId: (note: ex.note, sets: ex.sets),
+          },
+        );
+      } else {
+        // No local draft (cleared storage, app killed, or a fresh device) —
+        // check the server for one before giving up and starting blank. A
+        // nice-to-have: never let its failure block starting the session.
+        final draft =
+            await ref.read(workoutRepositoryProvider).fetchDraft(day.id);
+        session = draft != null
+            ? _resumeSession(
+                plan!,
+                day,
+                id: draft.id,
+                startedAt: draft.startedAt,
+                restoredByExerciseId: draft.exercisesById,
+              )
+            : _build(plan!, day);
+      }
 
       if (mounted) {
         setState(() {
@@ -116,6 +176,7 @@ class _SessionPageState extends ConsumerState<SessionPage> {
 
   WorkoutSession _build(TrainingPlan plan, TrainingDay day) {
     return WorkoutSession(
+      id: _newSessionId(),
       planId: plan.id,
       dayId: day.id,
       dayIndex: widget.dayIndex,
@@ -163,9 +224,105 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     );
   }
 
+  /// Re-derives all exercise metadata (name, video, thumbnail, prescribed
+  /// targets, tracking config) from the *current* plan — in case a coach
+  /// edited it since the draft was cached — and only carries over the
+  /// client's own entered values (per-exercise note + sets) and identity
+  /// (id, started_at). Shared by both the local-storage-restored and the
+  /// server-draft-restored paths so they behave identically.
+  WorkoutSession _resumeSession(
+    TrainingPlan plan,
+    TrainingDay day, {
+    required String id,
+    required String startedAt,
+    required Map<String, ({String note, List<SessionSet> sets})>
+        restoredByExerciseId,
+  }) {
+    final fresh = _build(plan, day);
+    return fresh.copyWith(
+      id: id,
+      startedAt: startedAt,
+      exercises: [
+        for (final ex in fresh.exercises)
+          if (restoredByExerciseId[ex.exerciseId] case final restored?)
+            ex.copyWith(note: restored.note, sets: restored.sets)
+          else
+            ex,
+      ],
+    );
+  }
+
   void _persist() {
     final s = _session;
-    if (s != null) unawaited(ref.read(sessionStoreProvider).write(s));
+    if (s == null) return;
+    unawaited(ref.read(sessionStoreProvider).write(s));
+
+    // Debounces the server autosave (700ms) so it doesn't fire on every
+    // keystroke. Independent of the local write above, which happens
+    // immediately on every edit.
+    _autosaveDebounce?.cancel();
+    _autosaveDebounce =
+        Timer(const Duration(milliseconds: 700), () => unawaited(_autosave()));
+  }
+
+  Map<String, dynamic> _serializeExercise(SessionExercise ex) => {
+        'exercise_id': ex.exerciseId,
+        'exercise_library_id': ex.exerciseLibraryId,
+        'name': ex.name,
+        'library_name_en': ex.libraryNameEn,
+        'library_name_ar': ex.libraryNameAr,
+        'note': ex.note.trim().isEmpty ? null : ex.note.trim(),
+        'tracking_type': ex.trackingType,
+        'tracked_metrics': ex.trackedMetrics,
+        'sets': [
+          for (final s in ex.sets)
+            {
+              'set_order': s.setOrder,
+              'weight': toNumber(s.weight),
+              'reps': toNumber(s.reps),
+              'rest_seconds': s.restSeconds,
+              'duration_seconds': toNumber(s.durationSeconds)?.round(),
+              'distance_km': toNumber(s.distanceKm),
+              'incline_percent': toNumber(s.inclinePercent),
+              'speed_kmh': toNumber(s.speedKmh),
+              'completed': s.completed,
+            },
+        ],
+      };
+
+  /// The actual server autosave — fires on every real edit, independent of
+  /// the local shared_preferences write. Data already reaches the server
+  /// here; Finish only flips `completed` to true on the same row.
+  Future<void> _autosave() async {
+    final session = _session;
+    if (session == null || session.id == null) return;
+    if (_finishing) return;
+
+    final requestId = ++_autosaveRequestId;
+    setState(() => _autosaveState = 'saving');
+    try {
+      await ref.read(workoutRepositoryProvider).upsertLog(session.id!, {
+        'plan_id': session.planId,
+        'day_id': session.dayId,
+        'day_index': session.dayIndex,
+        'notes': null,
+        'started_at': session.startedAt,
+        'ended_at': DateTime.now().toUtc().toIso8601String(),
+        'exercises': [for (final ex in session.exercises) _serializeExercise(ex)],
+        'completed': false,
+      });
+      if (requestId != _autosaveRequestId || !mounted) return;
+      _autosaveFailStreak = 0;
+      setState(() => _autosaveState = 'saved');
+    } catch (_) {
+      if (requestId != _autosaveRequestId || !mounted) return;
+      _autosaveFailStreak++;
+      // A background save failing on every flaky-connection blip would be a
+      // worse experience than staying silent — only surface something after
+      // a sustained run of failures.
+      setState(
+          () => _autosaveState = _autosaveFailStreak >= 3 ? 'error' : 'saving');
+    }
   }
 
   void _updateExercise(int exIdx, SessionExercise Function(SessionExercise) f) {
@@ -244,7 +401,18 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     final ok =
         await _confirm(l10n.trainingDiscardConfirm, l10n.trainingDiscard);
     if (ok != true) return;
+    // Stop any queued autosave from resurrecting the row we're about to
+    // delete.
+    _finishing = true;
+    _autosaveDebounce?.cancel();
+    final id = _session?.id;
     await ref.read(sessionStoreProvider).clear();
+    // Best-effort — an explicit discard should remove the autosaved draft
+    // too, not just the local cache, but a failed cleanup call is no reason
+    // to block leaving.
+    if (id != null) {
+      unawaited(ref.read(workoutRepositoryProvider).deleteLog(id).catchError((_) {}));
+    }
     _exit();
   }
 
@@ -257,6 +425,11 @@ class _SessionPageState extends ConsumerState<SessionPage> {
       if (ok != true) return;
     }
 
+    // Stops any autosave still queued behind the debounce timer from firing
+    // after this — Finish's own save (below) is the authoritative final
+    // write, targeting the exact same row by id.
+    _finishing = true;
+    _autosaveDebounce?.cancel();
     setState(() => _saving = true);
     final payload = {
       'plan_id': session.planId,
@@ -265,42 +438,18 @@ class _SessionPageState extends ConsumerState<SessionPage> {
       'notes': null,
       'started_at': session.startedAt,
       'ended_at': DateTime.now().toUtc().toIso8601String(),
-      'exercises': [
-        for (final ex in session.exercises)
-          {
-            'exercise_id': ex.exerciseId,
-            'exercise_library_id': ex.exerciseLibraryId,
-            'name': ex.name,
-            'library_name_en': ex.libraryNameEn,
-            'library_name_ar': ex.libraryNameAr,
-            'note': ex.note.trim().isEmpty ? null : ex.note.trim(),
-            'tracking_type': ex.trackingType,
-            'tracked_metrics': ex.trackedMetrics,
-            'sets': [
-              for (final s in ex.sets)
-                {
-                  'set_order': s.setOrder,
-                  'weight': toNumber(s.weight),
-                  'reps': toNumber(s.reps),
-                  'rest_seconds': s.restSeconds,
-                  'duration_seconds': toNumber(s.durationSeconds)?.round(),
-                  'distance_km': toNumber(s.distanceKm),
-                  'incline_percent': toNumber(s.inclinePercent),
-                  'speed_kmh': toNumber(s.speedKmh),
-                  'completed': s.completed,
-                },
-            ],
-          },
-      ],
+      'exercises': [for (final ex in session.exercises) _serializeExercise(ex)],
+      'completed': true,
     };
 
     try {
-      await ref.read(workoutRepositoryProvider).createLog(payload);
+      await ref.read(workoutRepositoryProvider).upsertLog(session.id!, payload);
       await ref.read(sessionStoreProvider).clear();
       ref.invalidate(workoutLogsProvider);
       if (mounted) context.go(AppRoutes.trainingHistory);
     } catch (_) {
       if (mounted) {
+        _finishing = false; // let autosave resume if the client keeps editing and retries
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.trainingSaveFailed)),
@@ -372,6 +521,12 @@ class _SessionPageState extends ConsumerState<SessionPage> {
               style: TextStyle(
                   fontSize: 12, color: context.appColors.mutedForeground),
             ),
+            if (_autosaveState == 'error')
+              Text(
+                l10n.trainingNotSaved,
+                style: TextStyle(
+                    fontSize: 11, color: Theme.of(context).colorScheme.error),
+              ),
           ],
         ),
         centerTitle: false,
