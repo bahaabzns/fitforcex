@@ -13,6 +13,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
+import '../insights/widgets/trigger_insight_banner.dart';
 import 'workout_repository.dart';
 
 /// Logged workout history list. Tapping a session opens its detail; each
@@ -54,9 +55,12 @@ class HistoryPage extends ConsumerWidget {
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.all(24),
-                  itemCount: logs.length,
+                  itemCount: logs.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => _LogTile(log: logs[i], locale: locale),
+                  itemBuilder: (_, i) => i == 0
+                      ? const TriggerInsightBannerGroup(
+                          events: ['first_workout_logged', 'workout_logs_10x'])
+                      : _LogTile(log: logs[i - 1], locale: locale),
                 );
               },
             ),

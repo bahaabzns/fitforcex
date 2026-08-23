@@ -10,6 +10,7 @@ import '../../core/i18n/locale_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../insights/widgets/feedback_entry_modal.dart';
 
 /// Profile: identity + preferences (theme, language) + logout. Mirror of the
 /// web portal profile page.
@@ -91,6 +92,33 @@ class ProfilePage extends ConsumerWidget {
             trailing: const _LanguageSelector(),
           ),
           const SizedBox(height: 24),
+
+          // Feedback entry — opt-in only, never a popup
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => FeedbackEntryModal.show(context),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: context.appColors.secondary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.add_comment_outlined, size: 16, color: muted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(l10n.insightsNavLabel,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
+                  ),
+                  Icon(Icons.chevron_right, size: 16, color: muted),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Logout
           FilledButton.tonalIcon(

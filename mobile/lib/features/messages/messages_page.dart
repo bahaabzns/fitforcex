@@ -14,6 +14,7 @@ import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/message.dart';
 import '../access/restricted_view.dart';
+import '../insights/widgets/trigger_insight_banner.dart';
 import '../notifications/notifications_repository.dart';
 import 'message_segments.dart';
 import 'messages_repository.dart';
@@ -288,6 +289,11 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     return Column(
       children: [
         _Header(coachName: _coachName ?? l10n.messagesCoachFallback),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: TriggerInsightBanner(
+              triggerEvent: 'first_message_sent_by_client'),
+        ),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())

@@ -14,6 +14,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/form.dart';
 import '../../shared/utils/localization.dart';
 import '../access/restricted_view.dart';
+import '../insights/widgets/trigger_insight_banner.dart';
 import 'forms_repository.dart';
 
 enum _Filter { pending, submitted }
@@ -131,6 +132,9 @@ class _FormsPageState extends ConsumerState<FormsPage> {
                     filter: _filter,
                     onChanged: (f) => setState(() => _filter = f),
                   ),
+                  const SizedBox(height: 12),
+                  const TriggerInsightBanner(
+                      triggerEvent: 'first_checkin_completed'),
                 ],
               ),
             ),
