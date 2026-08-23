@@ -9,6 +9,7 @@ import '../../core/access/access_controller.dart';
 import '../../core/config/providers.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/new_feature_hint.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/training_plan.dart';
 import '../../shared/models/workout_log.dart';
@@ -54,6 +55,8 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   Map<String, String?> _videoUrls = {}; // exerciseId -> resolved video_path url
   bool _loading = true;
   bool _saving = false;
+  bool _minimizeHintShown = false;
+  bool _instructionsHintShown = false;
 
   Timer? _ticker;
   int _nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -524,6 +527,27 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     final restRemaining = _restStartMs != null
         ? (_restTarget - (_nowMs - _restStartMs!) / 1000).ceil()
         : null;
+
+    _minimizeHintShown = maybeShowFeatureHint(
+      context,
+      ref,
+      featureKey: 'minimize_session_hint',
+      active: true,
+      alreadyShown: _minimizeHintShown,
+      message: l10n.trainingMinimizeSessionHint,
+      dismissLabel: l10n.trainingMinimizeSessionHintDismiss,
+      badgeLabel: l10n.trainingMinimizeSessionNewFeature,
+    );
+    _instructionsHintShown = maybeShowFeatureHint(
+      context,
+      ref,
+      featureKey: 'exercise_instructions_hint',
+      active: session.exercises.isNotEmpty,
+      alreadyShown: _instructionsHintShown,
+      message: l10n.trainingInstructionsHint,
+      dismissLabel: l10n.trainingInstructionsHintDismiss,
+      badgeLabel: l10n.trainingInstructionsNewFeature,
+    );
 
     return Scaffold(
       appBar: AppBar(

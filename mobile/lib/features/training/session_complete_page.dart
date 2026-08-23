@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/new_feature_hint.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/insight_prompt.dart';
 import '../../shared/utils/workout.dart';
@@ -51,6 +52,7 @@ class _SessionCompletePageState extends ConsumerState<SessionCompletePage> {
   bool _loadingPrompt = true;
   int _rating = 0;
   int _hoverRating = 0;
+  bool _rateHintShown = false;
   final _feedbackController = TextEditingController();
 
   @override
@@ -114,6 +116,17 @@ class _SessionCompletePageState extends ConsumerState<SessionCompletePage> {
     final muted = context.appColors.mutedForeground;
     final hasStats =
         widget.durationSeconds != null || widget.volume != null || widget.sets != null;
+
+    _rateHintShown = maybeShowFeatureHint(
+      context,
+      ref,
+      featureKey: 'rate_session_hint',
+      active: !_loadingPrompt && _prompt != null,
+      alreadyShown: _rateHintShown,
+      message: l10n.trainingRateSessionHint,
+      dismissLabel: l10n.trainingRateSessionHintDismiss,
+      badgeLabel: l10n.trainingRateSessionNewFeature,
+    );
 
     return Scaffold(
       appBar: AppBar(

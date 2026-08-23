@@ -12,6 +12,7 @@ import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/new_feature_hint.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/training_plan.dart';
@@ -123,6 +124,8 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
   WorkoutSession? _activeSession;
   Timer? _ticker;
   int _nowMs = DateTime.now().millisecondsSinceEpoch;
+  bool _resumeHintShown = false;
+  bool _instructionsHintShown = false;
 
   @override
   void initState() {
@@ -164,6 +167,27 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
     final previous = hasExercises
         ? ref.watch(dayPreviousProvider(day.id)).asData?.value ?? const {}
         : const <String, List<PreviousSet>>{};
+
+    _resumeHintShown = maybeShowFeatureHint(
+      context,
+      ref,
+      featureKey: 'resume_session_hint',
+      active: _activeSession != null,
+      alreadyShown: _resumeHintShown,
+      message: l10n.trainingResumeSessionHint,
+      dismissLabel: l10n.trainingResumeSessionHintDismiss,
+      badgeLabel: l10n.trainingResumeSessionNewFeature,
+    );
+    _instructionsHintShown = maybeShowFeatureHint(
+      context,
+      ref,
+      featureKey: 'exercise_instructions_hint',
+      active: hasExercises,
+      alreadyShown: _instructionsHintShown,
+      message: l10n.trainingInstructionsHint,
+      dismissLabel: l10n.trainingInstructionsHintDismiss,
+      badgeLabel: l10n.trainingInstructionsNewFeature,
+    );
 
     return Stack(
       children: [
@@ -236,7 +260,6 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
                 ],
                 _ExerciseCard(
                   exercise: day.exercises[i],
-                  index: i,
                   locale: locale,
                   baseUrl: baseUrl,
                   previous: previous[day.exercises[i].id] ?? const [],
@@ -331,11 +354,22 @@ class _ContinueTrigger extends StatelessWidget {
 
 class _FloatingPill extends StatelessWidget {
   const _FloatingPill({required this.child, required this.onTap});
+
   final Widget child;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+        child: IconTheme.merge(
+          data: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
+          child: child,
+        ),
+      ),
+    );
     return Material(
       color: Theme.of(context).colorScheme.primary,
       borderRadius: BorderRadius.circular(20),
@@ -343,16 +377,7 @@ class _FloatingPill extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: DefaultTextStyle.merge(
-            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-            child: IconTheme.merge(
-              data: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-              child: child,
-            ),
-          ),
-        ),
+        child: content,
       ),
     );
   }
@@ -361,14 +386,12 @@ class _FloatingPill extends StatelessWidget {
 class _ExerciseCard extends StatelessWidget {
   const _ExerciseCard({
     required this.exercise,
-    required this.index,
     required this.locale,
     required this.baseUrl,
     required this.previous,
   });
 
   final TrainingExercise exercise;
-  final int index;
   final String locale;
   final String baseUrl;
   final List<PreviousSet> previous;

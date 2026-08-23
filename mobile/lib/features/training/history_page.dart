@@ -9,6 +9,7 @@ import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/new_feature_hint.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/utils/workout.dart';
@@ -60,7 +61,8 @@ class HistoryPage extends ConsumerWidget {
                   itemBuilder: (_, i) => i == 0
                       ? const TriggerInsightBannerGroup(
                           events: ['first_workout_logged', 'workout_logs_10x'])
-                      : _LogTile(log: logs[i - 1], locale: locale),
+                      : _LogTile(
+                          log: logs[i - 1], locale: locale, isFirst: i == 1),
                 );
               },
             ),
@@ -69,10 +71,11 @@ class HistoryPage extends ConsumerWidget {
 }
 
 class _LogTile extends ConsumerStatefulWidget {
-  const _LogTile({required this.log, required this.locale});
+  const _LogTile({required this.log, required this.locale, required this.isFirst});
 
   final WorkoutLogSummary log;
   final String locale;
+  final bool isFirst;
 
   @override
   ConsumerState<_LogTile> createState() => _LogTileState();
@@ -80,6 +83,7 @@ class _LogTile extends ConsumerStatefulWidget {
 
 class _LogTileState extends ConsumerState<_LogTile> {
   bool _deleting = false;
+  bool _deleteHintShown = false;
 
   Future<void> _confirmDelete() async {
     final l10n = AppLocalizations.of(context);
@@ -130,6 +134,17 @@ class _LogTileState extends ConsumerState<_LogTile> {
     final dateLabel = date != null
         ? DateFormat.yMMMEd(widget.locale).add_jm().format(date)
         : log.date;
+
+    _deleteHintShown = maybeShowFeatureHint(
+      context,
+      ref,
+      featureKey: 'delete_log_hint',
+      active: widget.isFirst,
+      alreadyShown: _deleteHintShown,
+      message: l10n.trainingDeleteLogHint,
+      dismissLabel: l10n.trainingDeleteLogHintDismiss,
+      badgeLabel: l10n.trainingDeleteLogNewFeature,
+    );
 
     return Card(
       child: InkWell(
