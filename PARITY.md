@@ -24,11 +24,7 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 
 ## Pending
 
-Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md`](docs/mobile-parity-audit-2026-08-23.md)) — drift since the 2026-07-10 baseline. All 17 items are now ported (see below).
-
-**Uncommitted web features** — the original, separate request that triggered the audit:
-- [x] Food Diary + Adherence (checklist + history), added. mobile `54e22a6`.
-- [ ] Subscription page (client-facing plan/billing details) — not yet ported.
+Nothing outstanding — the 2026-08-23 audit backlog (17 items) and the two uncommitted web features that triggered it (Food Diary + Adherence, Subscription page) are all ported. See **Ported** below.
 
 ## Ported
 
@@ -49,6 +45,8 @@ Backlog from the 2026-08-23 full audit ([`docs/mobile-parity-audit-2026-08-23.md
 - [x] 2026-08-23 — cf0500a — training — Day-preview re-architecture (shared session UI, resumable/minimizable sessions, live "Continue {day}" state), added. mobile `9298d1c`.
 - [x] 2026-08-23 — 0a7f9bc — training — Post-session completion page (stats, star+text feedback via the Insights subsystem), added. mobile `43bb7af`. Chime omitted — no audio-synthesis dependency added for it; see the commit note.
 - [x] 2026-08-23 — 83821a8 — training — First-time hint mechanism (5 surfaces), added. mobile `f73765a`. Ported as a SnackBar, not web's anchored popover — see the commit note.
+- [x] 2026-08-23 — (uncommitted) — nutrition — Food Diary + Adherence (checklist + history), added. mobile `54e22a6`.
+- [x] 2026-08-23 — (uncommitted) — profile — Subscription page (plan card, period/progress, renew CTA, payment history), added. mobile `e9260b4`.
 
 ---
 
