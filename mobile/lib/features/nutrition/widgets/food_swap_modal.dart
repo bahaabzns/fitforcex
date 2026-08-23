@@ -7,11 +7,9 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/food_swap.dart';
+import '../../../shared/utils/format_amount.dart';
 import '../../../shared/utils/localization.dart';
 import '../food_swap_repository.dart';
-
-String _prettyAmount(double v) =>
-    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
 /// Client-facing food swap: search is backend-driven and every candidate
 /// arrives with its equivalent grams + macros already computed server-side.
@@ -55,6 +53,10 @@ class _FoodSwapModalState extends ConsumerState<FoodSwapModal> {
   FoodSwapAlternative? _selected;
   bool _confirming = false;
   String? _confirmError;
+  // Discards a search response if a newer query has since fired — without
+  // this, an older request that resolves after a more recent keystroke's
+  // can overwrite the list with results that no longer match the text box.
+  int _searchRequestId = 0;
 
   @override
   void initState() {
@@ -75,6 +77,7 @@ class _FoodSwapModalState extends ConsumerState<FoodSwapModal> {
   }
 
   Future<void> _search(String query) async {
+    final requestId = ++_searchRequestId;
     setState(() {
       _loading = true;
       _searchError = null;
@@ -83,17 +86,17 @@ class _FoodSwapModalState extends ConsumerState<FoodSwapModal> {
       final results = await ref
           .read(foodSwapRepositoryProvider)
           .search(widget.mealItemId, query: query);
-      if (mounted) setState(() => _alternatives = results);
+      if (requestId != _searchRequestId || !mounted) return;
+      setState(() => _alternatives = results);
     } catch (e) {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context);
-        setState(() {
-          _searchError =
-              e is ApiException ? e.message : l10n.nutritionSwapSearchFailed;
-        });
-      }
+      if (requestId != _searchRequestId || !mounted) return;
+      final l10n = AppLocalizations.of(context);
+      setState(() {
+        _searchError =
+            e is ApiException ? e.message : l10n.nutritionSwapSearchFailed;
+      });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (requestId == _searchRequestId && mounted) setState(() => _loading = false);
     }
   }
 
@@ -235,7 +238,7 @@ class _FoodSwapModalState extends ConsumerState<FoodSwapModal> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${localizedField(base: _selected!.name, arabic: _selected!.nameAr, localeCode: locale)} — ${_prettyAmount(_selected!.calculatedAmount)}${_selected!.servingUnit}',
+                        '${localizedField(base: _selected!.name, arabic: _selected!.nameAr, localeCode: locale)} — ${prettyAmount(_selected!.calculatedAmount)}${_selected!.servingUnit}',
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w500),
                       ),
@@ -356,7 +359,7 @@ class _AlternativeTile extends StatelessWidget {
                 spacing: 10,
                 children: [
                   Text(
-                      '${_prettyAmount(alternative.calculatedAmount)}${alternative.servingUnit}',
+                      '${prettyAmount(alternative.calculatedAmount)}${alternative.servingUnit}',
                       style: TextStyle(fontSize: 11, color: muted)),
                   Text('${alternative.calories.round()} ${l10n.nutritionKcal}',
                       style: TextStyle(fontSize: 11, color: muted)),

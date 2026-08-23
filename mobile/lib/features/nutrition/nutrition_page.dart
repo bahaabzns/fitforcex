@@ -16,6 +16,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../access/restricted_view.dart';
 import '../../shared/models/food_diary.dart';
 import '../../shared/models/nutrition_plan.dart';
+import '../../shared/utils/format_amount.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/nutrition_calc.dart';
 import 'food_diary_controller.dart';
@@ -501,8 +502,8 @@ class _ItemRow extends StatelessWidget {
                           children: [
                             Text(
                               isPartial
-                                  ? '${_pretty(eaten)}/${_pretty(item.amount)}${item.servingUnit}'
-                                  : '${_pretty(item.amount)}${item.servingUnit}',
+                                  ? '${prettyAmount(eaten)}/${prettyAmount(item.amount)}${item.servingUnit}'
+                                  : '${prettyAmount(item.amount)}${item.servingUnit}',
                               style: TextStyle(fontSize: 11, color: muted),
                             ),
                             const SizedBox(width: 3),
@@ -632,7 +633,7 @@ class _ItemRow extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          '${localizedField(base: alt.name, arabic: alt.nameAr, localeCode: locale)} · ${_pretty(alt.amount)}${alt.servingUnit}',
+                          '${localizedField(base: alt.name, arabic: alt.nameAr, localeCode: locale)} · ${prettyAmount(alt.amount)}${alt.servingUnit}',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -677,9 +678,6 @@ class _ItemRow extends StatelessWidget {
       ),
     );
   }
-
-  String _pretty(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 }
 
 class _SectionSeparator extends StatelessWidget {

@@ -30,11 +30,13 @@ final subscriptionRepositoryProvider = Provider<SubscriptionRepository>(
   (ref) => SubscriptionRepository(ref.watch(dioProvider)),
 );
 
-/// Deliberately not `.autoDispose` — both the profile row and the full
-/// subscription page read this, and the profile row is the more common
-/// entry point, so keeping it warm avoids a duplicate fetch when the client
-/// then opens the subscription page a moment later.
+/// `.autoDispose` so a client who renews externally (leaves the app, pays,
+/// comes back) sees the refreshed status instead of a cached "Expired"/
+/// "Frozen" for the rest of the app session — both the profile row and the
+/// full subscription page watch this, so it stays warm across the brief
+/// profile-row → subscription-page transition and only refetches once
+/// nothing is watching it (e.g. after leaving and returning to the app).
 final subscriptionProvider =
-    FutureProvider<SubscriptionSummary>((ref) {
+    FutureProvider.autoDispose<SubscriptionSummary>((ref) {
   return ref.watch(subscriptionRepositoryProvider).fetch();
 });

@@ -220,8 +220,12 @@ class _PlanCard extends StatelessWidget {
               child: FilledButton(
                 onPressed: data.renewalLink == null
                     ? null
-                    : () => launchUrl(Uri.parse(data.renewalLink!),
-                        mode: LaunchMode.externalApplication),
+                    : () {
+                        final uri = Uri.tryParse(data.renewalLink!);
+                        if (uri != null) {
+                          launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
                 child: Text(l10n.subscriptionRenewCta),
               ),
             ),

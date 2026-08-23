@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/format_amount.dart';
 
 /// "How much of this did you eat?" bottom sheet — a stepper + direct-entry
 /// field plus a one-tap "All of it" shortcut, opened from the amount label
@@ -44,18 +45,15 @@ class FoodDiaryAmountEditor extends StatefulWidget {
 class _FoodDiaryAmountEditorState extends State<FoodDiaryAmountEditor> {
   late double _amount = widget.initialAmount;
   late final TextEditingController _controller =
-      TextEditingController(text: _pretty(_amount));
+      TextEditingController(text: prettyAmount(_amount));
 
   void _setAmount(double value) {
     final clamped = value < 0 ? 0.0 : value;
     setState(() {
       _amount = clamped;
-      _controller.text = _pretty(clamped);
+      _controller.text = prettyAmount(clamped);
     });
   }
-
-  static String _pretty(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
   @override
   void dispose() {

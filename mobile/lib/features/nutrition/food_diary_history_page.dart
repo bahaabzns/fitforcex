@@ -9,6 +9,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/food_diary.dart';
 import '../../shared/utils/adherence.dart';
+import '../../shared/utils/format_amount.dart';
 import '../../shared/utils/localization.dart';
 import 'food_diary_repository.dart';
 
@@ -186,7 +187,7 @@ class _EntryTileState extends State<_EntryTile> {
                             Directionality(
                               textDirection: TextDirection.ltr,
                               child: Text(
-                                '${_pretty(item.amountEaten)}/${_pretty(item.prescribedAmount)}${item.servingUnit ?? ''}',
+                                '${prettyAmount(item.amountEaten)}/${prettyAmount(item.prescribedAmount)}${item.servingUnit ?? ''}',
                                 style: TextStyle(fontSize: 11, color: muted),
                               ),
                             ),
@@ -201,9 +202,6 @@ class _EntryTileState extends State<_EntryTile> {
       ),
     );
   }
-
-  static String _pretty(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 }
 
 class _Macro extends StatelessWidget {
