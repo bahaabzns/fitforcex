@@ -154,6 +154,7 @@ model clients {
   client_photos                client_photos[]
   package_variations           package_variations?    @relation(fields: [current_package_variation_id], references: [id], onUpdate: NoAction, map: "fk_clients_current_package_variation")
   workspaces                   workspaces?            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_clients_workspace")
+  food_diary_entries           food_diary_entries[]
   food_swap_history            food_swap_history[]
   form_requests                form_requests[]
   form_response_edits          form_response_edits[]
@@ -222,6 +223,40 @@ model food_categories {
   workspace_id String?
   name_ar      String?     @db.VarChar(100)
   workspaces   workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_categories_workspace")
+}
+
+// One row per client per calendar day — a snapshot of that day's assigned
+// food items (from whichever nutrition cycle was active when the day's
+// diary was first opened) plus how much of each the client says they ate.
+// Snapshotted rather than a live FK to nutrition_meal_items for the same
+// reason workout_logs snapshots exercises: a coach's plan save deletes and
+// re-inserts the whole meal/item tree with fresh ids on every edit (see
+// nutrition.controller.ts's saveDraft), so a live reference would be
+// silently orphaned by the coach's very next save.
+model food_diary_entries {
+  id             String    @id
+  client_id      String
+  workspace_id   String
+  plan_id        String?
+  cycle_id       String?
+  date           DateTime  @db.Date
+  items          Json      @default("[]")
+  total_calories Decimal?  @db.Decimal
+  total_protein  Decimal?  @db.Decimal
+  total_carbs    Decimal?  @db.Decimal
+  total_fats     Decimal?  @db.Decimal
+  goal_calories  Int?
+  goal_protein   Int?
+  goal_carbs     Int?
+  goal_fats      Int?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  clients        clients   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  workspaces     workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@unique([client_id, date], map: "food_diary_entries_client_id_date_key")
+  @@index([client_id, date], map: "food_diary_entries_client_id_date_index")
+  @@index([workspace_id], map: "idx_food_diary_entries_workspace")
 }
 
 model food_items {
@@ -1455,6 +1490,7 @@ model workspaces {
   exercise_library                             exercise_library[]
   exercise_muscle_groups                       exercise_muscle_groups[]
   food_categories                              food_categories[]
+  food_diary_entries                           food_diary_entries[]
   food_items                                   food_items[]
   form_requests                                form_requests[]
   forms                                        forms[]

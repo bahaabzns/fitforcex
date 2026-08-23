@@ -13,9 +13,12 @@ declare global {
                 workspaceId: string;
             };
             clientAccess?: {
-                status:      string;
-                withinGrace: boolean;
-                access:      Record<string, boolean>;
+                status:             string;
+                withinGrace:        boolean;
+                access:             Record<string, boolean>;
+                currentPeriodEnd:   Date | null;
+                currentPeriodStart: Date | null;
+                totalCoverageEnd:   Date | null;
             };
             admin?: {
                 isAdmin: boolean;

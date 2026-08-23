@@ -197,6 +197,9 @@ export type EffectiveAccess = {
     status: SubscriptionStatus | 'Archived';
     withinGrace: boolean;
     access: PolicyPermissions;
+    currentPeriodEnd: Date | null;
+    currentPeriodStart: Date | null;
+    totalCoverageEnd: Date | null;
 };
 
 /**
@@ -213,7 +216,7 @@ export async function getEffectiveAccessForClient(clientId: string, workspaceId:
         select: { archived_at: true },
     });
     if (lifecycle?.archived_at) {
-        return { status: 'Archived', withinGrace: false, access: resolveAccess('Cancelled', { expired: DEFAULT_EXPIRED_POLICY, frozen: DEFAULT_FROZEN_POLICY }) };
+        return { status: 'Archived', withinGrace: false, currentPeriodEnd: null, currentPeriodStart: null, totalCoverageEnd: null, access: resolveAccess('Cancelled', { expired: DEFAULT_EXPIRED_POLICY, frozen: DEFAULT_FROZEN_POLICY }) };
     }
 
     const [details, packageId, global] = await Promise.all([
@@ -243,6 +246,9 @@ export async function getEffectiveAccessForClient(clientId: string, workspaceId:
     return {
         status: details.status,
         withinGrace,
+        currentPeriodEnd:   details.currentPeriodEnd,
+        currentPeriodStart: details.currentPeriodStart,
+        totalCoverageEnd:   details.totalCoverageEnd,
         access: resolveAccess(effectiveStatus, { expired, frozen }),
     };
 }

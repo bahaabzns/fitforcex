@@ -6,103 +6,12 @@ import { makeUploader, createSignedUrl } from '../../lib/storage';
 import { uploadLimiter } from '../../middleware/rateLimit';
 import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
 import { prisma } from '../../lib/prisma';
+import { mapRow, computePerTxStatuses, type TxDbRow } from '../../utils/transactionStatus';
 
 const VALID_STATUSES = ['completed', 'refunded'];
 const VALID_TYPES    = ['subscription', 'session', 'one-time', 'other'];
 
 export const upload = makeUploader('transactions', ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'], { maxSize: 5 * 1024 * 1024 });
-
-type TxDbRow = Record<string, unknown>;
-
-function mapRow(row: TxDbRow) {
-    return {
-        id:                    row.id,
-        code:                  row.transaction_code,
-        clientId:              row.client_id,
-        clientName:            row.client_name,
-        packageVariation:      row.package_variation,
-        packageVariationId:    row.package_variation_id ?? null,
-        paymentMethod:         row.payment_method,
-        amount:                Number(row.amount),
-        currency:              row.currency,
-        duration:              row.duration,
-        type:                  row.type,
-        status:                row.status,
-        notes:                 row.notes,
-        proofImage:            row.proof_image,
-        date:                  row.transaction_date,
-        createdAt:             row.created_at,
-        subscriptionStartDate: row.subscription_start_date ?? null,
-        startMode:             row.start_mode || 'on_first_plan',
-    };
-}
-
-function computePerTxStatuses(
-    txByClient: Record<string, TxDbRow[]>,
-    freezesByClient: Record<string, TxDbRow[]>,
-    planActivationByClient: Record<string, string | null>
-): Record<string, string> {
-    const result: Record<string, string> = {};
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (const [clientId, allTxs] of Object.entries(txByClient)) {
-        const freezes         = freezesByClient[clientId] || [];
-        const firstActivation = planActivationByClient[clientId] ?? null;
-
-        for (const tx of allTxs) {
-            if (tx.status === 'refunded') { result[tx.id as string] = 'Refunded'; }
-        }
-
-        const completed = allTxs
-            .filter(tx => tx.status === 'completed' && tx.duration && Number(tx.duration) > 0)
-            .sort((a, b) => new Date(a.created_at as string).getTime() - new Date(b.created_at as string).getTime());
-
-        let prevEnd: Date | null = null;
-        for (const tx of completed) {
-            let start: Date;
-            const mode = (tx.start_mode as string) || 'on_first_plan';
-
-            if (mode === 'custom' && tx.subscription_start_date) {
-                start = new Date(tx.subscription_start_date as string);
-            } else if (prevEnd !== null) {
-                start = new Date(prevEnd);
-            } else if (firstActivation) {
-                start = new Date(firstActivation);
-            } else {
-                result[tx.id as string] = 'Pre-start';
-                continue;
-            }
-            start.setHours(0, 0, 0, 0);
-
-            let endMs = start.getTime() + Number(tx.duration) * 86400000;
-            for (const freeze of freezes) {
-                const fs = new Date(freeze.freeze_start_date as string);
-                fs.setHours(0, 0, 0, 0);
-                if (fs >= start && fs.getTime() < endMs) {
-                    endMs += Number(freeze.freeze_duration_days) * 86400000;
-                }
-            }
-            prevEnd = new Date(endMs);
-
-            if (today < start) {
-                result[tx.id as string] = 'Pre-start';
-            } else if (today >= prevEnd) {
-                result[tx.id as string] = 'Expired';
-            } else {
-                let frozen = false;
-                for (const freeze of freezes) {
-                    const fs = new Date(freeze.freeze_start_date as string);
-                    fs.setHours(0, 0, 0, 0);
-                    const fe = new Date(fs.getTime() + Number(freeze.freeze_duration_days) * 86400000);
-                    if (today >= fs && today < fe) { frozen = true; break; }
-                }
-                result[tx.id as string] = frozen ? 'Frozen' : 'Active';
-            }
-        }
-    }
-    return result;
-}
 
 type ActivationRow = { client_id: string; first_activation: Date | null };
 
@@ -313,7 +222,12 @@ export async function createTransaction(req: Request, res: Response, next: NextF
                 freezeRows as unknown as Parameters<typeof computeSubscriptionStatus>[1],
                 planActivation
             );
-            if (currentStatus === 'Active') {
+            // A period already on file (even one that hasn't started yet) means this
+            // new transaction chains after it — not "on first plan", which is only
+            // true for a client's very first-ever transaction.
+            const hasExistingPeriod = existingTxs.some(t => t.status === 'completed' && t.duration && Number(t.duration) > 0);
+
+            if (currentStatus === 'Active' || (currentStatus === 'Pre-start' && hasExistingPeriod)) {
                 startMode = 'queued';
             } else if (currentStatus === 'Expired') {
                 // A renewal recorded after the previous period already ended must start

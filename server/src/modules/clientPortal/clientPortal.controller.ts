@@ -21,9 +21,11 @@ import {
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
+import { computeTotals, serializeDiaryEntry, FOOD_DIARY_HISTORY_LIMIT, type FoodDiaryItem } from '../../utils/foodDiaryStats';
 import { buildTransformationPayload } from '../clients/clients.controller';
 import { normalizeEmail } from '../../utils/email';
 import { attachEditHistory } from '../../utils/formResponseHistory';
+import { mapRow as mapTransactionRow, computePerTxStatuses, type TxDbRow } from '../../utils/transactionStatus';
 
 /** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
 async function getClientDisplayName(clientId: string): Promise<string | null> {
@@ -312,6 +314,100 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
 
 export function getAccess(req: Request, res: Response) {
     res.json(req.clientAccess ?? null);
+}
+
+/**
+ * The client's own plan + payment history — read-only mirror of what the coach
+ * sees on the client's Transactions tab, minus the edit/refund/delete actions.
+ * Reuses mapRow/computePerTxStatuses from utils/transactionStatus so the
+ * freeze-adjusted per-transaction status logic has one implementation, not two.
+ */
+export async function getSubscription(req: Request, res: Response, next: NextFunction) {
+    try {
+        const clientId    = req.client!.clientId;
+        const workspaceId = req.client!.workspaceId;
+
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: workspaceId },
+            select: {
+                current_package:    true,
+                package_variations: {
+                    select: {
+                        name: true, price: true, currency: true, duration: true,
+                        packages: { select: { name: true } },
+                    },
+                },
+                workspaces: { select: { renewal_link: true } },
+            },
+        });
+        if (!client) return res.status(404).json({ message: 'Client not found' });
+
+        const plan = client.package_variations
+            ? {
+                name:         `${client.package_variations.packages.name} — ${client.package_variations.name}`,
+                price:        Number(client.package_variations.price),
+                currency:     client.package_variations.currency,
+                durationDays: client.package_variations.duration,
+              }
+            : client.current_package
+            ? { name: client.current_package, price: null, currency: null, durationDays: null }
+            : null;
+
+        const [txRows, freezeRows, activationRows] = await Promise.all([
+            prisma.transactions.findMany({
+                where:   { workspace_id: workspaceId, client_id: clientId },
+                orderBy: { transaction_date: 'desc' },
+            }),
+            prisma.subscription_freezes.findMany({ where: { client_id: clientId } }),
+            prisma.$queryRaw<{ first_activation: Date | null }[]>`
+                SELECT MIN(activated_at) AS first_activation FROM (
+                    SELECT activated_at FROM training_plans  WHERE workspace_id = ${workspaceId} AND client_id = ${clientId} AND activated_at IS NOT NULL
+                    UNION ALL
+                    SELECT activated_at FROM nutrition_plans WHERE workspace_id = ${workspaceId} AND client_id = ${clientId} AND activated_at IS NOT NULL
+                ) combined
+            `,
+        ]);
+
+        const firstActivation = activationRows[0]?.first_activation
+            ? activationRows[0].first_activation.toISOString()
+            : null;
+
+        const txStatuses = computePerTxStatuses(
+            { [clientId]: txRows as unknown as TxDbRow[] },
+            { [clientId]: freezeRows as unknown as TxDbRow[] },
+            { [clientId]: firstActivation },
+        );
+
+        const transactions = txRows.map(row => ({
+            ...mapTransactionRow(row as unknown as TxDbRow),
+            subscriptionStatus: txStatuses[row.id] ?? null,
+        }));
+
+        const effective = req.clientAccess;
+        let frozenUntil: Date | null = null;
+        if (effective?.status === 'Frozen' && freezeRows.length > 0) {
+            const latestFreeze = [...freezeRows].sort(
+                (a, b) => new Date(b.freeze_start_date).getTime() - new Date(a.freeze_start_date).getTime()
+            )[0];
+            frozenUntil = new Date(
+                new Date(latestFreeze.freeze_start_date).getTime() + latestFreeze.freeze_duration_days * 86400000
+            );
+        }
+
+        res.json({
+            status:             effective?.status ?? null,
+            withinGrace:        effective?.withinGrace ?? false,
+            plan,
+            currentPeriodStart: effective?.currentPeriodStart ?? null,
+            currentPeriodEnd:   effective?.currentPeriodEnd ?? null,
+            totalCoverageEnd:   effective?.totalCoverageEnd ?? null,
+            frozenUntil,
+            renewalLink:        client.workspaces?.renewal_link ?? null,
+            transactions,
+        });
+    } catch (err) {
+        next(err);
+    }
 }
 
 export async function getActivePlan(req: Request, res: Response, next: NextFunction) {
@@ -1278,6 +1374,214 @@ export async function deleteWorkoutLog(req: Request, res: Response, next: NextFu
 
         await prisma.workout_logs.delete({ where: { id: log.id } });
         res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ─── food diary (daily food tracking / diet adherence) ──────────────────────
+
+// Midnight UTC for "today" — this app has no per-client timezone setting
+// anywhere yet (checked check_in_schedules, workspaces, clients), so this
+// matches how every other "today" concept in the codebase already resolves:
+// server-clock date, not a client-local one.
+function todayDateOnly(): Date {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+// Builds a fresh snapshot from the client's active plan — called only when
+// no diary entry exists yet for the day. `cycleId` is the cycle the client's
+// own nutrition page currently has selected (plans can have more than one
+// cycle, e.g. a training-day vs. rest-day meal set, with no server-side
+// notion of which one is "current" — the client's own UI is the only thing
+// that knows); falls back to the lowest cycle_order when not given, e.g. a
+// PATCH arriving before any GET has told us which cycle the client was on.
+async function buildTodaySnapshot(clientId: string, cycleId: string | null) {
+    const plan = await prisma.nutrition_plans.findFirst({
+        where:   { client_id: clientId, status: 'active' },
+        orderBy: { updated_at: 'desc' },
+    });
+    if (!plan) return null;
+
+    const cycle = (cycleId
+        ? await prisma.nutrition_cycles.findFirst({ where: { id: cycleId, plan_id: plan.id } })
+        : null
+    ) ?? await prisma.nutrition_cycles.findFirst({ where: { plan_id: plan.id }, orderBy: { cycle_order: 'asc' } });
+    if (!cycle) return null;
+
+    const meals = await prisma.nutrition_meals.findMany({
+        where:   { cycle_id: cycle.id },
+        orderBy: { meal_order: 'asc' },
+        include: { nutrition_meal_items: { orderBy: { meal_item_order: 'asc' }, include: { food_items: true } } },
+    });
+
+    const items: FoodDiaryItem[] = [];
+    for (const meal of meals) {
+        for (const mi of meal.nutrition_meal_items) {
+            if (!mi.food_items) continue; // a removed/orphaned food item — nothing to snapshot
+            items.push({
+                meal_item_id:         mi.id,
+                food_item_id:         mi.food_item_id,
+                meal_name:            meal.name,
+                name_en:              mi.food_items.name_en,
+                name_ar:              mi.food_items.name_ar,
+                prescribed_amount:    Number(mi.amount),
+                amount_eaten:         0,
+                serving_unit:         mi.food_items.serving_unit,
+                serving_size:         mi.food_items.serving_size ? Number(mi.food_items.serving_size) : null,
+                calories_per_serving: Number(mi.food_items.calories_per_serving),
+                protein_per_serving:  Number(mi.food_items.protein_per_serving),
+                carbs_per_serving:    Number(mi.food_items.carbs_per_serving),
+                fats_per_serving:     Number(mi.food_items.fats_per_serving),
+            });
+        }
+    }
+
+    return {
+        plan_id:       plan.id,
+        cycle_id:      cycle.id,
+        items,
+        goal_calories: cycle.goal_calories,
+        goal_protein:  cycle.goal_protein,
+        goal_carbs:    cycle.goal_carbs,
+        goal_fats:     cycle.goal_fats,
+    };
+}
+
+// Get-or-create today's entry. Creating is idempotent against the
+// @@unique([client_id, date]) constraint — two near-simultaneous calls (e.g.
+// two open tabs) race harmlessly to a P2002, the loser just re-reads.
+export async function getTodayFoodDiary(req: Request, res: Response, next: NextFunction) {
+    const cycleId = (req.query.cycle_id as string | undefined) ?? null;
+    const date = todayDateOnly();
+
+    try {
+        let entry = await prisma.food_diary_entries.findUnique({
+            where: { client_id_date: { client_id: req.client!.clientId, date } },
+        });
+
+        if (!entry) {
+            const snapshot = await buildTodaySnapshot(req.client!.clientId, cycleId);
+            if (!snapshot) return res.json(null); // no active plan — nothing to track yet
+
+            try {
+                entry = await prisma.food_diary_entries.create({
+                    data: {
+                        id:            createId(),
+                        client_id:     req.client!.clientId,
+                        workspace_id:  req.client!.workspaceId,
+                        plan_id:       snapshot.plan_id,
+                        cycle_id:      snapshot.cycle_id,
+                        date,
+                        items:         snapshot.items as unknown as object,
+                        goal_calories: snapshot.goal_calories,
+                        goal_protein:  snapshot.goal_protein,
+                        goal_carbs:    snapshot.goal_carbs,
+                        goal_fats:     snapshot.goal_fats,
+                    },
+                });
+            } catch (createErr) {
+                const isDuplicate = (createErr as { code?: string }).code === 'P2002';
+                if (!isDuplicate) throw createErr;
+                entry = await prisma.food_diary_entries.findUnique({
+                    where: { client_id_date: { client_id: req.client!.clientId, date } },
+                });
+            }
+        }
+
+        res.json(entry ? serializeDiaryEntry(entry) : null);
+    } catch (err) {
+        next(err);
+    }
+}
+
+const updateFoodDiaryItemSchema = z.object({
+    meal_item_id: z.string().min(1),
+    amount_eaten: z.number().min(0),
+    cycle_id:     z.string().nullable().optional(),
+});
+
+// Updates a single item's amount_eaten on today's entry, creating the entry
+// first if this is the first interaction of the day (e.g. PATCH called
+// before any GET, or the client's very first tap of the day). Totals are
+// always recomputed server-side from the snapshot's per-serving values —
+// never trusted from the client — so a stale/tampered total can't persist.
+export async function updateTodayFoodDiaryItem(req: Request, res: Response, next: NextFunction) {
+    const parsed = updateFoodDiaryItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const { meal_item_id, amount_eaten, cycle_id } = parsed.data;
+    const date = todayDateOnly();
+
+    try {
+        let entry = await prisma.food_diary_entries.findUnique({
+            where: { client_id_date: { client_id: req.client!.clientId, date } },
+        });
+
+        if (!entry) {
+            const snapshot = await buildTodaySnapshot(req.client!.clientId, cycle_id ?? null);
+            if (!snapshot) return res.status(404).json({ error: 'No active nutrition plan to track' });
+            try {
+                entry = await prisma.food_diary_entries.create({
+                    data: {
+                        id:            createId(),
+                        client_id:     req.client!.clientId,
+                        workspace_id:  req.client!.workspaceId,
+                        plan_id:       snapshot.plan_id,
+                        cycle_id:      snapshot.cycle_id,
+                        date,
+                        items:         snapshot.items as unknown as object,
+                        goal_calories: snapshot.goal_calories,
+                        goal_protein:  snapshot.goal_protein,
+                        goal_carbs:    snapshot.goal_carbs,
+                        goal_fats:     snapshot.goal_fats,
+                    },
+                });
+            } catch (createErr) {
+                const isDuplicate = (createErr as { code?: string }).code === 'P2002';
+                if (!isDuplicate) throw createErr;
+                entry = await prisma.food_diary_entries.findUnique({
+                    where: { client_id_date: { client_id: req.client!.clientId, date } },
+                });
+            }
+        }
+        if (!entry) return res.status(404).json({ error: 'No active nutrition plan to track' });
+
+        const items = (Array.isArray(entry.items) ? entry.items : []) as unknown as FoodDiaryItem[];
+        const itemIndex = items.findIndex((it) => it.meal_item_id === meal_item_id);
+        if (itemIndex === -1) return res.status(404).json({ error: 'This item is not part of today\'s diary' });
+
+        const updatedItems = items.map((it, i) => (i === itemIndex ? { ...it, amount_eaten } : it));
+        const totals = computeTotals(updatedItems);
+
+        const updated = await prisma.food_diary_entries.update({
+            where: { id: entry.id },
+            data: {
+                items:          updatedItems as unknown as object,
+                total_calories: totals.calories,
+                total_protein:  totals.protein,
+                total_carbs:    totals.carbs,
+                total_fats:     totals.fats,
+                updated_at:     new Date(),
+            },
+        });
+
+        res.json(serializeDiaryEntry(updated));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getFoodDiaryHistory(req: Request, res: Response, next: NextFunction) {
+    try {
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: { date: 'desc' },
+            take:    FOOD_DIARY_HISTORY_LIMIT,
+        });
+        res.json(entries.map(serializeDiaryEntry));
     } catch (err) {
         next(err);
     }
