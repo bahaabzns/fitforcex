@@ -1,4 +1,6 @@
+import '../models/workout_log.dart';
 import '../models/workout_session.dart';
+import 'exercise_tracking_types.dart' as tracking;
 
 /// Client-side workout math, mirroring the web `utils/workout.js` so the session
 /// screen can show live totals while logging without a round-trip.
@@ -58,4 +60,37 @@ String formatClock(int seconds) {
   final mins = total ~/ 60;
   final secs = total % 60;
   return '$mins:${secs.toString().padLeft(2, '0')}';
+}
+
+/// The training builder seeds a new set's tempo with "-" as a placeholder —
+/// it reads as "not filled in" the same as null/empty, so treat all three as
+/// blank when deciding whether a coach actually entered a tempo.
+bool hasTempoValue(String? tempo) {
+  final trimmed = tempo?.trim() ?? '';
+  return trimmed.isNotEmpty && trimmed != '-';
+}
+
+/// RIR has no placeholder sentinel like tempo — null is the only "not set" state.
+bool hasRirValue(int? rir) => rir != null;
+
+String _formatCompact(double v) =>
+    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+/// "80kg × 8" (sets_reps) or "45s · 2km" (time_based) for a previous logged
+/// set, or null when there's nothing to show. Shared by the live session card
+/// and the day-preview grid so both read the same "Previous" column the same way.
+String? previousSetLabel(PreviousSet? previous, String category) {
+  if (previous == null) return null;
+  if (category == tracking.setsReps) {
+    if (previous.weight == null || previous.reps == null) return null;
+    return '${_formatCompact(previous.weight!)}kg × ${_formatCompact(previous.reps!)}';
+  }
+  final parts = <String>[];
+  if (previous.durationSeconds != null) {
+    parts.add(formatClock(previous.durationSeconds!));
+  }
+  if (previous.distanceKm != null) {
+    parts.add('${_formatCompact(previous.distanceKm!)}km');
+  }
+  return parts.isEmpty ? null : parts.join(' · ');
 }

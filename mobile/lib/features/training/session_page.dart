@@ -396,6 +396,18 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     _updateExercise(exIdx, (ex) => ex.copyWith(note: value));
   }
 
+  /// Leaves the session running in the background instead of discarding it —
+  /// the autosaved draft (local + server) is what makes this safe: there's
+  /// no separate "minimized" state to set, just navigating away. The training
+  /// day-preview page picks it up as a live "Continue {day}" indicator.
+  void _minimize() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      _exit();
+    }
+  }
+
   Future<void> _discard() async {
     final l10n = AppLocalizations.of(context);
     final ok =
@@ -506,20 +518,17 @@ class _SessionPageState extends ConsumerState<SessionPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.delete_outline),
-          tooltip: l10n.trainingDiscard,
-          onPressed: _discard,
+          icon: const Icon(Icons.keyboard_arrow_down),
+          tooltip: l10n.trainingMinimizeSession,
+          onPressed: _minimize,
         ),
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(session.dayName,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Text(
-              '${formatDuration(elapsed)} · ${totalVolume(session.exercises)} ${l10n.trainingVolumeUnit}',
-              style: TextStyle(
-                  fontSize: 12, color: context.appColors.mutedForeground),
+              formatDuration(elapsed),
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, height: 1.1),
             ),
             if (_autosaveState == 'error')
               Text(
@@ -529,7 +538,7 @@ class _SessionPageState extends ConsumerState<SessionPage> {
               ),
           ],
         ),
-        centerTitle: false,
+        centerTitle: true,
         actions: [
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 12),
@@ -551,28 +560,56 @@ class _SessionPageState extends ConsumerState<SessionPage> {
       ),
       // Flat, borderless list (Strong-style) — exercises are separated by
       // spacing and a hairline divider instead of individual card chrome.
+      // Discard lives at the very bottom, scrolling with the content, so
+      // it's never one accidental tap away like the old header icon was.
       body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: session.exercises.length,
-        separatorBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Divider(
-            height: 1,
-            color: context.appColors.border.withValues(alpha: 0.5),
-          ),
-        ),
-        itemBuilder: (context, i) => ExerciseLogCard(
-          exercise: session.exercises[i],
-          previous: _previous[session.exercises[i].exerciseId] ?? const [],
-          videoUrl: _videoUrls[session.exercises[i].exerciseId],
-          focusSetIndex: restRemaining != null && _lastCompletion?.exIdx == i
-              ? _lastCompletion!.setIdx + 1
-              : null,
-          onChangeSet: (setIdx, field, value) =>
-              _changeSet(i, setIdx, field, value),
-          onToggleSet: (setIdx) => _toggleSet(i, setIdx),
-          onChangeNote: (value) => _changeNote(i, value),
-        ),
+        itemCount: session.exercises.length + 2,
+        separatorBuilder: (context, i) {
+          if (i == 0 || i == session.exercises.length) {
+            return const SizedBox(height: 20);
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Divider(
+              height: 1,
+              color: context.appColors.border.withValues(alpha: 0.5),
+            ),
+          );
+        },
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Text(session.dayName,
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold));
+          }
+          if (i == session.exercises.length + 1) {
+            return OutlinedButton.icon(
+              onPressed: _discard,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(color: Theme.of(context).colorScheme.error),
+              ),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(l10n.trainingDiscard),
+            );
+          }
+          final exIdx = i - 1;
+          return ExerciseLogCard(
+            exercise: session.exercises[exIdx],
+            previous: _previous[session.exercises[exIdx].exerciseId] ?? const [],
+            videoUrl: _videoUrls[session.exercises[exIdx].exerciseId],
+            focusSetIndex:
+                restRemaining != null && _lastCompletion?.exIdx == exIdx
+                    ? _lastCompletion!.setIdx + 1
+                    : null,
+            onChangeSet: (setIdx, field, value) =>
+                _changeSet(exIdx, setIdx, field, value),
+            onToggleSet: (setIdx) => _toggleSet(exIdx, setIdx),
+            onChangeNote: (value) => _changeNote(exIdx, value),
+          );
+        },
       ),
       bottomNavigationBar: restRemaining != null
           ? RestTimerBar(

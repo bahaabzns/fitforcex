@@ -217,6 +217,14 @@ final workoutLogProvider =
   return ref.watch(workoutRepositoryProvider).fetchLog(id);
 });
 
+/// Map of exercise_id → previously-logged sets for one day — the day-preview
+/// page's own "Previous" column, fetched before any session exists.
+final dayPreviousProvider =
+    FutureProvider.autoDispose.family<Map<String, List<PreviousSet>>, String>(
+        (ref, dayId) {
+  return ref.watch(workoutRepositoryProvider).fetchPrevious(dayId);
+});
+
 final loggedExercisesProvider =
     FutureProvider.autoDispose<List<LoggedExerciseRef>>((ref) {
   return ref.watch(workoutRepositoryProvider).fetchLoggedExercises();

@@ -73,8 +73,12 @@ class _FakeWorkoutRepository extends WorkoutRepository {
     upsertPayloads.add(payload);
   }
 
+  bool deleteLogCalled = false;
+
   @override
-  Future<void> deleteLog(String id) async {}
+  Future<void> deleteLog(String id) async {
+    deleteLogCalled = true;
+  }
 }
 
 Future<_FakeWorkoutRepository> _pumpSession(
@@ -243,5 +247,42 @@ void main() {
     await tester.pump(const Duration(milliseconds: 750));
 
     expect(workoutRepo.upsertIds, ['local-session-id']);
+  });
+
+  testWidgets(
+      'minimizing (chevron-down) leaves the session running instead of discarding it',
+      (tester) async {
+    final workoutRepo = _FakeWorkoutRepository();
+
+    await _pumpSession(
+      tester,
+      trainingRepo: _FakeTrainingRepository(_planWithOneExercise()),
+      workoutRepo: workoutRepo,
+    );
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+
+    expect(find.text('training-tab'), findsOneWidget);
+    expect(workoutRepo.deleteLogCalled, isFalse);
+  });
+
+  testWidgets('the bottom Discard button clears the session after confirming',
+      (tester) async {
+    final workoutRepo = _FakeWorkoutRepository();
+
+    await _pumpSession(
+      tester,
+      trainingRepo: _FakeTrainingRepository(_planWithOneExercise()),
+      workoutRepo: workoutRepo,
+    );
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Discard'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('training-tab'), findsOneWidget);
+    expect(workoutRepo.deleteLogCalled, isTrue);
   });
 }

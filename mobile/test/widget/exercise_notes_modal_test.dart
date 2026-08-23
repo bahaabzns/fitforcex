@@ -1,13 +1,39 @@
+import 'package:dio/dio.dart';
 import 'package:fitforce_x/core/theme/app_theme.dart';
 import 'package:fitforce_x/features/training/widgets/exercise_log_card.dart';
+import 'package:fitforce_x/features/training/workout_repository.dart';
 import 'package:fitforce_x/l10n/generated/app_localizations.dart';
+import 'package:fitforce_x/shared/models/exercise_insights.dart';
 import 'package:fitforce_x/shared/models/workout_log.dart';
 import 'package:fitforce_x/shared/models/workout_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _wrap(Widget child) => MaterialApp(
+/// The note sheet fetches "Previous Notes" via the insights endpoint —
+/// stub it out so tests never attempt a real network call.
+class _FakeWorkoutRepository extends WorkoutRepository {
+  _FakeWorkoutRepository() : super(Dio());
+  ExerciseInsights insights = const ExerciseInsights();
+
+  @override
+  Future<ExerciseInsights> fetchInsights({
+    String? exerciseLibraryId,
+    String? exerciseId,
+  }) async =>
+      insights;
+}
+
+Widget _wrap(Widget child, {WorkoutRepository? workoutRepo}) {
+  final container = ProviderContainer(overrides: [
+    workoutRepositoryProvider
+        .overrideWithValue(workoutRepo ?? _FakeWorkoutRepository()),
+  ]);
+  addTearDown(container.dispose);
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
       theme: AppTheme.light,
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -17,7 +43,9 @@ Widget _wrap(Widget child) => MaterialApp(
       ],
       supportedLocales: const [Locale('en'), Locale('ar')],
       home: Scaffold(body: child),
-    );
+    ),
+  );
+}
 
 SessionExercise _exercise({String note = ''}) => SessionExercise(
       exerciseId: 'ex-1',
@@ -58,6 +86,60 @@ void main() {
 
     expect(saved, 'Felt heavy today');
     expect(find.text('Exercise Notes'), findsNothing);
+  });
+
+  testWidgets(
+      'shows previous notes from recent sessions, filtering out empty ones',
+      (tester) async {
+    final repo = _FakeWorkoutRepository()
+      ..insights = const ExerciseInsights(recentSessions: [
+        RecentSession(date: '2026-08-10', note: 'Felt strong'),
+        RecentSession(date: '2026-08-03', note: ''),
+        RecentSession(date: '2026-07-27', note: 'Left shoulder tight'),
+      ]);
+
+    await tester.pumpWidget(_wrap(
+      ExerciseLogCard(
+        exercise: _exercise(),
+        previous: const <PreviousSet>[],
+        videoUrl: null,
+        onChangeSet: (_, __, ___) {},
+        onToggleSet: (_) {},
+        onChangeNote: (_) {},
+      ),
+      workoutRepo: repo,
+    ));
+
+    await tester.tap(find.byIcon(Icons.edit_note));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PREVIOUS NOTES'), findsOneWidget);
+    expect(find.text('Felt strong'), findsOneWidget);
+    expect(find.text('Left shoulder tight'), findsOneWidget);
+  });
+
+  testWidgets('no previous-notes section when no recent session has a note',
+      (tester) async {
+    final repo = _FakeWorkoutRepository()
+      ..insights = const ExerciseInsights(
+          recentSessions: [RecentSession(date: '2026-08-10')]);
+
+    await tester.pumpWidget(_wrap(
+      ExerciseLogCard(
+        exercise: _exercise(),
+        previous: const <PreviousSet>[],
+        videoUrl: null,
+        onChangeSet: (_, __, ___) {},
+        onToggleSet: (_) {},
+        onChangeNote: (_) {},
+      ),
+      workoutRepo: repo,
+    ));
+
+    await tester.tap(find.byIcon(Icons.edit_note));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PREVIOUS NOTES'), findsNothing);
   });
 
   testWidgets('reopening the modal shows the previously saved note',

@@ -81,22 +81,6 @@ String _placeholderFor(
   return raw;
 }
 
-String? _previousText(PreviousSet? previous, String category) {
-  if (previous == null) return null;
-  if (category == tracking.setsReps) {
-    if (previous.weight == null || previous.reps == null) return null;
-    return '${_n(previous.weight!)}kg × ${_n(previous.reps!)}';
-  }
-  final parts = <String>[];
-  if (previous.durationSeconds != null) {
-    parts.add(formatClock(previous.durationSeconds!));
-  }
-  if (previous.distanceKm != null) {
-    parts.add('${_n(previous.distanceKm!)}km');
-  }
-  return parts.isEmpty ? null : parts.join(' · ');
-}
-
 /// One exercise within a Training Mode session: a lazy video, per-set targets
 /// shown alongside each row, and an editable grid of logged sets (previous ·
 /// [logged fields] · [target fields] · done). Which fields are editable vs.
@@ -285,8 +269,11 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
                   context: context,
                   isScrollControlled: true,
                   useSafeArea: true,
-                  builder: (_) =>
-                      ExerciseNotesModal(initialValue: exercise.note),
+                  builder: (_) => ExerciseNotesModal(
+                    initialValue: exercise.note,
+                    exerciseLibraryId: exercise.exerciseLibraryId,
+                    exerciseId: exercise.exerciseId,
+                  ),
                 );
                 if (result != null) widget.onChangeNote(result);
               },
@@ -455,7 +442,7 @@ class _SetRow extends StatelessWidget {
     final s = set!;
     final mutedColor = context.appColors.mutedForeground;
     final success = context.appColors.success;
-    final previousText = _previousText(previous, category);
+    final previousText = previousSetLabel(previous, category);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
