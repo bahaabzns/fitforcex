@@ -536,3 +536,26 @@ Format:
 **Why it matters:** A wrong HMAC field order silently breaks webhook signature verification — every real Paymob webhook would fail the check and get rejected (safe-but-broken: payments would only confirm via the slower `payment-status` poll fallback, never instantly via webhook). A wrong inquiry endpoint just fails polling gracefully (falls back to the webhook), lower risk.
 **Effort:** Small — once a Paymob sandbox account exists, send one real test transaction and confirm the computed HMAC matches Paymob's, and confirm the inquiry call returns the expected shape.
 **Priority:** High — block relying on card/wallet checkout in production until verified against a real Paymob webhook payload.
+
+---
+
+## 2026-08-23 — mobile/lib/features/training (history pages duplicate `_n`/`_fieldLabel`)
+**Type:** Shortcut
+**What:** `history_page.dart` and `history_detail_page.dart` each define their own local `_n()`, and `history_detail_page.dart` also duplicates `_fieldLabel()` from `training_page.dart`/`exercise_log_card.dart` verbatim, found during the pre-deploy review of this session's mobile parity work.
+**Why it matters:** Same "extract on the third copy" rule this session already applied to amount formatting (see `shared/utils/format_amount.dart`) — these are the next candidates for drift.
+**Effort:** Small — pull both into `shared/utils/`.
+**Priority:** Low
+
+## 2026-08-23 — mobile/lib/features/training/widgets/exercise_log_card.dart (misleading param name)
+**Type:** Documentation
+**What:** `weightFocusNode` no longer always targets the weight field — for `time_based` exercises it targets whichever field renders first.
+**Why it matters:** Misleading to a future reader; harmless today.
+**Effort:** Small — rename next time the file is touched.
+**Priority:** Low
+
+## 2026-08-23 — mobile/lib/features/profile/subscription_page.dart (day-count truncates instead of rounds)
+**Type:** Shortcut
+**What:** The progress bar's `totalDays`/`daysRemaining` use `.inDays` (truncating) where web uses `Math.round()`. Only affects the progress bar's displayed day count, not access control.
+**Why it matters:** A DST-only edge case; cosmetic only.
+**Effort:** Small
+**Priority:** Low
