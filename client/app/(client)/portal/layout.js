@@ -7,7 +7,7 @@ import ClientPortalStatusCard from "@/app/components/ClientPortalStatusCard";
 import InsightBanner from "@/app/components/insights/InsightBanner";
 import { Skeleton } from "@heroui/react/skeleton";
 
-const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
+const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/subscription', '/portal/notifications', '/portal/messages'];
 
 // Renders inside the provider so it can read the loaded access state.
 function PortalShell({ children }) {
