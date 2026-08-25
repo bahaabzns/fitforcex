@@ -697,6 +697,23 @@ export default function DataTable({
                                             <Table.Row
                                                 id={row[rowKey]}
                                                 className={`group ${rowClassName ? rowClassName(row) : ""} ${isCelebrating ? "row-celebrate" : ""}`}
+                                                // data-real-hover: react-aria's own useHover — the one behind
+                                                // data-hovered/:hover in table.css and globals.css — is disabled
+                                                // outright for any row where the table isn't `selectable` and has
+                                                // no row-level onAction (see react-aria-components' Table.mjs:
+                                                // `useHover({ isDisabled: !allowsSelection && !hasAction })`).
+                                                // Almost none of this app's tables set either, so on hardware
+                                                // where @media (hover: hover) is also false, data-hovered can
+                                                // never become "true" no matter how the row is hovered — react-
+                                                // aria just never turns tracking on. Setting this attribute
+                                                // ourselves, straight on the DOM node (not via React state, to
+                                                // avoid the render-lag this file already steers around
+                                                // elsewhere), sidesteps that gate entirely and works regardless
+                                                // of whether the table is selectable. pointerType !== "touch"
+                                                // mirrors useHover's own touch exclusion so this can't get stuck
+                                                // "on" after a tap on a touch-only device.
+                                                onPointerEnter={(e) => { if (e.pointerType !== "touch") e.currentTarget.setAttribute("data-real-hover", "true"); }}
+                                                onPointerLeave={(e) => { if (e.pointerType !== "touch") e.currentTarget.removeAttribute("data-real-hover"); }}
                                             >
                                                 {selectable && (() => {
                                                     const s = {};
@@ -768,7 +785,11 @@ export default function DataTable({
                                                         // hover (only the buttons fade, not the cell bg, so the
                                                         // row's hover highlight shows through behind them) —
                                                         // opt out per column with `alwaysVisibleActions: true`.
-                                                        ? <div className={`flex justify-end ${col.alwaysVisibleActions ? "" : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"}`}>{col.render ? col.render(row) : row[col.key]}</div>
+                                                        // table-row-actions: a plain (non-Tailwind) class so
+                                                        // globals.css can reveal it via [data-hovered="true"] too
+                                                        // — see the comment on that rule for why group-hover
+                                                        // alone isn't enough.
+                                                        ? <div className={`table-row-actions flex justify-end ${col.alwaysVisibleActions ? "" : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"}`}>{col.render ? col.render(row) : row[col.key]}</div>
                                                         : (col.render ? col.render(row) : row[col.key]);
                                                     return (
                                                         <Table.Cell

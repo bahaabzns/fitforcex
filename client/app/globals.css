@@ -185,15 +185,83 @@
     background-color: var(--surface);
   }
   @media (hover: hover) {
-    .table__row:hover .table__cell[data-sticky-end],
-    .table__row[data-hovered="true"] .table__cell[data-sticky-end] {
+    .table__row:hover .table__cell[data-sticky-end] {
       background-color: color-mix(in oklab, var(--surface) 40%, var(--surface-secondary) 60%);
     }
   }
-  /* Declared after the hover rule (same specificity) so selected wins over
+  /* [data-real-hover="true"] un-gated from (hover: hover) — see the row-hover
+     comment below for the full story. In short: react-aria's own
+     [data-hovered] can't be trusted here, so DataTable.js sets this
+     attribute itself directly on the row (see its onPointerEnter/Leave). */
+  .table__row[data-real-hover="true"] .table__cell[data-sticky-end] {
+    background-color: color-mix(in oklab, var(--surface) 40%, var(--surface-secondary) 60%);
+  }
+  /* Declared after the hover rules (same specificity) so selected wins over
      hovered when both apply — matches table.css's own rule order. */
   .table__row[data-selected="true"] .table__cell[data-sticky-end] {
     background-color: color-mix(in oklab, var(--surface) 90%, var(--surface-secondary) 10%);
+  }
+
+  /* Row hover on hybrid touchscreen+mouse Windows laptops: HeroUI's own
+     `.table__row:hover .table__cell` rule (table.css) and Tailwind's
+     `group-hover:opacity-100` (used below for row action buttons) both
+     compile behind `@media (hover: hover)`. That media feature reports the
+     PRIMARY pointer's capability — on a touchscreen-equipped Windows laptop
+     it's `hover: none` even while the coach is actively using a real mouse
+     or trackpad, since the touchscreen is the primary pointer. Result: the
+     row never highlights and the action buttons never reveal on that
+     hardware, no matter how the coach hovers.
+     The obvious fix is react-aria's own [data-hovered] attribute — it
+     tracks actual PointerEvent.pointerType and ignores 'touch', so in
+     theory it's hardware-agnostic. But react-aria-components disables its
+     useHover for a table row entirely — `isDisabled: !allowsSelection &&
+     !hasAction` — unless the table is `selectable` or has a row-level
+     onAction (see react-aria-components' Table.mjs). None of this app's
+     DataTables set either by default, so [data-hovered] never becomes
+     "true" on hardware where (hover: hover) is also false: react-aria
+     just never turns hover tracking on for that row, full stop — verified
+     against a real device (hover:hover false, real mouse, pointerenter
+     firing with pointerType "mouse") where [data-hovered] stayed null the
+     entire time.
+     [data-real-hover] below is DataTable.js's own replacement: set
+     directly on the row via onPointerEnter/onPointerLeave, bypassing
+     react-aria's gate entirely, with the same pointerType !== "touch"
+     guard useHover itself uses so it can't get stuck "on" after a tap on
+     a touch-only device. Plain DOM mutation, not React state, for the same
+     reason the sticky-cell background above avoids it: no render-lag.
+     The action-button reveal itself is a separate rule down in
+     @layer utilities, not here — it has to outrank Tailwind's own
+     `opacity-0` utility, and utilities always beats components regardless
+     of selector specificity, so a components-layer rule could never win
+     that fight no matter how it's written. */
+  .table__row[data-real-hover="true"] .table__cell {
+    background-color: color-mix(in oklab, var(--surface) 40%, transparent);
+  }
+  /* Re-declared after the hover rule above (same specificity, later wins) so
+     selected still wins over hovered for the base cell too — table.css's own
+     hover/selected pair already order this correctly, but this rule sits
+     after both of them in the cascade (this file loads after @heroui/react
+     /styles), so without restating it here a selected + actively-hovered
+     row would flip back to the hover tint. Matches table.css's own
+     bg-surface/10. */
+  .table__row[data-selected="true"] .table__cell {
+    background-color: color-mix(in oklab, var(--surface) 10%, transparent);
+  }
+
+  /* Select popover items lose their checkmark clearance to a same-specificity
+     rule inside HeroUI's own select.css. list-box-item.css declares
+     `.list-box-item:has(.list-box-item__indicator) { pr-7 }` to keep option
+     text from running under the checkmark, but select.css's
+     `.select__popover [data-slot="list-box-item"] { px-2.5 }` — loaded later
+     in the same @heroui/react/styles bundle — ties it at (0,2,0) specificity
+     and wins on source order, collapsing the reservation back to 10px. Seen
+     on Plans Queue's Assigned/Label column dropdowns (PlansQueueTable.js):
+     the selected option's checkmark rendered on top of its own label text.
+     Adding :has() here bumps specificity to (0,3,0) so it wins outright,
+     independent of load order — this file already sits after @heroui/react
+     /styles regardless (see the sticky-cell comment above). */
+  .select__popover [data-slot="list-box-item"]:has(.list-box-item__indicator) {
+    padding-right: 1.75rem;
   }
 
   /* "Completed" row flash — plans-queue's Main view (see DataTable.js's
@@ -335,6 +403,23 @@
   .action-bar__content,
   .action-bar__suffix {
     @apply flex items-center gap-1;
+  }
+}
+
+/* Row action buttons (DataTable.js's .table-row-actions) reveal on real
+   mouse hover via [data-real-hover="true"] — DataTable.js sets that
+   attribute itself; see the long comment on [data-real-hover] in
+   @layer components above for why react-aria's own [data-hovered] can't be
+   used instead (react-aria disables hover tracking for non-selectable,
+   non-actionable table rows, which is most of this app's tables). This
+   rule has to live in @layer utilities, not components: it's overriding
+   Tailwind's own `opacity-0` utility on the same element, and utilities
+   always outranks components in the cascade regardless of selector
+   specificity — a components-layer rule literally cannot win that fight
+   no matter how specific it's written. */
+@layer utilities {
+  .table__row[data-real-hover="true"] .table-row-actions {
+    opacity: 1;
   }
 }
 
