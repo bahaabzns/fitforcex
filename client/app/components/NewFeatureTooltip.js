@@ -39,6 +39,15 @@ export default function NewFeatureTooltip({
     badgeIcon: BadgeIcon = PartyPopper,
     onTriggerClick,
     triggerClassName,
+    // Most callers wrap the actual interactive control the hint is pointing
+    // at (see the doc comment above) — that control must keep rendering
+    // forever regardless of hint state, so by default `children` always
+    // renders and only the popover bubble is gated by `seen`. A few callers
+    // instead wrap a purely decorative badge (e.g. a small dot) that has no
+    // function of its own once the hint's been acknowledged — those pass
+    // this to make the whole trigger disappear on dismissal instead of
+    // sitting there forever with nothing left to say.
+    hideTriggerWhenSeen = false,
     children,
 }) {
     const storageKey = `ff_seen_feature_hint_${featureKey}`;
@@ -51,6 +60,8 @@ export default function NewFeatureTooltip({
         setSeen(true);
         try { localStorage.setItem(storageKey, "1"); } catch { /* storage unavailable — hint just won't persist dismissal this session */ }
     }
+
+    if (hideTriggerWhenSeen && seen) return null;
 
     return (
         <Popover isOpen={active && !seen}>
