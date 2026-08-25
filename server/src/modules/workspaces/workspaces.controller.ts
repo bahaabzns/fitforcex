@@ -336,13 +336,21 @@ export async function updateMemberPermissions(req: Request, res: Response, next:
     try {
         const memberCheck = await prisma.workspace_members.findFirst({
             where:  { id: memberId, workspace_id: req.user!.workspaceId },
-            select: { id: true },
+            select: { id: true, permissions: true },
         });
         if (!memberCheck) return res.status(404).json({ message: 'Member not found' });
 
+        // Merge over the existing permissions rather than replacing wholesale: the
+        // permissions editor UI only exposes a subset of modules (clients, training,
+        // nutrition, forms, finance, team), so a full replace would silently wipe out
+        // modules it doesn't manage (e.g. pdfExport, insights, databases) every time
+        // an owner edits any permission for a member.
+        const existingPermissions = (memberCheck.permissions ?? {}) as Record<string, unknown>;
+        const mergedPermissions = { ...existingPermissions, ...(permissions as Record<string, unknown>) };
+
         const updated = await prisma.workspace_members.update({
             where:  { id: memberId },
-            data:   { permissions: permissions as Prisma.InputJsonValue },
+            data:   { permissions: mergedPermissions as Prisma.InputJsonValue },
             select: { id: true, role: true, permissions: true },
         });
 
