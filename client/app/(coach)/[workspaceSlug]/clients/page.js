@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Copy, Check, Trash2, X, CreditCard, ClipboardList, FileText, Snowflake, Sun, ListChecks, Users } from 'lucide-react';
 import DataTable from "@/app/components/DataTable";
+import ErrorState from "@/app/components/ErrorState";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import Stepper from "@/app/components/Stepper";
@@ -136,6 +137,7 @@ function ReviewRow({ label, value, mono }) {
 export default function ClientsPage() {
     const t = useTranslations('clients');
     const tCommon = useTranslations('common');
+    const tError = useTranslations('error');
     usePageTitle(t('pageTitle'));
     const locale = useLocale();
     const { formatDate } = useDateFormatter();
@@ -152,6 +154,7 @@ export default function ClientsPage() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [availableForms, setAvailableForms] = useState([]);
     const [loading, setLoading]           = useState(true);
+    const [loadError, setLoadError]       = useState(false); // clients fetch failed — distinct from an empty roster
     const [credsModal, setCredsModal]         = useState(null); // { email, password } | null
     const [credsCopied, setCredsCopied]       = useState(false);
     const [clientLimitModal, setClientLimitModal] = useState(null); // { limit: number } | null
@@ -205,21 +208,47 @@ export default function ClientsPage() {
     // Bulk transaction — record one transaction per selected client (shared TransactionModal)
     const [showTxModal, setShowTxModal]                 = useState(false);
 
-    // Clients (active + archived in one list) plus reference data. Archived
-    // clients are surfaced via the "Archived" status filter and dimmed in the row.
-    useEffect(() => {
-        Promise.all([
-            api.get("/api/clients?page=1&limit=10000"),
+    // The clients list is the page's critical data — its own request, its own
+    // error state. A failure here shows a retry card, never a silent "empty
+    // roster" (archived clients are in this same list, surfaced via the
+    // "Archived" status filter and dimmed in the row).
+    const loadClients = useCallback(() => {
+        api.get("/api/clients?page=1&limit=10000")
+            .then(({ data }) => { setClients(data.data ?? []); setLoadError(false); })
+            .catch((err) => { console.error("Failed to load clients:", err); setLoadError(true); })
+            .finally(() => setLoading(false));
+    }, []);
+
+    // Reference data for the Add-Client wizard and column filters. Loaded
+    // independently and per-request tolerant: a blip on packages/forms must not
+    // blank the clients table (it did — all four shared one Promise.all).
+    const loadReferenceData = useCallback(() => {
+        Promise.allSettled([
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
             api.get("/api/forms"),
-        ]).then(([clientRes, pkgRes, pmRes, formsRes]) => {
-            setClients(clientRes.data.data ?? []);
-            setPackages(pkgRes.data ?? []);
-            setPaymentMethods((pmRes.data ?? []).filter(m => m.active));
-            setAvailableForms((formsRes.data ?? []).filter(f => f.status === "active" || f.active));
-        }).catch(console.error).finally(() => setLoading(false));
+        ]).then(([pkgRes, pmRes, formsRes]) => {
+            if (pkgRes.status === "fulfilled") setPackages(pkgRes.value.data ?? []);
+            else console.error("Failed to load packages:", pkgRes.reason);
+            if (pmRes.status === "fulfilled") setPaymentMethods((pmRes.value.data ?? []).filter(m => m.active));
+            else console.error("Failed to load payment methods:", pmRes.reason);
+            if (formsRes.status === "fulfilled") setAvailableForms((formsRes.value.data ?? []).filter(f => f.status === "active" || f.active));
+            else console.error("Failed to load forms:", formsRes.reason);
+        });
     }, []);
+
+    // Retry handler for the error card — reset to the loading state, then re-fetch.
+    const retryLoad = useCallback(() => {
+        setLoadError(false);
+        setLoading(true);
+        loadClients();
+        loadReferenceData();
+    }, [loadClients, loadReferenceData]);
+
+    useEffect(() => {
+        loadClients();
+        loadReferenceData();
+    }, [loadClients, loadReferenceData]);
 
     // Derived option lists
     const packageOptions = packages.flatMap(p =>
@@ -695,6 +724,12 @@ export default function ClientsPage() {
                 </div>
             </div>
         );
+    }
+
+    // The clients request failed — offer a retry instead of an empty table that
+    // reads as "you have no clients".
+    if (loadError) {
+        return <ErrorState error={{ message: tError('failedToLoad') }} reset={retryLoad} />;
     }
 
     return (
