@@ -131,7 +131,8 @@ export async function logSubscriptionAudit(entry: {
     clientId?: string | null;
     actorType: 'coach' | 'system';
     actorUserId?: string | null;
-    eventType: 'policy.update' | 'status.change' | 'client.archive' | 'client.restore' | 'client.delete';
+    eventType: 'policy.update' | 'status.change' | 'client.archive' | 'client.restore' | 'client.delete'
+        | 'freeze.create' | 'freeze.update' | 'freeze.remove';
     fromStatus?: string | null;
     toStatus?: string | null;
     metadata?: Prisma.InputJsonValue;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, RotateCcw, RotateCw, Trash2, Receipt, CheckCircle2, CreditCard, DollarSign } from "lucide-react";
+import { Pencil, RotateCcw, RotateCw, Trash2, Receipt, CheckCircle2, CreditCard, DollarSign, History } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
@@ -135,7 +135,7 @@ export default function ClientTransactionsPage() {
     const t = useTranslations('clientTransactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
-    const { formatDate } = useDateFormatter();
+    const { formatDate, formatDateTime } = useDateFormatter();
 
     const [transactions, setTransactions]     = useState([]);
     const [packages, setPackages]             = useState([]);
@@ -149,13 +149,19 @@ export default function ClientTransactionsPage() {
     const [showAddModal, setShowAddModal]     = useState(false);
     const [editingTx, setEditingTx]           = useState(null);
 
-    // Freeze modal
+    // Freeze modal — editingFreeze null = add mode, freeze object = edit mode
     const [showFreezeModal, setShowFreezeModal] = useState(false);
+    const [editingFreeze, setEditingFreeze]     = useState(null);
     const [freezeStartDate, setFreezeStartDate] = useState(todayStr());
     const [freezeDays, setFreezeDays]           = useState("");
     const [freezeNotes, setFreezeNotes]         = useState("");
     const [freezeError, setFreezeError]         = useState("");
     const [freezeSaving, setFreezeSaving]       = useState(false);
+
+    // Freeze history modal
+    const [showFreezeHistoryModal, setShowFreezeHistoryModal] = useState(false);
+    const [freezeHistory, setFreezeHistory]               = useState([]);
+    const [freezeHistoryLoading, setFreezeHistoryLoading] = useState(false);
 
     useEffect(() => {
         Promise.all([
@@ -380,7 +386,25 @@ export default function ClientTransactionsPage() {
         }
     }
 
-    async function handleAddFreeze(e) {
+    function openAddFreeze() {
+        setEditingFreeze(null);
+        setFreezeStartDate(todayStr());
+        setFreezeDays("");
+        setFreezeNotes("");
+        setFreezeError("");
+        setShowFreezeModal(true);
+    }
+
+    function openEditFreeze(freeze) {
+        setEditingFreeze(freeze);
+        setFreezeStartDate(new Date(freeze.freezeStartDate).toISOString().split("T")[0]);
+        setFreezeDays(String(freeze.freezeDurationDays));
+        setFreezeNotes(freeze.notes || "");
+        setFreezeError("");
+        setShowFreezeModal(true);
+    }
+
+    async function handleSaveFreeze(e) {
         e.preventDefault();
         if (!freezeStartDate || !freezeDays || Number(freezeDays) <= 0) {
             setFreezeError(t('freezeValidationError'));
@@ -388,13 +412,22 @@ export default function ClientTransactionsPage() {
         }
         setFreezeSaving(true);
         try {
-            const res = await api.post(`/api/clients/${id}/freezes`, {
-                freezeStartDate,
-                freezeDurationDays: Number(freezeDays),
-                notes: freezeNotes || null,
-            });
-            setFreezes(prev => [...prev, res.data]);
+            if (editingFreeze) {
+                const res = await api.patch(`/api/clients/${id}/freezes/${editingFreeze.id}`, {
+                    freezeStartDate,
+                    freezeDurationDays: Number(freezeDays),
+                });
+                setFreezes(prev => prev.map(f => f.id === res.data.id ? res.data : f));
+            } else {
+                const res = await api.post(`/api/clients/${id}/freezes`, {
+                    freezeStartDate,
+                    freezeDurationDays: Number(freezeDays),
+                    notes: freezeNotes || null,
+                });
+                setFreezes(prev => [...prev, res.data]);
+            }
             setShowFreezeModal(false);
+            setEditingFreeze(null);
             setFreezeStartDate(todayStr());
             setFreezeDays("");
             setFreezeNotes("");
@@ -413,6 +446,24 @@ export default function ClientTransactionsPage() {
             setFreezes(prev => prev.filter(f => f.id !== freeze.id));
         } catch (err) {
             console.error(err);
+        }
+    }
+
+    function openFreezeHistory() {
+        setShowFreezeHistoryModal(true);
+        setFreezeHistoryLoading(true);
+        api.get(`/api/clients/${id}/freezes/history`)
+            .then(res => setFreezeHistory(res.data ?? []))
+            .catch(() => setFreezeHistory([]))
+            .finally(() => setFreezeHistoryLoading(false));
+    }
+
+    function freezeHistoryLabel(ev) {
+        switch (ev.eventType) {
+            case "freeze.create": return t('freezeHistoryCreated');
+            case "freeze.update": return t('freezeHistoryEdited');
+            case "freeze.remove": return t('freezeHistoryRemoved');
+            default:               return ev.eventType;
         }
     }
 
@@ -565,13 +616,7 @@ export default function ClientTransactionsPage() {
                             )}
                         </div>
                         <button
-                            onClick={() => {
-                                setFreezeStartDate(todayStr());
-                                setFreezeDays("");
-                                setFreezeNotes("");
-                                setFreezeError("");
-                                setShowFreezeModal(true);
-                            }}
+                            onClick={openAddFreeze}
                             className="text-xs px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors cursor-pointer whitespace-nowrap"
                         >
                             {t('freezeButton')}
@@ -581,13 +626,28 @@ export default function ClientTransactionsPage() {
                     {/* Active freezes list */}
                     {freezes.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
-                            <p className="text-xs font-medium text-muted-foreground">{t('freezesLabel')}</p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-medium text-muted-foreground">{t('freezesLabel')}</p>
+                                <button
+                                    onClick={openFreezeHistory}
+                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                    <History className="h-3 w-3" />
+                                    {t('freezeHistoryButton')}
+                                </button>
+                            </div>
                             {freezes.map(f => (
                                 <div key={f.id} className="flex items-center gap-2 text-xs text-foreground">
                                     <span className="flex-1">
                                         {fmtDate(f.freezeStartDate)} · {t('durationDays', { count: f.freezeDurationDays })}
                                         {f.notes && <span className="text-muted-foreground"> — {f.notes}</span>}
                                     </span>
+                                    <button
+                                        onClick={() => openEditFreeze(f)}
+                                        className="text-primary hover:text-primary/80 transition-colors cursor-pointer"
+                                    >
+                                        {t('editFreeze')}
+                                    </button>
                                     <button
                                         onClick={() => handleDeleteFreeze(f)}
                                         className="text-destructive hover:text-red-700 transition-colors cursor-pointer"
@@ -643,9 +703,9 @@ export default function ClientTransactionsPage() {
                 onSuccess={(updated) => setTransactions(prev => prev.map(tx => tx.id === updated.id ? updated : tx))}
             />
 
-            {/* Freeze Modal */}
-            <Modal open={showFreezeModal} onClose={() => setShowFreezeModal(false)} title={t('addFreezeTitle')}>
-                <form onSubmit={handleAddFreeze} className="flex flex-col gap-3">
+            {/* Freeze Modal — add or edit, based on editingFreeze */}
+            <Modal open={showFreezeModal} onClose={() => setShowFreezeModal(false)} title={editingFreeze ? t('editFreezeTitle') : t('addFreezeTitle')}>
+                <form onSubmit={handleSaveFreeze} className="flex flex-col gap-3">
                     {freezeError && (
                         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                             <p className="text-destructive text-xs">{freezeError}</p>
@@ -671,23 +731,70 @@ export default function ClientTransactionsPage() {
                             className={inputCls}
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')} <span className="text-muted-foreground/60">({tCommon('optional')})</span></label>
-                        <textarea
-                            rows={2}
-                            value={freezeNotes}
-                            onChange={e => setFreezeNotes(e.target.value)}
-                            placeholder={t('freezeReasonPlaceholder')}
-                            className={`${inputCls} resize-none`}
-                        />
-                    </div>
+                    {editingFreeze ? (
+                        freezeNotes && (
+                            <p className="text-xs text-muted-foreground">
+                                {t('notesLabel')}: {freezeNotes}
+                            </p>
+                        )
+                    ) : (
+                        <div>
+                            <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')} <span className="text-muted-foreground/60">({tCommon('optional')})</span></label>
+                            <textarea
+                                rows={2}
+                                value={freezeNotes}
+                                onChange={e => setFreezeNotes(e.target.value)}
+                                placeholder={t('freezeReasonPlaceholder')}
+                                className={`${inputCls} resize-none`}
+                            />
+                        </div>
+                    )}
                     <p className="text-xs text-muted-foreground">
                         {t('freezeDescription')}
                     </p>
                     <Button type="submit" isDisabled={freezeSaving} variant="primary" fullWidth>
-                        {freezeSaving ? t('saving') : t('addFreeze')}
+                        {freezeSaving ? t('saving') : (editingFreeze ? t('saveChanges') : t('addFreeze'))}
                     </Button>
                 </form>
+            </Modal>
+
+            {/* Freeze History Modal — immutable audit trail, never edited/removed */}
+            <Modal open={showFreezeHistoryModal} onClose={() => setShowFreezeHistoryModal(false)} title={t('freezeHistoryTitle')}>
+                {freezeHistoryLoading ? (
+                    <div className="flex flex-col gap-2">
+                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+                    </div>
+                ) : freezeHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('freezeHistoryEmpty')}</p>
+                ) : (
+                    <ul className="flex flex-col gap-3">
+                        {freezeHistory.map(ev => (
+                            <li key={ev.id} className="flex items-start gap-3">
+                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-foreground">{freezeHistoryLabel(ev)}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {ev.actorName || (ev.actorType === "system" ? t('freezeHistorySystemActor') : t('freezeHistoryUnknownActor'))} · {formatDateTime(ev.createdAt)}
+                                    </p>
+                                    {ev.before && ev.after ? (
+                                        <div className="mt-1 text-xs text-muted-foreground flex flex-col gap-0.5">
+                                            {ev.before.freezeDurationDays !== ev.after.freezeDurationDays && (
+                                                <p>{t('freezeHistoryDurationChange', { from: ev.before.freezeDurationDays, to: ev.after.freezeDurationDays })}</p>
+                                            )}
+                                            {ev.before.freezeStartDate !== ev.after.freezeStartDate && (
+                                                <p>{t('freezeHistoryStartDateChange', { from: fmtDate(ev.before.freezeStartDate), to: fmtDate(ev.after.freezeStartDate) })}</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {fmtDate((ev.after ?? ev.before).freezeStartDate)} · {t('durationDays', { count: (ev.after ?? ev.before).freezeDurationDays })}
+                                        </p>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </Modal>
         </div>
         </div>
