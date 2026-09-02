@@ -22,6 +22,13 @@ Format:
 
 ---
 
+## 2026-09-02 — server/src/modules/pdfExport (orphaned profile images on delete)
+**Type:** Shortcut
+**What:** `DELETE /settings/:type/:profileId` removes the row but not the logo / cover / background images it referenced in object storage — the stored values are public URLs, not raw keys, so reversing them to issue a storage delete isn't wired up (same reason `removeNutritionLogo` etc. never deleted files). Profile delete makes this worse: it can orphan several images at once, not just one on replace.
+**Why it matters:** Slow storage bloat; no correctness impact. Grows with how often coaches churn profiles.
+**Effort:** Medium (store raw keys alongside URLs, or a periodic reconcile job that deletes `pdf-settings/*` objects no row references)
+**Priority:** Low
+
 ## 2026-06-24 — client (no toast system)
 **Type:** Shortcut
 **What:** The Client Archiving spec asked for toast notifications, but the app has no toast/sonner system wired up (only documented in DESIGN_SYSTEM.md). Archive/restore/delete feedback uses inline success messages + redirect instead.

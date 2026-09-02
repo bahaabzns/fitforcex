@@ -13,6 +13,10 @@ import { Input } from "@heroui/react/input";
 import { NumberField } from "@heroui/react/number-field";
 import { Separator } from "@heroui/react/separator";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { Chip } from "@heroui/react/chip";
+import Modal, { ModalFooter } from "@/app/components/Modal";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -50,6 +54,12 @@ function pick(source, keys) {
     const out = {};
     for (const key of keys) out[key] = source[key];
     return out;
+}
+
+// The profile a freshly-loaded list should open on: the one flagged default,
+// else the first, else "" (the synthesized default for a workspace with none).
+function pickDefaultProfileId(list) {
+    return (list.find((p) => p.is_default) || list[0])?.id ?? "";
 }
 
 // Mirrors expectedCoverImagePixelSize() in pdfExport.controller.ts (96px/inch
@@ -266,11 +276,18 @@ export default function PdfExportSettingsPage() {
     const tNav = useTranslations("nav");
     usePageTitle(tNav("pdfExport"));
 
-    // Drives both which settings are being edited AND which sample the
-    // preview panel renders — editing nutrition settings previews nutrition,
-    // editing training settings previews training, always in sync.
+    // Which plan type's profiles are being managed. Drives the settings being
+    // edited AND which sample the preview panel renders — always in sync.
     const [activeType, setActiveType] = useState("nutrition");
     const editableFields = EDITABLE_FIELDS_BY_TYPE[activeType];
+
+    // A workspace has many named branding profiles per type (see DECISIONS.md
+    // 2026-07-28); `profiles` is the list for `activeType`, `activeProfileId`
+    // the one being edited. A workspace that has saved none yet gets a single
+    // synthesized "Default" with id "" — persisted lazily on the first change
+    // that must reach the server (ensureProfilePersisted).
+    const [profiles, setProfiles] = useState([]);
+    const [activeProfileId, setActiveProfileId] = useState("");
 
     const [settings, setSettings] = useState(null);
     const [original, setOriginal] = useState(null);
@@ -281,24 +298,66 @@ export default function PdfExportSettingsPage() {
     const [uploadingSlot, setUploadingSlot] = useState(null);
     const [removingSlot, setRemovingSlot] = useState(null);
 
+    // Profile create/rename/delete modal: null | "new" | "rename" | "delete".
+    const [profileModal, setProfileModal] = useState(null);
+    const [profileName, setProfileName] = useState("");
+    const [profileBusy, setProfileBusy] = useState(false);
+    const [profileError, setProfileError] = useState("");
+    const [duplicating, setDuplicating] = useState(false);
+
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState(false);
     const previewUrlRef = useRef(null);
     const previewRequestId = useRef(0);
+    // In-flight ensureProfilePersisted() POST, so two quick actions (a save and
+    // an upload) don't each create a "Default" row.
+    const persistRef = useRef(null);
     const debouncedSettings = useDebouncedValue(settings, 700);
 
-    useEffect(() => {
-        setLoading(true);
+    const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
+
+    // Point the editor at one profile. `settings`/`original` are seeded here
+    // and in the profile-mutation handlers — never derived via an effect, so a
+    // list refresh (rename, make-default) can't clobber unsaved field edits.
+    function seedEditorFrom(profile) {
+        setSettings(profile);
+        setOriginal(profile);
         setError(""); setSuccess("");
-        api.get(`/api/pdf-export/settings/${activeType}`)
-            .then((res) => {
-                setSettings(res.data);
-                setOriginal(res.data);
-            })
-            .catch(() => setError(t("saveFailed")))
-            .finally(() => setLoading(false));
+    }
+
+    // Load the profile list whenever the plan type changes, and open the
+    // default profile. The fetch + all state updates run inside an async
+    // function so nothing sets state synchronously in the effect body.
+    useEffect(() => {
+        persistRef.current = null;
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            setError(""); setSuccess("");
+            try {
+                const res = await api.get(`/api/pdf-export/settings/${activeType}`);
+                if (cancelled) return;
+                const list = Array.isArray(res.data) ? res.data : [];
+                const chosenId = pickDefaultProfileId(list);
+                setProfiles(list);
+                setActiveProfileId(chosenId);
+                seedEditorFrom(list.find((p) => p.id === chosenId) || list[0] || null);
+            } catch {
+                if (!cancelled) setError(t("saveFailed"));
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
     }, [activeType, t]);
+
+    function selectProfile(nextId) {
+        if (nextId === activeProfileId) return;
+        setActiveProfileId(nextId);
+        const profile = profiles.find((p) => p.id === nextId);
+        if (profile) seedEditorFrom(profile);
+    }
 
     function update(patch) {
         setSettings((prev) => ({ ...prev, ...patch }));
@@ -307,13 +366,38 @@ export default function PdfExportSettingsPage() {
 
     const isDirty = settings && original && editableFields.some((key) => settings[key] !== original[key]);
 
+    // Swap the edited profile's row in `profiles` after a save/upload, keeping
+    // the editor pointed at it (its fields were already set by the caller).
+    function applyProfileRow(row) {
+        setProfiles((prev) => prev.map((p) => (p.id === activeProfileId || p.id === row.id ? row : p)));
+        setActiveProfileId(row.id);
+    }
+
+    // A workspace with no saved profiles shows a synthesized "Default" (id "").
+    // The first change that must hit the server materializes it as a real row.
+    async function ensureProfilePersisted() {
+        if (activeProfileId) return activeProfileId;
+        if (persistRef.current) return persistRef.current;
+        persistRef.current = api
+            .post(`/api/pdf-export/settings/${activeType}`, { name: settings?.name?.trim() || "Default" })
+            .then((res) => {
+                setProfiles((prev) => prev.map((p) => (p.id ? p : res.data)));
+                setActiveProfileId(res.data.id);
+                return res.data.id;
+            })
+            .finally(() => { persistRef.current = null; });
+        return persistRef.current;
+    }
+
     async function handleSave() {
         setSaving(true);
         setError(""); setSuccess("");
         try {
-            const res = await api.put(`/api/pdf-export/settings/${activeType}`, pick(settings, editableFields));
+            const id = await ensureProfilePersisted();
+            const res = await api.put(`/api/pdf-export/settings/${activeType}/${id}`, pick(settings, editableFields));
             setSettings(res.data);
             setOriginal(res.data);
+            applyProfileRow(res.data);
             setSuccess(t("saveSuccess"));
         } catch (err) {
             setError(err.response?.data?.error || t("saveFailed"));
@@ -327,17 +411,122 @@ export default function PdfExportSettingsPage() {
         setError(""); setSuccess("");
     }
 
+    function closeProfileModal() {
+        if (profileBusy) return;
+        setProfileModal(null);
+        setProfileName("");
+        setProfileError("");
+    }
+
+    async function handleCreateProfile() {
+        const name = profileName.trim();
+        if (!name) { setProfileError(t("profiles.nameRequired")); return; }
+        setProfileBusy(true); setProfileError("");
+        try {
+            // Persist the current (possibly synthesized) profile first so
+            // adding a second one never discards the default.
+            await ensureProfilePersisted();
+            const created = await api.post(`/api/pdf-export/settings/${activeType}`, { name });
+            const list = await api.get(`/api/pdf-export/settings/${activeType}`);
+            setProfiles(Array.isArray(list.data) ? list.data : []);
+            setActiveProfileId(created.data.id);
+            seedEditorFrom(created.data);
+            setProfileModal(null); setProfileName("");
+        } catch (err) {
+            setProfileError(err.response?.data?.error || t("profiles.saveFailed"));
+        } finally {
+            setProfileBusy(false);
+        }
+    }
+
+    async function handleRenameProfile() {
+        const name = profileName.trim();
+        if (!name) { setProfileError(t("profiles.nameRequired")); return; }
+        setProfileBusy(true); setProfileError("");
+        try {
+            const id = await ensureProfilePersisted();
+            const res = await api.put(`/api/pdf-export/settings/${activeType}/${id}`, { name });
+            applyProfileRow(res.data);
+            setSettings((s) => ({ ...s, name: res.data.name }));
+            setOriginal((o) => ({ ...o, name: res.data.name }));
+            setProfileModal(null); setProfileName("");
+        } catch (err) {
+            setProfileError(err.response?.data?.error || t("profiles.saveFailed"));
+        } finally {
+            setProfileBusy(false);
+        }
+    }
+
+    async function handleDeleteProfile() {
+        setProfileBusy(true); setProfileError("");
+        try {
+            const res = await api.delete(`/api/pdf-export/settings/${activeType}/${activeProfileId}`);
+            const list = Array.isArray(res.data) ? res.data : [];
+            const nextId = pickDefaultProfileId(list);
+            setProfiles(list);
+            setActiveProfileId(nextId);
+            seedEditorFrom(list.find((p) => p.id === nextId) || list[0] || null);
+            setProfileModal(null);
+        } catch (err) {
+            setProfileError(err.response?.data?.error || t("profiles.deleteFailed"));
+        } finally {
+            setProfileBusy(false);
+        }
+    }
+
+    async function handleMakeDefault() {
+        setError("");
+        try {
+            const id = await ensureProfilePersisted();
+            await api.put(`/api/pdf-export/settings/${activeType}/${id}`, { is_default: true });
+            setProfiles((prev) => prev.map((p) => ({ ...p, is_default: p.id === id })));
+            setSettings((s) => ({ ...s, is_default: true }));
+            setOriginal((o) => ({ ...o, is_default: true }));
+            setActiveProfileId(id);
+        } catch (err) {
+            setError(err.response?.data?.error || t("saveFailed"));
+        }
+    }
+
+    // Server-side copy of every field (images included) into a "<name> copy"
+    // profile; the editor then switches to the fresh copy.
+    async function handleDuplicateProfile() {
+        setError(""); setSuccess("");
+        setDuplicating(true);
+        try {
+            const id = await ensureProfilePersisted();
+            const res = await api.post(`/api/pdf-export/settings/${activeType}/${id}/duplicate`);
+            const list = await api.get(`/api/pdf-export/settings/${activeType}`);
+            setProfiles(Array.isArray(list.data) ? list.data : []);
+            setActiveProfileId(res.data.id);
+            seedEditorFrom(res.data);
+        } catch (err) {
+            setError(err.response?.data?.error || t("saveFailed"));
+        } finally {
+            setDuplicating(false);
+        }
+    }
+
+    // All image writes target one profile by id, scoped to the workspace
+    // server-side. `ensureProfilePersisted` first turns a synthesized default
+    // into a real row so there's an id to upload against.
+    async function applyImageResponse(res) {
+        setSettings(res.data);
+        setOriginal(res.data);
+        applyProfileRow(res.data);
+    }
+
     async function handleLogoUpload(file) {
         setUploadingSlot("logo");
         setError("");
         try {
+            const id = await ensureProfilePersisted();
             const body = new FormData();
             body.append("logo", file);
-            const res = await api.post(`/api/pdf-export/settings/${activeType}/logo`, body, {
+            const res = await api.post(`/api/pdf-export/settings/${activeType}/${id}/logo`, body, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            setSettings(res.data);
-            setOriginal(res.data);
+            await applyImageResponse(res);
         } catch {
             setError(t("uploadFailed"));
         } finally {
@@ -349,13 +538,13 @@ export default function PdfExportSettingsPage() {
         setUploadingSlot("cover");
         setError("");
         try {
+            const id = await ensureProfilePersisted();
             const body = new FormData();
             body.append("image", file);
-            const res = await api.post(`/api/pdf-export/settings/${activeType}/cover-image`, body, {
+            const res = await api.post(`/api/pdf-export/settings/${activeType}/${id}/cover-image`, body, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            setSettings(res.data);
-            setOriginal(res.data);
+            await applyImageResponse(res);
         } catch (err) {
             // Surfaced as-is (not the generic uploadFailed text) — the
             // server's message says exactly which pixel size is required and
@@ -370,13 +559,13 @@ export default function PdfExportSettingsPage() {
         setUploadingSlot(slot);
         setError("");
         try {
+            const id = await ensureProfilePersisted();
             const body = new FormData();
             body.append("image", file);
-            const res = await api.post(`/api/pdf-export/settings/${activeType}/background/${slot}`, body, {
+            const res = await api.post(`/api/pdf-export/settings/${activeType}/${id}/background/${slot}`, body, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            setSettings(res.data);
-            setOriginal(res.data);
+            await applyImageResponse(res);
         } catch {
             setError(t("uploadFailed"));
         } finally {
@@ -388,9 +577,9 @@ export default function PdfExportSettingsPage() {
         setRemovingSlot("logo");
         setError("");
         try {
-            const res = await api.delete(`/api/pdf-export/settings/${activeType}/logo`);
-            setSettings(res.data);
-            setOriginal(res.data);
+            const id = await ensureProfilePersisted();
+            const res = await api.delete(`/api/pdf-export/settings/${activeType}/${id}/logo`);
+            await applyImageResponse(res);
         } catch {
             setError(t("uploadFailed"));
         } finally {
@@ -402,9 +591,9 @@ export default function PdfExportSettingsPage() {
         setRemovingSlot("cover");
         setError("");
         try {
-            const res = await api.delete(`/api/pdf-export/settings/${activeType}/cover-image`);
-            setSettings(res.data);
-            setOriginal(res.data);
+            const id = await ensureProfilePersisted();
+            const res = await api.delete(`/api/pdf-export/settings/${activeType}/${id}/cover-image`);
+            await applyImageResponse(res);
         } catch {
             setError(t("uploadFailed"));
         } finally {
@@ -416,9 +605,9 @@ export default function PdfExportSettingsPage() {
         setRemovingSlot(slot);
         setError("");
         try {
-            const res = await api.delete(`/api/pdf-export/settings/${activeType}/background/${slot}`);
-            setSettings(res.data);
-            setOriginal(res.data);
+            const id = await ensureProfilePersisted();
+            const res = await api.delete(`/api/pdf-export/settings/${activeType}/${id}/background/${slot}`);
+            await applyImageResponse(res);
         } catch {
             setError(t("uploadFailed"));
         } finally {
@@ -427,30 +616,35 @@ export default function PdfExportSettingsPage() {
     }
 
     // Regenerates the preview PDF whenever the (debounced) draft settings or
-    // the active type change. A request-id guard discards a response that
-    // arrives after a newer request has already started, so a slow render
-    // for an older draft can't clobber the current preview.
+    // the active type change. The draft carries its own profile id, so the
+    // preview renders over the right profile without a separate dependency. A
+    // request-id guard discards a response that arrives after a newer request
+    // has already started, so a slow render for an older draft can't clobber
+    // the current preview.
     useEffect(() => {
         if (!debouncedSettings) return;
         const requestId = ++previewRequestId.current;
-        setPreviewLoading(true);
-        setPreviewError(false);
-        api.post(`/api/pdf-export/settings/preview?type=${activeType}`, debouncedSettings, { responseType: "blob" })
-            .then((res) => {
+        const profileQuery = debouncedSettings.id ? `&profileId=${debouncedSettings.id}` : "";
+        (async () => {
+            setPreviewLoading(true);
+            setPreviewError(false);
+            try {
+                const res = await api.post(
+                    `/api/pdf-export/settings/preview?type=${activeType}${profileQuery}`,
+                    debouncedSettings,
+                    { responseType: "blob" },
+                );
                 if (requestId !== previewRequestId.current) return;
                 const nextUrl = URL.createObjectURL(res.data);
                 if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
                 previewUrlRef.current = nextUrl;
                 setPreviewUrl(nextUrl);
-            })
-            .catch(() => {
-                if (requestId !== previewRequestId.current) return;
-                setPreviewError(true);
-            })
-            .finally(() => {
-                if (requestId !== previewRequestId.current) return;
-                setPreviewLoading(false);
-            });
+            } catch {
+                if (requestId === previewRequestId.current) setPreviewError(true);
+            } finally {
+                if (requestId === previewRequestId.current) setPreviewLoading(false);
+            }
+        })();
     }, [debouncedSettings, activeType]);
 
     useEffect(() => {
@@ -463,14 +657,63 @@ export default function PdfExportSettingsPage() {
         <div className="flex flex-col gap-8">
             <SettingsPageHeader title={t("pageTitle")} description={t("pageSubtitle")} />
 
-            <div className="flex flex-col gap-1.5">
-                <div className="flex gap-1 self-start rounded-lg border border-border p-1">
-                    <Button size="sm" variant={activeType === "nutrition" ? "primary" : "ghost"} onClick={() => setActiveType("nutrition")}>
-                        {t("preview.nutrition")}
-                    </Button>
-                    <Button size="sm" variant={activeType === "training" ? "primary" : "ghost"} onClick={() => setActiveType("training")}>
-                        {t("preview.training")}
-                    </Button>
+            <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex gap-1 self-start rounded-lg border border-border p-1">
+                        <Button size="sm" variant={activeType === "nutrition" ? "primary" : "ghost"} onClick={() => setActiveType("nutrition")}>
+                            {t("preview.nutrition")}
+                        </Button>
+                        <Button size="sm" variant={activeType === "training" ? "primary" : "ghost"} onClick={() => setActiveType("training")}>
+                            {t("preview.training")}
+                        </Button>
+                    </div>
+
+                    {!loading && profiles.length > 0 && (
+                        <>
+                            <Select
+                                aria-label={t("profiles.selectLabel")}
+                                value={activeProfileId || "__default__"}
+                                onChange={(v) => selectProfile(v === "__default__" ? "" : v)}
+                                className="min-w-48"
+                            >
+                                <Select.Trigger>
+                                    <Select.Value />
+                                    <Select.Indicator />
+                                </Select.Trigger>
+                                <Select.Popover>
+                                    <ListBox>
+                                        {profiles.map((p) => (
+                                            <ListBox.Item key={p.id || "__default__"} id={p.id || "__default__"} textValue={p.name}>
+                                                {p.is_default ? `${p.name} ${t("profiles.defaultSuffix")}` : p.name}
+                                                <ListBox.ItemIndicator />
+                                            </ListBox.Item>
+                                        ))}
+                                    </ListBox>
+                                </Select.Popover>
+                            </Select>
+
+                            <Button size="sm" variant="outline" onClick={() => { setProfileName(""); setProfileError(""); setProfileModal("new"); }}>
+                                {t("profiles.new")}
+                            </Button>
+                            <Button size="sm" variant="ghost" isDisabled={duplicating} onClick={handleDuplicateProfile}>
+                                {duplicating ? t("profiles.duplicating") : t("profiles.duplicate")}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { setProfileName(activeProfile?.name || settings?.name || ""); setProfileError(""); setProfileModal("rename"); }}>
+                                {t("profiles.rename")}
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                isDisabled={!activeProfileId || profiles.filter((p) => p.id).length <= 1}
+                                onClick={() => { setProfileError(""); setProfileModal("delete"); }}
+                            >
+                                {t("profiles.delete")}
+                            </Button>
+                            {activeProfile?.is_default
+                                ? <Chip size="sm" variant="soft">{t("profiles.defaultChip")}</Chip>
+                                : <Button size="sm" variant="ghost" onClick={handleMakeDefault}>{t("profiles.makeDefault")}</Button>}
+                        </>
+                    )}
                 </div>
                 {/* Persistent, not a one-time dismissible hint -- this runs against
                     the intuitive "I set my logo once, it applies everywhere"
@@ -712,7 +955,11 @@ export default function PdfExportSettingsPage() {
             {isDirty && (
                 <div className="sticky bottom-4 z-10 self-center w-full max-w-2xl">
                     <Card className="flex-row items-center justify-between gap-4 px-4 py-3 shadow-lg border border-border bg-card">
-                        <span className="text-sm text-foreground">{t("pageTitle")}</span>
+                        <span className="text-sm text-foreground">
+                            {activeProfile?.name
+                                ? t("profiles.unsavedFor", { name: activeProfile.name })
+                                : t("pageTitle")}
+                        </span>
                         <div className="flex items-center gap-2 shrink-0">
                             <Button size="sm" variant="ghost" isDisabled={saving} onClick={handleDiscard}>{t("discard")}</Button>
                             <Button size="sm" variant="primary" isDisabled={saving} onClick={handleSave}>
@@ -722,6 +969,44 @@ export default function PdfExportSettingsPage() {
                     </Card>
                 </div>
             )}
+
+            <Modal
+                open={profileModal === "new" || profileModal === "rename"}
+                onClose={closeProfileModal}
+                title={profileModal === "rename" ? t("profiles.renameTitle") : t("profiles.newTitle")}
+            >
+                <div className="flex flex-col gap-3">
+                    <TextField variant="secondary" fullWidth autoFocus value={profileName} onChange={setProfileName} aria-label={t("profiles.nameLabel")}>
+                        <Input type="text" placeholder={t("profiles.namePlaceholder")} />
+                    </TextField>
+                    {profileError && <p className="text-xs text-destructive">{profileError}</p>}
+                    <ModalFooter>
+                        <Button variant="ghost" isDisabled={profileBusy} onClick={closeProfileModal}>{t("discard")}</Button>
+                        <Button
+                            variant="primary"
+                            isDisabled={profileBusy || !profileName.trim()}
+                            onClick={profileModal === "rename" ? handleRenameProfile : handleCreateProfile}
+                        >
+                            {profileBusy ? t("saving") : t("save")}
+                        </Button>
+                    </ModalFooter>
+                </div>
+            </Modal>
+
+            <Modal open={profileModal === "delete"} onClose={closeProfileModal} title={t("profiles.deleteTitle")}>
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-muted-foreground">
+                        {t("profiles.deleteConfirm", { name: activeProfile?.name || "" })}
+                    </p>
+                    {profileError && <p className="text-xs text-destructive">{profileError}</p>}
+                    <ModalFooter>
+                        <Button variant="ghost" isDisabled={profileBusy} onClick={closeProfileModal}>{t("discard")}</Button>
+                        <Button className="bg-destructive hover:bg-destructive/90 text-white" isDisabled={profileBusy} onClick={handleDeleteProfile}>
+                            {profileBusy ? t("profiles.deleting") : t("profiles.delete")}
+                        </Button>
+                    </ModalFooter>
+                </div>
+            </Modal>
         </div>
     );
 }
