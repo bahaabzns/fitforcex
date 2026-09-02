@@ -670,3 +670,25 @@
 .tooltip {
   z-index: 60;
 }
+
+/* Bug 11 — Modal dialog pushed off-screen on mobile: HeroUI sizes
+   `.modal__container` to `height: var(--visual-viewport-height)` and, below the
+   `sm` breakpoint, bottom-anchors the dialog with `margin-top: auto`
+   (`.modal__dialog[data-placement="auto"]`). React Aria sets that variable from
+   `window.visualViewport.height`. When it resolves LARGER than what's actually
+   on screen — iOS/Android URL-bar retract/expand transitions (React Aria's own
+   source notes iOS "does not fire the visual viewport resize event until the
+   animation is complete"), fractional `visualViewport.scale` — the container
+   overflows the viewport and the auto margin shoves the whole dialog below the
+   fold. The opaque backdrop still covers everything, so it reads as a plain
+   dark screen with no dialog: e.g. the client-portal logout confirmation
+   (a bottom-of-page button you must scroll to, which is exactly what retracts
+   the URL bar) never appeared for clients on phones. Desktop is unaffected —
+   `sm:my-auto` centres the dialog instead of bottom-anchoring it.
+   Clamp to the small-viewport unit so the container can never exceed the
+   visible area. `max-height` (not `height`) keeps React Aria's smaller,
+   keyboard-aware value when the on-screen keyboard is open. */
+.modal__backdrop,
+.modal__container {
+  max-height: 100svh;
+}
