@@ -30,6 +30,7 @@ Nothing outstanding — the 2026-08-23 audit backlog (17 items) and the two unco
 
 ## Ported
 
+- [x] 2026-09-05 — 1a55d96 — forms — Check-in stayed 'pending' after the check-in dispatcher tick, then went invisible/unfillable once the unrelated scheduleFormDispatcher cron stamped it 'sent' (every client surface only recognized 'pending'), fixed. Mobile fixed in the same commit (forms_page.dart, form_fill_page.dart, form.dart) — no separate mobile sha.
 - [x] 2026-08-23 — fbf2f9e — training — Stale/invalid resumed session redirect loop, fixed. mobile `62991d3`.
 - [x] 2026-08-23 — 55801f1 — training — YouTube Shorts embed regex, fixed. mobile `216fa6a`.
 - [x] 2026-08-23 — 5a00416 — messenger/access — Logout on the expired/frozen trap screen, added. mobile `c866912`.
