@@ -89,11 +89,12 @@ class _FormsPageState extends ConsumerState<FormsPage> {
             r.status == formStatusSubmitted ||
             r.status == formStatusReviewed ||
             r.status == formStatusScheduled;
-        final pendingCount =
-            all.where((r) => r.status == formStatusPending).length;
+        bool isAwaitingClient(FormRequestSummary r) =>
+            r.status == formStatusPending || r.status == formStatusSent;
+        final pendingCount = all.where(isAwaitingClient).length;
         final submittedCount = all.where(isSubmittedBucket).length;
         final filtered = all.where((r) {
-          if (_filter == _Filter.pending) return r.status == formStatusPending;
+          if (_filter == _Filter.pending) return isAwaitingClient(r);
           return isSubmittedBucket(r);
         }).toList();
         // When the current tab is empty but the other has forms, offer to jump
@@ -292,6 +293,7 @@ class _RequestCard extends StatelessWidget {
   Widget _trailing(BuildContext context, AppLocalizations l10n) {
     switch (request.status) {
       case formStatusPending:
+      case formStatusSent:
         return FilledButton(
           onPressed: () => context.push(AppRoutes.formFill(request.id)),
           style: FilledButton.styleFrom(

@@ -75,7 +75,6 @@ export default function ClientMessagesPage() {
     const locale = useLocale();
     usePageTitle(t('title'));
     const [messages, setMessages] = useState([]);
-    const [coachName, setCoachName] = useState('');
     const [editingMessage, setEditingMessage] = useState(null);
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
@@ -86,11 +85,10 @@ export default function ClientMessagesPage() {
         try {
             const res = await api.get('/api/client-portal/messages');
             setMessages(res.data.messages);
-            if (res.data.coachName && !coachName) setCoachName(res.data.coachName);
         } catch {
             // silent
         }
-    }, [coachName]);
+    }, []);
 
     useEffect(() => { fetchMessages().finally(() => setLoading(false)); }, [fetchMessages]);
 
@@ -157,13 +155,11 @@ export default function ClientMessagesPage() {
                 {/* Header */}
                 <Card.Header className="flex-row items-center gap-3 px-4 py-3 shrink-0">
                     <Avatar size="sm" color="primary" className="shrink-0">
-                        <Avatar.Fallback>
-                            {coachName ? coachName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'C'}
-                        </Avatar.Fallback>
+                        <Avatar.Fallback>C</Avatar.Fallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">
-                            {coachName || t('coachFallback')}
+                            {t('coachFallback')}
                         </p>
                         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
                     </div>

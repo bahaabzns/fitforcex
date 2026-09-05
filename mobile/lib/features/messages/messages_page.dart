@@ -36,7 +36,6 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   final _scroll = ScrollController();
   final _picker = ImagePicker();
   List<Message> _messages = [];
-  String? _coachName;
   bool _loading = true;
   bool _sending = false;
   bool _attaching = false;
@@ -101,7 +100,6 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
       final grew = thread.messages.length != _messages.length;
       setState(() {
         _messages = thread.messages;
-        _coachName = thread.coachName ?? _coachName;
         if (initial) _loading = false;
       });
       if (grew) _scrollToBottom();
@@ -288,7 +286,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
 
     return Column(
       children: [
-        _Header(coachName: _coachName ?? l10n.messagesCoachFallback),
+        _Header(coachName: l10n.messagesCoachFallback),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
           child: TriggerInsightBanner(

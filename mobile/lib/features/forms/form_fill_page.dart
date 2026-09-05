@@ -75,7 +75,11 @@ class _FormBodyState extends ConsumerState<_FormBody> {
   // actually displayed.
   int _fieldGeneration = 0;
 
-  bool get _isSubmitted => widget.detail.status != formStatusPending;
+  // 'sent' is the dispatcher cron's stamp on a due 'pending' request — still
+  // awaiting the client's answer, not a submitted/locked state.
+  bool get _isSubmitted =>
+      widget.detail.status != formStatusPending &&
+      widget.detail.status != formStatusSent;
 
   @override
   void initState() {
