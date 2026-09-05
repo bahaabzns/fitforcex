@@ -559,7 +559,7 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
                     include: { metrics: { select: { type: true, unit: true, name: true, icon: true } } },
                   })
                 : Promise.resolve([]),
-            request.status !== 'pending' && request.status !== 'scheduled'
+            request.status !== 'pending' && request.status !== 'scheduled' && request.status !== 'sent'
                 ? prisma.form_responses.findMany({
                     where:  { request_id: request.id as string },
                     select: { id: true, question_id: true, answer: true },
@@ -609,13 +609,18 @@ export async function getActionItems(req: Request, res: Response, next: NextFunc
     try {
         await activateDueClientScheduledRequests(req.client!.clientId);
 
+        // 'sent' is not a distinct client-facing state — it just means the
+        // generic scheduleFormDispatcher cron (scheduler.ts) has since ticked
+        // over a due 'pending' request (matching on its still-populated
+        // scheduled_at). Same "awaiting the client" bucket as 'pending' —
+        // matches the Plans Queue's identical treatment on the coach side.
         const [pendingForms, planNotifications] = await Promise.all([
             prisma.$queryRaw<Record<string, unknown>[]>`
                 SELECT fr.id, fr.requested_at,
                        f.title_en AS form_title_en, f.title_ar AS form_title_ar
                 FROM form_requests fr
                 JOIN forms f ON f.id = fr.form_id
-                WHERE fr.client_id = ${req.client!.clientId} AND fr.status = 'pending'
+                WHERE fr.client_id = ${req.client!.clientId} AND fr.status IN ('pending', 'sent')
                 ORDER BY fr.requested_at DESC
             `,
             prisma.notifications.findMany({
@@ -697,7 +702,9 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
     }
     try {
         const request = await prisma.form_requests.findFirst({
-            where:  { id: req.params.request_id as string, client_id: req.client!.clientId, status: 'pending' },
+            // 'sent' means the dispatcher cron ticked over a due 'pending'
+            // request — still awaiting the client's answer, not a distinct state.
+            where:  { id: req.params.request_id as string, client_id: req.client!.clientId, status: { in: ['pending', 'sent'] } },
             select: { id: true, form_id: true, assigned_to: true },
         });
         if (!request) return res.status(404).json({ error: 'Request not found or already submitted' });
@@ -767,7 +774,7 @@ export async function editFormAnswer(req: Request, res: Response, next: NextFunc
             select: { id: true, status: true },
         });
         if (!request) return res.status(404).json({ error: 'Request not found' });
-        if (request.status === 'pending' || request.status === 'scheduled') {
+        if (request.status === 'pending' || request.status === 'scheduled' || request.status === 'sent') {
             return res.status(400).json({ error: 'Submit the form before editing an answer' });
         }
 
