@@ -121,7 +121,9 @@ export default function ClientFillFormPage() {
 
     if (!data) return null;
 
-    const isSubmitted = data.status !== 'pending';
+    // 'sent' is the dispatcher cron's stamp on a due 'pending' request — still
+    // awaiting the client's answer, not a submitted/locked state.
+    const isSubmitted = data.status !== 'pending' && data.status !== 'sent';
 
     const responseByQuestion = {};
     (data.responses ?? []).forEach(r => { responseByQuestion[r.question_id] = r; });

@@ -436,7 +436,7 @@ export default function ClientFormsPage() {
                                             <Chip.Label>{t('pending')}</Chip.Label>
                                         </Chip>
                                     )}
-                                    {(selected.status === 'pending' || selected.status === 'scheduled') && (
+                                    {(selected.status === 'pending' || selected.status === 'scheduled' || selected.status === 'sent') && (
                                         <button
                                             onClick={() => handleCancel(selected.id)}
                                             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
@@ -476,7 +476,7 @@ export default function ClientFormsPage() {
 
                             {/* Body */}
                             <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
-                                {selected.status === 'pending' || selected.status === 'scheduled' ? (
+                                {selected.status === 'pending' || selected.status === 'scheduled' || selected.status === 'sent' ? (
                                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
                                         {selected.status === 'scheduled' ? (
                                             <>

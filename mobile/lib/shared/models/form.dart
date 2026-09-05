@@ -8,12 +8,19 @@ const formStatusPending = 'pending';
 const formStatusScheduled = 'scheduled';
 const formStatusSubmitted = 'submitted';
 const formStatusReviewed = 'reviewed';
+// Not a distinct client-facing state: the dispatcher cron (server
+// scheduler.ts) ticks a due 'pending' request over to 'sent' once it notices
+// it — same "awaiting the client" bucket as 'pending', matching the coach
+// Plans Queue's identical treatment (forms.controller.ts).
+const formStatusSent = 'sent';
 
 /// A request that still needs the client's attention — the Forms list's
 /// "pending" bucket plus not-yet-open scheduled requests. Shared by the Forms
 /// page and the bottom-nav unread dot so the two never drift apart.
 bool formRequestNeedsAction(FormRequestSummary r) =>
-    r.status == formStatusPending || r.status == formStatusScheduled;
+    r.status == formStatusPending ||
+    r.status == formStatusScheduled ||
+    r.status == formStatusSent;
 
 /// A form request in the client's list (`GET /client-portal/form-requests`).
 @freezed

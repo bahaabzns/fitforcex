@@ -82,6 +82,36 @@ describe('Client portal action items — GET /client-portal/action-items', () =>
         });
     });
 
+    // Regression: the generic scheduleFormDispatcher cron (scheduler.ts)
+    // stamps ANY due 'pending' form_requests row to 'sent' + action_taken_at,
+    // regardless of which subsystem dispatched it — including a check-in
+    // schedule's pending request, which still carries the past scheduled_at
+    // that cron matches on. 'sent' is not a distinct client-facing state (the
+    // coach's Plans Queue already treats it as "awaiting", same as pending —
+    // forms.controller.ts getQueue) — a still-unsubmitted 'sent' request must
+    // keep showing up here, or it silently vanishes from the client's view
+    // forever with no way to reach or fill it again.
+    test('includes a form request the dispatcher cron has since stamped "sent"', async () => {
+        const form = await testPrisma.forms.create({
+            data: { id: createId(), workspace_id: workspaceId, title_en: 'Cycle-End Check-in' },
+        });
+        const formRequest = await testPrisma.form_requests.create({
+            data: {
+                id: createId(), workspace_id: workspaceId, form_id: form.id, client_id: clientId,
+                status: 'sent', scheduled_at: daysAgo(1), action_taken_at: daysAgo(1), requested_at: daysAgo(1),
+            },
+        });
+
+        const res = await request.get('/api/client-portal/action-items').set('Cookie', cookie);
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveLength(1);
+        expect(res.body[0]).toMatchObject({
+            id:       formRequest.id,
+            kind:     'pending_form',
+            title_en: 'Cycle-End Check-in',
+        });
+    });
+
     test('excludes a submitted form request', async () => {
         const form = await testPrisma.forms.create({
             data: { id: createId(), workspace_id: workspaceId, title_en: 'Weekly Check-in' },
