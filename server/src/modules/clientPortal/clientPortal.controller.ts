@@ -1252,8 +1252,12 @@ export async function getWorkoutLogPrevious(req: Request, res: Response, next: N
             name:                e.name,
         }));
 
+        // Scoped to this day_id: an exercise duplicated across multiple training
+        // days (e.g. Bench Press on both Day A and Day B) must not have Day B's
+        // "previous" pull in a set logged under Day A just because it matched by
+        // exercise identity — each day's slot tracks its own history.
         const priorLogs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId, completed: true },
+            where:   { client_id: req.client!.clientId, completed: true, day_id: dayId },
             orderBy: { date: 'desc' },
             take:    HISTORY_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
