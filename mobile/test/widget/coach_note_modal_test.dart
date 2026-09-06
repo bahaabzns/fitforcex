@@ -5,19 +5,25 @@ import 'package:fitforce_x/shared/models/workout_log.dart';
 import 'package:fitforce_x/shared/models/workout_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _wrap(Widget child, {Locale locale = const Locale('en')}) => MaterialApp(
-      theme: AppTheme.light,
-      locale: locale,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('en'), Locale('ar')],
-      home: Scaffold(body: child),
+// ExerciseLogCard's Instructions icon carries a NewFeatureHint (Riverpod
+// state under the hood, for the "seen this hint before?" flag) even when
+// dormant, so — like the app's real root — this needs a ProviderScope.
+Widget _wrap(Widget child, {Locale locale = const Locale('en')}) => ProviderScope(
+      child: MaterialApp(
+        theme: AppTheme.light,
+        locale: locale,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        home: Scaffold(body: child),
+      ),
     );
 
 SessionExercise _exercise({String? instructionsEn, String? instructionsAr}) =>

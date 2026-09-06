@@ -12,6 +12,7 @@ import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/floating_pill.dart';
 import '../../core/widgets/new_feature_hint.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -125,8 +126,6 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
   WorkoutSession? _activeSession;
   Timer? _ticker;
   int _nowMs = DateTime.now().millisecondsSinceEpoch;
-  bool _resumeHintShown = false;
-  bool _instructionsHintShown = false;
 
   @override
   void initState() {
@@ -172,27 +171,6 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
     // and could otherwise go null between this render and a tap landing,
     // null-checking the _ContinueTrigger onTap closure below.
     final activeSession = _activeSession;
-
-    _resumeHintShown = maybeShowFeatureHint(
-      context,
-      ref,
-      featureKey: 'resume_session_hint',
-      active: _activeSession != null,
-      alreadyShown: _resumeHintShown,
-      message: l10n.trainingResumeSessionHint,
-      dismissLabel: l10n.trainingResumeSessionHintDismiss,
-      badgeLabel: l10n.trainingResumeSessionNewFeature,
-    );
-    _instructionsHintShown = maybeShowFeatureHint(
-      context,
-      ref,
-      featureKey: 'exercise_instructions_hint',
-      active: hasExercises,
-      alreadyShown: _instructionsHintShown,
-      message: l10n.trainingInstructionsHint,
-      dismissLabel: l10n.trainingInstructionsHintDismiss,
-      badgeLabel: l10n.trainingInstructionsNewFeature,
-    );
 
     return Stack(
       children: [
@@ -268,6 +246,7 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
                   locale: locale,
                   baseUrl: baseUrl,
                   previous: previous[day.exercises[i].id] ?? const [],
+                  isFirst: i == 0,
                 ),
               ],
             ],
@@ -281,10 +260,24 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
             top: false,
             child: Center(
               child: activeSession != null
-                  ? _ContinueTrigger(
-                      session: activeSession,
-                      nowMs: _nowMs,
-                      onTap: () => _openSession(activeSession.dayIndex),
+                  ? NewFeatureHint(
+                      featureKey: 'resume_session_hint',
+                      active: true,
+                      message: l10n.trainingResumeSessionHint,
+                      dismissLabel: l10n.trainingResumeSessionHintDismiss,
+                      badgeLabel: l10n.trainingResumeSessionNewFeature,
+                      child: _ContinueTrigger(
+                        session: activeSession,
+                        nowMs: _nowMs,
+                        onTap: () {
+                          unawaited(ref
+                              .read(featureHintSeenProvider(
+                                      'resume_session_hint')
+                                  .notifier)
+                              .dismiss());
+                          _openSession(activeSession.dayIndex);
+                        },
+                      ),
                     )
                   : (hasExercises
                       ? _StartTrigger(onTap: () => _openSession(_activeDay))
@@ -304,17 +297,9 @@ class _StartTrigger extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return _FloatingPill(
+    return FloatingPill(
       onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.play_arrow, size: 18),
-          const SizedBox(width: 6),
-          Text(l10n.trainingStart,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-        ],
-      ),
+      child: FloatingPillLabel(icon: Icons.play_arrow, label: l10n.trainingStart),
     );
   }
 }
@@ -337,7 +322,7 @@ class _ContinueTrigger extends StatelessWidget {
     final elapsed = started != null
         ? ((nowMs - started.millisecondsSinceEpoch) / 1000).floor()
         : 0;
-    return _FloatingPill(
+    return FloatingPill(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -357,56 +342,28 @@ class _ContinueTrigger extends StatelessWidget {
   }
 }
 
-class _FloatingPill extends StatelessWidget {
-  const _FloatingPill({required this.child, required this.onTap});
-
-  final Widget child;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-        child: IconTheme.merge(
-          data: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-          child: child,
-        ),
-      ),
-    );
-    return Material(
-      color: Theme.of(context).colorScheme.primary,
-      borderRadius: BorderRadius.circular(20),
-      elevation: 4,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: content,
-      ),
-    );
-  }
-}
-
 class _ExerciseCard extends StatelessWidget {
   const _ExerciseCard({
     required this.exercise,
     required this.locale,
     required this.baseUrl,
     required this.previous,
+    required this.isFirst,
   });
 
   final TrainingExercise exercise;
   final String locale;
   final String baseUrl;
   final List<PreviousSet> previous;
+  final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final muted = context.appColors.mutedForeground;
-    final hasVideo = (exercise.youtubeUrl ?? '').isNotEmpty ||
-        (exercise.videoPath ?? '').isNotEmpty;
+    final hasMedia = (exercise.youtubeUrl ?? '').isNotEmpty ||
+        (exercise.videoPath ?? '').isNotEmpty ||
+        (exercise.thumbnailPath ?? '').isNotEmpty;
     final exerciseName = localizedField(
       base: exercise.libraryNameEn ?? exercise.name,
       arabic: exercise.libraryNameAr,
@@ -426,10 +383,11 @@ class _ExerciseCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasVideo) ...[
+        if (hasMedia) ...[
           ExerciseVideo(
             youtubeUrl: exercise.youtubeUrl,
             videoUrl: resolveMediaUrl(exercise.videoPath, baseUrl),
+            thumbnailUrl: resolveMediaUrl(exercise.thumbnailPath, baseUrl),
           ),
           const SizedBox(height: 12),
         ],
@@ -472,16 +430,28 @@ class _ExerciseCard extends StatelessWidget {
                 ),
               ),
             ),
-            _CompactIconAction(
-              icon: Icons.menu_book_outlined,
-              tooltip: l10n.trainingCoachNote,
-              onTap: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                builder: (_) => CoachNoteModal(
-                  instructionsEn: exercise.instructionsEn,
-                  instructionsAr: exercise.instructionsAr,
+            NewFeatureHint(
+              featureKey: 'exercise_instructions_hint',
+              active: isFirst,
+              message: l10n.trainingInstructionsHint,
+              dismissLabel: l10n.trainingInstructionsHintDismiss,
+              badgeLabel: l10n.trainingInstructionsNewFeature,
+              // Opens upward: this icon sits inside the first exercise's own
+              // row, and "below" would grow toward whatever the *next* list
+              // item happens to be (the very next row in a short plan) —
+              // above stays over this same card's header instead.
+              preferBelow: false,
+              child: _CompactIconAction(
+                icon: Icons.menu_book_outlined,
+                tooltip: l10n.trainingCoachNote,
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => CoachNoteModal(
+                    instructionsEn: exercise.instructionsEn,
+                    instructionsAr: exercise.instructionsAr,
+                  ),
                 ),
               ),
             ),

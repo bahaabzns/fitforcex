@@ -54,10 +54,9 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   WorkoutSession? _session;
   Map<String, List<PreviousSet>> _previous = {};
   Map<String, String?> _videoUrls = {}; // exerciseId -> resolved video_path url
+  Map<String, String?> _thumbnailUrls = {}; // exerciseId -> resolved thumbnail_path url
   bool _loading = true;
   bool _saving = false;
-  bool _minimizeHintShown = false;
-  bool _instructionsHintShown = false;
 
   Timer? _ticker;
   int _nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -132,6 +131,10 @@ class _SessionPageState extends ConsumerState<SessionPage> {
         for (final ex in day.exercises)
           ex.id: resolveMediaUrl(ex.videoPath, baseUrl),
       };
+      _thumbnailUrls = {
+        for (final ex in day.exercises)
+          ex.id: resolveMediaUrl(ex.thumbnailPath, baseUrl),
+      };
 
       final saved = await ref.read(sessionStoreProvider).read();
       WorkoutSession session;
@@ -166,6 +169,12 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             : _build(plan!, day);
       }
 
+      // Persist immediately, before any edit — otherwise a session that's
+      // minimized before its first set is touched was never written
+      // anywhere, and the day-preview's "Continue" trigger has nothing to
+      // read back (matches web's `useEffect(() => saveTrainingSession(session), [session])`,
+      // which fires on the session's initial load too, not just edits).
+      unawaited(ref.read(sessionStoreProvider).write(session));
       if (mounted) {
         setState(() {
           _session = session;
@@ -539,33 +548,25 @@ class _SessionPageState extends ConsumerState<SessionPage> {
         ? (_restTarget - (_nowMs - _restStartMs!) / 1000).ceil()
         : null;
 
-    _minimizeHintShown = maybeShowFeatureHint(
-      context,
-      ref,
-      featureKey: 'minimize_session_hint',
-      active: true,
-      alreadyShown: _minimizeHintShown,
-      message: l10n.trainingMinimizeSessionHint,
-      dismissLabel: l10n.trainingMinimizeSessionHintDismiss,
-      badgeLabel: l10n.trainingMinimizeSessionNewFeature,
-    );
-    _instructionsHintShown = maybeShowFeatureHint(
-      context,
-      ref,
-      featureKey: 'exercise_instructions_hint',
-      active: session.exercises.isNotEmpty,
-      alreadyShown: _instructionsHintShown,
-      message: l10n.trainingInstructionsHint,
-      dismissLabel: l10n.trainingInstructionsHintDismiss,
-      badgeLabel: l10n.trainingInstructionsNewFeature,
-    );
-
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down),
-          tooltip: l10n.trainingMinimizeSession,
-          onPressed: _minimize,
+        leading: NewFeatureHint(
+          featureKey: 'minimize_session_hint',
+          active: true,
+          message: l10n.trainingMinimizeSessionHint,
+          dismissLabel: l10n.trainingMinimizeSessionHintDismiss,
+          badgeLabel: l10n.trainingMinimizeSessionNewFeature,
+          child: IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down),
+            tooltip: l10n.trainingMinimizeSession,
+            onPressed: () {
+              unawaited(ref
+                  .read(featureHintSeenProvider('minimize_session_hint')
+                      .notifier)
+                  .dismiss());
+              _minimize();
+            },
+          ),
         ),
         title: Column(
           mainAxisSize: MainAxisSize.min,
@@ -645,6 +646,8 @@ class _SessionPageState extends ConsumerState<SessionPage> {
             exercise: session.exercises[exIdx],
             previous: _previous[session.exercises[exIdx].exerciseId] ?? const [],
             videoUrl: _videoUrls[session.exercises[exIdx].exerciseId],
+            thumbnailUrl: _thumbnailUrls[session.exercises[exIdx].exerciseId],
+            isFirstExercise: exIdx == 0,
             focusSetIndex:
                 restRemaining != null && _lastCompletion?.exIdx == exIdx
                     ? _lastCompletion!.setIdx + 1
