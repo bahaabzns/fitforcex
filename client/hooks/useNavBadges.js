@@ -5,7 +5,11 @@ import api from "@/lib/axios";
 import { getSeenPlanKey, getSeenIds, planKey, NAV_BADGES_REFRESH_EVENT } from "@/lib/lastSeenStore";
 
 const POLL_MS = 15000;
-const ACTIONABLE_FORM_STATUSES = new Set(["pending", "scheduled"]);
+// 'sent' is not a distinct state: the dispatcher cron (server scheduler.ts)
+// ticks a due 'pending' request over to 'sent' once it notices it — same
+// "awaiting the client" bucket as 'pending' (mirrors ACTIONABLE_STATUSES in
+// portal/forms/page.js and formRequestNeedsAction in the mobile app).
+const ACTIONABLE_FORM_STATUSES = new Set(["pending", "scheduled", "sent"]);
 const EMPTY_BADGES = { nutrition: false, training: false, forms: false, messages: false };
 
 async function checkPlanUnread(endpoint, moduleName) {

@@ -12,6 +12,7 @@ import '../../core/widgets/brand_logo.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../access/subscription_status_banner.dart';
 import '../access/subscription_status_card.dart';
+import '../insights/widgets/insight_banner.dart';
 import '../notifications/notifications_repository.dart';
 
 /// Bottom-nav unread dot color — deliberately a fixed red (not the theme's
@@ -118,10 +119,20 @@ class _ShellPageState extends ConsumerState<ShellPage>
 
     return Scaffold(
       appBar: appBar,
-      body: Column(
+      body: Stack(
         children: [
-          SubscriptionStatusBanner(access: access),
-          Expanded(child: widget.navigationShell),
+          Column(
+            children: [
+              SubscriptionStatusBanner(access: access),
+              Expanded(child: widget.navigationShell),
+            ],
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 12,
+            child: SafeArea(top: false, child: InsightBanner()),
+          ),
         ],
       ),
       // NavigationBar requires ≥2 destinations; if a workspace restricts the app

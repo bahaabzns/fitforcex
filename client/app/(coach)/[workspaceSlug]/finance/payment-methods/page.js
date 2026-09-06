@@ -20,7 +20,12 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 
 // Row action items that stay hidden until the row is hovered or an action is focused.
-const HOVER_ACTIONS = "flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
+// table-row-actions: same marker class DataTable.js uses — picks up the
+// [data-real-hover] reveal rule in globals.css (see the comment there for
+// why plain group-hover isn't enough: react-aria disables its own hover
+// tracking for rows that aren't selectable/actionable, which this tree
+// table isn't, and neither is @media (hover: hover) reliable on its own).
+const HOVER_ACTIONS = "table-row-actions flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
 
 export default function PaymentMethodsPage() {
     const { formatDate } = useDateFormatter();
@@ -243,7 +248,17 @@ export default function PaymentMethodsPage() {
         const isType = row.kind === "type";
         const m = row.method;
         return (
-            <Table.Row id={row.id} textValue={row.name} className="group">
+            <Table.Row
+                id={row.id}
+                textValue={row.name}
+                className="group"
+                // See DataTable.js's identical handlers for why: react-aria's
+                // own [data-hovered] tracking is disabled for non-selectable,
+                // non-actionable rows (this tree table is neither), so we set
+                // our own attribute directly on the DOM node instead.
+                onPointerEnter={(e) => { if (e.pointerType !== "touch") e.currentTarget.setAttribute("data-real-hover", "true"); }}
+                onPointerLeave={(e) => { if (e.pointerType !== "touch") e.currentTarget.removeAttribute("data-real-hover"); }}
+            >
                 <Table.Cell textValue={row.name}>
                     {({ hasChildItems, isExpanded, isTreeColumn }) => (
                         <span className="flex items-center gap-1.5">

@@ -8,13 +8,16 @@ import '../../features/forms/forms_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/messages/messages_page.dart';
 import '../../features/notifications/notifications_page.dart';
+import '../../features/nutrition/food_diary_history_page.dart';
 import '../../features/nutrition/nutrition_page.dart';
 import '../../features/profile/profile_page.dart';
+import '../../features/profile/subscription_page.dart';
 import '../../features/shell/shell_page.dart';
 import '../../features/splash/splash_page.dart';
 import '../../features/training/history_detail_page.dart';
 import '../../features/training/history_page.dart';
 import '../../features/training/progress_page.dart';
+import '../../features/training/session_complete_page.dart';
 import '../../features/training/session_page.dart';
 import '../../features/training/training_page.dart';
 import '../auth/auth_controller.dart';
@@ -68,6 +71,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProfilePage(),
       ),
       GoRoute(
+        path: AppRoutes.subscription,
+        builder: (context, state) => const SubscriptionPage(),
+      ),
+      GoRoute(
         path: AppRoutes.notifications,
         builder: (context, state) => const NotificationsPage(),
       ),
@@ -77,6 +84,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           final day =
               int.tryParse(state.uri.queryParameters['day'] ?? '0') ?? 0;
           return SessionPage(dayIndex: day);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.trainingSessionComplete,
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return SessionCompletePage(
+            dayName: q['dayName'],
+            durationSeconds: int.tryParse(q['duration'] ?? ''),
+            volume: q['volume'],
+            sets: int.tryParse(q['sets'] ?? ''),
+          );
         },
       ),
       GoRoute(
@@ -91,6 +110,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.trainingProgress,
         builder: (context, state) => const ProgressPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.nutritionDiary,
+        builder: (context, state) => const FoodDiaryHistoryPage(),
       ),
       GoRoute(
         path: '/forms/:id',

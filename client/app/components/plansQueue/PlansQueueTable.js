@@ -7,6 +7,7 @@ import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
 import ActionBar from "@/app/components/ActionBar";
+import { Avatar } from "@heroui/react/avatar";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Select } from "@heroui/react/select";
@@ -15,6 +16,7 @@ import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import { getInitials } from "@/utils/initials";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import AnswerBody from "@/app/components/forms/AnswerBody";
 import Modal from "@/app/components/Modal";
@@ -75,14 +77,23 @@ function IconAction({ label, onClick, disabled, className = "", children, showLa
     );
 }
 
-// Two-line member option: name on top, current "Need Action" workload below —
-// lets a manager see who's overloaded right in the assignment dropdown instead
-// of having to cross-reference a separate report.
+// Initials badge + two-line member option: name on top, current "Need
+// Action" workload below — lets a manager see who's overloaded right in the
+// assignment dropdown instead of having to cross-reference a separate report.
+// flex-1 + truncate on both lines keeps long names/counts from spilling past
+// the item's own checkmark reservation (see globals.css's
+// .select__popover [data-slot="list-box-item"]:has(...) override for why
+// that reservation needs restating at all).
 function MemberOptionLabel({ name, count, needActionLabel }) {
     return (
-        <div className="flex flex-col min-w-0 items-start">
-            <span className="truncate">{name}</span>
-            <span className="text-[11px] text-muted-foreground">{needActionLabel} &middot; {count}</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Avatar variant="soft" color="accent" className="w-6 h-6 text-[10px] font-bold shrink-0">
+                <Avatar.Fallback>{getInitials(name)}</Avatar.Fallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0 items-start">
+                <span className="truncate">{name}</span>
+                <span className="truncate text-[11px] text-muted-foreground">{needActionLabel} &middot; {count}</span>
+            </div>
         </div>
     );
 }
@@ -700,6 +711,7 @@ export default function PlansQueueTable({
                         <NewFeatureTooltip
                             featureKey="assignee_workload_hint"
                             active
+                            hideTriggerWhenSeen
                             message={t('assignWorkloadHint')}
                             dismissLabel={t('assignWorkloadHintDismiss')}
                             badgeLabel={t('assignWorkloadHintBadge')}
@@ -713,8 +725,14 @@ export default function PlansQueueTable({
                         value={row.assignedTo ?? "none"}
                         onChange={(v) => assignTo(row.id, v === "none" ? null : v)}
                         size="sm"
+                        fullWidth
                     >
-                        <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
+                        {/* pl-2!/pr-6! (not px-2!) — a bare px-2! also overrides the
+                            !important-free pr-7 that HeroUI's own select__trigger:has()
+                            rule reserves for Select.Indicator below, so the chevron sat
+                            on top of the last letter of the assignee/label name. pr-6
+                            (24px) exactly covers the indicator's own right-2 + size-4. */}
+                        <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! pl-2! pr-6! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
                             <UserPlus size={13} className="shrink-0" />
                             <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
                             <Select.Indicator />
@@ -756,8 +774,10 @@ export default function PlansQueueTable({
                     value={row.labelId ?? "none"}
                     onChange={(v) => assignLabel(row.id, v === "none" ? null : v)}
                     size="sm"
+                    fullWidth
                 >
-                    <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
+                    {/* pl-2!/pr-6!, not px-2! — see the assignedTo Select.Trigger above for why. */}
+                    <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! pl-2! pr-6! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
                         {row.labelName ? (
                             <Chip size="sm" className={`whitespace-nowrap ${LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}`}>
                                 {row.labelName}
@@ -880,6 +900,7 @@ export default function PlansQueueTable({
                                     <NewFeatureTooltip
                                         featureKey="answer_preview_hint"
                                         active
+                                        hideTriggerWhenSeen
                                         message={t('previewAnswersHint')}
                                         dismissLabel={t('previewAnswersHintDismiss')}
                                         badgeLabel={t('previewAnswersHintBadge')}

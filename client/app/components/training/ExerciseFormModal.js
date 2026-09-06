@@ -203,6 +203,7 @@ export default function ExerciseFormModal({
                         <NewFeatureTooltip
                             featureKey="exercise_metrics_checklist_hint"
                             active
+                            hideTriggerWhenSeen
                             message={t("metricsChecklistHint")}
                             dismissLabel={t("metricsChecklistHintDismiss")}
                             badgeLabel={t("metricsChecklistNewFeature")}

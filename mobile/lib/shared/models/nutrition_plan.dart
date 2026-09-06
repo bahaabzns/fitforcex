@@ -87,6 +87,9 @@ abstract class NutritionMealItem with _$NutritionMealItem {
     @Default(0)
     double fatsPerServing,
     @Default(<NutritionAlternative>[]) List<NutritionAlternative> alternatives,
+    @JsonKey(name: 'is_swapped') @Default(false) bool isSwapped,
+    @JsonKey(name: 'original_food_name') String? originalFoodName,
+    @JsonKey(name: 'original_food_name_ar') String? originalFoodNameAr,
   }) = _NutritionMealItem;
 
   factory NutritionMealItem.fromJson(Map<String, dynamic> json) =>

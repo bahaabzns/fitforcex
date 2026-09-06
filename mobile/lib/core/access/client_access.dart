@@ -66,6 +66,7 @@ class ClientAccess {
   bool get canSubmitCheckins => _flag('allow_submit_checkins');
   bool get canBookAppointments => _flag('allow_booking_appointments');
   bool get canDownload => _flag('allow_download_files');
+  bool get canSwapFood => _flag('allow_food_swap');
 
   // ── Status helpers ────────────────────────────────────────────────────────
   bool get isExpired => status == SubscriptionStatus.expired;
@@ -96,6 +97,7 @@ class ClientAccess {
           'allow_submit_checkins': true,
           'allow_booking_appointments': true,
           'allow_download_files': true,
+          'allow_food_swap': true,
         },
       );
 

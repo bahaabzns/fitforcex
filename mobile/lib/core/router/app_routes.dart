@@ -14,14 +14,19 @@ class AppRoutes {
 
   // Training Mode (pushed full-screen over the shell)
   static const trainingSession = '/training/session';
+  static const trainingSessionComplete = '/training/session/complete';
   static const trainingHistory = '/training/history';
   static const trainingProgress = '/training/progress';
   static String trainingHistoryDetail(String id) => '/training/history/$id';
+
+  // Nutrition (pushed full-screen over the shell)
+  static const nutritionDiary = '/nutrition/diary';
 
   // Forms
   static String formFill(String id) => '/forms/$id';
 
   // Top-bar destinations (pushed over the shell)
   static const profile = '/profile';
+  static const subscription = '/subscription';
   static const notifications = '/notifications';
 }

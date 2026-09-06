@@ -25,9 +25,11 @@ export async function describePdfExportError(err) {
 // Shared by the nutrition and training builder pages' Export PDF buttons —
 // requests the file as a blob (not JSON) and triggers a normal browser
 // download via a throwaway <a>, since the export endpoint streams
-// application/pdf rather than returning a URL to redirect to.
-export async function downloadPdfExport(kind, planId, filenameFallback) {
-    const res = await api.get(`/api/pdf-export/${kind}/${planId}`, { responseType: "blob" });
+// application/pdf rather than returning a URL to redirect to. `profileId`
+// picks a branding profile; omit it to use the workspace's default.
+export async function downloadPdfExport(kind, planId, filenameFallback, profileId) {
+    const query = profileId ? `?profileId=${encodeURIComponent(profileId)}` : "";
+    const res = await api.get(`/api/pdf-export/${kind}/${planId}${query}`, { responseType: "blob" });
     const blobUrl = URL.createObjectURL(res.data);
 
     const disposition = res.headers?.["content-disposition"] || "";

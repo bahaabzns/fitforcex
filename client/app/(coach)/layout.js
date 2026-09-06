@@ -2,6 +2,7 @@
 
 import Sidebar from "@/app/components/Sidebar";
 import { useEffect, useState } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import api from "@/lib/axios";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -134,6 +135,8 @@ function WorkspaceContent({ children }) {
     const { headerCollapsed, setHeaderCollapsed } = useHeaderCollapse();
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
+    const isMobileSidebar = useMediaQuery("(max-width: 1023px)");
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [clientLabel, setClientLabel] = useState(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const router = useRouter();
@@ -188,6 +191,11 @@ function WorkspaceContent({ children }) {
         if (!clientId) setHeaderCollapsed(false);
     }, [clientId, setHeaderCollapsed]);
 
+    // Close the mobile drawer on navigation so it never lingers open over the next page.
+    useEffect(() => {
+        setMobileSidebarOpen(false);
+    }, [pathname]);
+
     useEffect(() => {
         if (!clientId) { setClientLabel(null); return; }
         api.get(`/api/clients/${clientId}`)
@@ -208,7 +216,12 @@ function WorkspaceContent({ children }) {
 
     return (
         <div className="flex h-screen overflow-hidden">
-            <Sidebar collapsed={collapsed} />
+            <Sidebar
+                collapsed={collapsed}
+                isMobile={isMobileSidebar}
+                mobileOpen={mobileSidebarOpen}
+                onMobileOpenChange={setMobileSidebarOpen}
+            />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
                 <SubscriptionReadOnlyBanner />
                 {!headerCollapsed && (
@@ -217,8 +230,8 @@ function WorkspaceContent({ children }) {
                             isIconOnly
                             size="sm"
                             variant="ghost"
-                            onClick={() => setCollapsed(c => !c)}
-                            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            onClick={() => isMobileSidebar ? setMobileSidebarOpen(o => !o) : setCollapsed(c => !c)}
+                            title={isMobileSidebar ? (mobileSidebarOpen ? 'Close menu' : 'Open menu') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
                         >
                             <PanelLeft size={16} />
                         </Button>

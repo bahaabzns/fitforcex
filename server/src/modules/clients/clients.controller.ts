@@ -19,6 +19,7 @@ import {
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
+import { serializeDiaryEntry, summarizeFoodDiaryAdherence, FOOD_DIARY_HISTORY_LIMIT } from '../../utils/foodDiaryStats';
 
 type ClientRow = Record<string, unknown>;
 type FreezeRow = Record<string, unknown>;
@@ -506,6 +507,16 @@ export async function getFreezes(req: Request, res: Response, next: NextFunction
     }
 }
 
+/** Shape freeze fields into the before/after snapshot stored on an audit row. */
+function freezeSnapshot(row: FreezeRow) {
+    const start = row.freeze_start_date as Date;
+    return {
+        freezeStartDate:    start.toISOString().slice(0, 10),
+        freezeDurationDays: row.freeze_duration_days as number,
+        notes:              (row.notes as string | null) ?? null,
+    };
+}
+
 export async function createFreeze(req: Request, res: Response, next: NextFunction) {
     const { freezeStartDate, freezeDurationDays, notes } = req.body as Record<string, unknown>;
     if (!freezeStartDate) return res.status(400).json({ error: 'freezeStartDate is required' });
@@ -528,7 +539,62 @@ export async function createFreeze(req: Request, res: Response, next: NextFuncti
                 notes:                (notes as string | undefined)?.trim() || null,
             },
         });
+
+        await logSubscriptionAudit({
+            workspaceId: req.user!.workspaceId,
+            clientId:    req.params.id as string,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'freeze.create',
+            metadata:    { freezeId: freeze.id, after: freezeSnapshot(freeze as unknown as FreezeRow) },
+        });
+
         res.status(201).json(mapFreeze(freeze as unknown as FreezeRow));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateFreeze(req: Request, res: Response, next: NextFunction) {
+    const { freezeStartDate, freezeDurationDays } = req.body as Record<string, unknown>;
+    if (!freezeStartDate) return res.status(400).json({ error: 'freezeStartDate is required' });
+    const days = Number(freezeDurationDays);
+    if (!days || days <= 0) return res.status(400).json({ error: 'freezeDurationDays must be a positive number' });
+
+    try {
+        const clientCheck = await prisma.clients.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!clientCheck) return res.status(404).json({ error: 'Client not found' });
+
+        const existing = await prisma.subscription_freezes.findFirst({
+            where: { id: req.params.freezeId as string, client_id: req.params.id as string },
+        });
+        if (!existing) return res.status(404).json({ error: 'Freeze not found' });
+
+        const updated = await prisma.subscription_freezes.update({
+            where: { id: existing.id },
+            data: {
+                freeze_start_date:    new Date(freezeStartDate as string),
+                freeze_duration_days: days,
+            },
+        });
+
+        await logSubscriptionAudit({
+            workspaceId: req.user!.workspaceId,
+            clientId:    req.params.id as string,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'freeze.update',
+            metadata: {
+                freezeId: existing.id,
+                before:   freezeSnapshot(existing as unknown as FreezeRow),
+                after:    freezeSnapshot(updated as unknown as FreezeRow),
+            },
+        });
+
+        res.json(mapFreeze(updated as unknown as FreezeRow));
     } catch (err) {
         next(err);
     }
@@ -542,11 +608,65 @@ export async function deleteFreeze(req: Request, res: Response, next: NextFuncti
         });
         if (!clientCheck) return res.status(404).json({ error: 'Client not found' });
 
-        const deleted = await prisma.subscription_freezes.deleteMany({
+        const existing = await prisma.subscription_freezes.findFirst({
             where: { id: req.params.freezeId as string, client_id: req.params.id as string },
         });
-        if (deleted.count === 0) return res.status(404).json({ error: 'Freeze not found' });
-        res.json({ deleted: req.params.freezeId });
+        if (!existing) return res.status(404).json({ error: 'Freeze not found' });
+
+        await prisma.subscription_freezes.delete({ where: { id: existing.id } });
+
+        await logSubscriptionAudit({
+            workspaceId: req.user!.workspaceId,
+            clientId:    req.params.id as string,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'freeze.remove',
+            metadata:    { freezeId: existing.id, before: freezeSnapshot(existing as unknown as FreezeRow) },
+        });
+
+        res.json({ deleted: existing.id });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const FREEZE_HISTORY_EVENT_TYPES = ['freeze.create', 'freeze.update', 'freeze.remove'];
+
+/** Immutable audit trail of freeze create/edit/remove actions for one client. */
+export async function getFreezeHistory(req: Request, res: Response, next: NextFunction) {
+    const clientId = req.params.id as string;
+    const wsId     = req.user!.workspaceId;
+    try {
+        const clientCheck = await prisma.clients.findFirst({
+            where: { id: clientId, workspace_id: wsId },
+            select: { id: true },
+        });
+        if (!clientCheck) return res.status(404).json({ error: 'Client not found' });
+
+        const rows = await prisma.subscription_status_audit.findMany({
+            where:   { workspace_id: wsId, client_id: clientId, event_type: { in: FREEZE_HISTORY_EVENT_TYPES } },
+            orderBy: { created_at: 'desc' },
+            take:    100,
+        });
+
+        const actorIds = [...new Set(rows.map(r => r.actor_user_id).filter((v): v is string => !!v))];
+        const users = actorIds.length
+            ? await prisma.users.findMany({ where: { id: { in: actorIds } }, select: { id: true, fname: true, lname: true } })
+            : [];
+        const nameById = new Map(users.map(u => [u.id, `${u.fname} ${u.lname}`.trim()]));
+
+        res.json(rows.map(r => {
+            const meta = (r.metadata as Record<string, unknown>) || {};
+            return {
+                id:          r.id,
+                eventType:   r.event_type,
+                actorType:   r.actor_type,
+                actorName:   r.actor_user_id ? (nameById.get(r.actor_user_id) ?? null) : null,
+                before:      meta.before ?? null,
+                after:       meta.after ?? null,
+                createdAt:   r.created_at,
+            };
+        }));
     } catch (err) {
         next(err);
     }
@@ -727,6 +847,60 @@ export async function getClientWorkoutLog(req: Request, res: Response, next: Nex
             exercises:  parseLoggedExercises(log.exercises),
             ...summarizeLog(toLogRow(log)),
         });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const LEAST_ADHERENT_ITEMS_LIMIT = 5;
+
+// Coach view — a client's own food diary history, same shape and same
+// unlimited-history behavior as getFoodDiaryHistory (client-portal). Each
+// entry already carries its own `adherence` (see foodDiaryStats.ts), so a
+// day-by-day or trend view is just this array. Cross-day rollups (per-plan
+// average, weakest items) live in getClientFoodDiaryAdherence below.
+export async function getClientFoodDiary(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'desc' },
+            take:    FOOD_DIARY_HISTORY_LIMIT,
+        });
+        res.json(entries.map(serializeDiaryEntry));
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Coach view — adherence rolled up per nutrition plan (not per day), plus
+// the food items this client eats least of what's prescribed. Backs the
+// nutrition builder's plan-level adherence badge (scoped to one plan via a
+// client-side filter of `plans`) and the "Food Diary" overview modal (the
+// full response). No `take` limit here, unlike getClientFoodDiary above --
+// a per-plan average needs every entry for that plan, not just the most
+// recent page of history, and per-client row counts stay small (~1/day).
+export async function getClientFoodDiaryAdherence(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'asc' },
+        });
+
+        const planIds = [...new Set(entries.map((e) => e.plan_id).filter((v): v is string => !!v))];
+        const plans = planIds.length > 0
+            ? await prisma.nutrition_plans.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true } })
+            : [];
+        const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+
+        res.json(summarizeFoodDiaryAdherence(entries, planNameById, LEAST_ADHERENT_ITEMS_LIMIT));
     } catch (err) {
         next(err);
     }

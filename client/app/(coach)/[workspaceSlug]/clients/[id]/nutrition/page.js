@@ -11,12 +11,14 @@ import LeftPanel from "@/app/components/nutrition/LeftPanel";
 import MiddlePanel from "@/app/components/nutrition/MiddlePanel";
 import RightPanel from "@/app/components/nutrition/RightPanel";
 import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
+import FoodDiaryAdherenceModal from "@/app/components/nutrition/FoodDiaryAdherenceModal";
 import ConfigureActivationModal from "@/app/components/ConfigureActivationModal";
 import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import PdfExportButton from "@/app/components/PdfExportButton";
 import { downloadPdfExport, describePdfExportError } from "@/lib/pdfExport";
 
 export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) {
@@ -142,12 +144,19 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
 
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportError, setExportError] = useState("");
-    async function handleExportPdf() {
+    // Branding profiles for the "Export as…" menu; empty/one → plain Export button only.
+    const [pdfProfiles, setPdfProfiles] = useState([]);
+    useEffect(() => {
+        api.get("/api/pdf-export/settings/nutrition")
+            .then(({ data }) => setPdfProfiles(Array.isArray(data) ? data : []))
+            .catch(() => setPdfProfiles([]));
+    }, []);
+    async function handleExportPdf(profileId) {
         if (!selectedPlan?.id) return;
         setExportingPdf(true);
         setExportError("");
         try {
-            await downloadPdfExport("nutrition", selectedPlan.id, `${selectedPlan.name || "nutrition-plan"}.pdf`);
+            await downloadPdfExport("nutrition", selectedPlan.id, `${selectedPlan.name || "nutrition-plan"}.pdf`, profileId);
         } catch (err) {
             const detail = await describePdfExportError(err);
             console.error("PDF export failed:", detail.status, detail.message);
@@ -175,6 +184,18 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
             .catch(() => setObservationCounts({}));
     }, [id]);
     useEffect(() => { fetchObservationCounts(); }, [fetchObservationCounts]);
+
+    // Food diary adherence, rolled up per plan — fetched once and handed down
+    // to both the "Food Diary" overview modal below and MiddlePanel's
+    // per-plan badge, so neither has to fetch it on its own.
+    const [foodAdherence, setFoodAdherence] = useState(null);
+    const [foodDiaryModalOpen, setFoodDiaryModalOpen] = useState(false);
+    useEffect(() => {
+        if (!id) return;
+        api.get(`/api/clients/${id}/food-diary/adherence`)
+            .then(({ data }) => setFoodAdherence(data))
+            .catch(() => setFoodAdherence({ plans: [], leastAdherentItems: [] }));
+    }, [id]);
 
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
@@ -254,12 +275,11 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         const savePlanVisible = isSelectedPlanDirty;
         const activateVisible = selectedPlan && selectedPlan.status !== "active";
         const exportVisible = !!selectedPlan?.id;
-        if (!showSaveAll && !savePlanVisible && !activateVisible && !exportVisible) {
-            onHeaderActionsChange(null);
-            return;
-        }
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setFoodDiaryModalOpen(true)}>
+                    {t('viewFoodDiary')}
+                </Button>
                 {selectedPlan?.id && (
                     // Default popover__trigger styling (inline-block) is required here --
                     // it's what gives the trigger a real box for the popover to anchor
@@ -288,11 +308,18 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                         dismissLabel={t('exportPdfHintDismiss')}
                         badgeLabel={t('exportPdfNewFeature')}
                     >
-                        <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
-                            title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
-                            onClick={() => actionsRef.current.handleExportPdf()}>
-                            {exportingPdf ? t('exportingPdf') : t('exportPdf')}
-                        </Button>
+                        {/* One "Export PDF" control: one profile exports on click,
+                            several open a dropdown to pick which. */}
+                        <PdfExportButton
+                            profiles={pdfProfiles}
+                            disabled={isSelectedPlanDirty || isSaving || exportingPdf}
+                            busy={exportingPdf}
+                            label={t('exportPdf')}
+                            busyLabel={t('exportingPdf')}
+                            dirtyTitle={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
+                            defaultSuffix={t('exportPdfProfileDefaultSuffix')}
+                            onExport={(profileId) => actionsRef.current.handleExportPdf(profileId)}
+                        />
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
@@ -326,7 +353,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug, id, router, pdfProfiles]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);
@@ -464,6 +491,7 @@ return (
                     setActivateModal={setActivateModal}
                     activating={activating}
                     handleActivateAndMark={handleActivateAndMark}
+                    foodAdherence={foodAdherence}
                 />
             ) : (
                 <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-2xl shadow-surface">
@@ -561,6 +589,11 @@ return (
             onConfirm={handleRestartConfigureConfirm}
             confirming={savingDurationChoice}
             titleKey="restartConfigureTitle"
+        />
+        <FoodDiaryAdherenceModal
+            open={foodDiaryModalOpen}
+            onClose={() => setFoodDiaryModalOpen(false)}
+            data={foodAdherence}
         />
     </div>
     </div>

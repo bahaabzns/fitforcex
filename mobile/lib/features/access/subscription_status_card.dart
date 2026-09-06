@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/access/access_controller.dart';
 import '../../core/access/client_access.dart';
+import '../../core/auth/auth_controller.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -77,9 +78,43 @@ class SubscriptionStatusCard extends ConsumerWidget {
                 child: Text(l10n.statusContactCoach),
               ),
             ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () => _confirmLogout(context, ref),
+              icon: const Icon(Icons.logout, size: 18),
+              label: Text(l10n.profileLogout),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.profileLogoutConfirmTitle),
+        content: Text(l10n.profileLogoutConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.profileLogout),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(authControllerProvider.notifier).logout();
+      // Router redirect sends us to login on the unauthenticated state.
+    }
   }
 }

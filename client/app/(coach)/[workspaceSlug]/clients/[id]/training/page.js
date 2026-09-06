@@ -16,6 +16,7 @@ import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import PdfExportButton from "@/app/components/PdfExportButton";
 import { downloadPdfExport, describePdfExportError } from "@/lib/pdfExport";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
@@ -126,12 +127,19 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
 
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportError, setExportError] = useState("");
-    async function handleExportPdf() {
+    // Branding profiles for the "Export as…" menu; empty/one → plain Export button only.
+    const [pdfProfiles, setPdfProfiles] = useState([]);
+    useEffect(() => {
+        api.get("/api/pdf-export/settings/training")
+            .then(({ data }) => setPdfProfiles(Array.isArray(data) ? data : []))
+            .catch(() => setPdfProfiles([]));
+    }, []);
+    async function handleExportPdf(profileId) {
         if (!selectedPlan?.id) return;
         setExportingPdf(true);
         setExportError("");
         try {
-            await downloadPdfExport("training", selectedPlan.id, `${selectedPlan.name || "training-plan"}.pdf`);
+            await downloadPdfExport("training", selectedPlan.id, `${selectedPlan.name || "training-plan"}.pdf`, profileId);
         } catch (err) {
             const detail = await describePdfExportError(err);
             console.error("PDF export failed:", detail.status, detail.message);
@@ -263,11 +271,18 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                         dismissLabel={t('exportPdfHintDismiss')}
                         badgeLabel={t('exportPdfNewFeature')}
                     >
-                        <Button variant="outline" isDisabled={isSelectedPlanDirty || isSaving || exportingPdf}
-                            title={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
-                            onClick={() => actionsRef.current.handleExportPdf()}>
-                            {exportingPdf ? t('exportingPdf') : t('exportPdf')}
-                        </Button>
+                        {/* One "Export PDF" control: one profile exports on click,
+                            several open a dropdown to pick which. */}
+                        <PdfExportButton
+                            profiles={pdfProfiles}
+                            disabled={isSelectedPlanDirty || isSaving || exportingPdf}
+                            busy={exportingPdf}
+                            label={t('exportPdf')}
+                            busyLabel={t('exportingPdf')}
+                            dirtyTitle={isSelectedPlanDirty ? t('exportPdfDirtyHint') : undefined}
+                            defaultSuffix={t('exportPdfProfileDefaultSuffix')}
+                            onExport={(profileId) => actionsRef.current.handleExportPdf(profileId)}
+                        />
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
@@ -299,7 +314,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                 )}
             </div>
         );
-    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug]);
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t, exportingPdf, workspaceSlug, pdfProfiles]);
 
     useEffect(() => {
         onDirtyChange?.(isDirty);

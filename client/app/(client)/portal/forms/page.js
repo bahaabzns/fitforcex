@@ -17,7 +17,12 @@ import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner
 
 // A request that still needs the client's attention — mirrors
 // formRequestNeedsAction in the mobile app (shared/models/form.dart).
-const ACTIONABLE_STATUSES = new Set(["pending", "scheduled"]);
+// 'sent' is not a distinct state: the dispatcher cron (scheduler.ts) ticks a
+// due 'pending' request over to 'sent' once it notices it — same "awaiting
+// the client" bucket as 'pending', matching the coach Plans Queue's identical
+// treatment (forms.controller.ts).
+const ACTIONABLE_STATUSES = new Set(["pending", "scheduled", "sent"]);
+const isAwaitingClient = (status) => status === "pending" || status === "sent";
 
 export default function ClientFormsListPage() {
     const t = useTranslations('portal.forms');
@@ -57,11 +62,11 @@ export default function ClientFormsListPage() {
     }, []);
 
     const filtered = requests.filter((r) => {
-        if (filter === "pending") return r.status === "pending";
+        if (filter === "pending") return isAwaitingClient(r.status);
         if (filter === "submitted") return r.status === "submitted" || r.status === "reviewed";
         return true;
     });
-    const pendingCount = requests.filter(r => r.status === "pending").length;
+    const pendingCount = requests.filter(r => isAwaitingClient(r.status)).length;
 
     const tabs = [
         { key: "pending",   label: t('filterPending') },
@@ -131,7 +136,7 @@ export default function ClientFormsListPage() {
                         {filtered.map(req => {
                             const isScheduled = req.status === "scheduled";
                             const isSubmitted = req.status === "submitted" || req.status === "reviewed";
-                            const isPending   = req.status === "pending";
+                            const isPending   = isAwaitingClient(req.status);
                             const Icon = isSubmitted ? CheckCircle : isScheduled ? CalendarClock : ClipboardList;
                             const iconClasses = isSubmitted
                                 ? "bg-green-500/15 text-green-700"

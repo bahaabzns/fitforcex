@@ -9,10 +9,12 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/access/access_controller.dart';
 import '../../core/auth/token_storage.dart';
 import '../../core/config/providers.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/message.dart';
 import '../access/restricted_view.dart';
+import '../insights/widgets/trigger_insight_banner.dart';
 import '../notifications/notifications_repository.dart';
 import 'message_segments.dart';
 import 'messages_repository.dart';
@@ -34,7 +36,6 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   final _scroll = ScrollController();
   final _picker = ImagePicker();
   List<Message> _messages = [];
-  String? _coachName;
   bool _loading = true;
   bool _sending = false;
   bool _attaching = false;
@@ -99,7 +100,6 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
       final grew = thread.messages.length != _messages.length;
       setState(() {
         _messages = thread.messages;
-        _coachName = thread.coachName ?? _coachName;
         if (initial) _loading = false;
       });
       if (grew) _scrollToBottom();
@@ -110,6 +110,13 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     } catch (_) {
       if (mounted && initial) setState(() => _loading = false);
     }
+  }
+
+  void _showSendError(Object error) {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final message = error is ApiException ? error.message : l10n.commonSomethingWentWrong;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _scrollToBottom() {
@@ -138,8 +145,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         _draft.clear();
       });
       _scrollToBottom();
-    } catch (_) {
+    } catch (e) {
       // Leave the draft in place so the user can retry.
+      _showSendError(e);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -175,8 +183,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         _editing = null;
         _draft.clear();
       });
-    } catch (_) {
+    } catch (e) {
       // Leave the draft + edit mode in place so the user can retry.
+      _showSendError(e);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -230,8 +239,9 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
         _draft.clear();
       });
       _scrollToBottom();
-    } catch (_) {
+    } catch (e) {
       // Best-effort — the draft caption stays so the user can retry.
+      _showSendError(e);
     } finally {
       if (mounted) setState(() => _attaching = false);
     }
@@ -276,7 +286,12 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
 
     return Column(
       children: [
-        _Header(coachName: _coachName ?? l10n.messagesCoachFallback),
+        _Header(coachName: l10n.messagesCoachFallback),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: TriggerInsightBanner(
+              triggerEvent: 'first_message_sent_by_client'),
+        ),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())

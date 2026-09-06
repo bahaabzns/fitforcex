@@ -1288,13 +1288,13 @@ export async function cancelQueue(req: Request, res: Response, next: NextFunctio
     }
 
     try {
-        // Mirrors deleteRequest's single-item rule: only pending/scheduled requests
-        // (not yet submitted) can be cancelled.
+        // Mirrors deleteRequest's single-item rule: only pending/scheduled/sent
+        // requests (not yet submitted) can be cancelled.
         const deleted = await prisma.form_requests.deleteMany({
             where: {
                 id:           { in: ids.map(String) },
                 workspace_id: req.user!.workspaceId,
-                status:       { in: ['pending', 'scheduled'] },
+                status:       { in: ['pending', 'scheduled', 'sent'] },
             },
         });
         res.json({ deletedCount: deleted.count });
@@ -1348,7 +1348,7 @@ export async function deleteRequest(req: Request, res: Response, next: NextFunct
             where: {
                 id:           req.params.request_id as string,
                 workspace_id: req.user!.workspaceId,
-                status:       { in: ['pending', 'scheduled'] },
+                status:       { in: ['pending', 'scheduled', 'sent'] },
             },
         });
         if (deleted.count === 0) return res.status(404).json({ error: 'Request not found or already submitted/reviewed' });

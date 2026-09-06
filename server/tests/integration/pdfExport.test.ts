@@ -54,11 +54,21 @@ async function createNutritionPlan(workspaceId: string, clientId: string) {
     return plan;
 }
 
-// nutrition_pdf_settings and training_pdf_settings are fully independent
-// tables with the same field shape for shared concerns (see DECISIONS.md,
-// 2026-07-28) — these tests run identically against both via describe.each,
-// rather than duplicating every case by hand.
-describe.each(['nutrition', 'training'] as const)('PDF export — %s settings API', (type) => {
+// A workspace with no saved profiles gets a synthesized default (id ''); the
+// settings page materializes it on first change. These tests want a real row,
+// so create one and hand back its id.
+async function ensureDefaultProfileId(type: 'nutrition' | 'training', cookie: string): Promise<string> {
+    const list = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', cookie);
+    const existing = (list.body as Array<{ id: string }>).find((p) => p.id);
+    if (existing) return existing.id;
+    const created = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', cookie).send({ name: 'Default' });
+    return created.body.id;
+}
+
+// nutrition_pdf_settings and training_pdf_settings are fully independent tables
+// with the same field shape for shared concerns (see DECISIONS.md, 2026-07-28)
+// — these run identically against both via describe.each.
+describe.each(['nutrition', 'training'] as const)('PDF export — %s branding profiles API', (type) => {
     let workspaceId: string;
     let ownerCookie: string;
 
@@ -81,20 +91,51 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s settings AP
         expect(res.status).toBe(403);
     });
 
-    test('GET returns schema defaults before anything is saved', async () => {
+    test('GET returns a one-element list holding the synthesized default before anything is saved', async () => {
         const res = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie);
         expect(res.status).toBe(200);
-        expect(res.body.coach_name).toBe('FitForce');
-        expect(res.body.primary_color).toBe('#007AFF');
-        expect(res.body.cover_title).toBe(type === 'training' ? 'Training Plan' : 'Nutrition Plan');
-        expect(res.body.show_cover_header).toBe(true);
-        expect(res.body.show_cover_title).toBe(true);
-        expect(res.body.show_cover_subtitle).toBe(true);
-        expect(res.body.show_cover_client_name).toBe(true);
+        expect(Array.isArray(res.body)).toBe(true);
+        expect(res.body).toHaveLength(1);
+        expect(res.body[0].id).toBe('');
+        expect(res.body[0].name).toBe('Default');
+        expect(res.body[0].is_default).toBe(true);
+        expect(res.body[0].coach_name).toBe('FitForce');
+        expect(res.body[0].cover_title).toBe(type === 'training' ? 'Training Plan' : 'Nutrition Plan');
     });
 
-    test('PUT can independently toggle each cover text element', async () => {
-        const put = await request.put(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie)
+    test('POST creates a profile; the first one saved becomes the default', async () => {
+        const res = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Premium' });
+        expect(res.status).toBe(201);
+        expect(res.body.name).toBe('Premium');
+        expect(res.body.is_default).toBe(true);
+        expect(res.body.id).toBeTruthy();
+
+        const list = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie);
+        expect(list.body).toHaveLength(1);
+        expect(list.body[0].id).toBe(res.body.id);
+    });
+
+    test('POST a second profile is not the default', async () => {
+        await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'First' });
+        const second = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Second' });
+        expect(second.status).toBe(201);
+        expect(second.body.is_default).toBe(false);
+    });
+
+    test('POST rejects a duplicate name with 400', async () => {
+        await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Dup' });
+        const again = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Dup' });
+        expect(again.status).toBe(400);
+    });
+
+    test('POST rejects an empty name with 400', async () => {
+        const res = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: '   ' });
+        expect(res.status).toBe(400);
+    });
+
+    test('PUT can independently toggle each cover text element on one profile', async () => {
+        const id = await ensureDefaultProfileId(type, ownerCookie);
+        const put = await request.put(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie)
             .send({ show_cover_header: false, show_cover_title: false, show_cover_subtitle: false, show_cover_client_name: false });
         expect(put.status).toBe(200);
         expect(put.body.show_cover_header).toBe(false);
@@ -103,55 +144,164 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s settings AP
         expect(put.body.show_cover_client_name).toBe(false);
     });
 
-    test('PUT saves settings and GET reflects them', async () => {
-        const put = await request.put(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie)
+    test('PUT saves fields and GET reflects them', async () => {
+        const id = await ensureDefaultProfileId(type, ownerCookie);
+        const put = await request.put(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie)
             .send({ coach_name: 'Acme Coaching', primary_color: '#FF0000' });
         expect(put.status).toBe(200);
         expect(put.body.coach_name).toBe('Acme Coaching');
-        expect(put.body.primary_color).toBe('#FF0000');
 
-        const get = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie);
+        const get = await request.get(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie);
         expect(get.body.coach_name).toBe('Acme Coaching');
+        expect(get.body.primary_color).toBe('#FF0000');
     });
 
     test('PUT rejects an invalid hex color with 400', async () => {
-        const res = await request.put(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie)
+        const id = await ensureDefaultProfileId(type, ownerCookie);
+        const res = await request.put(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie)
             .send({ primary_color: 'not-a-color' });
         expect(res.status).toBe(400);
     });
 
     test('PUT accepts an empty display name and footer text (both optional)', async () => {
-        const res = await request.put(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie)
+        const id = await ensureDefaultProfileId(type, ownerCookie);
+        const res = await request.put(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie)
             .send({ coach_name: '', footer_text: '' });
         expect(res.status).toBe(200);
         expect(res.body.coach_name).toBe('');
         expect(res.body.footer_text).toBe('');
     });
 
-    test('tenant isolation: each workspace has its own settings', async () => {
-        await request.put(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ coach_name: 'Workspace A' });
+    test('PUT to an id from another workspace is a 404, not a cross-tenant write', async () => {
+        const id = await ensureDefaultProfileId(type, ownerCookie);
+
+        const otherUser = await createTestUser();
+        const otherWs   = await createTestWorkspace(otherUser.id);
+        const otherCookie = await makeAuthCookie(otherUser.id, otherWs.id, 'owner');
+
+        const res = await request.put(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', otherCookie)
+            .send({ coach_name: 'Hijacked' });
+        expect(res.status).toBe(404);
+
+        const still = await request.get(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie);
+        expect(still.body.coach_name).not.toBe('Hijacked');
+    });
+
+    test('setting is_default moves the flag to exactly one profile', async () => {
+        const a = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'A' });
+        const b = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'B' });
+        expect(a.body.is_default).toBe(true);
+
+        const promote = await request.put(`/api/pdf-export/settings/${type}/${b.body.id}`).set('Cookie', ownerCookie)
+            .send({ is_default: true });
+        expect(promote.status).toBe(200);
+        expect(promote.body.is_default).toBe(true);
+
+        const list = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie);
+        expect(list.body.filter((p: { is_default: boolean }) => p.is_default)).toHaveLength(1);
+        expect(list.body.find((p: { id: string }) => p.id === a.body.id).is_default).toBe(false);
+    });
+
+    test('DELETE removes a non-default profile', async () => {
+        await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Keep' });
+        const drop = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Drop' });
+
+        const del = await request.delete(`/api/pdf-export/settings/${type}/${drop.body.id}`).set('Cookie', ownerCookie);
+        expect(del.status).toBe(200);
+        expect(del.body).toHaveLength(1);
+        expect(del.body[0].name).toBe('Keep');
+    });
+
+    test('DELETE of the only profile is rejected with 400', async () => {
+        const only = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Solo' });
+        const del = await request.delete(`/api/pdf-export/settings/${type}/${only.body.id}`).set('Cookie', ownerCookie);
+        expect(del.status).toBe(400);
+    });
+
+    test('DELETE of the default profile promotes another to default', async () => {
+        const a = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'A' });
+        await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'B' });
+        expect(a.body.is_default).toBe(true);
+
+        const del = await request.delete(`/api/pdf-export/settings/${type}/${a.body.id}`).set('Cookie', ownerCookie);
+        expect(del.status).toBe(200);
+        expect(del.body).toHaveLength(1);
+        expect(del.body[0].is_default).toBe(true);
+    });
+
+    test('tenant isolation: each workspace has its own profiles', async () => {
+        const id = await ensureDefaultProfileId(type, ownerCookie);
+        await request.put(`/api/pdf-export/settings/${type}/${id}`).set('Cookie', ownerCookie).send({ coach_name: 'Workspace A' });
 
         const otherUser = await createTestUser();
         const otherWs   = await createTestWorkspace(otherUser.id);
         const otherCookie = await makeAuthCookie(otherUser.id, otherWs.id, 'owner');
 
         const otherGet = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', otherCookie);
-        expect(otherGet.body.coach_name).toBe('FitForce'); // default, unaffected by workspace A's save
+        expect(otherGet.body).toHaveLength(1);
+        expect(otherGet.body[0].coach_name).toBe('FitForce'); // default, unaffected by workspace A
+    });
+
+    test('POST /duplicate copies every branding field into a non-default "<name> copy"', async () => {
+        const src = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Premium' });
+        await request.put(`/api/pdf-export/settings/${type}/${src.body.id}`).set('Cookie', ownerCookie)
+            .send({ coach_name: 'Acme', primary_color: '#ABCDEF', show_cover_page: false });
+
+        const dup = await request.post(`/api/pdf-export/settings/${type}/${src.body.id}/duplicate`).set('Cookie', ownerCookie);
+        expect(dup.status).toBe(201);
+        expect(dup.body.id).not.toBe(src.body.id);
+        expect(dup.body.name).toBe('Premium copy');
+        expect(dup.body.is_default).toBe(false);
+        expect(dup.body.coach_name).toBe('Acme');
+        expect(dup.body.primary_color).toBe('#ABCDEF');
+        expect(dup.body.show_cover_page).toBe(false);
+    });
+
+    test('POST /duplicate carries over image urls', async () => {
+        const src = await ensureDefaultProfileId(type, ownerCookie);
+        const upload = await request.post(`/api/pdf-export/settings/${type}/${src}/logo`).set('Cookie', ownerCookie)
+            .attach('logo', makeFakePng(10, 10), 'logo.png');
+        expect(upload.body.logo_url).toBeTruthy();
+
+        const dup = await request.post(`/api/pdf-export/settings/${type}/${src}/duplicate`).set('Cookie', ownerCookie);
+        expect(dup.body.logo_url).toBe(upload.body.logo_url);
+    });
+
+    test('POST /duplicate disambiguates the name when "<name> copy" is taken', async () => {
+        const src = await request.post(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie).send({ name: 'Base' });
+        const first  = await request.post(`/api/pdf-export/settings/${type}/${src.body.id}/duplicate`).set('Cookie', ownerCookie);
+        const second = await request.post(`/api/pdf-export/settings/${type}/${src.body.id}/duplicate`).set('Cookie', ownerCookie);
+        expect(first.body.name).toBe('Base copy');
+        expect(second.body.name).toBe('Base copy 2');
+    });
+
+    test('POST /duplicate is a 404 for a profile id from another workspace', async () => {
+        const src = await ensureDefaultProfileId(type, ownerCookie);
+
+        const otherUser = await createTestUser();
+        const otherWs   = await createTestWorkspace(otherUser.id);
+        const otherCookie = await makeAuthCookie(otherUser.id, otherWs.id, 'owner');
+
+        const res = await request.post(`/api/pdf-export/settings/${type}/${src}/duplicate`).set('Cookie', otherCookie);
+        expect(res.status).toBe(404);
     });
 });
 
-test('nutrition and training settings are fully independent (no shared assets)', async () => {
+test('nutrition and training profiles are fully independent (no shared assets)', async () => {
     const user = await createTestUser();
     const ws   = await createTestWorkspace(user.id);
     const cookie = await makeAuthCookie(user.id, ws.id, 'owner');
 
-    await request.put('/api/pdf-export/settings/nutrition').set('Cookie', cookie)
+    const nutritionId = await ensureDefaultProfileId('nutrition', cookie);
+    const trainingId  = await ensureDefaultProfileId('training', cookie);
+
+    await request.put(`/api/pdf-export/settings/nutrition/${nutritionId}`).set('Cookie', cookie)
         .send({ coach_name: 'Nutrition Brand', primary_color: '#111111' });
-    await request.put('/api/pdf-export/settings/training').set('Cookie', cookie)
+    await request.put(`/api/pdf-export/settings/training/${trainingId}`).set('Cookie', cookie)
         .send({ coach_name: 'Training Brand', primary_color: '#222222' });
 
-    const nutrition = await request.get('/api/pdf-export/settings/nutrition').set('Cookie', cookie);
-    const training  = await request.get('/api/pdf-export/settings/training').set('Cookie', cookie);
+    const nutrition = await request.get(`/api/pdf-export/settings/nutrition/${nutritionId}`).set('Cookie', cookie);
+    const training  = await request.get(`/api/pdf-export/settings/training/${trainingId}`).set('Cookie', cookie);
 
     expect(nutrition.body.coach_name).toBe('Nutrition Brand');
     expect(nutrition.body.primary_color).toBe('#111111');
@@ -209,6 +359,11 @@ describe('PDF export — render endpoints', () => {
         expect(res.status).toBe(404);
     });
 
+    test('returns 404 for a missing plan even when a profileId is named', async () => {
+        const res = await request.get('/api/pdf-export/nutrition/does-not-exist?profileId=whatever').set('Cookie', ownerCookie);
+        expect(res.status).toBe(404);
+    });
+
     test('tenant isolation: cannot export another workspace\'s plan', async () => {
         const otherUser = await createTestUser();
         const otherWs   = await createTestWorkspace(otherUser.id);
@@ -230,19 +385,21 @@ describe('PDF export — render endpoints', () => {
     // HTTP layer involved. The 404/tenant-isolation tests above already cover
     // everything before the render call; actual end-to-end rendering (real
     // nutrition + training plan data through fetchFullPlan -> template ->
-    // Puppeteer -> valid multi-page PDF) was verified manually via
+    // Puppeteer -> valid multi-page PDF, per profile) was verified manually via
     // src/scripts/smoke-test-pdf-export.ts against the dev DB.
 });
 
 describe.each(['nutrition', 'training'] as const)('PDF export — %s cover image upload', (type) => {
     let workspaceId: string;
     let ownerCookie: string;
+    let profileId: string;
 
     beforeEach(async () => {
         const user = await createTestUser();
         const ws   = await createTestWorkspace(user.id);
         workspaceId = ws.id;
         ownerCookie = await makeAuthCookie(user.id, workspaceId, 'owner');
+        profileId = await ensureDefaultProfileId(type, ownerCookie);
     });
 
     // Default page size is 595.28 x 841.89pt -> round(pt/72*96) = 794 x 1123px.
@@ -250,7 +407,7 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s cover image
     const EXPECTED_HEIGHT = 1123;
 
     test('returns 401 when unauthenticated', async () => {
-        const res = await request.post(`/api/pdf-export/settings/${type}/cover-image`)
+        const res = await request.post(`/api/pdf-export/settings/${type}/${profileId}/cover-image`)
             .attach('image', makeFakePng(EXPECTED_WIDTH, EXPECTED_HEIGHT), 'cover.png');
         expect(res.status).toBe(401);
     });
@@ -258,13 +415,19 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s cover image
     test('returns 403 when a member lacks pdfExport permission', async () => {
         const member = await createTestUser();
         const cookie = await makeAuthCookie(member.id, workspaceId, 'member');
-        const res = await request.post(`/api/pdf-export/settings/${type}/cover-image`).set('Cookie', cookie)
+        const res = await request.post(`/api/pdf-export/settings/${type}/${profileId}/cover-image`).set('Cookie', cookie)
             .attach('image', makeFakePng(EXPECTED_WIDTH, EXPECTED_HEIGHT), 'cover.png');
         expect(res.status).toBe(403);
     });
 
+    test('returns 404 for a profile id that is not in this workspace', async () => {
+        const res = await request.post(`/api/pdf-export/settings/${type}/${createId()}/cover-image`).set('Cookie', ownerCookie)
+            .attach('image', makeFakePng(EXPECTED_WIDTH, EXPECTED_HEIGHT), 'cover.png');
+        expect(res.status).toBe(404);
+    });
+
     test('returns 400 when the image does not match the page size', async () => {
-        const res = await request.post(`/api/pdf-export/settings/${type}/cover-image`).set('Cookie', ownerCookie)
+        const res = await request.post(`/api/pdf-export/settings/${type}/${profileId}/cover-image`).set('Cookie', ownerCookie)
             .attach('image', makeFakePng(100, 100), 'cover.png');
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(`${EXPECTED_WIDTH}x${EXPECTED_HEIGHT}`);
@@ -272,23 +435,23 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s cover image
     });
 
     test('accepts an image matching the page size and saves cover_image_url', async () => {
-        const res = await request.post(`/api/pdf-export/settings/${type}/cover-image`).set('Cookie', ownerCookie)
+        const res = await request.post(`/api/pdf-export/settings/${type}/${profileId}/cover-image`).set('Cookie', ownerCookie)
             .attach('image', makeFakePng(EXPECTED_WIDTH, EXPECTED_HEIGHT), 'cover.png');
         expect(res.status).toBe(200);
         expect(res.body.cover_image_url).toBeTruthy();
 
-        const get = await request.get(`/api/pdf-export/settings/${type}`).set('Cookie', ownerCookie);
+        const get = await request.get(`/api/pdf-export/settings/${type}/${profileId}`).set('Cookie', ownerCookie);
         expect(get.body.cover_image_url).toBe(res.body.cover_image_url);
     });
 
     test('accepts an image within the small rounding tolerance', async () => {
-        const res = await request.post(`/api/pdf-export/settings/${type}/cover-image`).set('Cookie', ownerCookie)
+        const res = await request.post(`/api/pdf-export/settings/${type}/${profileId}/cover-image`).set('Cookie', ownerCookie)
             .attach('image', makeFakePng(EXPECTED_WIDTH + 3, EXPECTED_HEIGHT - 2), 'cover.png');
         expect(res.status).toBe(200);
     });
 
     test('the generic background-slot route no longer accepts the cover slot', async () => {
-        const res = await request.post(`/api/pdf-export/settings/${type}/background/cover`).set('Cookie', ownerCookie)
+        const res = await request.post(`/api/pdf-export/settings/${type}/${profileId}/background/cover`).set('Cookie', ownerCookie)
             .attach('image', makeFakePng(EXPECTED_WIDTH, EXPECTED_HEIGHT), 'cover.png');
         expect(res.status).toBe(400);
     });
@@ -297,6 +460,7 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s cover image
 describe.each(['nutrition', 'training'] as const)('PDF export — %s remove uploaded images', (type) => {
     let workspaceId: string;
     let ownerCookie: string;
+    let profileId: string;
     const EXPECTED_WIDTH = 794;
     const EXPECTED_HEIGHT = 1123;
 
@@ -305,54 +469,55 @@ describe.each(['nutrition', 'training'] as const)('PDF export — %s remove uplo
         const ws   = await createTestWorkspace(user.id);
         workspaceId = ws.id;
         ownerCookie = await makeAuthCookie(user.id, workspaceId, 'owner');
+        profileId = await ensureDefaultProfileId(type, ownerCookie);
     });
 
     test('DELETE logo returns 401 when unauthenticated', async () => {
-        const res = await request.delete(`/api/pdf-export/settings/${type}/logo`);
+        const res = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/logo`);
         expect(res.status).toBe(401);
     });
 
     test('DELETE logo returns 403 when a member lacks pdfExport permission', async () => {
         const member = await createTestUser();
         const cookie = await makeAuthCookie(member.id, workspaceId, 'member');
-        const res = await request.delete(`/api/pdf-export/settings/${type}/logo`).set('Cookie', cookie);
+        const res = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/logo`).set('Cookie', cookie);
         expect(res.status).toBe(403);
     });
 
     test('DELETE clears an uploaded logo', async () => {
-        await request.post(`/api/pdf-export/settings/${type}/logo`).set('Cookie', ownerCookie)
+        await request.post(`/api/pdf-export/settings/${type}/${profileId}/logo`).set('Cookie', ownerCookie)
             .attach('logo', makeFakePng(10, 10), 'logo.png');
 
-        const del = await request.delete(`/api/pdf-export/settings/${type}/logo`).set('Cookie', ownerCookie);
+        const del = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/logo`).set('Cookie', ownerCookie);
         expect(del.status).toBe(200);
         expect(del.body.logo_url).toBeNull();
     });
 
     test('DELETE clears an uploaded cover image', async () => {
-        await request.post(`/api/pdf-export/settings/${type}/cover-image`).set('Cookie', ownerCookie)
+        await request.post(`/api/pdf-export/settings/${type}/${profileId}/cover-image`).set('Cookie', ownerCookie)
             .attach('image', makeFakePng(EXPECTED_WIDTH, EXPECTED_HEIGHT), 'cover.png');
 
-        const del = await request.delete(`/api/pdf-export/settings/${type}/cover-image`).set('Cookie', ownerCookie);
+        const del = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/cover-image`).set('Cookie', ownerCookie);
         expect(del.status).toBe(200);
         expect(del.body.cover_image_url).toBeNull();
     });
 
     test('DELETE clears a background slot image', async () => {
-        await request.post(`/api/pdf-export/settings/${type}/background/backCover`).set('Cookie', ownerCookie)
+        await request.post(`/api/pdf-export/settings/${type}/${profileId}/background/backCover`).set('Cookie', ownerCookie)
             .attach('image', makeFakePng(10, 10), 'bg.png');
 
-        const del = await request.delete(`/api/pdf-export/settings/${type}/background/backCover`).set('Cookie', ownerCookie);
+        const del = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/background/backCover`).set('Cookie', ownerCookie);
         expect(del.status).toBe(200);
         expect(del.body.back_cover_bg_image_url).toBeNull();
     });
 
     test('DELETE background rejects an unknown slot with 400', async () => {
-        const res = await request.delete(`/api/pdf-export/settings/${type}/background/bogus`).set('Cookie', ownerCookie);
+        const res = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/background/bogus`).set('Cookie', ownerCookie);
         expect(res.status).toBe(400);
     });
 
     test('removing a logo that was never set is a harmless no-op', async () => {
-        const res = await request.delete(`/api/pdf-export/settings/${type}/logo`).set('Cookie', ownerCookie);
+        const res = await request.delete(`/api/pdf-export/settings/${type}/${profileId}/logo`).set('Cookie', ownerCookie);
         expect(res.status).toBe(200);
         expect(res.body.logo_url).toBeNull();
     });

@@ -8,12 +8,19 @@ const formStatusPending = 'pending';
 const formStatusScheduled = 'scheduled';
 const formStatusSubmitted = 'submitted';
 const formStatusReviewed = 'reviewed';
+// Not a distinct client-facing state: the dispatcher cron (server
+// scheduler.ts) ticks a due 'pending' request over to 'sent' once it notices
+// it — same "awaiting the client" bucket as 'pending', matching the coach
+// Plans Queue's identical treatment (forms.controller.ts).
+const formStatusSent = 'sent';
 
 /// A request that still needs the client's attention — the Forms list's
 /// "pending" bucket plus not-yet-open scheduled requests. Shared by the Forms
 /// page and the bottom-nav unread dot so the two never drift apart.
 bool formRequestNeedsAction(FormRequestSummary r) =>
-    r.status == formStatusPending || r.status == formStatusScheduled;
+    r.status == formStatusPending ||
+    r.status == formStatusScheduled ||
+    r.status == formStatusSent;
 
 /// A form request in the client's list (`GET /client-portal/form-requests`).
 @freezed
@@ -113,10 +120,26 @@ abstract class FormResponse with _$FormResponse {
   const factory FormResponse({
     @JsonKey(name: 'question_id') required String questionId,
     String? answer,
+    @Default(false) bool edited,
+    @Default(<AnswerEditEntry>[]) List<AnswerEditEntry> history,
   }) = _FormResponse;
 
   factory FormResponse.fromJson(Map<String, dynamic> json) =>
       _$FormResponseFromJson(json);
+}
+
+/// One entry in an answer's edit trail (oldest first), as returned inline on
+/// each `FormResponse` by `attachEditHistory` server-side.
+@freezed
+abstract class AnswerEditEntry with _$AnswerEditEntry {
+  const factory AnswerEditEntry({
+    @JsonKey(name: 'previous_answer') String? previousAnswer,
+    @JsonKey(name: 'new_answer') String? newAnswer,
+    @JsonKey(name: 'edited_at') required String editedAt,
+  }) = _AnswerEditEntry;
+
+  factory AnswerEditEntry.fromJson(Map<String, dynamic> json) =>
+      _$AnswerEditEntryFromJson(json);
 }
 
 /// Options arrive as a JSON array (or null); coerce every element to a string.

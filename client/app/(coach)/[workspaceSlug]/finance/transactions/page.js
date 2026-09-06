@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
+import ErrorState from "@/app/components/ErrorState";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
 import KpiCardGroup from "@/app/components/KpiCardGroup";
@@ -271,6 +272,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
 export default function TransactionsPage() {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
+    const tError = useTranslations('error');
     usePageTitle(t('title'));
     const locale = useLocale();
 
@@ -279,23 +281,50 @@ export default function TransactionsPage() {
     const [packages, setPackages]             = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [loading, setLoading]               = useState(true);
+    const [loadError, setLoadError]           = useState(false); // transactions fetch failed — distinct from "no transactions"
     // The shared TransactionModal owns the form; this page only tracks open/edit state.
     const [showForm, setShowForm]   = useState(false);
     const [editingTx, setEditingTx] = useState(null);
 
-    useEffect(() => {
-        Promise.all([
-            api.get("/api/transactions?limit=10000"),
+    // The transactions list is this page's critical data — its own request, its
+    // own error state, so a failure shows a retry card rather than an empty table.
+    const loadTransactions = useCallback(() => {
+        api.get("/api/transactions?limit=10000")
+            .then(({ data }) => { setTransactions(data?.data ?? []); setLoadError(false); })
+            .catch((err) => { console.error("Failed to load transactions:", err); setLoadError(true); })
+            .finally(() => setLoading(false));
+    }, []);
+
+    // Reference data for the client picker, filters and modal. Loaded
+    // independently and per-request tolerant: a blip on any of these must not
+    // blank the transactions table (it did — all four shared one Promise.all).
+    const loadReferenceData = useCallback(() => {
+        Promise.allSettled([
             api.get("/api/clients?limit=10000"),
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
-        ]).then(([txRes, clientRes, pkgRes, pmRes]) => {
-            setTransactions(txRes.data?.data ?? []);
-            setClients(clientRes.data?.data ?? []);
-            setPackages(pkgRes.data ?? []);
-            setPaymentMethods((pmRes.data ?? []).filter(m => m.active));
-        }).catch(console.error).finally(() => setLoading(false));
+        ]).then(([clientRes, pkgRes, pmRes]) => {
+            if (clientRes.status === "fulfilled") setClients(clientRes.value.data?.data ?? []);
+            else console.error("Failed to load clients:", clientRes.reason);
+            if (pkgRes.status === "fulfilled") setPackages(pkgRes.value.data ?? []);
+            else console.error("Failed to load packages:", pkgRes.reason);
+            if (pmRes.status === "fulfilled") setPaymentMethods((pmRes.value.data ?? []).filter(m => m.active));
+            else console.error("Failed to load payment methods:", pmRes.reason);
+        });
     }, []);
+
+    // Retry handler for the error card — reset to the loading state, then re-fetch.
+    const retryLoad = useCallback(() => {
+        setLoadError(false);
+        setLoading(true);
+        loadTransactions();
+        loadReferenceData();
+    }, [loadTransactions, loadReferenceData]);
+
+    useEffect(() => {
+        loadTransactions();
+        loadReferenceData();
+    }, [loadTransactions, loadReferenceData]);
 
     const packageVariationOptions = packages.flatMap(p =>
         p.variations.map(v => ({
@@ -355,6 +384,12 @@ export default function TransactionsPage() {
                 </div>
             </div>
         );
+    }
+
+    // The transactions request failed — offer a retry instead of an empty table
+    // that reads as "no transactions yet".
+    if (loadError) {
+        return <ErrorState error={{ message: tError('failedToLoad') }} reset={retryLoad} />;
     }
 
     return (

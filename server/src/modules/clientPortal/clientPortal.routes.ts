@@ -158,6 +158,20 @@ router.get('/access', ...authed, clientPortalController.getAccess);
 
 /**
  * @openapi
+ * /client-portal/subscription:
+ *   get:
+ *     summary: Get the client's own plan details and payment history
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ status, withinGrace, plan, currentPeriodStart, currentPeriodEnd, totalCoverageEnd, frozenUntil, renewalLink, transactions }"
+ */
+router.get('/subscription', ...authed, clientPortalController.getSubscription);
+
+/**
+ * @openapi
  * /client-portal/active-plan:
  *   get:
  *     summary: Get the client's currently active nutrition plan
@@ -645,6 +659,61 @@ router.get('/workout-logs/exercises',         ...open, requireClientAccess('view
 router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
 router.put('/workout-logs/:id',               ...open, requireClientAccess('view_training_plans'),   clientPortalController.upsertWorkoutLog);
 router.delete('/workout-logs/:id',            ...open, requireClientAccess('view_progress_history'), clientPortalController.deleteWorkoutLog);
+
+/**
+ * @openapi
+ * /client-portal/food-diary/today:
+ *   get:
+ *     summary: Get (or create, from the active nutrition plan) today's food diary entry
+ *     description: >
+ *       Returns null when the client has no active nutrition plan yet. Pass
+ *       `cycle_id` (the cycle the client's own nutrition page currently has
+ *       selected) so the first-ever entry of the day snapshots the right
+ *       cycle's items — irrelevant once an entry for today already exists,
+ *       since the snapshot is then fixed for the day.
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: cycle_id, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: The diary entry, or null if there's no active plan
+ *   patch:
+ *     summary: Record how much of one item the client ate today
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [meal_item_id, amount_eaten]
+ *             properties:
+ *               meal_item_id: { type: string }
+ *               amount_eaten: { type: number, minimum: 0 }
+ *               cycle_id:     { type: string, nullable: true }
+ *     responses:
+ *       200:
+ *         description: Updated entry with recomputed totals + adherence
+ *       404:
+ *         description: No active plan, or the item isn't part of today's diary
+ *
+ * /client-portal/food-diary/history:
+ *   get:
+ *     summary: The client's own past food diary entries, most recent first
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of diary entries
+ */
+router.get('/food-diary/today',     ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getTodayFoodDiary);
+router.patch('/food-diary/today',   ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.updateTodayFoodDiaryItem);
+router.get('/food-diary/history',   ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getFoodDiaryHistory);
 
 /**
  * @openapi

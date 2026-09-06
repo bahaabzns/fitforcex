@@ -233,6 +233,27 @@ router.delete('/:id/permanent', requireOwner, clientsController.permanentDeleteC
  *         description: Freeze created
  *
  * /clients/{id}/freezes/{freezeId}:
+ *   patch:
+ *     summary: Edit an existing freeze period (recalculates subscription dates)
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: freezeId, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [freezeStartDate, freezeDurationDays]
+ *             properties:
+ *               freezeStartDate:    { type: string, format: date }
+ *               freezeDurationDays: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Freeze updated
  *   delete:
  *     summary: Remove a freeze period
  *     tags: [Clients]
@@ -244,10 +265,24 @@ router.delete('/:id/permanent', requireOwner, clientsController.permanentDeleteC
  *     responses:
  *       200:
  *         description: Freeze removed
+ *
+ * /clients/{id}/freezes/history:
+ *   get:
+ *     summary: Immutable audit trail of freeze create/edit/remove actions
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Array of freeze history entries
  */
 router.get('/:id/package-defaults', clientsController.getClientPackageDefaults);
+router.get('/:id/freezes/history', clientsController.getFreezeHistory);
 router.get('/:id/freezes', clientsController.getFreezes);
 router.post('/:id/freezes', clientsController.createFreeze);
+router.patch('/:id/freezes/:freezeId', clientsController.updateFreeze);
 router.delete('/:id/freezes/:freezeId', clientsController.deleteFreeze);
 
 /**
@@ -335,12 +370,42 @@ router.post('/:id/set-password', clientsController.setPassword);
  *         description: Session detail
  *       404:
  *         description: Not found
+ *
+ * /clients/{id}/food-diary:
+ *   get:
+ *     summary: A client's food diary history — daily items, totals, and adherence
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Array of diary entries, most recent first
+ *       404:
+ *         description: Client not found
+ *
+ * /clients/{id}/food-diary/adherence:
+ *   get:
+ *     summary: Food diary adherence rolled up per nutrition plan, plus the least-adherent food items
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Per-plan adherence summaries and overall least-adherent items
+ *       404:
+ *         description: Client not found
  */
-router.get('/:id/workout-logs',        clientsController.getClientWorkoutLogs);
-router.get('/:id/exercise-progress',   clientsController.getClientExerciseProgress);
-router.get('/:id/exercise-insights',   clientsController.getClientExerciseInsights);
-router.get('/:id/logged-exercises',    clientsController.getClientLoggedExercises);
-router.get('/:id/workout-logs/:logId', clientsController.getClientWorkoutLog);
+router.get('/:id/workout-logs',          clientsController.getClientWorkoutLogs);
+router.get('/:id/exercise-progress',     clientsController.getClientExerciseProgress);
+router.get('/:id/exercise-insights',     clientsController.getClientExerciseInsights);
+router.get('/:id/logged-exercises',      clientsController.getClientLoggedExercises);
+router.get('/:id/workout-logs/:logId',   clientsController.getClientWorkoutLog);
+router.get('/:id/food-diary',            clientsController.getClientFoodDiary);
+router.get('/:id/food-diary/adherence',  clientsController.getClientFoodDiaryAdherence);
 
 /**
  * @openapi

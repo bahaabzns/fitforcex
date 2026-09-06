@@ -2,6 +2,44 @@
 
 Significant choices: the question, what we picked, what we rejected, and why.
 
+## 2026-09-02 — PDF branding: many named profiles per plan type, chosen at export
+
+- **Question:** Asked for gender-based PDF branding (nutrition/training ×
+  male/female). But nothing in the app lets a coach set a client's gender —
+  `client_measurements.gender` exists but only seed scripts write it, so for
+  real clients it's always null. Reframed with the user to: a coach can keep
+  **several named branding profiles per plan type** and pick one at export.
+- **Picked:** `nutrition_pdf_settings` / `training_pdf_settings` go from one
+  row per workspace to many, adding `name` + `is_default` (migration
+  `091_pdf_branding_profiles.js`). Uniqueness moves from `workspace_id` to
+  `(workspace_id, name)`; a partial unique index
+  `<table>_one_default_per_workspace` (DB-only — PSL can't express it)
+  guarantees exactly one default. Existing rows become each workspace's
+  `Default` profile. A workspace that never saved settings still gets a
+  synthesized default (id `''`) at read time — `getOrDefault*` becomes
+  `get*PdfProfile(workspaceId, profileId?)`, falling back profileId →
+  default → synthesized, never throwing (an export must always produce a
+  PDF). Endpoints keep the per-type shape (see 2026-07-28) and gain
+  `/:profileId`: `GET`/`POST /settings/:type` (list/create),
+  `GET`/`PUT`/`DELETE /settings/:type/:profileId`,
+  `POST /settings/:type/:profileId/duplicate` (server-side field copy,
+  images included, into a "<name> copy" profile), and the logo/cover/
+  background uploads move under `/:profileId`. Export + preview take
+  `?profileId=`. The settings page gets a profile selector (new/duplicate/
+  rename/delete/make-default); the plan builders keep a single "Export PDF"
+  button — one profile exports on click, several open a dropdown to pick
+  which.
+- **Rejected:** (1) Gender-driven selection — no source of truth for client
+  gender, and adding a client-gender field is a separate feature the user
+  didn't want bundled. (2) Female-inherits-male overrides — a new
+  inheritance concept; the user chose fully independent profiles, matching
+  the 2026-07-28 no-shared-assets stance one level down. (3) A neutral
+  "default" audience alongside male/female — moot once the feature stopped
+  being gender-shaped.
+- **Why:** Delivers the real need (switch branding at export) without
+  depending on data the app doesn't collect, and reuses the existing
+  per-type table split rather than inventing a parallel structure.
+
 ## 2026-07-28 — Nutrition and training PDF branding fully separated (no shared assets)
 
 - **Question:** `pdf_settings` was one row per workspace shared by both

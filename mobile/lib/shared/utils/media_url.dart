@@ -16,7 +16,7 @@ String? resolveMediaUrl(String? path, String baseUrl) {
 String? youtubeVideoId(String? url) {
   if (url == null || url.isEmpty) return null;
   final match = RegExp(
-    r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([^&\s?]+)',
+    r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([^&\s?]+)',
   ).firstMatch(url);
   return match?.group(1);
 }
