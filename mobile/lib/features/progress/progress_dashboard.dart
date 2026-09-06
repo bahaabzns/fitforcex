@@ -303,7 +303,8 @@ class _PhotoMetricCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -313,12 +314,13 @@ class _PhotoMetricCard extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: _comparePane(points.first)),
-                  const SizedBox(width: 6),
-                  Expanded(child: _comparePane(points.last)),
-                ],
+              _ComparisonSlider(before: points.first, after: points.last),
+              const SizedBox(height: 6),
+              Text(
+                l10n.progressCompareDrag,
+                style: TextStyle(
+                    fontSize: 10, color: dialogContext.appColors.mutedForeground),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -326,16 +328,175 @@ class _PhotoMetricCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _comparePane(MetricHistoryPoint p) {
+/// One overlapping image with a draggable vertical divider that reveals
+/// [before] on the left and [after] on the right — port of web's
+/// `ComparisonSlider` (client-portal home page). Mobile's compare used to
+/// show the two photos side by side instead of split like this.
+class _ComparisonSlider extends StatefulWidget {
+  const _ComparisonSlider({required this.before, required this.after});
+
+  final MetricHistoryPoint before;
+  final MetricHistoryPoint after;
+
+  @override
+  State<_ComparisonSlider> createState() => _ComparisonSliderState();
+}
+
+class _ComparisonSliderState extends State<_ComparisonSlider> {
+  // Percent (0-100) of the container width where the divider sits.
+  double _position = 50;
+
+  void _updatePosition(Offset globalPosition, RenderBox box) {
+    final local = box.globalToLocal(globalPosition);
+    setState(() {
+      _position = (local.dx / box.size.width * 100).clamp(2, 98);
+    });
+  }
+
+  Widget _photo(String url) => Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, _, __) => Container(
+          color: context.appColors.secondary,
+          child: const Center(child: Icon(Icons.broken_image_outlined)),
+        ),
+      );
+
+  Widget _cornerLabel(BuildContext context, String text, {required bool primary}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: primary
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.8)
+              : Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+          ),
+        ),
+      );
+
+  Widget _dateLabel(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).toString();
+    final beforeDate = DateTime.tryParse(widget.before.date);
+    final afterDate = DateTime.tryParse(widget.after.date);
+    final beforeLabel =
+        beforeDate != null ? DateFormat.yMMMd(locale).format(beforeDate) : widget.before.date;
+    final afterLabel =
+        afterDate != null ? DateFormat.yMMMd(locale).format(afterDate) : widget.after.date;
+
     return AspectRatio(
       aspectRatio: 3 / 4,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(p.value, fit: BoxFit.cover),
+        borderRadius: BorderRadius.circular(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => _updatePosition(
+                  d.globalPosition, context.findRenderObject()! as RenderBox),
+              onHorizontalDragUpdate: (d) => _updatePosition(
+                  d.globalPosition, context.findRenderObject()! as RenderBox),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _photo(widget.after.value),
+                  ClipRect(
+                    clipper: _LeftFractionClipper(_position / 100),
+                    child: _photo(widget.before.value),
+                  ),
+                  Positioned(
+                    left: width * _position / 100 - 1,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.6), blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: (width * _position / 100 - 16).clamp(0.0, width - 32),
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 6),
+                          ],
+                        ),
+                        child: const Icon(Icons.compare_arrows,
+                            size: 16, color: Colors.black54),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _cornerLabel(context, l10n.progressCompareBefore, primary: false),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _cornerLabel(context, l10n.progressCompareAfter, primary: true),
+                  ),
+                  Positioned(bottom: 8, left: 8, child: _dateLabel(beforeLabel)),
+                  Positioned(bottom: 8, right: 8, child: _dateLabel(afterLabel)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+/// Clips to the left [fraction] (0.0-1.0) of the child's width — the "before"
+/// image is full-size underneath but only this much of it is visible,
+/// exactly like web's `clipPath: inset(0 (100-position)% 0 0)`.
+class _LeftFractionClipper extends CustomClipper<Rect> {
+  const _LeftFractionClipper(this.fraction);
+
+  final double fraction;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width * fraction, size.height);
+
+  @override
+  bool shouldReclip(covariant _LeftFractionClipper oldClipper) =>
+      oldClipper.fraction != fraction;
 }
 
 class _PhotoViewer extends StatelessWidget {
