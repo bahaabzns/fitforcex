@@ -52,7 +52,6 @@ class _SessionCompletePageState extends ConsumerState<SessionCompletePage> {
   bool _loadingPrompt = true;
   int _rating = 0;
   int _hoverRating = 0;
-  bool _rateHintShown = false;
   final _feedbackController = TextEditingController();
 
   @override
@@ -117,16 +116,6 @@ class _SessionCompletePageState extends ConsumerState<SessionCompletePage> {
     final hasStats =
         widget.durationSeconds != null || widget.volume != null || widget.sets != null;
 
-    _rateHintShown = maybeShowFeatureHint(
-      context,
-      ref,
-      featureKey: 'rate_session_hint',
-      active: !_loadingPrompt && _prompt != null,
-      alreadyShown: _rateHintShown,
-      message: l10n.trainingRateSessionHint,
-      dismissLabel: l10n.trainingRateSessionHintDismiss,
-      badgeLabel: l10n.trainingRateSessionNewFeature,
-    );
 
     return Scaffold(
       appBar: AppBar(
@@ -206,25 +195,39 @@ class _SessionCompletePageState extends ConsumerState<SessionCompletePage> {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var n = 1; n <= _prompt!.scaleMax; n++)
-                        IconButton(
-                          onPressed: () => setState(() => _rating = n),
-                          onHover: (hovering) =>
-                              setState(() => _hoverRating = hovering ? n : 0),
-                          icon: Icon(
-                            (_hoverRating > 0 ? _hoverRating : _rating) >= n
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: (_hoverRating > 0 ? _hoverRating : _rating) >= n
-                                ? Colors.amber
-                                : muted.withValues(alpha: 0.4),
-                            size: 28,
+                  NewFeatureHint(
+                    featureKey: 'rate_session_hint',
+                    active: true,
+                    message: l10n.trainingRateSessionHint,
+                    dismissLabel: l10n.trainingRateSessionHintDismiss,
+                    badgeLabel: l10n.trainingRateSessionNewFeature,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var n = 1; n <= _prompt!.scaleMax; n++)
+                          IconButton(
+                            onPressed: () {
+                              unawaited(ref
+                                  .read(featureHintSeenProvider(
+                                          'rate_session_hint')
+                                      .notifier)
+                                  .dismiss());
+                              setState(() => _rating = n);
+                            },
+                            onHover: (hovering) =>
+                                setState(() => _hoverRating = hovering ? n : 0),
+                            icon: Icon(
+                              (_hoverRating > 0 ? _hoverRating : _rating) >= n
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: (_hoverRating > 0 ? _hoverRating : _rating) >= n
+                                  ? Colors.amber
+                                  : muted.withValues(alpha: 0.4),
+                              size: 28,
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   TextField(

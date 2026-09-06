@@ -310,6 +310,9 @@
   "progressReadings": "{count} قراءة",
   "progressNoDataInRange": "لا توجد بيانات في هذا النطاق",
   "progressCompare": "مقارنة",
+  "progressCompareBefore": "قبل",
+  "progressCompareAfter": "بعد",
+  "progressCompareDrag": "اسحب المقبض للمقارنة",
 
   "themeSystem": "النظام",
   "themeLight": "فاتح",
