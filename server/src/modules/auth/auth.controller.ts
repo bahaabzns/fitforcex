@@ -24,7 +24,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
             return res.status(400).json({ message: 'Password must be at least 8 characters' });
         }
 
-        const { normalizedEmail, trimmedPhone } = await assertEmailPhoneAvailable(email, phone);
+        const { normalizedEmail, trimmedPhone, reclaimableUserId } = await assertEmailPhoneAvailable(email, phone);
 
         const hashed         = await bcrypt.hash(password, 10);
         const rawSlug        = normalizedEmail.split('@')[0] || `${fname}-${lname}`;
@@ -35,19 +35,43 @@ export async function register(req: Request, res: Response, next: NextFunction) 
         });
         const slug = slugConflict ? `${normalizedSlug}-${Date.now()}` : normalizedSlug;
 
-        const userId      = createId();
+        const userId      = reclaimableUserId ?? createId();
         const workspaceId = createId();
 
         try {
             const [user] = await prisma.$transaction(async (tx) => {
-                const newUser = await tx.users.create({
-                    data: {
-                        id: userId, fname: fname || '', lname: lname || '',
-                        email: normalizedEmail, password: hashed,
-                        phone: trimmedPhone,
-                    },
-                    select: { id: true, fname: true, lname: true, email: true },
-                });
+                const userFields = {
+                    fname: fname || '', lname: lname || '',
+                    email: normalizedEmail, password: hashed,
+                    phone: trimmedPhone,
+                };
+
+                // reclaimableUserId → the email belongs to an inert orphan row
+                // (assertEmailPhoneAvailable vetted it): take it over in place so
+                // the freed email doesn't trip its own unique constraint, and
+                // reset the verification state left over from the old import.
+                const newUser = reclaimableUserId
+                    ? await tx.users.update({
+                        where: { id: userId },
+                        data:  {
+                            ...userFields,
+                            email_verified: false,
+                            email_verification_code: null,
+                            verification_code_expires_at: null,
+                            default_workspace_id: null,
+                        },
+                        select: { id: true, fname: true, lname: true, email: true },
+                    })
+                    : await tx.users.create({
+                        data:   { id: userId, ...userFields },
+                        select: { id: true, fname: true, lname: true, email: true },
+                    });
+
+                // A stale reset code from the orphan's previous life must not
+                // unlock the new account.
+                if (reclaimableUserId) {
+                    await tx.password_reset_tokens.deleteMany({ where: { user_id: userId } });
+                }
 
                 // Platform/brand name is an optional checkout-wizard field (step 1) — falls
                 // back to the same auto-derived default as before when left blank.
@@ -137,8 +161,19 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                    email: user.email, workspace_slug: slug, workspace_id: workspaceId,
                });
         } catch (err) {
+            // A unique-constraint violation that slipped past the pre-checks —
+            // normally the email racing another signup, but it can also be the
+            // workspace slug. Only claim "email exists" when it actually was the
+            // email; anything else is a transient collision worth retrying.
             if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-                return res.status(409).json({ message: 'An account with this email already exists' });
+                const target = Array.isArray(err.meta?.target)
+                    ? (err.meta.target as string[]).join(',')
+                    : String(err.meta?.target ?? '');
+                return res.status(409).json({
+                    message: target.includes('email')
+                        ? 'An account with this email already exists'
+                        : 'Could not create your account — please try again',
+                });
             }
             throw err;
         }

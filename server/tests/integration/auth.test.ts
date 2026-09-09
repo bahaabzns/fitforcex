@@ -139,3 +139,98 @@ describe('P1-1 — Forgot / Reset Password', () => {
         expect(res.status).toBe(400);
     });
 });
+
+describe('POST /auth/register — inert-orphan takeover', () => {
+    const base = { fname: 'Real', lname: 'Person', password: 'password123' };
+
+    // An unverified users row with no workspace and no activity — the shape left
+    // behind by a fitforce.io migration import for someone who never onboarded,
+    // or by an abandoned paid checkout (register writes the row before payment).
+    // Its email is globally unique, so without takeover it blocks signup forever.
+    const createInertOrphan = (email: string, extra: Record<string, unknown> = {}) =>
+        createTestUser({ email, email_verified: false, ...extra });
+
+    test('reclaims the orphan row instead of 409 (201, same id, workspace attached)', async () => {
+        const email  = `orphan-${createId()}@test.com`;
+        const orphan = await createInertOrphan(email);
+
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email, phone: `+2010${Date.now()}` });
+
+        expect(res.status).toBe(201);
+        expect(res.body.email).toBe(email);
+        expect(res.body.id).toBe(orphan.id);            // row reused, not duplicated
+        expect(res.body.workspace_slug).toBeTruthy();
+
+        const rows = await testPrisma.users.findMany({ where: { email } });
+        expect(rows).toHaveLength(1);
+        expect(rows[0].default_workspace_id).toBe(res.body.workspace_id);
+        expect(rows[0].email_verified).toBe(false);
+        expect(rows[0].fname).toBe('Real');             // overwritten with the new signup's name
+    });
+
+    test('reclaims even when the submitted phone already sits on that same orphan (abandoned-checkout retry)', async () => {
+        const email = `resume-${createId()}@test.com`;
+        const phone = `+2010${Date.now()}`;
+        await createInertOrphan(email, { phone });
+
+        const res = await request.post('/api/auth/register').send({ ...base, email, phone });
+
+        expect(res.status).toBe(201);
+        expect(res.body.email).toBe(email);
+    });
+
+    test('clears stale password-reset codes from the reclaimed row', async () => {
+        const email  = `resettoken-${createId()}@test.com`;
+        const orphan = await createInertOrphan(email);
+        await testPrisma.password_reset_tokens.create({
+            data: { id: createId(), user_id: orphan.id, code: 'OLD123', expires_at: new Date(Date.now() + 60_000) },
+        });
+
+        await request.post('/api/auth/register').send({ ...base, email, phone: `+2010${Date.now()}` });
+
+        const tokens = await testPrisma.password_reset_tokens.findMany({ where: { user_id: orphan.id } });
+        expect(tokens).toHaveLength(0);
+    });
+
+    test('does NOT reclaim a row with a live session (409)', async () => {
+        const email  = `hassession-${createId()}@test.com`;
+        const orphan = await createInertOrphan(email);
+        await testPrisma.user_sessions.create({
+            data: {
+                id: createId(), user_id: orphan.id,
+                token_hash: `hash-${createId()}`,
+                expires_at: new Date(Date.now() + 3_600_000),
+            },
+        });
+
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email, phone: `+2010${Date.now()}` });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/email/i);
+    });
+
+    test('does NOT reclaim a row that owns a workspace (409)', async () => {
+        const email  = `hasworkspace-${createId()}@test.com`;
+        const orphan = await createInertOrphan(email);
+        await createTestWorkspace(orphan.id);
+
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email, phone: `+2010${Date.now()}` });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/email/i);
+    });
+
+    test('does NOT reclaim a verified account (409)', async () => {
+        const email = `verified-${createId()}@test.com`;
+        await createTestUser({ email });                 // email_verified defaults to true
+
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email, phone: `+2010${Date.now()}` });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/email/i);
+    });
+});

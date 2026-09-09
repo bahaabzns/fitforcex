@@ -42,13 +42,41 @@ export function normalizeSlug(raw: string): string {
         .replace(/(^-|-$)/g, '');
 }
 
+export type EmailPhoneCheck = {
+    normalizedEmail: string;
+    trimmedPhone: string;
+    // Set when the email already belongs to a users row that is a provably-inert
+    // orphan (see isInertOrphan below) — register() reuses that row instead of
+    // 409ing, so the person can finally sign up. null on a truly free email.
+    reclaimableUserId: string | null;
+};
+
+// A users row is a REAL account — never silently reclaimable by a new signup —
+// if any of these relations has a row. A row with none of them, an unverified
+// email, and no default workspace is inert: it holds nothing but its email.
+// In practice these are fitforce.io migration imports for people who never
+// onboarded, or abandoned paid-checkout stubs (register() writes the users row
+// before payment). Both otherwise block that email from ever registering.
+const ORPHAN_BLOCKING_RELATIONS = {
+    workspaces_workspaces_owner_idTousers:                                true,
+    workspace_members:                                                    true,
+    user_sessions:                                                        true,
+    training_plans:                                                       true,
+    nutrition_plans:                                                      true,
+    nutrition_plans_edited:                                               true,
+    client_observations:                                                  true,
+    workspace_audit_log:                                                  true,
+    workspace_invitations_workspace_invitations_invited_by_user_idTousers: true,
+    workspace_invitations_workspace_invitations_invited_user_idTousers:    true,
+} as const;
+
 // Shared by register() (step 2 — actually creates the account) and the
 // checkout wizard's step-1 "can I use this email/phone" pre-check, so the two
 // never drift on what counts as valid/available. Throws SignupFieldError on
 // the first failing rule; never writes anything.
 export async function assertEmailPhoneAvailable(
     email: string | undefined, phone: string | undefined,
-): Promise<{ normalizedEmail: string; trimmedPhone: string }> {
+): Promise<EmailPhoneCheck> {
     if (!email || typeof email !== 'string' || !email.trim()) {
         throw new SignupFieldError(400, 'Email is required');
     }
@@ -62,21 +90,45 @@ export async function assertEmailPhoneAvailable(
     const normalizedEmail = normalizeEmail(email);
     const trimmedPhone = phone.trim();
 
-    // Email and phone must each be unique across coaches. (email has a DB unique
-    // constraint; phone does not, so it's enforced here.) Email is matched
-    // case-insensitively so "John@x.com" and "john@x.com" collide.
-    const existing = await prisma.users.findFirst({
-        where:  { OR: [{ email: { equals: normalizedEmail, mode: 'insensitive' } }, { phone: trimmedPhone }] },
-        select: { email: true, phone: true },
+    // Email is globally unique (DB constraint users_email_key), matched
+    // case-insensitively so "John@x.com" and "john@x.com" collide. A match is
+    // normally a hard stop — unless the row is an inert orphan, in which case
+    // the new signup takes it over (register() updates it in place).
+    const emailOwner = await prisma.users.findFirst({
+        where:  { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        select: {
+            id: true, email_verified: true, default_workspace_id: true,
+            _count: { select: ORPHAN_BLOCKING_RELATIONS },
+        },
     });
-    if (existing) {
-        const message = normalizeEmail(existing.email) === normalizedEmail
-            ? 'An account with this email already exists'
-            : 'An account with this phone number already exists';
-        throw new SignupFieldError(409, message);
+
+    let reclaimableUserId: string | null = null;
+    if (emailOwner) {
+        const isInertOrphan =
+            !emailOwner.email_verified &&
+            emailOwner.default_workspace_id === null &&
+            Object.values(emailOwner._count).every((n) => n === 0);
+        if (!isInertOrphan) {
+            throw new SignupFieldError(409, 'An account with this email already exists');
+        }
+        reclaimableUserId = emailOwner.id;
     }
 
-    return { normalizedEmail, trimmedPhone };
+    // Phone has no DB constraint, so uniqueness across coaches is enforced here.
+    // A match on the same orphan we're about to reclaim is fine (it's the same
+    // person retrying) — exclude it so an abandoned checkout can be resumed.
+    const phoneOwner = await prisma.users.findFirst({
+        where:  {
+            phone: trimmedPhone,
+            ...(reclaimableUserId ? { id: { not: reclaimableUserId } } : {}),
+        },
+        select: { id: true },
+    });
+    if (phoneOwner) {
+        throw new SignupFieldError(409, 'An account with this phone number already exists');
+    }
+
+    return { normalizedEmail, trimmedPhone, reclaimableUserId };
 }
 
 export async function buildTokenForWorkspace(userId: string, workspaceId: string) {
