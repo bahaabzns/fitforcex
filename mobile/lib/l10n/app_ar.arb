@@ -91,7 +91,7 @@
   "subscriptionDaysRemainingLabel": "{remaining}/{total} يوم متبقٍ",
   "@subscriptionDaysRemainingLabel": { "placeholders": { "remaining": { "type": "int" }, "total": { "type": "int" } } },
   "subscriptionNoSubscription": "ليس لديك اشتراك نشط حالياً. تواصل مع مدربك للبدء.",
-  "subscriptionRenewCta": "تجديد الاشتراك",
+  "subscriptionRenewCta": "تواصل مع مدربك للتجديد",
   "subscriptionPaymentHistory": "سجل المدفوعات",
   "subscriptionNoPaymentHistory": "لا يوجد سجل مدفوعات بعد.",
   "subscriptionStatusActive": "نشط",
