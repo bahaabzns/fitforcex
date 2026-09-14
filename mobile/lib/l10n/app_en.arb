@@ -317,6 +317,9 @@
   "@progressReadings": { "placeholders": { "count": { "type": "int" } } },
   "progressNoDataInRange": "No data in this range",
   "progressCompare": "Compare",
+  "progressCompareBefore": "Before",
+  "progressCompareAfter": "After",
+  "progressCompareDrag": "Drag the handle to compare",
 
   "themeSystem": "System",
   "themeLight": "Light",

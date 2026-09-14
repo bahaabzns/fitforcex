@@ -23,10 +23,11 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
-- [ ] 2026-08-23 — feb9e68 — TODO(area) — "feat(web): add client subscription page" touched: client/app/(client)/portal/layout.js client/app/(client)/portal/profile/page.js client/app/(client)/portal/subscription/page.js — fill in what changed and why it matters for mobile
-- [ ] 2026-08-23 — 76da43d — TODO(area) — "feat(web): add client-portal food diary tracking UI" touched: client/app/(client)/portal/nutrition/diary/page.js client/app/(client)/portal/nutrition/page.js client/app/components/nutrition/FoodDiaryAdherenceModal.js client/app/components/nutrition/MiddlePanel.js client/utils/adherence.js — fill in what changed and why it matters for mobile
-
-Nothing outstanding — the 2026-08-23 audit backlog (17 items) and the two uncommitted web features that triggered it (Food Diary + Adherence, Subscription page) are all ported. See **Ported** below.
+- [ ] 2026-09-05 — b575bc3 — TODO(area) — "fix(messenger): show generic coach label instead of real name to clients" touched: client/app/(client)/portal/messages/page.js — fill in what changed and why it matters for mobile
+Nothing outstanding. The two stub lines the post-commit hook added for `feb9e68` (subscription page) and `76da43d`
+(food diary/adherence) were re-logs of features already tracked below under their prior "(uncommitted)" placeholder —
+pruned here, real SHAs filled in on the existing **Ported** rows instead. The 2026-08-23 audit backlog (17 items) and
+both web features that triggered it are all ported.
 
 ## Ported
 
@@ -47,9 +48,9 @@ Nothing outstanding — the 2026-08-23 audit backlog (17 items) and the two unco
 - [x] 2026-08-23 — 17a0627 — training — Autosave/draft-resume (debounced PUT + server-side draft recovery), added. mobile `0b17c32`.
 - [x] 2026-08-23 — cf0500a — training — Day-preview re-architecture (shared session UI, resumable/minimizable sessions, live "Continue {day}" state), added. mobile `9298d1c`.
 - [x] 2026-08-23 — 0a7f9bc — training — Post-session completion page (stats, star+text feedback via the Insights subsystem), added. mobile `43bb7af`. Chime omitted — no audio-synthesis dependency added for it; see the commit note.
-- [x] 2026-08-23 — 83821a8 — training — First-time hint mechanism (5 surfaces), added. mobile `f73765a`. Ported as a SnackBar, not web's anchored popover — see the commit note.
-- [x] 2026-08-23 — (uncommitted) — nutrition — Food Diary + Adherence (checklist + history), added. mobile `54e22a6`.
-- [x] 2026-08-23 — (uncommitted) — profile — Subscription page (plan card, period/progress, renew CTA, payment history), added. mobile `e9260b4`.
+- [x] 2026-08-23 — 83821a8 — training — First-time hint mechanism (5 surfaces), added. mobile `f73765a`, re-ported to an anchored popover matching web (uncommitted) — see the commit note on `f73765a` for why it originally shipped as a SnackBar.
+- [x] 2026-08-23 — 76da43d — nutrition — Food Diary + Adherence (checklist + history), added. mobile `54e22a6`.
+- [x] 2026-08-23 — feb9e68 — profile — Subscription page (plan card, period/progress, renew CTA, payment history), added. mobile `e9260b4`.
 
 ---
 

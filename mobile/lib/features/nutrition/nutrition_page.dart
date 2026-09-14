@@ -11,6 +11,7 @@ import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/floating_pill.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../access/restricted_view.dart';
@@ -296,10 +297,12 @@ class _NutritionViewState extends ConsumerState<_NutritionView> {
           right: 0,
           bottom: 16,
           child: Center(
-            child: FilledButton.icon(
-              onPressed: () => ShoppingListSheet.show(context, plan),
-              icon: const Icon(Icons.shopping_cart, size: 18),
-              label: Text(l10n.shoppingButton),
+            child: FloatingPill(
+              onTap: () => ShoppingListSheet.show(context, plan),
+              child: FloatingPillLabel(
+                icon: Icons.shopping_cart,
+                label: l10n.shoppingButton,
+              ),
             ),
           ),
         ),

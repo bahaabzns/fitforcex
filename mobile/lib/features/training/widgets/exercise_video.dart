@@ -13,12 +13,18 @@ import '../../../shared/utils/media_url.dart';
 /// iframe player only mounts after the client taps the thumbnail, so the
 /// client never leaves the workout for the external YouTube app.
 class ExerciseVideo extends StatefulWidget {
-  const ExerciseVideo({super.key, this.youtubeUrl, this.videoUrl});
+  const ExerciseVideo({super.key, this.youtubeUrl, this.videoUrl, this.thumbnailUrl});
 
   final String? youtubeUrl;
 
   /// Already resolved to an absolute URL by the caller.
   final String? videoUrl;
+
+  /// A coach-uploaded still image for this exercise. Already resolved to an
+  /// absolute URL by the caller. Shown on its own when there's no video at
+  /// all — mirrors web's `ExerciseVideoPlayer`, which renders this same
+  /// field even for a video-less exercise rather than nothing.
+  final String? thumbnailUrl;
 
   @override
   State<ExerciseVideo> createState() => _ExerciseVideoState();
@@ -112,11 +118,22 @@ class _ExerciseVideoState extends State<ExerciseVideo> {
 
     if (_video != null) {
       if (!_videoReady) {
-        return const AspectRatio(
+        final thumbnailUrl = widget.thumbnailUrl;
+        return AspectRatio(
           aspectRatio: 16 / 9,
-          child: ColoredBox(
-            color: Colors.black,
-            child: Center(child: CircularProgressIndicator()),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+                Image.network(
+                  thumbnailUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.black),
+                )
+              else
+                const ColoredBox(color: Colors.black),
+              const Center(child: CircularProgressIndicator()),
+            ],
           ),
         );
       }
@@ -143,6 +160,26 @@ class _ExerciseVideoState extends State<ExerciseVideo> {
                     ),
                   ),
               ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final thumbnailUrl = widget.thumbnailUrl;
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Image.network(
+            thumbnailUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const ColoredBox(
+              color: Colors.black12,
+              child: Center(
+                child: Icon(Icons.fitness_center, size: 28, color: Colors.black26),
+              ),
             ),
           ),
         ),

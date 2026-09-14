@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/new_feature_hint.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/workout_log.dart';
 import '../../../shared/models/workout_session.dart';
@@ -80,12 +81,24 @@ class ExerciseLogCard extends StatefulWidget {
     required this.onToggleSet,
     required this.onChangeNote,
     required this.videoUrl,
+    this.thumbnailUrl,
     this.focusSetIndex,
+    this.isFirstExercise = false,
   });
 
   final SessionExercise exercise;
   final List<PreviousSet> previous;
   final String? videoUrl;
+
+  /// Already resolved to an absolute URL by the caller (see `session_page.dart`'s
+  /// `_thumbnailUrls`).
+  final String? thumbnailUrl;
+
+  /// Whether this is the first exercise in the session — the one surface the
+  /// one-time "here's the instructions icon" hint anchors to (shared with
+  /// the day-preview's own first-exercise card via the same featureKey, so
+  /// it only teaches once across either screen).
+  final bool isFirstExercise;
 
   /// Index of the set whose first editable field should take keyboard focus
   /// once the set before it is marked done. Null outside of that moment.
@@ -137,6 +150,11 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
       (widget.exercise.youtubeUrl ?? '').isNotEmpty ||
       (widget.videoUrl ?? '').isNotEmpty;
 
+  /// Whether [ExerciseVideo] has anything to show at all — a video, or (per
+  /// web's `ExerciseVideoPlayer`) just a coach-uploaded still thumbnail with
+  /// no video behind it.
+  bool get _hasMedia => _hasVideo || (widget.exercise.thumbnailPath ?? '').isNotEmpty;
+
   bool get _hasNote => widget.exercise.note.trim().isNotEmpty;
 
   @override
@@ -177,10 +195,11 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_hasVideo) ...[
+        if (_hasMedia) ...[
           ExerciseVideo(
             youtubeUrl: exercise.youtubeUrl,
             videoUrl: widget.videoUrl,
+            thumbnailUrl: widget.thumbnailUrl,
           ),
           const SizedBox(height: 12),
         ],
@@ -225,16 +244,28 @@ class _ExerciseLogCardState extends State<ExerciseLogCard> {
                 ),
               ),
             ),
-            _IconAction(
-              icon: Icons.menu_book_outlined,
-              tooltip: l10n.trainingCoachNote,
-              onTap: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                builder: (_) => CoachNoteModal(
-                  instructionsEn: exercise.instructionsEn,
-                  instructionsAr: exercise.instructionsAr,
+            NewFeatureHint(
+              featureKey: 'exercise_instructions_hint',
+              active: widget.isFirstExercise,
+              message: l10n.trainingInstructionsHint,
+              dismissLabel: l10n.trainingInstructionsHintDismiss,
+              badgeLabel: l10n.trainingInstructionsNewFeature,
+              // See training_page.dart's _ExerciseCard for why this opens
+              // upward — same icon, same "don't grow into the next row"
+              // reasoning, here for the live-session list instead of the
+              // day-preview one.
+              preferBelow: false,
+              child: _IconAction(
+                icon: Icons.menu_book_outlined,
+                tooltip: l10n.trainingCoachNote,
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => CoachNoteModal(
+                    instructionsEn: exercise.instructionsEn,
+                    instructionsAr: exercise.instructionsAr,
+                  ),
                 ),
               ),
             ),

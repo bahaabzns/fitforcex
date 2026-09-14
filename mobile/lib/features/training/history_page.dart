@@ -83,7 +83,6 @@ class _LogTile extends ConsumerStatefulWidget {
 
 class _LogTileState extends ConsumerState<_LogTile> {
   bool _deleting = false;
-  bool _deleteHintShown = false;
 
   Future<void> _confirmDelete() async {
     final l10n = AppLocalizations.of(context);
@@ -135,17 +134,6 @@ class _LogTileState extends ConsumerState<_LogTile> {
         ? DateFormat.yMMMEd(widget.locale).add_jm().format(date)
         : log.date;
 
-    _deleteHintShown = maybeShowFeatureHint(
-      context,
-      ref,
-      featureKey: 'delete_log_hint',
-      active: widget.isFirst,
-      alreadyShown: _deleteHintShown,
-      message: l10n.trainingDeleteLogHint,
-      dismissLabel: l10n.trainingDeleteLogHintDismiss,
-      badgeLabel: l10n.trainingDeleteLogNewFeature,
-    );
-
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -185,10 +173,22 @@ class _LogTileState extends ConsumerState<_LogTile> {
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: l10n.trainingDeleteLog,
-                  onPressed: _deleting ? null : _confirmDelete,
-                  icon: Icon(Icons.delete_outline, size: 20, color: muted),
+                NewFeatureHint(
+                  featureKey: 'delete_log_hint',
+                  active: widget.isFirst,
+                  message: l10n.trainingDeleteLogHint,
+                  dismissLabel: l10n.trainingDeleteLogHintDismiss,
+                  badgeLabel: l10n.trainingDeleteLogNewFeature,
+                  // Same reasoning as the exercise Instructions icon: this
+                  // sits at the end of the first (topmost) card in a list —
+                  // opening upward keeps it over this card's own content
+                  // instead of growing into the next card below.
+                  preferBelow: false,
+                  child: IconButton(
+                    tooltip: l10n.trainingDeleteLog,
+                    onPressed: _deleting ? null : _confirmDelete,
+                    icon: Icon(Icons.delete_outline, size: 20, color: muted),
+                  ),
                 ),
                 Icon(Icons.chevron_right, size: 18, color: muted),
               ],
