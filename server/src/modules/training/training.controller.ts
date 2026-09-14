@@ -18,6 +18,7 @@ import { prisma } from '../../lib/prisma';
 import { FileBag, fetchFullTrainingPlan } from './training.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
+import { normalizePostAction } from '../../utils/postAction';
 import { EXERCISE_CATEGORIES, DEFAULT_CATEGORY, CATEGORY_CONFIG, ExerciseCategory } from '../../config/exerciseTrackingTypes';
 
 type Row = Record<string, unknown>;
@@ -712,11 +713,13 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     // form_requests row immediately (status 'scheduled') so
                     // it's visible in Plans Queue right away.
                     const { versionId } = await sealVersionForAssignment(f.formId, coachId, req.user!.userId);
+                    const formRow = await dbClient.query(`SELECT post_action FROM forms WHERE id = $1`, [f.formId]);
+                    const postAction = normalizePostAction(formRow.rows[0]?.post_action);
                     const requestId = createId();
                     await dbClient.query(
-                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
-                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
-                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at]
+                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at, post_action)
+                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $7)`,
+                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at, postAction]
                     );
                     await dbClient.query(
                         `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)
