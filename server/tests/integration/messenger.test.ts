@@ -74,4 +74,50 @@ describe('P1-3 — Messenger', () => {
         const updated = await testPrisma.messages.findUnique({ where: { id: msg.id } });
         expect(updated?.read_by_team_at).not.toBeNull();
     });
+
+    describe('POST /messenger/threads/broadcast', () => {
+        jest.setTimeout(30000);
+
+        test('sends to every matching thread, well past the old hardcoded 500-thread cap', async () => {
+            const THREAD_COUNT = 501;
+            const clientsData = Array.from({ length: THREAD_COUNT }, (_, i) => ({
+                id:           createId(),
+                client_code:  200000 + i,
+                fname:        'Bulk',
+                lname:        `Client${i}`,
+                email:        `bulk-client-${i}-${createId()}@test.com`,
+                workspace_id: workspaceId,
+            }));
+            await testPrisma.clients.createMany({ data: clientsData });
+
+            const threadsData = clientsData.map(client => ({
+                id:           createId(),
+                workspace_id: workspaceId,
+                client_id:    client.id,
+            }));
+            await testPrisma.threads.createMany({ data: threadsData });
+            const threadIds = threadsData.map(thread => thread.id);
+
+            const res = await request
+                .post('/api/messenger/threads/broadcast')
+                .set('Cookie', cookie)
+                .send({ threadIds, body: 'Broadcast to everyone' });
+
+            expect(res.status).toBe(201);
+            expect(res.body.sent).toBe(THREAD_COUNT);
+
+            const messageCount = await testPrisma.messages.count({
+                where: { thread_id: { in: threadIds }, body: 'Broadcast to everyone' },
+            });
+            expect(messageCount).toBe(THREAD_COUNT);
+        });
+
+        test('rejects an empty threadIds array', async () => {
+            const res = await request
+                .post('/api/messenger/threads/broadcast')
+                .set('Cookie', cookie)
+                .send({ threadIds: [], body: 'Hello' });
+            expect(res.status).toBe(400);
+        });
+    });
 });

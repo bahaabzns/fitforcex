@@ -5,6 +5,7 @@ import { recordEvent } from '../../lib/events';
 import { deleteFile } from '../../lib/storage';
 import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
 import { computeStatusesForClients } from '../../lib/clientSubscriptionStatus';
+import { getIo } from '../../lib/socket';
 
 /** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
 async function getUserDisplayName(userId: string): Promise<string | null> {
@@ -313,17 +314,12 @@ export async function deleteMessage(req: Request, res: Response, next: NextFunct
     } catch (err) { next(err); }
 }
 
-const MAX_BROADCAST_THREADS = 500;
-
 export async function broadcastMessage(req: Request, res: Response, next: NextFunction) {
     const { threadIds, body } = req.body as { threadIds?: string[]; body?: string };
     if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
     if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
     if (!Array.isArray(threadIds) || threadIds.length === 0) {
         return res.status(400).json({ error: 'threadIds must be a non-empty array' });
-    }
-    if (threadIds.length > MAX_BROADCAST_THREADS) {
-        return res.status(400).json({ error: `Cannot broadcast to more than ${MAX_BROADCAST_THREADS} conversations at once` });
     }
 
     try {
@@ -335,39 +331,66 @@ export async function broadcastMessage(req: Request, res: Response, next: NextFu
 
         const trimmedBody = body.trim();
         const now = new Date();
+        const clientIdByThreadId = new Map(threads.map(thread => [thread.id, thread.client_id]));
 
-        const messages = await prisma.$transaction(
-            threads.map(thread => prisma.messages.create({
-                data: {
+        // One INSERT...RETURNING for every message, not one create() per thread —
+        // a broadcast can target the whole workspace (thousands of threads), and
+        // a $transaction of N individual create() calls was blowing past Prisma's
+        // interactive-transaction timeout well before N got that large. This scales
+        // to any recipient count in a single round trip.
+        const [messages] = await prisma.$transaction([
+            prisma.messages.createManyAndReturn({
+                data: threads.map(thread => ({
                     id:              createId(),
                     thread_id:       thread.id,
                     sender_type:     'team',
                     sender_id:       req.user!.userId,
                     body:            trimmedBody,
                     read_by_team_at: now,
-                },
-            }))
-        );
+                })),
+            }),
+            prisma.threads.updateMany({
+                where: { id: { in: threads.map(thread => thread.id) } },
+                data:  { updated_at: now },
+            }),
+        ]);
 
-        await prisma.threads.updateMany({
-            where: { id: { in: threads.map(thread => thread.id) } },
-            data:  { updated_at: now },
-        });
+        // Durable + realtime notification per recipient, mirroring recordEvent's shape
+        // (best-effort: logged, never thrown) but batched into one insert plus an
+        // in-memory emit loop instead of one recordEvent()/query per recipient, so
+        // broadcast size no longer drives DB round-trip count.
+        try {
+            const actorName = await getUserDisplayName(req.user!.userId);
+            await prisma.notifications.createMany({
+                data: messages.map(message => ({
+                    id:             createId(),
+                    workspace_id:   req.user!.workspaceId,
+                    recipient_type: 'client',
+                    recipient_id:   clientIdByThreadId.get(message.thread_id)!,
+                    type:           'message.received',
+                    importance:     'actionable',
+                    title:          'New message from your coach',
+                    entity_type:    'thread',
+                    entity_id:      message.thread_id,
+                    actor_type:     'user',
+                    actor_id:       req.user!.userId,
+                    metadata:       { actorName },
+                })),
+            });
 
-        // Durable + realtime notification per recipient, mirroring sendMessage —
-        // each client only gets an event for their own thread/message pair.
-        const actorName = await getUserDisplayName(req.user!.userId);
-        await Promise.all(threads.map((thread, i) => recordEvent({
-            workspaceId: req.user!.workspaceId,
-            type:        'message.received',
-            importance:  'actionable',
-            title:       'New message from your coach',
-            recipients:  [{ type: 'client', id: thread.client_id }],
-            actor:       { type: 'user', id: req.user!.userId },
-            entity:      { type: 'thread', id: thread.id },
-            metadata:    { actorName },
-            realtime:    { rooms: [`workspace:${req.user!.workspaceId}`], event: 'new_message', payload: { threadId: thread.id, message: messages[i] } },
-        })));
+            const io = getIo();
+            for (const message of messages) {
+                const clientId = clientIdByThreadId.get(message.thread_id)!;
+                io.to(`client:${clientId}`).emit('notification', {
+                    type:       'message.received',
+                    importance: 'actionable',
+                    title:      'New message from your coach',
+                });
+                io.to(`workspace:${req.user!.workspaceId}`).emit('new_message', { threadId: message.thread_id, message });
+            }
+        } catch (err) {
+            console.error('[messenger] broadcast notification fan-out failed:', err);
+        }
 
         res.status(201).json({ sent: threads.length, skipped: threadIds.length - threads.length });
     } catch (err) { next(err); }
