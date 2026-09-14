@@ -92,7 +92,7 @@
   "subscriptionDaysRemainingLabel": "{remaining}/{total} days remaining",
   "@subscriptionDaysRemainingLabel": { "placeholders": { "remaining": { "type": "int" }, "total": { "type": "int" } } },
   "subscriptionNoSubscription": "You don't have an active subscription yet. Contact your coach to get started.",
-  "subscriptionRenewCta": "Renew subscription",
+  "subscriptionRenewCta": "Contact your coach to renew",
   "subscriptionPaymentHistory": "Payment history",
   "subscriptionNoPaymentHistory": "No payment history yet.",
   "subscriptionStatusActive": "Active",

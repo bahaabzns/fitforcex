@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -215,17 +215,14 @@ class _PlanCard extends StatelessWidget {
           ],
           if (showRenewCta) ...[
             const SizedBox(height: 14),
+            // Renewal is arranged directly with the coach (no external payment
+            // link here — see subscription_status_card.dart for the same
+            // contact-coach pattern) so the app never presents a non-IAP
+            // purchase call-to-action.
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: data.renewalLink == null
-                    ? null
-                    : () {
-                        final uri = Uri.tryParse(data.renewalLink!);
-                        if (uri != null) {
-                          launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
+                onPressed: () => context.go(AppRoutes.messages),
                 child: Text(l10n.subscriptionRenewCta),
               ),
             ),
