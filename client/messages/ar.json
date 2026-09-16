@@ -2178,7 +2178,6 @@
       "timeJustNow": "الآن",
       "today": "اليوم",
       "yesterday": "أمس",
-      "groupMessagesFrom": "{count, plural, one {رسالة واحدة جديدة من {name}} other {# رسائل جديدة من {name}}}",
       "groupMessages": "{count, plural, one {رسالة واحدة جديدة} other {# رسائل جديدة}}",
       "groupCheckins": "{count, plural, one {متابعة واحدة أُرسلت اليوم} other {# متابعات أُرسلت اليوم}}",
       "errorTitle": "تعذّر تحميل الإشعارات",

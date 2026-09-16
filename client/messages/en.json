@@ -2178,7 +2178,6 @@
       "timeJustNow": "Just now",
       "today": "Today",
       "yesterday": "Yesterday",
-      "groupMessagesFrom": "{count, plural, one {1 new message from {name}} other {# new messages from {name}}}",
       "groupMessages": "{count, plural, one {1 new message} other {# new messages}}",
       "groupCheckins": "{count, plural, one {1 check-in submitted today} other {# check-ins submitted today}}",
       "errorTitle": "Couldn't load notifications",
