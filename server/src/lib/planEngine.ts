@@ -1,6 +1,7 @@
 import { Pool, PoolClient } from 'pg';
 import { createId } from '@paralleldrive/cuid2';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
+import { normalizePostAction } from '../utils/postAction';
 
 type PlainRecord = Record<string, unknown>;
 
@@ -290,11 +291,13 @@ export async function reconcileCheckInSchedules({
     const toAdd = [...desiredFormIds].filter((id) => !existingFormIds.has(id));
     for (const formId of toAdd) {
         const { versionId } = await sealVersionForAssignment(formId, workspaceId, actorUserId);
+        const formRow = await dbClient.query(`SELECT post_action FROM forms WHERE id = $1`, [formId]);
+        const postAction = normalizePostAction(formRow.rows[0]?.post_action);
         const requestId = createId();
         await dbClient.query(
-            `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
-             VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
-            [requestId, formId, versionId, clientId, workspaceId, cycleEndAt]
+            `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at, post_action)
+             VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $7)`,
+            [requestId, formId, versionId, clientId, workspaceId, cycleEndAt, postAction]
         );
         await dbClient.query(
             `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)

@@ -8,13 +8,11 @@ import { resolveWritableVersion, sealVersionForAssignment } from './forms.servic
 import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions } from './questionTypes';
 import { fetchAndParseGoogleForm, parseGoogleFormHtml } from './googleFormsImport';
 import { attachEditHistory } from '../../utils/formResponseHistory';
+import { normalizePostAction } from '../../utils/postAction';
+
+export { normalizePostAction };
 
 let schemaReadyPromise: Promise<void> | undefined;
-
-export function normalizePostAction(value: unknown): string {
-    const allowed = ['nothing', 'nutrition-plan', 'workout-plan'];
-    return allowed.includes(value as string) ? (value as string) : 'nothing';
-}
 
 export function normalizeFormType(value: unknown): string {
     const allowed = ['assessment', 'check-in'];

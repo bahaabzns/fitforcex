@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Bell, Check, MessageSquare, Dumbbell, Salad, ClipboardCheck, AlertTriangle, CheckCircle2, PartyPopper, MessageCircle } from "lucide-react";
 import { Skeleton } from "@heroui/react/skeleton";
-import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
 import { Disclosure } from "@heroui/react/disclosure";
 import EmptyState from "@/app/components/EmptyState";
 import { sortByPriority, priorityAccentClass, groupNotifications, FILTER_KEYS, filterItems } from "@/utils/notifications";
 import { getDateLabel } from "@/utils/date";
-import { getInitials } from "@/utils/initials";
 import api from "@/lib/axios";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -29,18 +27,11 @@ const TYPE_ICON = {
 };
 
 
-// Leading visual for a card — the sender's avatar when we know who they are
-// (message.received), a training/nutrition icon for plan.assigned depending on
-// which plan it is, otherwise a category icon.
+// Leading visual for a card — a training/nutrition icon for plan.assigned
+// depending on which plan it is, otherwise a category icon. Never a specific
+// team member's avatar/initials: which coach or teammate sent a message is
+// workspace-internal, not something a client should see (see groupLabel below).
 function NotificationIcon({ notification }) {
-    const initials = getInitials(notification.metadata?.actorName);
-    if (initials) {
-        return (
-            <Avatar size="sm" color="primary" className="shrink-0">
-                <Avatar.Fallback>{initials}</Avatar.Fallback>
-            </Avatar>
-        );
-    }
     const Icon = notification.type === 'plan.assigned'
         ? (notification.entity_type === 'nutrition_plan' ? Salad : Dumbbell)
         : (TYPE_ICON[notification.type] ?? Bell);
@@ -92,13 +83,14 @@ function NotificationRow({ notification, cta, onClick, now, locale, t, tTypes })
 
 // Header label for a collapsed group (see groupNotifications in @/utils/notifications).
 // checkin.submitted never reaches a client, so in practice only message threads group here.
+// Deliberately never names a sender: a thread's messages can come from more than one
+// team member (any teammate with messenger access can post into it, and a group can
+// span several of their messages), so there is no single correct "from" name to show —
+// and which staffer sent a message is workspace-internal anyway (see NotificationIcon).
 function groupLabel(group, t) {
     const first = group.items[0];
     if (first.type === 'message.received') {
-        const name = first.metadata?.actorName;
-        return name
-            ? t('groupMessagesFrom', { count: group.items.length, name })
-            : t('groupMessages', { count: group.items.length });
+        return t('groupMessages', { count: group.items.length });
     }
     return t('groupCheckins', { count: group.items.length });
 }

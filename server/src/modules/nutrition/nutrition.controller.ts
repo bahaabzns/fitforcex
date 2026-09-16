@@ -17,6 +17,7 @@ import { prisma } from '../../lib/prisma';
 import { toNumberOrNull, fetchFullNutritionPlan } from './nutrition.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
+import { normalizePostAction } from '../../utils/postAction';
 
 type Row = Record<string, unknown>;
 type DbHandle = Pool | PoolClient;
@@ -757,11 +758,13 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     // "assignment moment" convention as the manual schedule-a-
                     // form flow) pins the wording the client will see.
                     const { versionId } = await sealVersionForAssignment(f.formId, coachId, req.user!.userId);
+                    const formRow = await dbClient.query(`SELECT post_action FROM forms WHERE id = $1`, [f.formId]);
+                    const postAction = normalizePostAction(formRow.rows[0]?.post_action);
                     const requestId = createId();
                     await dbClient.query(
-                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
-                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
-                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at]
+                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at, post_action)
+                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $7)`,
+                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at, postAction]
                     );
                     await dbClient.query(
                         `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)

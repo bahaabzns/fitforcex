@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 import { computeClientStatus, logSubscriptionAudit, getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, ownerRecipients } from '../lib/events';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
+import { normalizePostAction } from '../utils/postAction';
 import { expireScheduledPrompts } from '../modules/insights/insights.service';
 import { runTrialExpirySweep } from '../lib/trialSweep';
 
@@ -264,7 +265,7 @@ export async function runCheckInDispatchTick(): Promise<number> {
                 // explicitly, rather than either sending a retired form or
                 // leaving a stuck "scheduled" item nobody can ever answer.
                 // See docs/forms-versioning-implementation-plan.md Phase 5.
-                const form = await prisma.forms.findUnique({ where: { id: row.form_id }, select: { status: true } });
+                const form = await prisma.forms.findUnique({ where: { id: row.form_id }, select: { status: true, post_action: true } });
                 if (!form || form.status === 'archived') {
                     if (row.form_request_id) {
                         await prisma.form_requests.deleteMany({ where: { id: row.form_request_id, status: 'scheduled' } });
@@ -303,6 +304,7 @@ export async function runCheckInDispatchTick(): Promise<number> {
                             workspace_id:    row.workspace_id,
                             status:          'pending',
                             requested_at:    new Date(),
+                            post_action:     normalizePostAction(form.post_action),
                         },
                     });
                 }
