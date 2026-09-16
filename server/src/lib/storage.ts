@@ -17,12 +17,18 @@ const s3 = new S3Client({
     },
 });
 
+type S3ContentTypeResolver = (
+    req: Express.Request,
+    file: Express.Multer.File,
+    cb: (error: unknown, mime?: string, stream?: NodeJS.ReadableStream) => void,
+) => void;
+
 // folderOrFn: string prefix OR (file) => string for per-field routing
 // allowedExts: array of lowercase extensions e.g. ['.jpg', '.pdf'], or null to skip ext check
 export function makeUploader(
     folderOrFn: string | ((file: Express.Multer.File) => string),
     allowedExts: string[] | null,
-    options: { maxSize?: number; fileFilter?: multer.Options['fileFilter'] } = {}
+    options: { maxSize?: number; fileFilter?: multer.Options['fileFilter']; contentType?: S3ContentTypeResolver } = {}
 ) {
     const storage: multer.StorageEngine = s3Configured
         ? multerS3({
@@ -31,7 +37,7 @@ export function makeUploader(
             // Without this, multer-s3 stores every object as application/octet-stream —
             // images mostly still render (browsers sniff <img> content), but <audio>/
             // <video> refuse to play a resource served with the wrong Content-Type.
-            contentType: multerS3.AUTO_CONTENT_TYPE,
+            contentType: options.contentType ?? multerS3.AUTO_CONTENT_TYPE,
             key: (req, file, cb) => {
                 const ext = path.extname(file.originalname || '').toLowerCase();
                 if (allowedExts && !allowedExts.includes(ext)) {
