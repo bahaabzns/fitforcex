@@ -93,7 +93,7 @@ void main() {
     expect(find.text('Renews on'), findsOneWidget);
     expect(find.text('20/30 days remaining'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.text('Renew subscription'), findsNothing);
+    expect(find.text('Contact your coach to renew'), findsNothing);
   });
 
   testWidgets('Expired plan shows the expired-on date and the renew CTA',
@@ -104,33 +104,75 @@ void main() {
         status: 'Expired',
         plan: SubscriptionPlan(name: 'Basic'),
         currentPeriodEnd: '2026-07-01T00:00:00Z',
-        renewalLink: 'https://pay.example.com/renew',
       ),
     );
 
     expect(find.text('Expired on'), findsOneWidget);
-    expect(find.text('Renew subscription'), findsOneWidget);
+    expect(find.text('Contact your coach to renew'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
 
-    final button =
-        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Renew subscription'));
+    final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Contact your coach to renew'));
     expect(button.onPressed, isNotNull);
   });
 
-  testWidgets('renew CTA is disabled when there is no renewal link',
+  // Renewal is never a purchase made in this app (see subscription_page.dart)
+  // — the CTA always routes to the in-app coach message thread rather than
+  // an external payment link, regardless of any renewalLink the API returns.
+  testWidgets('renew CTA opens the coach message thread, not an external link',
       (tester) async {
-    await _pumpSubscriptionPage(
-      tester,
-      summary: const SubscriptionSummary(
-        status: 'Frozen',
-        plan: SubscriptionPlan(name: 'Basic'),
-        frozenUntil: '2026-09-01T00:00:00Z',
+    final container = ProviderContainer(overrides: [
+      subscriptionRepositoryProvider.overrideWithValue(
+        _FakeSubscriptionRepository(const SubscriptionSummary(
+          status: 'Frozen',
+          plan: SubscriptionPlan(name: 'Basic'),
+          frozenUntil: '2026-09-01T00:00:00Z',
+        )),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final router = GoRouter(
+      initialLocation: '/subscription',
+      routes: [
+        GoRoute(
+          path: '/subscription',
+          builder: (_, __) => const SubscriptionPage(),
+        ),
+        GoRoute(
+          path: '/messages',
+          builder: (_, __) => const Scaffold(body: Text('Messages Screen')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          theme: AppTheme.light,
+          routerConfig: router,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en'), Locale('ar')],
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    final button =
-        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Renew subscription'));
-    expect(button.onPressed, isNull);
+    final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Contact your coach to renew'));
+    expect(button.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Contact your coach to renew'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Messages Screen'), findsOneWidget);
   });
 
   testWidgets('lists payment history with amount and status',
