@@ -23,7 +23,6 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
-- [ ] 2026-09-05 — b575bc3 — TODO(area) — "fix(messenger): show generic coach label instead of real name to clients" touched: client/app/(client)/portal/messages/page.js — fill in what changed and why it matters for mobile
 Nothing outstanding. The two stub lines the post-commit hook added for `feb9e68` (subscription page) and `76da43d`
 (food diary/adherence) were re-logs of features already tracked below under their prior "(uncommitted)" placeholder —
 pruned here, real SHAs filled in on the existing **Ported** rows instead. The 2026-08-23 audit backlog (17 items) and
@@ -31,6 +30,8 @@ both web features that triggered it are all ported.
 
 ## Ported
 
+- [x] 2026-09-17 — b5eac78 — notifications — Grouped message.received notifications (2+ from the same client thread) labeled the whole group with `metadata.actorName` from `group.items[0]` — wrong when the group spans more than one team member's messages, and a name leak either way per b575bc3's policy below. Now a generic "N new messages" label and icon, never a name. Mobile's notification list already never parsed `metadata`/actor fields (title is server-generated and generic), so it was already compliant — no mobile change needed.
+- [x] 2026-09-05 — b575bc3 — messenger — Client-facing messenger header showed the coach/workspace's real name (sourced from workspace.name), leaking it to clients; now always the generic "Your Coach" fallback. Mobile fixed in the same commit (messages_page.dart) — no separate mobile sha.
 - [x] 2026-09-05 — 1a55d96 — forms — Check-in stayed 'pending' after the check-in dispatcher tick, then went invisible/unfillable once the unrelated scheduleFormDispatcher cron stamped it 'sent' (every client surface only recognized 'pending'), fixed. Mobile fixed in the same commit (forms_page.dart, form_fill_page.dart, form.dart) — no separate mobile sha.
 - [x] 2026-08-23 — fbf2f9e — training — Stale/invalid resumed session redirect loop, fixed. mobile `62991d3`.
 - [x] 2026-08-23 — 55801f1 — training — YouTube Shorts embed regex, fixed. mobile `216fa6a`.
