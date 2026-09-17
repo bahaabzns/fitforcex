@@ -415,3 +415,12 @@ Format:
 **Effort:** Small — one-line filter change (`status: { in: ['submitted', 'reviewed'] } }`)
 **Priority:** High
 ✅ RESOLVED 2026-07-07 — fixed in the same commit as the Forms Versioning Release-Readiness Review pass.
+
+---
+
+## 2026-09-17 — client/app/components/MessageComposer.js (voice note filename doesn't match recorded codec)
+**Type:** Shortcut
+**What:** `handleStopRecording` (MessageComposer.js:92) always names the recorded blob `"voice-message.webm"`, regardless of the codec `useVoiceRecorder` actually used. On Safari/iOS, `MediaRecorder` falls back to a non-webm container (typically fragmented MP4), so the uploaded file is a `.webm`-named MP4. Found while fixing the client-portal voice-note playback bug (fix/client-portal-voice-notes) — that fix made the server trust the browser-declared `mimetype` for the S3 Content-Type instead of sniffing, which is why the wrong extension no longer breaks playback, but the filename itself is still misleading (e.g. in downloaded-file names).
+**Why it matters:** Cosmetic/metadata-only today (playback now relies on `attachment_mime`, not the extension), but a future feature that trusts the filename extension (e.g. a "save as" download, an external integration, an admin export) would mislabel Safari-recorded voice notes.
+**Effort:** Small — derive the extension from `recorder.mimeType` in `useVoiceRecorder.js`'s `stop()` result instead of hardcoding it in the composer.
+**Priority:** Low
