@@ -9,7 +9,13 @@ describe('sendMetaEvent', () => {
     });
 
     test('no-ops without calling fetch when Meta credentials are unset', async () => {
-        // ARRANGE — real test env leaves META_PIXEL_ID/META_CONVERSIONS_API_TOKEN blank
+        // ARRANGE — mocked explicitly rather than relying on ambient env: dotenv/config
+        // pulls in the real (gitignored) server/.env underneath .env.test, so this must
+        // not depend on that file happening to leave these blank.
+        jest.resetModules();
+        jest.doMock('../../src/config/env', () => ({
+            env: { META_PIXEL_ID: '', META_CONVERSIONS_API_TOKEN: '', META_TEST_EVENT_CODE: '' },
+        }));
         const fetchSpy = jest.fn();
         global.fetch = fetchSpy as unknown as typeof fetch;
         const { sendMetaEvent } = require('../../src/lib/metaConversions');
