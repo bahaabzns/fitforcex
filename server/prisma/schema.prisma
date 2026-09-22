@@ -502,6 +502,8 @@ model messages {
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
 
   @@index([thread_id])
+  @@index([thread_id, created_at])
+  @@index([thread_id, sender_type, read_by_team_at])
 }
 
 model nutrition_cycles {

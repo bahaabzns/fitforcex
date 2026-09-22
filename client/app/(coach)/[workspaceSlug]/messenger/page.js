@@ -173,13 +173,37 @@ export default function MessengerPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Backgrounded/minimized tabs kept polling every 5s forever — a workspace
+    // with several coaches each leaving a messenger tab open in the background
+    // was a steady, pointless drain on the API and DB. Pause the interval
+    // while the tab is hidden and catch up with one immediate fetch when it
+    // becomes visible again, instead of polling into the void.
     useEffect(() => {
-        clearInterval(pollRef.current);
-        pollRef.current = setInterval(() => {
+        const tick = () => {
             fetchThreads();
             if (selectedThreadId) fetchMessages(selectedThreadId);
-        }, POLL_INTERVAL_MS);
-        return () => clearInterval(pollRef.current);
+        };
+
+        const start = () => {
+            clearInterval(pollRef.current);
+            pollRef.current = setInterval(tick, POLL_INTERVAL_MS);
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                clearInterval(pollRef.current);
+            } else {
+                tick();
+                start();
+            }
+        };
+
+        if (!document.hidden) start();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            clearInterval(pollRef.current);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [selectedThreadId, fetchThreads, fetchMessages]);
 
     useEffect(() => {
