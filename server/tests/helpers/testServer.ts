@@ -42,9 +42,11 @@ export async function createTestWorkspace(ownerId: string) {
 
 // Creates a JWT and stores the matching session hash in user_sessions so the
 // authMiddleware session check (which validates against the DB) passes.
-export async function makeAuthCookie(userId: string, workspaceId: string, role = 'owner'): Promise<string> {
+export async function makeAuthCookie(
+    userId: string, workspaceId: string, role = 'owner', permissions: unknown = null
+): Promise<string> {
     const token = jwt.sign(
-        { userId, workspaceId, role, permissions: null },
+        { userId, workspaceId, role, permissions },
         process.env.JWT_SECRET!,
         { expiresIn: '1h' }
     );
