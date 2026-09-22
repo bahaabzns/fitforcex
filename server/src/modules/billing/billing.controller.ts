@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { getInvoiceStatus } from '../../lib/fawaterak';
+import { sendMetaEvent } from '../../lib/metaConversions';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import pool from '../../db';
@@ -186,11 +187,12 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
 // Kept as raw pool because: SELECT FOR UPDATE row locking + interval arithmetic.
 export async function applyPayment(paymentId: string, workspaceId: string): Promise<void> {
     const dbClient = await pool.connect();
+    let activatedPayment: { amount: number; currency: string } | null = null;
     try {
         await dbClient.query('BEGIN');
 
         const { rows } = await dbClient.query(`
-            SELECT id, plan_id, duration_days, paid_at FROM workspace_payments
+            SELECT id, plan_id, duration_days, amount, currency, paid_at FROM workspace_payments
             WHERE id = $1 AND workspace_id = $2 FOR UPDATE
         `, [paymentId, workspaceId]);
 
@@ -214,10 +216,40 @@ export async function applyPayment(paymentId: string, workspaceId: string): Prom
         `, [payment.plan_id, payment.duration_days, workspaceId]);
 
         await dbClient.query('COMMIT');
+        activatedPayment = { amount: Number(payment.amount), currency: String(payment.currency) };
     } catch (err) {
         await dbClient.query('ROLLBACK');
         throw err;
     } finally {
         dbClient.release();
+    }
+
+    // Purchase only fires server-side: Fawaterak's hosted checkout means there's no
+    // reliable client-side "thank you" moment, so this webhook/callback choke point
+    // (guarded above by the paid_at check, so it fires exactly once) is the only
+    // trustworthy signal. Best-effort — never blocks or fails payment confirmation.
+    if (activatedPayment) {
+        void notifyMetaPurchase(workspaceId, paymentId, activatedPayment.amount, activatedPayment.currency);
+    }
+}
+
+async function notifyMetaPurchase(workspaceId: string, paymentId: string, amount: number, currency: string): Promise<void> {
+    try {
+        const workspace = await prisma.workspaces.findUnique({
+            where:  { id: workspaceId },
+            select: { users_workspaces_owner_idTousers: { select: { email: true, phone: true } } },
+        });
+        const owner = workspace?.users_workspaces_owner_idTousers;
+
+        await sendMetaEvent({
+            eventName:    'Purchase',
+            eventId:      paymentId,
+            actionSource: 'system_generated',
+            email:        owner?.email,
+            phone:        owner?.phone,
+            customData:   { value: amount, currency },
+        });
+    } catch (err) {
+        console.error('[MetaConversions] Failed to look up owner for Purchase event', (err as Error).message);
     }
 }

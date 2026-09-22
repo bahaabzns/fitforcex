@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { sendPasswordResetEmail } from '../../lib/email';
 import { prisma } from '../../lib/prisma';
 import { normalizeEmail } from '../../utils/email';
 import { cloneDefaultLibraries, getLibraryCounts } from '../../lib/libraryClone';
+import { sendMetaEvent } from '../../lib/metaConversions';
 import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
     fetchUserWorkspaces, fetchPendingInvitationsCount, issueToken,
@@ -14,7 +16,7 @@ import {
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
-        const { fname, lname, email, password, phone } = req.body as Record<string, string | undefined>;
+        const { fname, lname, email, password, phone, metaEventId } = req.body as Record<string, string | undefined>;
 
         if (!email || typeof email !== 'string' || !email.trim()) {
             return res.status(400).json({ message: 'Email is required' });
@@ -122,6 +124,19 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                 permissions: wsContext.permissions,
             });
             await createSession(userId, token);
+
+            // Best-effort — mirrors the client pixel's CompleteRegistration call so Meta
+            // can dedup the two on a shared event_id; never blocks or fails the response.
+            void sendMetaEvent({
+                eventName:      'CompleteRegistration',
+                eventId:        typeof metaEventId === 'string' && metaEventId ? metaEventId : crypto.randomUUID(),
+                actionSource:   'website',
+                eventSourceUrl: req.headers.referer,
+                email:          normalizedEmail,
+                phone:          trimmedPhone,
+                ip:             req.ip,
+                userAgent:      req.headers['user-agent'],
+            });
 
             res.cookie('token', token, cookieOptions())
                .status(201)

@@ -6,6 +6,7 @@ import api from "@/lib/axios";
 import { redirectToDashboard, redirectToWorkspace } from "@/lib/coachSlug";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { trackPixelEvent } from "@/lib/metaPixel";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
@@ -96,6 +97,11 @@ export default function RegisterPage() {
         }
         setLoading(true);
         const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
+        // Shared with the server so it can fire the same CompleteRegistration event
+        // (Meta dedups the browser + server copies on a matching event_id). The
+        // server-side copy fires regardless of whether this client-side one survives
+        // the redirect below, so there's no need to delay navigation for it.
+        const metaEventId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
         try {
             const res = await api.post('/api/auth/register', {
                 fname: formData.fname,
@@ -105,9 +111,11 @@ export default function RegisterPage() {
                 phone,
                 plan: planSlug,
                 period: periodKey,
+                metaEventId,
             });
             const slug = res.data?.workspace_slug;
             if (!slug) { router.push('/login'); return; }
+            trackPixelEvent('CompleteRegistration', {}, metaEventId);
             // Register now auto-logs the coach in, so go straight into the workspace
             // (on the my. subdomain). ?welcome=1 triggers the onboarding popup there —
             // a query param survives the cross-origin redirect (localStorage would not).

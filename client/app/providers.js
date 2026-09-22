@@ -3,6 +3,7 @@
 import { RouterProvider } from '@heroui/react';
 import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
+import MetaPixelTracker from './components/MetaPixelTracker';
 
 export function Providers({ children, defaultTheme = 'system', locale = 'en', messages = {} }) {
     return (
@@ -13,6 +14,7 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                 enableSystem
             >
                 <RouterProvider>
+                    <MetaPixelTracker />
                     {children}
                 </RouterProvider>
             </ThemeProvider>
