@@ -1,14 +1,22 @@
 import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
-import requirePermission from '../../middleware/requirePermission';
+import requirePermission, { requireAnyPermission } from '../../middleware/requirePermission';
 import * as packagesController from './packages.controller';
 
 const router = Router();
 
 router.use(authMiddleware, subscriptionAccessGate);
 router.use((req, res, next) => {
-    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    // Reading the package catalog isn't finance-only: it's needed wherever a client
+    // gets assigned a package variation (Clients page, client transactions), so any
+    // role that can read clients is let in too. Creating/editing/deleting packages
+    // (pricing, cycles) stays a finance.write/delete action — see DEBT.md.
+    if (req.method === 'GET') {
+        requireAnyPermission([['finance', 'read'], ['clients', 'read']])(req, res, next);
+        return;
+    }
+    const action = req.method === 'DELETE' ? 'delete' : 'write';
     requirePermission('finance', action)(req, res, next);
 });
 
