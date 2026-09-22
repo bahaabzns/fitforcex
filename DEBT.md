@@ -602,3 +602,21 @@ Format:
 **Why it matters:** (1) bounds a query that will only get slower as real conversations accumulate; (2) is the single biggest lever left for messenger responsiveness — the backend real-time plumbing already exists and is unused.
 **Effort:** Medium-Large each — both are real UI/feature work (pagination UI, socket wiring + reconnect/cleanup handling), not safe to bundle into a "fix the bug" pass.
 **Priority:** High
+
+---
+
+## 2026-09-22 — server/tests (full suite exhausts local Postgres max_connections at 43 suites)
+**Type:** Shortcut (pre-existing, newly exposed)
+**What:** Found while verifying the `main` → `dev` merge. `npx jest --runInBand` against the full suite fails 5-16 tests per run, in a **different** set of suites each time (`pdfExport`, `foodDiary`, `insightsPhase3And4`, `clientPortalWorkoutLogPrevious`, `metaConversions`, `auth` have all shown up in one run or another) — all with the identical root error `PrismaClientInitializationError: Too many database connections opened: FATAL: sorry, too many clients already` against the local test Postgres (`max_connections=100`). Every run also prints "Jest did not exit one second after the test run has completed... asynchronous operations that weren't stopped" — present even pre-merge at the old ~22-suite count, just not severe enough to hit the connection ceiling. Merging `main`'s test suite into `dev` roughly doubled the suite count to 43, which pushed cumulative unreleased connections (each file's own `testPrisma`/`Pool` in `tests/helpers/testDb.ts`, `afterAll`'s `closeTestDb()` apparently not fully releasing before the next file starts under `--runInBand`) past 100.
+**Why it matters:** Not a correctness regression — confirmed by rerunning twice: a different random subset of suites fails each time, and neither of the two bug fixes in this session (nor their new tests) has ever appeared in a failure list. But it means `npm test` is now genuinely flaky (not just slow) locally and probably in CI, which will erode trust in the suite and hide real regressions in the noise.
+**Effort:** Medium — likely fixes: raise local/CI `max_connections`, or (better) share a single `testPrisma`/`Pool` across the whole run instead of one per file, or explicitly close connections in a global `afterAll` with a longer grace period before the next file starts.
+**Priority:** Medium-High — will only get worse as more tests are added; worth fixing before it starts intermittently failing CI on unrelated PRs.
+
+---
+
+## 2026-09-22 — server/migrations (089/090 also missing from main, not just dev)
+**Type:** Knowledge
+**What:** Follow-up to the 043-091 drift entry above. After merging `main` into `dev`, `092_messenger_missing_indexes.js` is still not the true next migration — `089_operations_dashboard.js` and `090_per_form_sla.js` are missing from **both** branches' history, even though the shared test DB's `pgmigrations` table has them recorded as run. Traced `089`'s commit (`f9b2baf feat: operations dashboard — SLA tracking, plans queue, thread assignment`) to the unmerged branch `fix/signup-orphan-user-takeover` — it was never merged into `main` either, but whatever database that branch was tested against picked up the migration.
+**Why it matters:** Smaller-scope version of the same problem (2 files, not 49), but confirms it's an ongoing process gap, not a one-time accident — work is getting applied to a shared database from branches that never land in trunk.
+**Effort:** Small once someone confirms `089`/`090`'s real content (check `fix/signup-orphan-user-takeover` and any other stale branches for matching migration files) and decides whether that branch's other work should also be merged.
+**Priority:** Medium
