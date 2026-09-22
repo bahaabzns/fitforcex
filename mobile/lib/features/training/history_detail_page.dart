@@ -8,6 +8,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
+import '../../shared/utils/exercise_tracking_types.dart';
+import '../../shared/utils/format_amount.dart';
+import '../../shared/utils/localization.dart';
 import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
 import 'workout_repository.dart';
@@ -58,7 +61,7 @@ class HistoryDetailPage extends ConsumerWidget {
                         _stat(formatDuration(log.durationSeconds), muted),
                         const SizedBox(width: 12),
                         _stat(
-                            '${_n(log.totalVolume)} ${l10n.trainingVolumeUnit}',
+                            '${prettyAmount(log.totalVolume)} ${l10n.trainingVolumeUnit}',
                             muted),
                         const SizedBox(width: 12),
                         _stat('${log.totalSets} ${l10n.trainingSetsShort}',
@@ -79,9 +82,6 @@ class HistoryDetailPage extends ConsumerWidget {
 
   Widget _stat(String text, Color muted) =>
       Text(text, style: TextStyle(fontSize: 12, color: muted));
-
-  static String _n(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 }
 
 class _ExerciseCard extends StatelessWidget {
@@ -95,6 +95,12 @@ class _ExerciseCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final muted = context.appColors.mutedForeground;
     final primary = Theme.of(context).colorScheme.primary;
+    final locale = Localizations.localeOf(context).languageCode;
+    final exerciseName = localizedField(
+      base: exercise.libraryNameEn ?? exercise.name,
+      arabic: exercise.libraryNameAr,
+      localeCode: locale,
+    );
     final header = TextStyle(
       fontSize: 10,
       fontWeight: FontWeight.w600,
@@ -119,7 +125,7 @@ class _ExerciseCard extends StatelessWidget {
                         color: primary)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(exercise.name,
+                  child: Text(exerciseName,
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
@@ -129,9 +135,8 @@ class _ExerciseCard extends StatelessWidget {
             Row(
               children: [
                 cell(l10n.trainingSet.toUpperCase(), header),
-                cell(l10n.trainingWeight.toUpperCase(), header),
-                cell(l10n.trainingRepsShort.toUpperCase(), header),
-                cell(l10n.trainingRir.toUpperCase(), header),
+                for (final field in _loggedFields)
+                  cell(fieldLabel(l10n, field).toUpperCase(), header),
               ],
             ),
             const SizedBox(height: 4),
@@ -147,9 +152,8 @@ class _ExerciseCard extends StatelessWidget {
                     return Row(
                       children: [
                         cell('${i + 1}', TextStyle(fontSize: 12, color: muted)),
-                        cell(_n(s.weight), style),
-                        cell(_n(s.reps), style),
-                        cell(_n(s.rir), style),
+                        for (final field in _loggedFields)
+                          cell(_fieldValue(s, field), style),
                       ],
                     );
                   },
@@ -167,8 +171,24 @@ class _ExerciseCard extends StatelessWidget {
     );
   }
 
-  static String _n(double? v) {
-    if (v == null) return '—';
-    return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
-  }
+  // Snapshotted at submission time, so history renders exactly what was
+  // prescribed then even if the coach later changes the catalog exercise's
+  // type/metrics. Only ever the *loggable* fields — tempo/rir/rpe are
+  // prescribed targets, and a completed log has no "prescribed" data to
+  // show a target from, only what was actually logged.
+  List<String> get _loggedFields =>
+      loggedFieldsFor(exercise.trackingType, exercise.trackedMetrics);
+
+  static String _n(double? v) => v != null ? prettyAmount(v) : '—';
+
+  static String _fieldValue(LoggedSet set, String field) => switch (field) {
+        'weight' => _n(set.weight),
+        'reps' => _n(set.reps),
+        'duration_seconds' =>
+          set.durationSeconds != null ? formatClock(set.durationSeconds!) : '—',
+        'distance_km' => _n(set.distanceKm),
+        'incline_percent' => _n(set.inclinePercent),
+        'speed_kmh' => _n(set.speedKmh),
+        _ => '—',
+      };
 }

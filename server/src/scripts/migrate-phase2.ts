@@ -6,12 +6,12 @@
  *
  * Usage (from server/):
  *   # Steps 1–3 only (no old DB needed):
- *   DATABASE_URL="postgresql://fitforce_user:Canyouseeme%40441199@localhost:5433/fitforce_db" \
+ *   DATABASE_URL="postgresql://fitforce_user:<password>@localhost:5433/fitforce_db" \
  *   npx tsx src/scripts/migrate-phase2.ts
  *
  *   # All steps (when old DB access is restored):
  *   PG_OLD_URL="postgresql://postgres:<pass>@localhost:5433/fitforce_old" \
- *   DATABASE_URL="postgresql://fitforce_user:Canyouseeme%40441199@localhost:5433/fitforce_db" \
+ *   DATABASE_URL="postgresql://fitforce_user:<password>@localhost:5433/fitforce_db" \
  *   npx tsx src/scripts/migrate-phase2.ts
  */
 

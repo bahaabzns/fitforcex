@@ -10,6 +10,7 @@ const DEFAULT_PERMISSIONS = {
         finance:   { read: false, write: false, delete: false },
         databases: { read: true,  write: true,  delete: false },
         team:      { read: true,  write: true,  delete: false },
+        insights:  { read: true,  write: true,  delete: false },
     },
     trainer: {
         clients:   { read: true,  write: true,  delete: false },
@@ -19,6 +20,7 @@ const DEFAULT_PERMISSIONS = {
         finance:   { read: false, write: false, delete: false },
         databases: { read: true,  write: true,  delete: false },
         team:      { read: false, write: false, delete: false },
+        insights:  { read: true,  write: true,  delete: false },
     },
     nutritionist: {
         clients:   { read: true,  write: true,  delete: false },
@@ -28,6 +30,7 @@ const DEFAULT_PERMISSIONS = {
         finance:   { read: false, write: false, delete: false },
         databases: { read: true,  write: true,  delete: false },
         team:      { read: false, write: false, delete: false },
+        insights:  { read: true,  write: true,  delete: false },
     },
     receptionist: {
         clients:   { read: true,  write: false, delete: false },
@@ -37,6 +40,7 @@ const DEFAULT_PERMISSIONS = {
         finance:   { read: true,  write: true,  delete: false },
         databases: { read: false, write: false, delete: false },
         team:      { read: false, write: false, delete: false },
+        insights:  { read: true,  write: true,  delete: false },
     },
     viewer: {
         clients:   { read: true,  write: false, delete: false },
@@ -46,6 +50,7 @@ const DEFAULT_PERMISSIONS = {
         finance:   { read: false, write: false, delete: false },
         databases: { read: true,  write: false, delete: false },
         team:      { read: false, write: false, delete: false },
+        insights:  { read: true,  write: false, delete: false },
     },
 };
 

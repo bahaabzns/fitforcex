@@ -4,9 +4,23 @@ import { ClipboardList } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import EmptyState from "@/app/components/EmptyState";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
+import ImportGoogleFormDialog from "@/app/components/forms/ImportGoogleFormDialog";
+
+// Simplified Google Forms mark (purple clipboard + checkmark) so the import
+// button is recognizable at a glance, not just another generic upload icon.
+const GoogleFormsIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" className="shrink-0">
+        <rect x="6" y="4" width="30" height="40" rx="3" fill="#673AB7" />
+        <rect x="12" y="14" width="18" height="2.5" fill="#fff" />
+        <rect x="12" y="20" width="18" height="2.5" fill="#fff" />
+        <rect x="12" y="26" width="12" height="2.5" fill="#fff" />
+        <circle cx="33" cy="31" r="9" fill="#fff" />
+        <path d="M29 31l3 3 6-6.5" stroke="#673AB7" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
 
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -31,14 +45,16 @@ export default function FormsPanel({
     pendingFocusFormId, setPendingFocusFormId,
     handleSelectForm,
     handleCreateForm,
-    handleUpdateForm,
     handleDeleteForm,
     handleArchiveForm,
+    handleActivateForm,
     handleDuplicateForm,
+    handleImportGoogleForm,
 }) {
     const tNutrition = useTranslations('nutrition');
     const tForms = useTranslations('forms');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["forms"]));
+    const [isImportOpen, setIsImportOpen] = useState(false);
 
     // A form with client history can't be deleted (see forms.controller.ts —
     // `form_requests` would be silently destroyed by the DB cascade). Offer
@@ -46,10 +62,13 @@ export default function FormsPanel({
     async function handleDeleteOrArchive(form) {
         const result = await handleDeleteForm(form.id);
         if (result?.blocked) {
-            const shouldArchive = window.confirm(
-                tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount })
-            );
+            const confirmMessage = result.reason === 'package_default'
+                ? tForms('archiveInsteadOfDeletePackageDefaultConfirm', { count: result.packageDefaultCount })
+                : tForms('archiveInsteadOfDeleteConfirm', { count: result.submissionCount });
+            const shouldArchive = window.confirm(confirmMessage);
             if (shouldArchive) await archiveWithWarning(form);
+        } else if (result && !result.ok) {
+            window.alert(tForms('deleteFormFailed'));
         }
     }
 
@@ -61,10 +80,15 @@ export default function FormsPanel({
     // action and the archive-instead-of-delete prompt above).
     async function archiveWithWarning(form) {
         const result = await handleArchiveForm(form.id);
-        if (result?.warning) window.alert(result.warning);
+        if (!result?.ok) {
+            window.alert(tForms('archiveFormFailed'));
+            return;
+        }
+        if (result.warning) window.alert(result.warning);
     }
 
     return (
+        <>
         <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
@@ -85,9 +109,25 @@ export default function FormsPanel({
                                     <Disclosure.Indicator />
                                 </Button>
                                 {expandedKeys.has("forms") && (
-                                    <Button variant="primary" onClick={handleCreateForm} className="shrink-0">
-                                        {tNutrition('newForm')}
-                                    </Button>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {/* Only the coach workspace builder wires this up — the Super
+                                            Admin "Master Form Templates" builder (which reuses this same
+                                            panel against a separate /admin/forms-templates backend) has
+                                            no matching import endpoint, so this stays hidden there. */}
+                                        {handleImportGoogleForm && (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setIsImportOpen(true)}
+                                                className="gap-2"
+                                            >
+                                                <GoogleFormsIcon />
+                                                {tForms('importFromGoogleForms')}
+                                            </Button>
+                                        )}
+                                        <Button variant="primary" onClick={handleCreateForm}>
+                                            {tNutrition('newForm')}
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         </Disclosure.Heading>
@@ -136,7 +176,7 @@ export default function FormsPanel({
                                                         pendingFocusFormId={pendingFocusFormId}
                                                         setPendingFocusFormId={setPendingFocusFormId}
                                                         onSelect={() => handleSelectForm(form)}
-                                                        onUpdate={(updates) => handleUpdateForm(form.id, updates)}
+                                                        onActivate={() => handleActivateForm(form.id)}
                                                         onDelete={() => handleDeleteOrArchive(form)}
                                                         onArchive={() => archiveWithWarning(form)}
                                                         onDuplicate={() => handleDuplicateForm(form.id)}
@@ -153,10 +193,18 @@ export default function FormsPanel({
 
             </DisclosureGroup>
         </Surface>
+        {handleImportGoogleForm && (
+            <ImportGoogleFormDialog
+                open={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                handleImportGoogleForm={handleImportGoogleForm}
+            />
+        )}
+        </>
     );
 }
 
-function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onArchive, onDuplicate }) {
+function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onActivate, onDelete, onArchive, onDuplicate }) {
     const tForms = useTranslations('forms');
     const tCommon = useTranslations('common');
 
@@ -211,7 +259,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                     ...(form.status !== 'active' ? [{
                         key: 'activate',
                         label: tForms('setToActive'),
-                        onSelect: () => onUpdate({ status: 'active' }),
+                        onSelect: onActivate,
                     }] : []),
                     { key: 'duplicate', label: tForms('duplicateForm'), icon: <DuplicateIcon />, onSelect: onDuplicate },
                     ...(form.status !== 'archived' ? [{

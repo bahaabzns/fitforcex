@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import { useLocale } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { Modal } from "@heroui/react/modal";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import LineChart from "@/app/components/charts/LineChart";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
+import Typography from "@/app/components/Typography";
 import api from "@/lib/axios";
 
 const DumbbellIcon = () => (
@@ -43,9 +44,9 @@ function daysAgo(dateStr) {
 
 function SectionLabel({ children }) {
     return (
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+        <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-2">
             {children}
-        </p>
+        </Typography>
     );
 }
 
@@ -123,11 +124,12 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
         api.get('/api/auth/me').then(({ data }) => setMe(data)).catch(() => {});
     }, [open]);
 
+    const isRTL = locale === 'ar';
     const exerciseName = exercise
         ? (getLocalizedField(exercise, "library_name", locale) || exercise.name || "")
         : "";
     const meta = exercise
-        ? [exercise.muscle_group, exercise.equipment].filter(Boolean).join(" · ")
+        ? [(isRTL && exercise.muscle_group_ar) || exercise.muscle_group, (isRTL && exercise.equipment_ar) || exercise.equipment].filter(Boolean).join(" · ")
         : "";
 
     const metric     = METRICS.find(m => m.key === activeMetric) ?? METRICS[0];

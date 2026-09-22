@@ -8,8 +8,8 @@
  *   4. ClientPackageTemplate + ClientPackage → packages + package_variations
  *
  * Usage (from server/):
- *   PG_OLD_URL="postgresql://fitforce_user:Canyouseeme%40441199@localhost:5432/fitforce_old" \
- *   DATABASE_URL="postgresql://fitforce_user:Canyouseeme%40441199@localhost:5432/fitforce_db" \
+ *   PG_OLD_URL="postgresql://fitforce_user:<password>@localhost:5432/fitforce_old" \
+ *   DATABASE_URL="postgresql://fitforce_user:<password>@localhost:5432/fitforce_db" \
  *   npx tsx src/scripts/migrate-phase3.ts
  */
 
@@ -67,7 +67,6 @@ async function migratePlans() {
         cta_text:        'Get Started',
         cta_variant:     'outline',
         features_header: "What's included:",
-        has_team_counter: false,
         created_at:      new Date(p.createdAt),
       })),
       skipDuplicates: true,

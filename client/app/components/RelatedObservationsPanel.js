@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import ObservationCard from "@/app/components/ObservationCard";
+import Typography from "@/app/components/Typography";
 
 /**
  * "Related Observations" section reused wherever a specific related item
@@ -25,7 +26,7 @@ export default function RelatedObservationsPanel({
     return (
         <div>
             <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+                <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">{title}</Typography>
                 <Button variant="ghost" size="sm" onPress={onAddClick}>
                     <Plus size={13} /> {addLabel}
                 </Button>

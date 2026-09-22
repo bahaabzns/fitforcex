@@ -5,6 +5,7 @@ import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import CycleCalculator from "./CycleCalculator";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
+import PlanIcon from "@/app/components/PlanIcon";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
 import ObservationModal from "@/app/components/ObservationModal";
@@ -12,7 +13,7 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { ProgressBar } from "@heroui/react/progress-bar";
 
 function formatRelativeTime(dateStr, t) {
@@ -30,11 +31,6 @@ function formatRelativeTime(dateStr, t) {
     return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
 
-const PlanIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
-    </svg>
-);
 
 export default function LeftPanel({
     plans,
@@ -102,7 +98,7 @@ export default function LeftPanel({
     const currentCycle = selectedPlan?.cycles?.[selectedCycleIndex] ?? null;
     const dirtyPlanCount = dirtyPlanIds?.length ?? 0;
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
-    const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
+    const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled' && !r.is_archived);
 
     return (
         <>
@@ -225,6 +221,7 @@ export default function LeftPanel({
                                                                 {plan.cycle_count} {t('cycles')}
                                                                 {" · "}
                                                                 {t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
+                                                                {plan.last_edited_by_name && ` · ${t('editedBy', { name: plan.last_edited_by_name })}`}
                                                             </p>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">

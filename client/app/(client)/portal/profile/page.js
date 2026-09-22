@@ -3,31 +3,60 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { LogOut } from 'lucide-react';
-import { useTranslations } from "next-intl";
+import { LogOut, MessageSquarePlus, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { useTranslations, useLocale } from "next-intl";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
+import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { Avatar } from "@heroui/react/avatar";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Modal } from "@heroui/react/modal";
+import { Chip } from "@heroui/react/chip";
+import { usePageTitle } from "@/hooks/usePageTitle";
+
+function subStatusColor(status) {
+    switch (status) {
+        case "Active":    return "bg-green-500/15 text-green-600";
+        case "Expired":   return "bg-destructive/10 text-destructive";
+        case "Frozen":    return "bg-accent/15 text-accent";
+        case "Pre-start": return "bg-yellow-500/15 text-yellow-600";
+        default:          return "bg-secondary text-muted-foreground";
+    }
+}
 
 export default function ClientProfilePage() {
     const t = useTranslations('portal.profile');
+    const tInsights = useTranslations('insights');
+    const tSub = useTranslations('portal.subscription');
+    usePageTitle(t('title'));
+    const locale = useLocale();
+    const isRTL = locale === 'ar';
     const [client, setClient] = useState(null);
+    const [subscription, setSubscription] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
         api.get("/api/client-portal/me")
             .then(res => { setClient(res.data); setLoading(false); })
             .catch(() => setLoading(false));
+        api.get("/api/client-portal/subscription")
+            .then(res => setSubscription(res.data))
+            .catch(() => {});
     }, []);
+
+    const subStatusLabels = {
+        Active: tSub('statusActive'), Expired: tSub('statusExpired'),
+        Frozen: tSub('statusFrozen'), "Pre-start": tSub('statusPreStart'),
+    };
 
     const handleLogout = async () => {
         await api.post("/api/client-portal/logout").catch(() => {});
-        router.push("/portal/login");
+        router.push("/portal");
     };
 
     const getInitials = (c) => {
@@ -66,6 +95,33 @@ export default function ClientProfilePage() {
                 )}
             </div>
 
+            {/* Subscription */}
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push('/portal/subscription')}
+                onKeyDown={(e) => { if (e.key === 'Enter') router.push('/portal/subscription'); }}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-secondary cursor-pointer"
+            >
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <CreditCard size={16} className="text-muted-foreground" />
+                    {tSub('cardLabel')}
+                    {subscription?.plan?.name && (
+                        <span className="text-muted-foreground font-normal">— {subscription.plan.name}</span>
+                    )}
+                </span>
+                <div className="flex items-center gap-2">
+                    {subscription?.status && subStatusLabels[subscription.status] && (
+                        <Chip size="sm" className={subStatusColor(subscription.status)}>
+                            {subStatusLabels[subscription.status]}
+                        </Chip>
+                    )}
+                    {isRTL
+                        ? <ChevronLeft size={16} className="text-muted-foreground" />
+                        : <ChevronRight size={16} className="text-muted-foreground" />}
+                </div>
+            </div>
+
             {/* Preferences */}
             <div className="flex flex-col gap-0.5">
                 <p className="px-1 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -84,6 +140,32 @@ export default function ClientProfilePage() {
                     <LanguageSwitcher />
                 </div>
             </div>
+
+            {/* Feedback entry point — opt-in only, never a popup */}
+            <NewFeatureTooltip
+                featureKey="feedback_entry_hint"
+                active
+                message={tInsights('hint')}
+                dismissLabel={tInsights('hintDismiss')}
+                badgeLabel={tInsights('newFeature')}
+                onTriggerClick={() => setFeedbackOpen(true)}
+                triggerClassName="flex items-center justify-between px-4 py-3 rounded-2xl bg-secondary cursor-pointer"
+            >
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <MessageSquarePlus size={16} className="text-muted-foreground" />
+                    {tInsights('navLabel')}
+                </span>
+                {isRTL
+                    ? <ChevronLeft size={16} className="text-muted-foreground" />
+                    : <ChevronRight size={16} className="text-muted-foreground" />}
+            </NewFeatureTooltip>
+
+            <FeedbackEntryModal
+                open={feedbackOpen}
+                onClose={() => setFeedbackOpen(false)}
+                submitUrl="/api/client-portal/insights"
+                screenshotUploadUrl="/api/client-portal/insights/screenshot"
+            />
 
             {/* Logout */}
             <Button

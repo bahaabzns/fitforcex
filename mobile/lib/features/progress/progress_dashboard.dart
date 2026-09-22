@@ -8,15 +8,16 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/line_chart.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/transformation.dart';
-import '../../shared/utils/localization.dart';
 import 'progress_repository.dart';
 
 enum _RangePreset { d30, d90, m6, all }
 
 /// Body-transformation tracker: metric charts (weight, measurements, ...)
-/// extracted from check-in answers, progress photos with a first/latest
-/// compare, and a submission timeline. This IS the Home tab's content — the
-/// web client portal's `/portal/home` is exclusively this `ProgressSection`,
+/// extracted from check-in answers, and progress photos with a first/latest
+/// compare. (The submission timeline that used to live here was removed to
+/// match web — full submission history now lives in the Forms > Submitted
+/// tab instead, avoiding the duplication.) This IS the Home tab's content —
+/// the web client portal's `/portal/home` is exclusively this `ProgressSection`,
 /// so mobile's Home mirrors that 1:1 instead of hiding it behind another
 /// screen. No Scaffold/AppBar here; [HomePage] provides those (the shell
 /// already renders the top bar).
@@ -59,7 +60,7 @@ class _ProgressDashboardBodyState extends ConsumerState<ProgressDashboardBody> {
       value: data,
       onRetry: () => ref.invalidate(transformationProvider),
       data: (payload) {
-        if (payload.metrics.isEmpty && payload.timeline.isEmpty) {
+        if (payload.metrics.isEmpty) {
           return EmptyState(
             icon: Icons.trending_up,
             title: l10n.progressEmptyTitle,
@@ -85,14 +86,6 @@ class _ProgressDashboardBodyState extends ConsumerState<ProgressDashboardBody> {
             for (final m in images) ...[
               _PhotoMetricCard(metric: m, points: _inRange(m.history)),
               const SizedBox(height: 12),
-            ],
-            if (payload.timeline.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(l10n.progressTimeline,
-                  style:
-                      const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              for (final s in payload.timeline) _TimelineEntry(submission: s),
             ],
           ],
         );
@@ -310,7 +303,8 @@ class _PhotoMetricCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -320,12 +314,13 @@ class _PhotoMetricCard extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: _comparePane(points.first)),
-                  const SizedBox(width: 6),
-                  Expanded(child: _comparePane(points.last)),
-                ],
+              _ComparisonSlider(before: points.first, after: points.last),
+              const SizedBox(height: 6),
+              Text(
+                l10n.progressCompareDrag,
+                style: TextStyle(
+                    fontSize: 10, color: dialogContext.appColors.mutedForeground),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -333,16 +328,175 @@ class _PhotoMetricCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _comparePane(MetricHistoryPoint p) {
+/// One overlapping image with a draggable vertical divider that reveals
+/// [before] on the left and [after] on the right — port of web's
+/// `ComparisonSlider` (client-portal home page). Mobile's compare used to
+/// show the two photos side by side instead of split like this.
+class _ComparisonSlider extends StatefulWidget {
+  const _ComparisonSlider({required this.before, required this.after});
+
+  final MetricHistoryPoint before;
+  final MetricHistoryPoint after;
+
+  @override
+  State<_ComparisonSlider> createState() => _ComparisonSliderState();
+}
+
+class _ComparisonSliderState extends State<_ComparisonSlider> {
+  // Percent (0-100) of the container width where the divider sits.
+  double _position = 50;
+
+  void _updatePosition(Offset globalPosition, RenderBox box) {
+    final local = box.globalToLocal(globalPosition);
+    setState(() {
+      _position = (local.dx / box.size.width * 100).clamp(2, 98);
+    });
+  }
+
+  Widget _photo(String url) => Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, _, __) => Container(
+          color: context.appColors.secondary,
+          child: const Center(child: Icon(Icons.broken_image_outlined)),
+        ),
+      );
+
+  Widget _cornerLabel(BuildContext context, String text, {required bool primary}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: primary
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.8)
+              : Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+          ),
+        ),
+      );
+
+  Widget _dateLabel(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).toString();
+    final beforeDate = DateTime.tryParse(widget.before.date);
+    final afterDate = DateTime.tryParse(widget.after.date);
+    final beforeLabel =
+        beforeDate != null ? DateFormat.yMMMd(locale).format(beforeDate) : widget.before.date;
+    final afterLabel =
+        afterDate != null ? DateFormat.yMMMd(locale).format(afterDate) : widget.after.date;
+
     return AspectRatio(
       aspectRatio: 3 / 4,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(p.value, fit: BoxFit.cover),
+        borderRadius: BorderRadius.circular(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => _updatePosition(
+                  d.globalPosition, context.findRenderObject()! as RenderBox),
+              onHorizontalDragUpdate: (d) => _updatePosition(
+                  d.globalPosition, context.findRenderObject()! as RenderBox),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _photo(widget.after.value),
+                  ClipRect(
+                    clipper: _LeftFractionClipper(_position / 100),
+                    child: _photo(widget.before.value),
+                  ),
+                  Positioned(
+                    left: width * _position / 100 - 1,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.6), blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: (width * _position / 100 - 16).clamp(0.0, width - 32),
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 6),
+                          ],
+                        ),
+                        child: const Icon(Icons.compare_arrows,
+                            size: 16, color: Colors.black54),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _cornerLabel(context, l10n.progressCompareBefore, primary: false),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _cornerLabel(context, l10n.progressCompareAfter, primary: true),
+                  ),
+                  Positioned(bottom: 8, left: 8, child: _dateLabel(beforeLabel)),
+                  Positioned(bottom: 8, right: 8, child: _dateLabel(afterLabel)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+/// Clips to the left [fraction] (0.0-1.0) of the child's width — the "before"
+/// image is full-size underneath but only this much of it is visible,
+/// exactly like web's `clipPath: inset(0 (100-position)% 0 0)`.
+class _LeftFractionClipper extends CustomClipper<Rect> {
+  const _LeftFractionClipper(this.fraction);
+
+  final double fraction;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width * fraction, size.height);
+
+  @override
+  bool shouldReclip(covariant _LeftFractionClipper oldClipper) =>
+      oldClipper.fraction != fraction;
 }
 
 class _PhotoViewer extends StatelessWidget {
@@ -365,69 +519,6 @@ class _PhotoViewer extends StatelessWidget {
         itemBuilder: (context, i) => InteractiveViewer(
           child: Center(child: Image.network(points[i].value)),
         ),
-      ),
-    );
-  }
-}
-
-class _TimelineEntry extends StatelessWidget {
-  const _TimelineEntry({required this.submission});
-
-  final TransformationSubmission submission;
-
-  @override
-  Widget build(BuildContext context) {
-    final locale = Localizations.localeOf(context);
-    final title = localizedField(
-      base: submission.formTitle,
-      arabic: submission.formTitleAr,
-      localeCode: locale.languageCode,
-    );
-    final d = DateTime.tryParse(submission.submittedAt ?? '');
-    final dateLabel =
-        d != null ? DateFormat.yMMMd(locale.toString()).format(d) : '';
-
-    return Card(
-      child: ExpansionTile(
-        title: Text(title, style: const TextStyle(fontSize: 13)),
-        subtitle: Text(dateLabel,
-            style:
-                TextStyle(fontSize: 11, color: context.appColors.mutedForeground)),
-        children: [
-          for (final a in submission.answers)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      localizedField(
-                        base: a.label,
-                        arabic: a.labelAr,
-                        localeCode: locale.languageCode,
-                      ),
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: context.appColors.mutedForeground),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: a.metricType == metricTypeImage
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(a.answer,
-                                height: 48, fit: BoxFit.cover),
-                          )
-                        : Text(a.answer,
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
-            ),
-        ],
       ),
     );
   }

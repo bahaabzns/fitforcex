@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import ExerciseFormModal from "@/app/components/training/ExerciseFormModal";
@@ -13,29 +13,25 @@ import { Separator } from "@heroui/react/separator";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Pagination } from "@heroui/react/pagination";
+import { getPageNumbers } from "@/utils/pagination";
 
 const PAGE_SIZE = 10;
 
-function getPageNumbers(currentPage, totalPages) {
-    if (totalPages <= 7) {
-        return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const pages = [1];
-    if (currentPage > 3) pages.push("ellipsis");
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (currentPage < totalPages - 2) pages.push("ellipsis");
-    pages.push(totalPages);
-    return pages;
-}
-
-export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
+export default function ExercisePickerModal({ open, onClose, onAddExercises, single = false, title, confirmLabel }) {
     const t = useTranslations('training');
     const tFilter = useTranslations('filter');
+    const isRTL = useLocale() === 'ar';
+    const localizedExerciseName = (item) => (isRTL && item?.name_ar) || item?.name_en || item?.name_ar || '';
     const [items, setItems] = useState([]);
     const [muscleGroups, setMuscleGroups] = useState([]);
     const [equipments, setEquipments] = useState([]);
+    // exercise_library.muscle_group/equipment store the lookup's name_en as a
+    // plain string (not a FK) — translate for display via these maps while
+    // keeping the underlying value (and filter keys) in English.
+    const muscleGroupNameAr = new Map(muscleGroups.map(g => [g.name_en, g.name_ar]));
+    const equipmentNameAr = new Map(equipments.map(e => [e.name_en, e.name_ar]));
+    const localizedMuscleGroup = (name) => (isRTL && muscleGroupNameAr.get(name)) || name || '';
+    const localizedEquipment = (name) => (isRTL && equipmentNameAr.get(name)) || name || '';
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [filterGroup, setFilterGroup] = useState("");
@@ -88,6 +84,10 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const visibleSelectedKeys = new Set([...selectedIds].filter(id => pageIdSet.has(id)));
 
     const handleTableSelectionChange = (keys) => {
+        if (single) {
+            setSelectedIds(keys === "all" ? new Set() : new Set(keys));
+            return;
+        }
         setSelectedIds(prev => {
             const outsidePage = new Set([...prev].filter(id => !pageIdSet.has(id)));
             if (keys === "all") {
@@ -98,18 +98,24 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     };
 
     const handleConfirm = () => {
-        const selectedItems = items.filter((item) => selectedIds.has(String(item.id)));
+        const selectedItems = items
+            .filter((item) => selectedIds.has(String(item.id)))
+            .map((item) => ({
+                ...item,
+                muscle_group_ar: item.muscle_group ? muscleGroupNameAr.get(item.muscle_group) ?? null : null,
+                equipment_ar:    item.equipment ? equipmentNameAr.get(item.equipment) ?? null : null,
+            }));
         onAddExercises(selectedItems);
     };
 
     const handleExerciseCreated = (created) => {
         setItems((prev) => [created, ...prev]);
-        setSelectedIds((prev) => new Set([...prev, String(created.id)]));
+        setSelectedIds((prev) => single ? new Set([String(created.id)]) : new Set([...prev, String(created.id)]));
         setShowCreateForm(false);
     };
 
     return (
-        <Modal open={open} onClose={onClose} title={t('addExercises')} wide>
+        <Modal open={open} onClose={onClose} title={title ?? t('addExercises')} wide>
             <div className="flex flex-col gap-3 p-2">
 
                 {/* Search row: field + muscle group dropdown + equipment dropdown + result count */}
@@ -147,7 +153,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                 </ListBox.Item>
                                 {muscleGroups.map(g => (
                                     <ListBox.Item key={g.name_en} id={g.name_en} textValue={g.name_en}>
-                                        {g.name_en}
+                                        {localizedMuscleGroup(g.name_en)}
                                         <ListBox.ItemIndicator />
                                     </ListBox.Item>
                                 ))}
@@ -174,7 +180,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                 </ListBox.Item>
                                 {equipments.map(e => (
                                     <ListBox.Item key={e.name_en} id={e.name_en} textValue={e.name_en}>
-                                        {e.name_en}
+                                        {localizedEquipment(e.name_en)}
                                         <ListBox.ItemIndicator />
                                     </ListBox.Item>
                                 ))}
@@ -207,19 +213,21 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                     <Table>
                         <Table.ScrollContainer>
                             <Table.Content
-                                aria-label={t('addExercises')}
-                                selectionMode="multiple"
+                                aria-label={title ?? t('addExercises')}
+                                selectionMode={single ? "single" : "multiple"}
                                 selectionBehavior="toggle"
                                 selectedKeys={visibleSelectedKeys}
                                 onSelectionChange={handleTableSelectionChange}
                             >
                                 <Table.Header>
                                     <Table.Column id="select" className="w-8 p-2">
-                                        <Checkbox aria-label="Select all" slot="selection">
-                                            <Checkbox.Control>
-                                                <Checkbox.Indicator />
-                                            </Checkbox.Control>
-                                        </Checkbox>
+                                        {!single && (
+                                            <Checkbox aria-label="Select all" slot="selection">
+                                                <Checkbox.Control>
+                                                    <Checkbox.Indicator />
+                                                </Checkbox.Control>
+                                            </Checkbox>
+                                        )}
                                     </Table.Column>
                                     <Table.Column id="exercise" isRowHeader>{t('exerciseCol')}</Table.Column>
                                     <Table.Column id="muscleGroup">{t('muscleGroupCol')}</Table.Column>
@@ -234,7 +242,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                         >
                                             <Table.Cell className="p-2">
                                                 <Checkbox
-                                                    aria-label={`Select ${item.name_en}`}
+                                                    aria-label={`Select ${localizedExerciseName(item)}`}
                                                     slot="selection"
                                                 >
                                                     <Checkbox.Control>
@@ -251,19 +259,19 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                                         {item.thumbnail_path && (
                                                             <img
                                                                 src={item.thumbnail_path}
-                                                                alt={item.name_en}
+                                                                alt={localizedExerciseName(item)}
                                                                 className="absolute inset-0 w-full h-full object-cover"
                                                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                                             />
                                                         )}
                                                     </div>
-                                                    {item.name_en}
+                                                    {localizedExerciseName(item)}
                                                 </div>
                                             </Table.Cell>
                                             <Table.Cell className="p-2">
                                                 {item.muscle_group ? (
                                                     <Chip size="sm" variant="soft" color="default">
-                                                        <Chip.Label>{item.muscle_group}</Chip.Label>
+                                                        <Chip.Label>{localizedMuscleGroup(item.muscle_group)}</Chip.Label>
                                                     </Chip>
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>
@@ -272,7 +280,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                             <Table.Cell className="p-2">
                                                 {item.equipment ? (
                                                     <Chip size="sm" variant="soft" color="secondary">
-                                                        <Chip.Label>{item.equipment}</Chip.Label>
+                                                        <Chip.Label>{localizedEquipment(item.equipment)}</Chip.Label>
                                                     </Chip>
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>
@@ -338,7 +346,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                             onPress={handleConfirm}
                             isDisabled={selectedIds.size === 0}
                         >
-                            {tFilter('addSelected')}
+                            {confirmLabel ?? tFilter('addSelected')}
                         </Button>
                     </div>
                 </div>

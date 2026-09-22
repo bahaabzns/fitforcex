@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
-import { Eye, EyeOff, Copy, Check, Trash2, Archive, RotateCcw, AlertTriangle, History, TrendingUp, NotebookText, Plus } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Trash2, Archive, RotateCcw, AlertTriangle, History, TrendingUp, NotebookText, Plus, Camera } from 'lucide-react';
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
+import Typography from "@/app/components/Typography";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import CountryCodeSelect from "@/app/components/CountryCodeSelect";
 import AreaChart from "@/app/components/charts/AreaChart";
@@ -25,41 +26,8 @@ import { DateRangePicker } from "@heroui/react/date-range-picker";
 import { RangeCalendar } from "@heroui/react/range-calendar";
 import { DateField } from "@heroui/react/date-field";
 import { Tabs } from "@heroui/react";
-import { today, getLocalTimeZone } from "@internationalized/date";
-
-// ─── Transformation helpers ───────────────────────────────────────────────────
-
-const tz = getLocalTimeZone();
-
-function toStartOfDay(calDate) { return calDate.toDate(tz); }
-function toEndOfDay(calDate)   { const d = calDate.toDate(tz); d.setHours(23,59,59,999); return d; }
-
-function filterByRange(history, startDate, endDate) {
-    return history.filter(h => {
-        const t = new Date(h.date).getTime();
-        if (startDate && t < startDate.getTime()) return false;
-        if (endDate   && t > endDate.getTime())   return false;
-        return true;
-    });
-}
-
-function rangeForDays(days) {
-    const end = today(tz);
-    return { start: end.subtract({ days }), end };
-}
-
-const PRESETS = [
-    { label: "30d", days: 30 },
-    { label: "90d", days: 90 },
-    { label: "6m",  days: 180 },
-    { label: "All", days: null },
-];
-
-function deltaInfo(history) {
-    const nums = history.map(h => parseFloat(h.value)).filter(v => !isNaN(v));
-    if (nums.length < 2) return null;
-    return { delta: nums[nums.length - 1] - nums[0] };
-}
+import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
+import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 
 function MetricChart({ metric, locale, startDate, endDate }) {
     const filtered  = useMemo(() => filterByRange(metric.history, startDate, endDate), [metric.history, startDate, endDate]);
@@ -181,7 +149,7 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
         <Card>
             <Card.Header>
                 <div className="flex items-center gap-2 w-full">
-                    <span className="text-lg">{metric.icon || "📷"}</span>
+                    <Camera size={18} className="shrink-0 text-muted-foreground" />
                     <p className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">{metric.name}</p>
                     <Chip size="sm" variant="soft">
                         <Chip.Label>{photos.length} photo{photos.length !== 1 ? "s" : ""}</Chip.Label>
@@ -581,6 +549,11 @@ export default function ClientOverviewPage() {
             )}
           </div>
 
+          <TriggerInsightBannerGroup
+            basePath="/api/insights"
+            events={["first_subscription_freeze_created", "first_package_variation_assigned_to_client"]}
+          />
+
           {actionMsg && (
             <p className="flex items-center gap-2 text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
               <Check size={14} className="shrink-0" /> {actionMsg}
@@ -658,47 +631,74 @@ export default function ClientOverviewPage() {
             </Card.Content>
           </Card>
 
-          {/* Recent Observations */}
-          <Card>
-            <Card.Content className="p-6">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <NotebookText size={16} className="text-muted-foreground" />
-                  {t('recentObservations')}
+          {/* Recent Observations + Activity Timeline */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <Card.Content className="p-6">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <NotebookText size={16} className="text-muted-foreground" />
+                    {t('recentObservations')}
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" onPress={() => { setEditingObservation(null); setObservationModalOpen(true); }}>
+                      <Plus size={13} /> {t('addObservation')}
+                    </Button>
+                    <Link
+                      href={`/${workspaceSlug}/clients/${id}/observations`}
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {t('viewAllObservations')}
+                    </Link>
+                  </div>
+                </div>
+                {observationsLoading ? (
+                  <Skeleton className="h-16 rounded-lg" />
+                ) : recentObservations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('noObservationsYet')}</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {recentObservations.map(o => (
+                      <ObservationCard
+                        key={o.id}
+                        observation={o}
+                        clientId={id}
+                        currentUserId={me?.userId}
+                        isOwner={isOwner}
+                        onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                        onDeleted={(deletedId) => setRecentObservations(prev => prev.filter(x => x.id !== deletedId))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Card.Content>
+            </Card>
+
+            {/* Activity timeline */}
+            <Card>
+              <Card.Content className="p-6">
+                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-4">
+                  <History size={16} className="text-muted-foreground" />
+                  {t('activityTimeline')}
                 </h2>
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" onPress={() => { setEditingObservation(null); setObservationModalOpen(true); }}>
-                    <Plus size={13} /> {t('addObservation')}
-                  </Button>
-                  <Link
-                    href={`/${workspaceSlug}/clients/${id}/observations`}
-                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {t('viewAllObservations')}
-                  </Link>
-                </div>
-              </div>
-              {observationsLoading ? (
-                <Skeleton className="h-16 rounded-lg" />
-              ) : recentObservations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('noObservationsYet')}</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {recentObservations.map(o => (
-                    <ObservationCard
-                      key={o.id}
-                      observation={o}
-                      clientId={id}
-                      currentUserId={me?.userId}
-                      isOwner={isOwner}
-                      onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
-                      onDeleted={(deletedId) => setRecentObservations(prev => prev.filter(x => x.id !== deletedId))}
-                    />
-                  ))}
-                </div>
-              )}
-            </Card.Content>
-          </Card>
+                {audit.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('noActivity')}</p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {audit.map(ev => (
+                      <li key={ev.id} className="flex items-start gap-3">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground">{timelineLabel(ev)}</p>
+                          <p className="text-xs text-muted-foreground">{actorLabel(ev)} · {formatDate(ev.createdAt) || ""}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card.Content>
+            </Card>
+          </div>
           <ObservationModal
             open={observationModalOpen}
             onClose={() => setObservationModalOpen(false)}
@@ -726,7 +726,9 @@ export default function ClientOverviewPage() {
               <div className="flex flex-col gap-5">
                 {numericMetrics.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Measurements</h3>
+                    <Typography as="h3" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-3">
+                      Measurements
+                    </Typography>
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                       {numericMetrics.map(m => (
                         <MetricChart key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />
@@ -736,7 +738,9 @@ export default function ClientOverviewPage() {
                 )}
                 {imageMetrics.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Progress Photos</h3>
+                    <Typography as="h3" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-3">
+                      Progress Photos
+                    </Typography>
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                       {imageMetrics.map(m => (
                         <PhotoGallery key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />
@@ -747,31 +751,6 @@ export default function ClientOverviewPage() {
               </div>
             )}
           </section>
-
-          {/* Activity timeline */}
-          <Card>
-            <Card.Content className="p-6">
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-4">
-                <History size={16} className="text-muted-foreground" />
-                {t('activityTimeline')}
-              </h2>
-              {audit.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('noActivity')}</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {audit.map(ev => (
-                    <li key={ev.id} className="flex items-start gap-3">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm text-foreground">{timelineLabel(ev)}</p>
-                        <p className="text-xs text-muted-foreground">{actorLabel(ev)} · {formatDate(ev.createdAt) || ""}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card.Content>
-          </Card>
 
           {/* Danger zone */}
           {client.is_archived && isOwner && (

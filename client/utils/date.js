@@ -75,6 +75,25 @@ export function formatDate(value, locale = DEFAULT_LOCALE) {
 }
 
 /**
+ * Format a date as `D MMMM YYYY`, localized with the full month name — e.g.
+ * "4 March 2024" / "4 مارس 2024". Same shape as {@link formatDate} but for
+ * surfaces that want the spelled-out month rather than the abbreviation.
+ * @param {Date|string|number|null|undefined} value
+ * @param {string} [locale] - active app locale ("en" | "ar")
+ * @returns {string}
+ */
+export function formatFullDate(value, locale = DEFAULT_LOCALE) {
+    const date = toValidDate(value);
+    if (!date) return "";
+    const { day, month, year } = partsOf(date, locale, {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+    return `${day} ${month} ${year}`;
+}
+
+/**
  * Buckets a date into "Today" / "Yesterday" / a full weekday date, localized —
  * e.g. "Today", "Yesterday", "Tuesday, Mar 4". Used to group lists (messenger,
  * notifications) into day bands without re-deriving the same date math twice.
@@ -118,4 +137,31 @@ export function formatDateTime(value, locale = DEFAULT_LOCALE) {
     const meridiem = (dayPeriod || "").toUpperCase();
     const separator = isArabic(locale) ? "،" : ",";
     return `${day} ${month} ${year}${separator} ${hour}:${minute} ${meridiem}`;
+}
+
+/**
+ * Format a date-time as `Weekday, D MMM YYYY, h:mm A`, localized —
+ * e.g. "Monday, 4 Mar 2024, 3:45 PM" / "الاثنين، 4 مارس 2024، 3:45 م".
+ * Same shape as {@link formatDateTime} with the weekday name prefixed, for
+ * surfaces (e.g. workout history) that want the full date spelled out.
+ * Returns an empty string for missing/invalid input.
+ * @param {Date|string|number|null|undefined} value
+ * @param {string} [locale] - active app locale ("en" | "ar")
+ * @returns {string}
+ */
+export function formatFullDateTime(value, locale = DEFAULT_LOCALE) {
+    const date = toValidDate(value);
+    if (!date) return "";
+    const { weekday, day, month, year, hour, minute, dayPeriod } = partsOf(date, locale, {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    });
+    const meridiem = (dayPeriod || "").toUpperCase();
+    const separator = isArabic(locale) ? "،" : ",";
+    return `${weekday}${separator} ${day} ${month} ${year}${separator} ${hour}:${minute} ${meridiem}`;
 }

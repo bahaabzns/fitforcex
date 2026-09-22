@@ -21,6 +21,8 @@ import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { ComboBox } from "@heroui/react/combo-box";
 import { ListBox } from "@heroui/react/list-box";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 // --- CURRENCY LIST ---
 const CURRENCIES = [
@@ -162,12 +164,18 @@ function VariationDefaultsFields({ v, assessmentFormOptions, nutritionCheckinFor
 }
 
 // Row action items that stay hidden until the row is hovered or an action is focused.
-const HOVER_ACTIONS = "flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
+// table-row-actions: same marker class DataTable.js uses — picks up the
+// [data-real-hover] reveal rule in globals.css (see the comment there for
+// why plain group-hover isn't enough: react-aria disables its own hover
+// tracking for rows that aren't selectable/actionable, which this tree
+// table isn't, and neither is @media (hover: hover) reliable on its own).
+const HOVER_ACTIONS = "table-row-actions flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
 
 export default function PackagesPage() {
     const t = useTranslations('packages');
     const tCommon = useTranslations('common');
     const tFilter = useTranslations('filter');
+    usePageTitle(t('title'));
     const locale = useLocale();
 
     const [packages, setPackages] = useState([]);
@@ -389,7 +397,17 @@ export default function PackagesPage() {
         const isPackage = row.type === "package";
         const v = row.variation;
         return (
-            <Table.Row id={row.id} textValue={row.name} className="group">
+            <Table.Row
+                id={row.id}
+                textValue={row.name}
+                className="group"
+                // See DataTable.js's identical handlers for why: react-aria's
+                // own [data-hovered] tracking is disabled for non-selectable,
+                // non-actionable rows (this tree table is neither), so we set
+                // our own attribute directly on the DOM node instead.
+                onPointerEnter={(e) => { if (e.pointerType !== "touch") e.currentTarget.setAttribute("data-real-hover", "true"); }}
+                onPointerLeave={(e) => { if (e.pointerType !== "touch") e.currentTarget.removeAttribute("data-real-hover"); }}
+            >
                 <Table.Cell textValue={row.name}>
                     {({ hasChildItems, isExpanded, isTreeColumn }) => (
                         <span className="flex items-center gap-1.5">
@@ -660,6 +678,13 @@ export default function PackagesPage() {
                 <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_package_created"
+                checkUrl="/api/insights/prompts/for-trigger/first_package_created"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             {/* Toggle/delete errors (edit + create errors render inside their modals) */}
             {!showForm && !addVariationTarget && !editingPackage && !editingVariation && error && <p className="text-destructive text-sm">{error}</p>}

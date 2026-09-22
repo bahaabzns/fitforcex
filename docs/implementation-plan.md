@@ -619,7 +619,7 @@ Open `server/package.json` and add to the `"scripts"` section:
 `node-pg-migrate` needs your database connection. The simplest way is a `DATABASE_URL` environment variable or passing the config directly. Add this to `server/.env`:
 
 ```
-DATABASE_URL=postgres://postgres:Canyouseeme@441199@localhost:5432/fitforce-x-database
+DATABASE_URL=postgres://postgres:<password>@localhost:5432/fitforce-x-database
 ```
 
 And update `server/.env.example`:
@@ -1436,7 +1436,7 @@ Create `server/.env.test`:
 DB_USER=postgres
 DB_HOST=localhost
 DB_NAME=fitforce-x-test
-DB_PASSWORD=Canyouseeme@441199
+DB_PASSWORD=<your-local-postgres-password>
 DB_PORT=5432
 PORT=4001
 JWT_SECRET=test-jwt-secret-not-for-production

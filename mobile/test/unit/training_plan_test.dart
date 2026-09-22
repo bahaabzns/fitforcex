@@ -18,9 +18,13 @@ void main() {
               {
                 'id': 'e1',
                 'name': 'Bench Press',
+                'library_name_en': 'Barbell Bench Press',
+                'library_name_ar': 'ضغط البنش بالبار',
                 'exercise_order': 0,
                 'muscle_group': 'Chest',
+                'muscle_group_ar': 'صدر',
                 'equipment': 'Barbell',
+                'equipment_ar': 'بار',
                 'thumbnail_path': '/uploads/bench.png',
                 'youtube_url': 'https://youtu.be/abc',
                 'sets': [
@@ -38,7 +42,10 @@ void main() {
                     'id': 'a1',
                     'alt_order': 0,
                     'name_en': 'Dumbbell Press',
-                    'name_ar': 'ضغط دمبل'
+                    'name_ar': 'ضغط دمبل',
+                    'muscle_group': 'Chest',
+                    'muscle_group_ar': 'صدر',
+                    'equipment_ar': 'دمبل',
                   },
                 ],
               },
@@ -50,18 +57,81 @@ void main() {
       expect(plan.name, 'Hypertrophy');
       final ex = plan.days.single.exercises.single;
       expect(ex.name, 'Bench Press');
+      expect(ex.libraryNameAr, 'ضغط البنش بالبار');
       expect(ex.muscleGroup, 'Chest');
+      expect(ex.muscleGroupAr, 'صدر');
+      expect(ex.equipmentAr, 'بار');
       expect(ex.sets.length, 2);
       // reps coerces a numeric value to a string.
       expect(ex.sets[1].reps, '10');
       expect(ex.sets[0].restSeconds, 90);
       expect(ex.alternatives.single.nameAr, 'ضغط دمبل');
+      expect(ex.alternatives.single.muscleGroupAr, 'صدر');
+      expect(ex.alternatives.single.equipmentAr, 'دمبل');
     });
 
     test('defaults collections to empty when absent', () {
       final plan = TrainingPlan.fromJson(const {'id': 'p1'});
       expect(plan.days, isEmpty);
       expect(plan.name, '');
+    });
+
+    test('parses tracking_type/tracked_metrics and the new set fields', () {
+      final plan = TrainingPlan.fromJson(const {
+        'id': 'p1',
+        'days': [
+          {
+            'id': 'd1',
+            'exercises': [
+              {
+                'id': 'e1',
+                'name': 'Treadmill',
+                'tracking_type': 'time_based',
+                'tracked_metrics': ['duration_seconds', 'distance_km'],
+                'sets': [
+                  {
+                    'id': 's1',
+                    'set_order': 0,
+                    'rest_seconds': 60,
+                    'rpe': 7.5,
+                    'duration_seconds': 1800,
+                    'distance_km': 5.2,
+                    'incline_percent': 1.5,
+                    'speed_kmh': 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      final ex = plan.days.single.exercises.single;
+      expect(ex.trackingType, 'time_based');
+      expect(ex.trackedMetrics, ['duration_seconds', 'distance_km']);
+      final set = ex.sets.single;
+      expect(set.rpe, 7.5);
+      expect(set.durationSeconds, 1800);
+      expect(set.distanceKm, 5.2);
+      expect(set.inclinePercent, 1.5);
+      expect(set.speedKmh, 10);
+    });
+
+    test('trackingType/trackedMetrics default to null/unset when absent', () {
+      final plan = TrainingPlan.fromJson(const {
+        'id': 'p1',
+        'days': [
+          {
+            'id': 'd1',
+            'exercises': [
+              {'id': 'e1', 'name': 'Old Exercise'},
+            ],
+          },
+        ],
+      });
+      final ex = plan.days.single.exercises.single;
+      expect(ex.trackingType, isNull);
+      expect(ex.trackedMetrics, isNull);
     });
   });
 }

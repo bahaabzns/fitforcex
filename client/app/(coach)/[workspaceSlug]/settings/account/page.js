@@ -12,6 +12,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import SettingsPlaceholderRow from "../_components/SettingsPlaceholderRow";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function StatusAlert({ status, children }) {
     if (!children) return null;
@@ -30,6 +31,7 @@ export default function AccountPage() {
     const tNav = useTranslations("nav");
     const tSecurity = useTranslations("accountSecurity");
     const tCommon = useTranslations("common");
+    usePageTitle(tNav("account"));
 
     const [me, setMe] = useState(null);
     const [fname, setFname] = useState("");

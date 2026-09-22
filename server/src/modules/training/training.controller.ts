@@ -4,7 +4,6 @@ import { PoolClient } from 'pg';
 import { deleteFile, toPublicUrl } from '../../lib/storage';
 import {
     toIsoDateOrNull,
-    serializePlanRow,
     serializePlanRows,
     normalizeOrderedList,
     insertOrderedChildren,
@@ -16,11 +15,35 @@ import {
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
-import { FileBag } from './training.service';
+import { FileBag, fetchFullTrainingPlan } from './training.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
+import { normalizePostAction } from '../../utils/postAction';
+import { EXERCISE_CATEGORIES, DEFAULT_CATEGORY, CATEGORY_CONFIG, ExerciseCategory } from '../../config/exerciseTrackingTypes';
 
 type Row = Record<string, unknown>;
+
+// Number(null) and Number("") both evaluate to 0 — which Number.isFinite
+// happily accepts — so a bare `Number.isFinite(Number(x)) ? Number(x) : null`
+// silently turns a genuinely blank/unset field into a saved 0 instead of
+// null. Blank must be checked for explicitly, before Number() ever runs.
+function toNullableNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+// Sent as one or more repeated `tracked_metrics` multipart fields — multer
+// gives a single string when the client sent one value, an array when it
+// sent more than one, and undefined when it sent none. Validated against the
+// category's own checklist so a coach can never save a metric that doesn't
+// belong to their exercise's category (e.g. "incline" on a Sets & Reps lift).
+function parseTrackedMetrics(raw: unknown, category: ExerciseCategory): string[] | null {
+    const values = Array.isArray(raw) ? raw : raw !== undefined && raw !== null && raw !== '' ? [raw] : [];
+    const selectable = CATEGORY_CONFIG[category].selectableMetrics as string[];
+    if (!values.every((v) => typeof v === 'string' && selectable.includes(v))) return null;
+    return values as string[];
+}
 
 // ── Muscle Groups ─────────────────────────────────────────────────────────────
 
@@ -158,9 +181,15 @@ export async function getExercises(req: Request, res: Response, next: NextFuncti
 
 export async function createExercise(req: Request, res: Response, next: NextFunction) {
     try {
-        const { name_en, name_ar, muscle_group, equipment, youtube_url, instructions_en, instructions_ar } = req.body as Record<string, string | undefined>;
+        const { name_en, name_ar, muscle_group, equipment, youtube_url, instructions_en, instructions_ar, tracking_type } = req.body as Record<string, string | undefined>;
 
         if (!name_en || !name_en.trim()) return res.status(400).json({ error: 'Exercise name (English) is required' });
+        if (tracking_type && !EXERCISE_CATEGORIES.includes(tracking_type as ExerciseCategory)) {
+            return res.status(400).json({ error: 'Invalid tracking type' });
+        }
+        const category = (tracking_type as ExerciseCategory) || DEFAULT_CATEGORY;
+        const trackedMetrics = parseTrackedMetrics((req.body as Record<string, unknown>).tracked_metrics, category);
+        if (trackedMetrics === null) return res.status(400).json({ error: 'Invalid tracked metric for this tracking type' });
 
         const files     = req.files as FileBag | undefined;
         const videoPath = files?.video?.[0]?.key     ?? null;
@@ -179,6 +208,8 @@ export async function createExercise(req: Request, res: Response, next: NextFunc
                 thumbnail_path:  thumbPath,
                 instructions_en: instructions_en || null,
                 instructions_ar: instructions_ar || null,
+                tracking_type:   category,
+                tracked_metrics: trackedMetrics,
             },
         });
 
@@ -195,6 +226,12 @@ export async function updateExercise(req: Request, res: Response, next: NextFunc
 
         const body = req.body as Record<string, string | undefined>;
         if (!body.name_en || !body.name_en.trim()) return res.status(400).json({ error: 'Exercise name (English) is required' });
+        if (body.tracking_type && !EXERCISE_CATEGORIES.includes(body.tracking_type as ExerciseCategory)) {
+            return res.status(400).json({ error: 'Invalid tracking type' });
+        }
+        const category = (body.tracking_type as ExerciseCategory) || (current.tracking_type as ExerciseCategory);
+        const trackedMetrics = parseTrackedMetrics((req.body as Record<string, unknown>).tracked_metrics, category);
+        if (trackedMetrics === null) return res.status(400).json({ error: 'Invalid tracked metric for this tracking type' });
 
         const files         = req.files as FileBag | undefined;
         const newVideoFile  = files?.video?.[0];
@@ -214,6 +251,8 @@ export async function updateExercise(req: Request, res: Response, next: NextFunc
                 thumbnail_path:  thumbnailPath,
                 instructions_en: body.instructions_en || null,
                 instructions_ar: body.instructions_ar || null,
+                tracking_type:   category,
+                tracked_metrics: trackedMetrics,
                 updated_at:      new Date(),
             },
         });
@@ -245,12 +284,24 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
         const result = await pool.query(
             `SELECT
                 tp.id, tp.name, tp.status, tp.created_at, tp.updated_at, tp.created_by,
+                c.client_code,
                 NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
                 NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
                 (SELECT COUNT(*)::int FROM training_days td WHERE td.plan_id = tp.id) AS day_count,
                 (SELECT COUNT(*)::int FROM training_exercises te
                     JOIN training_days td ON td.id = te.day_id
-                    WHERE td.plan_id = tp.id) AS exercise_count
+                    WHERE td.plan_id = tp.id) AS exercise_count,
+                (SELECT COALESCE(json_agg(d ORDER BY d.day_order), '[]'::json)
+                    FROM (
+                        SELECT td.id, td.name, td.day_order,
+                               (SELECT COUNT(*)::int FROM training_exercises te WHERE te.day_id = td.id) AS exercise_count,
+                               (SELECT COUNT(*)::int FROM training_sets ts
+                                   JOIN training_exercises te2 ON te2.id = ts.exercise_id
+                                   WHERE te2.day_id = td.id) AS set_count
+                        FROM training_days td
+                        WHERE td.plan_id = tp.id
+                    ) d
+                ) AS days
              FROM training_plans tp
              LEFT JOIN clients c ON c.id = tp.client_id
              LEFT JOIN users u ON u.id = tp.created_by
@@ -278,60 +329,9 @@ export async function getPlans(req: Request, res: Response, next: NextFunction) 
 
 export async function getPlan(req: Request, res: Response, next: NextFunction) {
     try {
-        const planResult = await pool.query(
-            'SELECT * FROM training_plans WHERE id = $1 AND workspace_id = $2',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!planResult.rows.length) return res.status(404).json({ error: 'Training plan not found' });
-
-        const plan = planResult.rows[0] as Row;
-
-        const daysResult = await pool.query(
-            'SELECT * FROM training_days WHERE plan_id = $1 ORDER BY day_order ASC',
-            [plan.id]
-        );
-
-        const days = await Promise.all((daysResult.rows as Row[]).map(async (day) => {
-            const exercisesResult = await pool.query(
-                `SELECT te.*,
-                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
-                        el.instructions_en AS instructions, el.instructions_ar,
-                        el.name_en AS library_name_en, el.name_ar AS library_name_ar
-                 FROM training_exercises te
-                 LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
-                 WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,
-                [day.id]
-            );
-
-            const exercises = await Promise.all((exercisesResult.rows as Row[]).map(async (exercise) => {
-                const [setsResult, alternativesResult] = await Promise.all([
-                    pool.query('SELECT * FROM training_sets WHERE exercise_id = $1 ORDER BY set_order ASC', [exercise.id]),
-                    pool.query(
-                        `SELECT tea.*, el.name_en AS name, el.name_ar, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
-                         FROM training_exercise_alternatives tea
-                         JOIN exercise_library el ON el.id = tea.exercise_library_id
-                         WHERE tea.exercise_id = $1 ORDER BY tea.alt_order ASC`,
-                        [exercise.id]
-                    ),
-                ]);
-
-                return {
-                    ...exercise,
-                    thumbnail_path: toPublicUrl(exercise.thumbnail_path as string | null),
-                    video_path:     toPublicUrl(exercise.video_path as string | null),
-                    sets:           setsResult.rows,
-                    alternatives:   (alternativesResult.rows as Row[]).map((alt) => ({
-                        ...alt,
-                        thumbnail_path: toPublicUrl(alt.thumbnail_path as string | null),
-                        video_path:     toPublicUrl(alt.video_path as string | null),
-                    })),
-                };
-            }));
-
-            return { ...day, exercises };
-        }));
-
-        res.json({ ...serializePlanRow(plan), days, day_count: days.length });
+        const plan = await fetchFullTrainingPlan(req.params.id as string, req.user!.workspaceId);
+        if (!plan) return res.status(404).json({ error: 'Training plan not found' });
+        res.json(plan);
     } catch (err) { next(err); }
 }
 
@@ -402,14 +402,19 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
 
                             for (const set of normalizeOrderedList(exercise.sets as Row[], 'set_order') as Row[]) {
                                 await dbClient.query(
-                                    `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, id)
-                                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                                    `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, rpe, duration_seconds, distance_km, incline_percent, speed_kmh, id)
+                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
                                     [
                                         (insertedExercise.rows[0] as Row).id, set.set_order,
                                         set.reps ?? null,
-                                        Number.isFinite(Number(set.rest_seconds)) ? Number(set.rest_seconds) : null,
+                                        toNullableNumber(set.rest_seconds),
                                         set.tempo ?? null,
-                                        Number.isFinite(Number(set.rir)) ? Number(set.rir) : null,
+                                        toNullableNumber(set.rir),
+                                        toNullableNumber(set.rpe),
+                                        toNullableNumber(set.duration_seconds),
+                                        toNullableNumber(set.distance_km),
+                                        toNullableNumber(set.incline_percent),
+                                        toNullableNumber(set.speed_kmh),
                                         createId(),
                                     ]
                                 );
@@ -471,6 +476,8 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
         let existingReviewNotifiedAt: Date | null = null;
         // See the identical note in nutrition.controller.ts's savePlanDraft.
         let restartedClientId: string | null = null;
+        // See the identical note in nutrition.controller.ts's savePlanDraft.
+        const autoReviewedIds: string[] = [];
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
@@ -533,14 +540,19 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                                     items: exercise.sets as Row[], orderKey: 'set_order',
                                     insert: async (set: Row) => {
                                         await dbClient.query(
-                                            `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, id)
-                                             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                                            `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, rpe, duration_seconds, distance_km, incline_percent, speed_kmh, id)
+                                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
                                             [
                                                 (insertedExercise.rows[0] as Row).id, set.set_order,
                                                 set.reps ?? null,
-                                                Number.isFinite(Number(set.rest_seconds)) ? Number(set.rest_seconds) : null,
+                                                toNullableNumber(set.rest_seconds),
                                                 set.tempo ?? null,
-                                                Number.isFinite(Number(set.rir)) ? Number(set.rir) : null,
+                                                toNullableNumber(set.rir),
+                                                toNullableNumber(set.rpe),
+                                                toNullableNumber(set.duration_seconds),
+                                                toNullableNumber(set.distance_km),
+                                                toNullableNumber(set.incline_percent),
+                                                toNullableNumber(set.speed_kmh),
                                                 createId(),
                                             ]
                                         );
@@ -574,15 +586,17 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 // Package Lifecycle Phase 3b, post-review refinement:
                 // consolidated onto the shared activateSinglePlan -- see the
                 // identical note in nutrition.controller.ts's savePlanDraft.
-                const restarted = await activateSinglePlan({
+                const { plan: restarted, autoReviewedRequestIds } = await activateSinglePlan({
                     db: dbClient,
                     tableName:      'training_plans',
                     planId:         planId as string,
                     coachId,
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
+                    submissionPostAction: 'workout-plan',
                     ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
+                if (restarted) autoReviewedRequestIds.forEach((id) => autoReviewedIds.push(id));
                 if (restarted && durationChoice === 'restart') {
                     // See the identical note in nutrition.controller.ts:
                     // matched by client + plan type, not source_plan_id,
@@ -628,6 +642,19 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             });
         }
 
+        // See the identical note in activatePlan below.
+        if (restartedClientId) {
+            await Promise.all(autoReviewedIds.map((id) => recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'checkin.auto_reviewed',
+                importance:  'info',
+                title:       'Your coach reviewed your check-in',
+                recipients:  [{ type: 'client', id: restartedClientId as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'form_request', id },
+            })));
+        }
+
         res.json(result);
     } catch (err) { next(err); }
 }
@@ -646,8 +673,8 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
         const planId  = req.params.id as string;
         const coachId = req.user!.workspaceId;
 
-        const updatedPlan = await withTransaction(pool, async (dbClient) => {
-            const plan = await activateSinglePlan({
+        const activation = await withTransaction(pool, async (dbClient) => {
+            const { plan, autoReviewedRequestIds } = await activateSinglePlan({
                 db: dbClient,
                 tableName:      'training_plans',
                 planId,
@@ -656,6 +683,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 cycleDays:        cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
                 reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
+                submissionPostAction: 'workout-plan',
             });
             if (!plan) return null;
 
@@ -685,11 +713,13 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     // form_requests row immediately (status 'scheduled') so
                     // it's visible in Plans Queue right away.
                     const { versionId } = await sealVersionForAssignment(f.formId, coachId, req.user!.userId);
+                    const formRow = await dbClient.query(`SELECT post_action FROM forms WHERE id = $1`, [f.formId]);
+                    const postAction = normalizePostAction(formRow.rows[0]?.post_action);
                     const requestId = createId();
                     await dbClient.query(
-                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
-                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
-                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at]
+                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at, post_action)
+                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $7)`,
+                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at, postAction]
                     );
                     await dbClient.query(
                         `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)
@@ -699,10 +729,11 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 }
             }
 
-            return plan;
+            return { plan, autoReviewedRequestIds };
         });
 
-        if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
+        if (!activation?.plan) return res.status(404).json({ error: 'Plan not found' });
+        const { plan: updatedPlan, autoReviewedRequestIds } = activation;
 
         // See the identical note in nutrition.controller.ts's activatePlan.
         if (updateMode === 'restart') {
@@ -728,6 +759,19 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             });
         }
 
-        res.json(updatedPlan);
+        // See the identical note in nutrition.controller.ts's activatePlan:
+        // fires regardless of whether the coach arrived via the Plans Queue
+        // or activated the plan directly from the client's own page.
+        await Promise.all(autoReviewedRequestIds.map((id) => recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'checkin.auto_reviewed',
+            importance:  'info',
+            title:       'Your coach reviewed your check-in',
+            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'form_request', id },
+        })));
+
+        res.json({ ...updatedPlan, autoReviewedSubmissionIds: autoReviewedRequestIds });
     } catch (err) { next(err); }
 }

@@ -10,9 +10,12 @@ import ExerciseFormModal from "@/app/components/training/ExerciseFormModal";
 import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 export default function ExerciseLibraryPage() {
     const t = useTranslations("exercises");
+    usePageTitle(t('pageTitle'));
     const [items, setItems] = useState([]);
     const [muscleGroups, setMuscleGroups] = useState([]);
     const [equipments, setEquipments] = useState([]);
@@ -123,6 +126,13 @@ export default function ExerciseLibraryPage() {
                 <h1 className="text-3xl font-bold">{t("pageTitle")}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_custom_exercise_added"
+                checkUrl="/api/insights/prompts/for-trigger/first_custom_exercise_added"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             <ExerciseFormModal
                 open={showForm}

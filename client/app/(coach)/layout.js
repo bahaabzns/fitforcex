@@ -2,6 +2,7 @@
 
 import Sidebar from "@/app/components/Sidebar";
 import { useEffect, useState } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import api from "@/lib/axios";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -20,10 +21,15 @@ import {
     Settings,
     MessageSquare,
     ChevronRight,
+    MessageSquarePlus,
 } from 'lucide-react';
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
+import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
+import InsightBanner from "@/app/components/insights/InsightBanner";
+import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 
 function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
@@ -129,11 +135,15 @@ function WorkspaceContent({ children }) {
     const { headerCollapsed, setHeaderCollapsed } = useHeaderCollapse();
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
+    const isMobileSidebar = useMediaQuery("(max-width: 1023px)");
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [clientLabel, setClientLabel] = useState(null);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     const pathname = usePathname();
     const tNav = useTranslations('nav');
+    const tInsights = useTranslations('insights');
 
     const clientIdMatch = pathname.match(/\/clients\/([^/]+)/);
     const clientId = clientIdMatch ? clientIdMatch[1] : null;
@@ -143,6 +153,17 @@ function WorkspaceContent({ children }) {
     const breadcrumbInteractive = pathname.includes('/clients');
 
     useEffect(() => {
+        // Re-arm the gate on every workspaceSlug change, not just first mount.
+        // This layout persists across client-side navigation between two
+        // workspace slugs (Next.js keeps the same instance, only the param
+        // changes), so without resetting here children below would keep
+        // rendering — and firing API calls — against the previous workspace's
+        // cookie for as long as the /me + switch-workspace round trip takes.
+        // That's a window real network latency (prod) opens up far wider than
+        // it ever does over loopback (local dev), and a write that lands in
+        // it lands permanently in the wrong workspace.
+        setLoading(true);
+
         api.get('/api/auth/me')
             .then(res => {
                 const data = res.data;
@@ -170,6 +191,11 @@ function WorkspaceContent({ children }) {
         if (!clientId) setHeaderCollapsed(false);
     }, [clientId, setHeaderCollapsed]);
 
+    // Close the mobile drawer on navigation so it never lingers open over the next page.
+    useEffect(() => {
+        setMobileSidebarOpen(false);
+    }, [pathname]);
+
     useEffect(() => {
         if (!clientId) { setClientLabel(null); return; }
         api.get(`/api/clients/${clientId}`)
@@ -190,16 +216,22 @@ function WorkspaceContent({ children }) {
 
     return (
         <div className="flex h-screen overflow-hidden">
-            <Sidebar collapsed={collapsed} />
+            <Sidebar
+                collapsed={collapsed}
+                isMobile={isMobileSidebar}
+                mobileOpen={mobileSidebarOpen}
+                onMobileOpenChange={setMobileSidebarOpen}
+            />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
+                <SubscriptionReadOnlyBanner />
                 {!headerCollapsed && (
                     <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
                         <Button
                             isIconOnly
                             size="sm"
                             variant="ghost"
-                            onClick={() => setCollapsed(c => !c)}
-                            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            onClick={() => isMobileSidebar ? setMobileSidebarOpen(o => !o) : setCollapsed(c => !c)}
+                            title={isMobileSidebar ? (mobileSidebarOpen ? 'Close menu' : 'Open menu') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
                         >
                             <PanelLeft size={16} />
                         </Button>
@@ -237,6 +269,17 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
+                            <NewFeatureTooltip
+                                featureKey="feedback_entry_hint"
+                                active
+                                message={tInsights('hint')}
+                                dismissLabel={tInsights('hintDismiss')}
+                                badgeLabel={tInsights('newFeature')}
+                                onTriggerClick={() => setFeedbackOpen(true)}
+                                triggerClassName="button button--icon-only button--sm button--ghost"
+                            >
+                                <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
+                            </NewFeatureTooltip>
                             <NotificationBell />
                             <ThemeToggle />
                             <LanguageSwitcher />
@@ -247,6 +290,14 @@ function WorkspaceContent({ children }) {
                     {children}
                 </main>
             </div>
+
+            <FeedbackEntryModal
+                open={feedbackOpen}
+                onClose={() => setFeedbackOpen(false)}
+                submitUrl="/api/insights"
+                screenshotUploadUrl="/api/insights/screenshot"
+            />
+            <InsightBanner activePromptUrl="/api/insights/prompts/active" respondUrlPrefix="/api/insights/prompts" />
         </div>
     );
 }

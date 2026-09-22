@@ -9,6 +9,7 @@ import {
     Send,
     CalendarClock,
     Download,
+    ArrowLeftRight,
 } from "lucide-react";
 import { PERMISSION_KEYS } from "@/app/components/SubscriptionPolicyFields";
 
@@ -26,6 +27,7 @@ export const PRESET_FLAGS = {
         allow_submit_checkins: false,
         allow_booking_appointments: false,
         allow_download_files: false,
+        allow_food_swap: false,
     },
     read_only: {
         keep_portal_access: true,
@@ -38,6 +40,7 @@ export const PRESET_FLAGS = {
         allow_submit_checkins: false,
         allow_booking_appointments: false,
         allow_download_files: false,
+        allow_food_swap: false,
     },
     limited: {
         keep_portal_access: true,
@@ -50,11 +53,12 @@ export const PRESET_FLAGS = {
         allow_submit_checkins: false,
         allow_booking_appointments: false,
         allow_download_files: false,
+        allow_food_swap: false,
     },
 };
 
 /**
- * Matches only the 10 permission flags (never grace_period_days) against each
+ * Matches only the 11 permission flags (never grace_period_days) against each
  * named preset in a fixed order; 'custom' means nothing matched exactly.
  */
 export function detectPreset(flags) {
@@ -71,7 +75,7 @@ export function pickPermissionFlags(policy) {
     return PERMISSION_KEYS.reduce((acc, key) => ({ ...acc, [key]: policy[key] === true }), {});
 }
 
-/** Counts changed leaf fields across both scopes (10 + grace_period_days expired, 10 frozen). */
+/** Counts changed leaf fields across both scopes (11 + grace_period_days expired, 11 frozen). */
 export function diffPolicies(a, b) {
     let changed = 0;
     for (const key of PERMISSION_KEYS) {
@@ -84,7 +88,7 @@ export function diffPolicies(a, b) {
 
 export const PERMISSION_GROUPS = [
     { key: "general", titleKey: "group.general", icon: KeyRound, permissionKeys: ["keep_portal_access"] },
-    { key: "plans", titleKey: "group.plans", icon: Dumbbell, permissionKeys: ["view_training_plans", "view_nutrition_plans"] },
+    { key: "plans", titleKey: "group.plans", icon: Dumbbell, permissionKeys: ["view_training_plans", "view_nutrition_plans", "allow_food_swap"] },
     { key: "progress", titleKey: "group.progress", icon: LineChart, permissionKeys: ["view_progress_history", "view_assessments", "view_checkins"] },
     { key: "communication", titleKey: "group.communication", icon: MessageSquare, permissionKeys: ["allow_messaging", "allow_submit_checkins"] },
     { key: "extras", titleKey: "group.extras", icon: Download, permissionKeys: ["allow_download_files", "allow_booking_appointments"] },
@@ -101,4 +105,5 @@ export const PERMISSION_ICONS = {
     allow_submit_checkins: Send,
     allow_booking_appointments: CalendarClock,
     allow_download_files: Download,
+    allow_food_swap: ArrowLeftRight,
 };

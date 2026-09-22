@@ -4,6 +4,9 @@ import { prisma } from '../lib/prisma';
 import { computeClientStatus, logSubscriptionAudit, getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, ownerRecipients } from '../lib/events';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
+import { normalizePostAction } from '../utils/postAction';
+import { expireScheduledPrompts } from '../modules/insights/insights.service';
+import { runTrialExpirySweep } from '../lib/trialSweep';
 
 function chunk<T>(items: T[], size: number): T[][] {
     const out: T[][] = [];
@@ -56,6 +59,23 @@ export function scheduleSubscriptionExpiry(): void {
             }
         } catch (err) {
             console.error('[Scheduler] Subscription expiry error:', err);
+        }
+    });
+}
+
+/** Founder decision 10 — reverts an expired trial (status 'trialing') to Free. Kept
+ *  separate from scheduleSubscriptionExpiry above: that one flags lapsed paid renewals for
+ *  the coach to act on, this one auto-completes the trial→Free transition with no action
+ *  needed. Hourly, same cadence as the other lightweight ticks below. */
+export function scheduleTrialExpiry(): void {
+    cron.schedule('0 * * * *', async () => {
+        try {
+            const count = await runTrialExpirySweep();
+            if (count > 0) {
+                console.info(`[Scheduler] Reverted ${count} expired trial(s) to Free`);
+            }
+        } catch (err) {
+            console.error('[Scheduler] Trial expiry sweep error:', err);
         }
     });
 }
@@ -245,7 +265,7 @@ export async function runCheckInDispatchTick(): Promise<number> {
                 // explicitly, rather than either sending a retired form or
                 // leaving a stuck "scheduled" item nobody can ever answer.
                 // See docs/forms-versioning-implementation-plan.md Phase 5.
-                const form = await prisma.forms.findUnique({ where: { id: row.form_id }, select: { status: true } });
+                const form = await prisma.forms.findUnique({ where: { id: row.form_id }, select: { status: true, post_action: true } });
                 if (!form || form.status === 'archived') {
                     if (row.form_request_id) {
                         await prisma.form_requests.deleteMany({ where: { id: row.form_request_id, status: 'scheduled' } });
@@ -284,6 +304,7 @@ export async function runCheckInDispatchTick(): Promise<number> {
                             workspace_id:    row.workspace_id,
                             status:          'pending',
                             requested_at:    new Date(),
+                            post_action:     normalizePostAction(form.post_action),
                         },
                     });
                 }
@@ -341,6 +362,24 @@ export function scheduleSessionCleanup(): void {
             }
         } catch (err) {
             console.error('[Scheduler] Session cleanup error:', err);
+        }
+    });
+}
+
+/**
+ * Insights System Phase 4 — ends any active prompt whose scheduling window
+ * (ends_at) has passed. Every-15-minutes cadence: a prompt with a scheduled
+ * end is a campaign, not a hot path, so this doesn't need hourly precision.
+ */
+export function scheduleInsightPromptExpiry(): void {
+    cron.schedule('*/15 * * * *', async () => {
+        try {
+            const count = await expireScheduledPrompts();
+            if (count > 0) {
+                console.info(`[Scheduler] Ended ${count} expired insight prompt(s)`);
+            }
+        } catch (err) {
+            console.error('[Scheduler] Insight prompt expiry error:', err);
         }
     });
 }

@@ -35,6 +35,9 @@ exports.up = async (pgm) => {
             [versionId, form.id, sealedAt]
         );
 
+        // form_questions never had a metric_id column — metrics is a newer
+        // concept than the legacy question rows, so there's nothing to
+        // carry over; every backfilled row starts with no metric linked.
         await pgm.db.query(
             `INSERT INTO form_version_questions
                 (id, form_version_id, label_en, label_ar, type, required, order_index,
@@ -42,7 +45,7 @@ exports.up = async (pgm) => {
                  metric_id, created_at)
              SELECT id, $1, label_en, label_ar, type, required, order_index,
                     options, options_ar, placeholder_en, placeholder_ar, min_value, max_value,
-                    metric_id, created_at
+                    NULL::text, created_at
              FROM form_questions WHERE form_id = $2`,
             [versionId, form.id]
         );

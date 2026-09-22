@@ -29,6 +29,7 @@ describe('subscription policy defaults', () => {
         expect(DEFAULT_EXPIRED_POLICY.allow_submit_checkins).toBe(false);
         expect(DEFAULT_EXPIRED_POLICY.allow_booking_appointments).toBe(false);
         expect(DEFAULT_EXPIRED_POLICY.allow_download_files).toBe(false);
+        expect(DEFAULT_EXPIRED_POLICY.allow_food_swap).toBe(false);
         expect(DEFAULT_EXPIRED_POLICY.grace_period_days).toBe(0);
     });
 

@@ -2,6 +2,118 @@
 
 Significant choices: the question, what we picked, what we rejected, and why.
 
+## 2026-09-02 — PDF branding: many named profiles per plan type, chosen at export
+
+- **Question:** Asked for gender-based PDF branding (nutrition/training ×
+  male/female). But nothing in the app lets a coach set a client's gender —
+  `client_measurements.gender` exists but only seed scripts write it, so for
+  real clients it's always null. Reframed with the user to: a coach can keep
+  **several named branding profiles per plan type** and pick one at export.
+- **Picked:** `nutrition_pdf_settings` / `training_pdf_settings` go from one
+  row per workspace to many, adding `name` + `is_default` (migration
+  `091_pdf_branding_profiles.js`). Uniqueness moves from `workspace_id` to
+  `(workspace_id, name)`; a partial unique index
+  `<table>_one_default_per_workspace` (DB-only — PSL can't express it)
+  guarantees exactly one default. Existing rows become each workspace's
+  `Default` profile. A workspace that never saved settings still gets a
+  synthesized default (id `''`) at read time — `getOrDefault*` becomes
+  `get*PdfProfile(workspaceId, profileId?)`, falling back profileId →
+  default → synthesized, never throwing (an export must always produce a
+  PDF). Endpoints keep the per-type shape (see 2026-07-28) and gain
+  `/:profileId`: `GET`/`POST /settings/:type` (list/create),
+  `GET`/`PUT`/`DELETE /settings/:type/:profileId`,
+  `POST /settings/:type/:profileId/duplicate` (server-side field copy,
+  images included, into a "<name> copy" profile), and the logo/cover/
+  background uploads move under `/:profileId`. Export + preview take
+  `?profileId=`. The settings page gets a profile selector (new/duplicate/
+  rename/delete/make-default); the plan builders keep a single "Export PDF"
+  button — one profile exports on click, several open a dropdown to pick
+  which.
+- **Rejected:** (1) Gender-driven selection — no source of truth for client
+  gender, and adding a client-gender field is a separate feature the user
+  didn't want bundled. (2) Female-inherits-male overrides — a new
+  inheritance concept; the user chose fully independent profiles, matching
+  the 2026-07-28 no-shared-assets stance one level down. (3) A neutral
+  "default" audience alongside male/female — moot once the feature stopped
+  being gender-shaped.
+- **Why:** Delivers the real need (switch branding at export) without
+  depending on data the app doesn't collect, and reuses the existing
+  per-type table split rather than inventing a parallel structure.
+
+## 2026-07-28 — Nutrition and training PDF branding fully separated (no shared assets)
+
+- **Question:** `pdf_settings` was one row per workspace shared by both
+  nutrition and training exports — same logo, colors, and cover image for
+  both. Asked to separate them so they don't share assets at all.
+- **Picked:** Split into two fully independent tables, `nutrition_pdf_settings`
+  and `training_pdf_settings` (migration
+  `067_split_pdf_settings_by_plan_type.js` — renames the old table to the
+  nutrition one, preserving its data, and creates the training one seeded
+  from each existing row's shared/generic fields as a starting point rather
+  than a blank slate). Every layer follows: two Prisma models, two
+  `getOrDefault*PdfSettings` functions, two Zod schemas + CRUD handlers, two
+  sets of upload endpoints (`/settings/nutrition/...` and
+  `/settings/training/...`), and one settings page with a Nutrition/Training
+  switcher at the top that both selects which settings are being edited and
+  which sample the live preview renders — never two things a coach has to
+  keep in sync manually.
+- **Rejected:** A single table with a `plan_type` discriminator column and
+  shared columns. Would need nullable/shared fields to somehow mean "used by
+  both" while still allowing full independence, and every query needs an
+  extra `WHERE plan_type = ...` a coach could get wrong by omission. Two
+  tables make "these are unrelated" the default a query can't violate by
+  accident.
+- **Why:** Matches the explicit requirement (zero shared assets) as a
+  structural guarantee rather than an application-level convention that
+  something could quietly violate later.
+
+## 2026-07-28 — PDF Settings image uploads: `react-aria-components` `DropZone`/`FileTrigger`, not a HeroUI component
+
+- **Question:** The PDF branding settings page needed drag-and-drop image
+  upload (logo, cover image, back cover image). Asked for "HeroUI's Drop Zone
+  component" — does one exist?
+- **Picked:** It doesn't. Checked the installed `@heroui/react` package's
+  actual component exports and HeroUI's own docs (a direct URL for a
+  "drop-zone" docs page 404s) — HeroUI ships no drag-and-drop component.
+  It's built on top of `react-aria-components`, which does have `DropZone`
+  and `FileTrigger` primitives, already a direct dependency in
+  `client/package.json` (and already imported directly elsewhere, e.g.
+  `client/app/providers.js`). Built `ImageDropZone` in
+  `client/app/(coach)/[workspaceSlug]/settings/pdf/page.js` wrapping those
+  unstyled primitives with this app's own Tailwind classes — the same
+  relationship HeroUI's own themed components have to the same underlying
+  library, just without HeroUI's layer in between for this one interaction.
+- **Rejected:** Pulling in `react-dropzone` (a separate, unrelated library) —
+  would duplicate functionality already available through a dependency this
+  app already has, for no benefit.
+- **Why:** Matches an existing pattern (importing primitives straight from
+  `react-aria-components` when HeroUI doesn't theme something) rather than
+  adding a new dependency for functionality already reachable.
+
+## 2026-07-28 — PDF export: `pdf_settings` rescoped to workspace, not coach
+
+- **Question:** `pdf_settings` existed in the schema (fully unused, scaffolded
+  before the PDF export feature was built) keyed `coach_id -> users`, one row per
+  user. The app's tenancy boundary everywhere else (`clients`, `nutrition_plans`,
+  `training_plans`) is `workspace_id`, and a single user can own or belong to
+  multiple workspaces (per the team-feature architecture). Should branding stay
+  per-user, or move to per-workspace?
+- **Picked:** Migrated the column to `workspace_id` (FK to `workspaces`, unique),
+  in [server/migrations/066_pdf_export_settings.js](server/migrations/066_pdf_export_settings.js).
+  Table had zero rows in every environment (confirmed before migrating), so no
+  backfill was needed. Also generalized `cover_title`'s default from
+  `"Nutrition Plan"` to `"Plan"` and added training-specific display toggles
+  (`show_exercise_notes`, `show_sets_detail`, etc.) alongside the existing
+  nutrition-specific ones, since v1 exports both plan types from one settings row.
+- **Rejected:** Keeping `coach_id` as-is. Simpler migration (no FK swap), but bakes
+  in a same-brand-across-workspaces assumption — a coach who later owns two
+  differently-branded workspaces would get one shared identity across both,
+  silently wrong rather than loudly broken.
+- **Why:** Every other tenant-scoped table in this codebase is keyed by
+  `workspace_id`; matching that boundary means PDF branding follows the same
+  correctness rule the rest of the app already depends on (§5 of `CLAUDE.md`),
+  rather than carrying a special-case exception discovered later the hard way.
+
 ## 2026-06-22 — Unified date display format
 
 ### One shared formatter, fixed `D MMM YYYY` shape

@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { DEFAULT_PERMISSIONS, VALID_ROLES } from '../../lib/defaultPermissions';
-import { checkSeatLimit, checkWorkspaceLimit } from '../../lib/seatLimits';
+import { checkSeatLimit } from '../../lib/seatLimits';
 import { prisma } from '../../lib/prisma';
 import { normalizeEmail } from '../../utils/email';
 
@@ -27,8 +27,6 @@ export async function createWorkspace(req: Request, res: Response, next: NextFun
     if (!name?.trim()) return res.status(400).json({ message: 'Workspace name is required' });
 
     try {
-        await checkWorkspaceLimit(req.user!.userId, req.user!.workspaceId);
-
         const rawSlug      = slug?.trim() || name;
         let normalizedSlug = normalizeSlug(rawSlug) || `workspace-${Date.now()}`;
 
@@ -74,15 +72,16 @@ type WsDetailRow = Record<string, unknown>;
 export async function getWorkspace(req: Request, res: Response, next: NextFunction) {
     try {
         const rows = await prisma.$queryRaw<WsDetailRow[]>`
-            SELECT w.id, w.slug, w.name, w.owner_id, w.slug_customized, w.created_at,
+            SELECT w.id, w.slug, w.name, w.owner_id, w.slug_customized, w.created_at, w.renewal_link,
                    p.name AS plan_name, p.display_name AS plan_display_name,
-                   p.max_team_seats, p.max_workspaces,
+                   COALESCE(pv.max_team_seats, p.max_team_seats) AS max_team_seats,
                    u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                    (SELECT COUNT(*)::int FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.is_active = TRUE) AS member_count,
-                   (SELECT COUNT(*)::int FROM clients c WHERE c.workspace_id = w.id) AS client_count
+                   (SELECT COUNT(*)::int FROM clients c WHERE c.workspace_id = w.id AND c.deleted_at IS NULL) AS client_count
             FROM workspaces w
             JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
             JOIN plans p ON p.id = ws.plan_id
+            LEFT JOIN plan_variations pv ON pv.id = ws.variation_id
             JOIN users u ON u.id = w.owner_id
             WHERE w.id = ${req.user!.workspaceId} AND w.archived_at IS NULL
         `;
@@ -110,6 +109,26 @@ export async function renameWorkspace(req: Request, res: Response, next: NextFun
                 actor_user_id: req.user!.userId, action: 'workspace_renamed',
                 target_type: 'workspace', target_id: req.user!.workspaceId,
             },
+        });
+
+        res.json(updated);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateRenewalLink(req: Request, res: Response, next: NextFunction) {
+    const { renewalLink } = req.body as { renewalLink?: string | null };
+    const trimmed = renewalLink?.trim() || null;
+    if (trimmed && !/^https?:\/\/.+/i.test(trimmed)) {
+        return res.status(400).json({ message: 'Renewal link must be a valid http(s) URL' });
+    }
+
+    try {
+        const updated = await prisma.workspaces.update({
+            where:  { id: req.user!.workspaceId },
+            data:   { renewal_link: trimmed },
+            select: { id: true, renewal_link: true },
         });
 
         res.json(updated);
@@ -317,13 +336,21 @@ export async function updateMemberPermissions(req: Request, res: Response, next:
     try {
         const memberCheck = await prisma.workspace_members.findFirst({
             where:  { id: memberId, workspace_id: req.user!.workspaceId },
-            select: { id: true },
+            select: { id: true, permissions: true },
         });
         if (!memberCheck) return res.status(404).json({ message: 'Member not found' });
 
+        // Merge over the existing permissions rather than replacing wholesale: the
+        // permissions editor UI only exposes a subset of modules (clients, training,
+        // nutrition, forms, finance, team), so a full replace would silently wipe out
+        // modules it doesn't manage (e.g. pdfExport, insights, databases) every time
+        // an owner edits any permission for a member.
+        const existingPermissions = (memberCheck.permissions ?? {}) as Record<string, unknown>;
+        const mergedPermissions = { ...existingPermissions, ...(permissions as Record<string, unknown>) };
+
         const updated = await prisma.workspace_members.update({
             where:  { id: memberId },
-            data:   { permissions: permissions as Prisma.InputJsonValue },
+            data:   { permissions: mergedPermissions as Prisma.InputJsonValue },
             select: { id: true, role: true, permissions: true },
         });
 

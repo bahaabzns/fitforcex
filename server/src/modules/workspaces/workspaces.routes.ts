@@ -1,12 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requireOwner from '../../middleware/requireOwner';
 import requirePermission from '../../middleware/requirePermission';
 import * as workspacesController from './workspaces.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 
 function sameWorkspace(req: Request, res: Response, next: NextFunction): void {
     if (req.params.id !== req.user!.workspaceId) {
@@ -86,11 +87,24 @@ function sameWorkspace(req: Request, res: Response, next: NextFunction): void {
  *     responses:
  *       200:
  *         description: Slug updated
+ *
+ * /workspaces/{id}/renewal-link:
+ *   patch:
+ *     summary: Set the URL the client portal's "Renew Subscription" button opens (owner only)
+ *     tags: [Workspaces]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Renewal link updated
  */
 router.post('/',           workspacesController.createWorkspace);
 router.get('/:id',         sameWorkspace, workspacesController.getWorkspace);
-router.patch('/:id/name',  sameWorkspace, requireOwner, workspacesController.renameWorkspace);
-router.put('/:id/slug',    sameWorkspace, requireOwner, workspacesController.updateSlug);
+router.patch('/:id/name',          sameWorkspace, requireOwner, workspacesController.renameWorkspace);
+router.patch('/:id/renewal-link',  sameWorkspace, requireOwner, workspacesController.updateRenewalLink);
+router.put('/:id/slug',            sameWorkspace, requireOwner, workspacesController.updateSlug);
 router.delete('/:id',      sameWorkspace, requireOwner, workspacesController.archiveWorkspace);
 
 /**

@@ -9,9 +9,11 @@ import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function ResetPasswordContent() {
     const t = useTranslations('auth');
+    usePageTitle(t('resetPasswordTitle'));
     const router = useRouter();
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({

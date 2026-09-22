@@ -1,10 +1,17 @@
 node_modules/
 .env
+.env.*
+!.env.example
 *.log
 dist/
 build/
+.claude/settings.local.json‹
 
 # Local database backups / dumps — never commit (large, sensitive)
 docs/old_db/
 *.sql
 *.sql.gz
+
+# Local-only reference project (old landing page kept for comparison) —
+# includes its own node_modules/.next build cache and dev TLS certs, never commit.
+/reference/

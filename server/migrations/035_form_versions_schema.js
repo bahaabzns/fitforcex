@@ -11,6 +11,27 @@
 // shape-for-shape so read-path cutover in Phase 3 needs no response-shape
 // changes), scoped to a version instead of a form.
 exports.up = (pgm) => {
+    // `metrics` — workspace-scoped measurement definitions (weight, waist, ...).
+    // Already modeled in prisma/schema.prisma but never had a migration to
+    // actually create it; form_version_questions.metric_id below needs it
+    // to exist first.
+    pgm.createTable('metrics', {
+        id:           { type: 'text', primaryKey: true },
+        workspace_id: { type: 'text', notNull: true, references: 'workspaces', onDelete: 'CASCADE' },
+        name:         { type: 'text', notNull: true },
+        type:         { type: 'varchar(20)', notNull: true },
+        unit:         { type: 'varchar(50)' },
+        icon:         { type: 'varchar(100)' },
+        description:  { type: 'text' },
+        created_at:   { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
+        updated_at:   { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
+        deleted_at:   { type: 'timestamptz' },
+    });
+    pgm.addConstraint('metrics', 'uq_metrics_workspace_id_name', {
+        unique: ['workspace_id', 'name'],
+    });
+    pgm.createIndex('metrics', ['workspace_id', 'deleted_at']);
+
     pgm.createTable('form_versions', {
         id:             { type: 'text', primaryKey: true },
         form_id:        { type: 'text', notNull: true, references: 'forms', onDelete: 'CASCADE' },
@@ -61,4 +82,5 @@ exports.down = (pgm) => {
     pgm.dropColumns('forms', ['current_version_id']);
     pgm.dropTable('form_version_questions');
     pgm.dropTable('form_versions');
+    pgm.dropTable('metrics');
 };

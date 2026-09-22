@@ -3,63 +3,25 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useLocale } from "next-intl";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Camera } from "lucide-react";
 import api from "@/lib/axios";
 import AreaChart from "@/app/components/charts/AreaChart";
+import Typography from "@/app/components/Typography";
 import { usePageHeaderActions } from "@/app/contexts/pageHeaderActions";
 import { DateRangePicker } from "@heroui/react/date-range-picker";
 import { RangeCalendar } from "@heroui/react/range-calendar";
 import { DateField } from "@heroui/react/date-field";
-import { today, getLocalTimeZone } from "@internationalized/date";
 import { Button } from "@heroui/react/button";
 import { Tabs } from "@heroui/react";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
-
-const tz = getLocalTimeZone();
-
-function toStartOfDay(calDate) {
-    return calDate.toDate(tz);
-}
-
-function toEndOfDay(calDate) {
-    const d = calDate.toDate(tz);
-    d.setHours(23, 59, 59, 999);
-    return d;
-}
-
-function filterByRange(history, startDate, endDate) {
-    return history.filter(h => {
-        const t = new Date(h.date).getTime();
-        if (startDate && t < startDate.getTime()) return false;
-        if (endDate && t > endDate.getTime()) return false;
-        return true;
-    });
-}
-
-function rangeForDays(days) {
-    const end = today(tz);
-    return { start: end.subtract({ days }), end };
-}
-
-const PRESETS = [
-    { label: "30d", days: 30 },
-    { label: "90d", days: 90 },
-    { label: "6m",  days: 180 },
-    { label: "All", days: null },
-];
+import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 
 function formatValue(v, unit) {
     const n = parseFloat(v);
     if (isNaN(n)) return v;
     return unit ? `${n} ${unit}` : String(n);
-}
-
-function deltaInfo(history) {
-    const nums = history.map(h => parseFloat(h.value)).filter(v => !isNaN(v));
-    if (nums.length < 2) return null;
-    return { first: nums[0], last: nums[nums.length - 1], delta: nums[nums.length - 1] - nums[0] };
 }
 
 function MetricChart({ metric, locale, startDate, endDate }) {
@@ -205,7 +167,7 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
         <Card>
             <Card.Header>
                 <div className="flex items-center gap-2 w-full">
-                    <span className="text-lg">{metric.icon || "📷"}</span>
+                    <Camera size={18} className="shrink-0 text-muted-foreground" />
                     <p className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">{metric.name}</p>
                     <Chip size="sm" variant="soft">
                         <Chip.Label>{photos.length} photo{photos.length !== 1 ? "s" : ""}</Chip.Label>
@@ -454,7 +416,9 @@ export default function ClientTransformationPage() {
                 {/* Measurements */}
                 {numericMetrics.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Measurements</h2>
+                        <Typography as="h2" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-3">
+                            Measurements
+                        </Typography>
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                             {numericMetrics.map(m => (
                                 <MetricChart key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />
@@ -466,7 +430,9 @@ export default function ClientTransformationPage() {
                 {/* Progress Photos */}
                 {imageMetrics.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Progress Photos</h2>
+                        <Typography as="h2" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-3">
+                            Progress Photos
+                        </Typography>
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                             {imageMetrics.map(m => (
                                 <PhotoGallery key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />

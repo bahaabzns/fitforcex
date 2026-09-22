@@ -11,6 +11,18 @@
 
 import { Pool } from 'pg';
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import { DEFAULT_PERMISSIONS } from '../lib/defaultPermissions';
+
+const BCRYPT_FORMAT = /^\$2[aby]\$\d{2}\$/;
+
+// fitforce.io stored Client.password as plaintext (unlike User.passwordHash) — hash it
+// on the way in so it's usable by bcrypt.compare() on the new platform.
+async function hashClientPassword(password: string | null): Promise<string | undefined> {
+  if (!password) return undefined;
+  if (BCRYPT_FORMAT.test(password)) return password;
+  return bcrypt.hash(password, 10);
+}
 
 const OLD_URL = process.env.PG_OLD_URL;
 if (!OLD_URL) { console.error('PG_OLD_URL is required'); process.exit(1); }
@@ -160,13 +172,17 @@ async function migrateWorkspaceMembers() {
 
   await inBatches(rows, async (batch) => {
     await prisma.workspace_members.createMany({
-      data: batch.map(m => ({
-        id: m.id,
-        workspace_id: m.workspaceId,
-        user_id: m.userId,
-        role: mapRole(m.roleName),
-        joined_at: new Date(m.createdAt),
-      })),
+      data: batch.map(m => {
+        const role = mapRole(m.roleName);
+        return {
+          id: m.id,
+          workspace_id: m.workspaceId,
+          user_id: m.userId,
+          role,
+          permissions: DEFAULT_PERMISSIONS[role] ?? {},
+          joined_at: new Date(m.createdAt),
+        };
+      }),
       skipDuplicates: true,
     });
   });
@@ -180,6 +196,7 @@ async function migrateWorkspaceMembers() {
         workspace_id: o.workspaceId,
         user_id: o.ownerId,
         role: 'manager',
+        permissions: DEFAULT_PERMISSIONS.manager,
         joined_at: new Date(o.createdAt),
       })),
       skipDuplicates: true,
@@ -206,25 +223,26 @@ async function migrateClients() {
   `);
 
   await inBatches(rows, async (batch) => {
+    const data = await Promise.all(batch.map(async c => {
+      const { fname, lname } = splitName(c.fullName);
+      const phone = c.phoneCountryCode && c.phone
+        ? `${c.phoneCountryCode}${c.phone}`
+        : c.phone ?? undefined;
+      return {
+        id: c.id,
+        workspace_id: c.workspaceId,
+        fname: fname.slice(0, 100),
+        lname: lname.slice(0, 100),
+        email: (c.email ?? `client_${c.id}@migrated.local`).slice(0, 150),
+        phone: phone ? phone.replace(/\s+/g, '').slice(0, 20) : undefined,
+        subscription_status: c.status,
+        client_code: c.code,
+        password: await hashClientPassword(c.password),
+        created_at: new Date(c.createdAt),
+      };
+    }));
     await prisma.clients.createMany({
-      data: batch.map(c => {
-        const { fname, lname } = splitName(c.fullName);
-        const phone = c.phoneCountryCode && c.phone
-          ? `${c.phoneCountryCode}${c.phone}`
-          : c.phone ?? undefined;
-        return {
-          id: c.id,
-          workspace_id: c.workspaceId,
-          fname: fname.slice(0, 100),
-          lname: lname.slice(0, 100),
-          email: (c.email ?? `client_${c.id}@migrated.local`).slice(0, 150),
-          phone: phone ? phone.replace(/\s+/g, '').slice(0, 20) : undefined,
-          subscription_status: c.status,
-          client_code: c.code,
-          password: c.password ?? undefined,
-          created_at: new Date(c.createdAt),
-        };
-      }),
+      data,
       skipDuplicates: true,
     });
   });

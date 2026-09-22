@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { toPublicUrl, makeUploader, deleteFile } from '../../lib/storage';
 import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
+import { attachmentUploaderFor, isValidAttachmentCategory } from '../../lib/formAttachments';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { recordEvent, teamRecipients } from '../../lib/events';
@@ -20,8 +21,11 @@ import {
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
+import { computeTotals, serializeDiaryEntry, FOOD_DIARY_HISTORY_LIMIT, type FoodDiaryItem } from '../../utils/foodDiaryStats';
 import { buildTransformationPayload } from '../clients/clients.controller';
 import { normalizeEmail } from '../../utils/email';
+import { attachEditHistory } from '../../utils/formResponseHistory';
+import { mapRow as mapTransactionRow, computePerTxStatuses, type TxDbRow } from '../../utils/transactionStatus';
 
 /** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
 async function getClientDisplayName(clientId: string): Promise<string | null> {
@@ -71,6 +75,9 @@ function buildNutritionPlanHierarchy(plan: Record<string, unknown>, flatRows: Re
                 calories_per_serving: row.calories_per_serving, protein_per_serving: row.protein_per_serving,
                 carbs_per_serving: row.carbs_per_serving, fats_per_serving: row.fats_per_serving,
                 serving_size: row.serving_size, food_category: row.food_category, alternatives: [],
+                is_swapped: row.is_swapped === true, swapped_at: row.swapped_at,
+                original_food_item_id: row.original_food_item_id,
+                original_food_name: row.original_food_name, original_food_name_ar: row.original_food_name_ar,
             });
             (mealsMap.get(row.meal_id as string)!.items as unknown[]).push(itemsMap.get(row.item_id as string)!);
         }
@@ -116,12 +123,14 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
         if (row.exercise_id && !exercisesMap.has(row.exercise_id as string)) {
             exercisesMap.set(row.exercise_id as string, {
                 id: row.exercise_id, day_id: row.day_id, name: row.exercise_name,
-                exercise_order: row.exercise_order, equipment: row.equipment,
+                library_name_en: row.library_name_en, library_name_ar: row.library_name_ar,
+                exercise_order: row.exercise_order, equipment: row.equipment, equipment_ar: row.equipment_ar,
                 notes: row.exercise_notes, exercise_library_id: row.exercise_library_id,
                 thumbnail_path: toPublicUrl(row.thumbnail_path as string | null),
                 video_path:     toPublicUrl(row.video_path as string | null),
-                youtube_url: row.youtube_url, muscle_group: row.muscle_group,
+                youtube_url: row.youtube_url, muscle_group: row.muscle_group, muscle_group_ar: row.muscle_group_ar,
                 instructions_en: row.instructions_en, instructions_ar: row.instructions_ar,
+                tracking_type: row.tracking_type, tracked_metrics: row.tracked_metrics,
                 sets: [], alternatives: [],
             });
             (daysMap.get(row.day_id as string)!.exercises as unknown[]).push(exercisesMap.get(row.exercise_id as string)!);
@@ -131,7 +140,9 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
             if (!sets?.some(s => s.id === row.set_id)) {
                 sets?.push({
                     id: row.set_id, exercise_id: row.exercise_id, set_order: row.set_order,
-                    reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir,
+                    reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir, rpe: row.rpe,
+                    duration_seconds: row.duration_seconds, distance_km: row.distance_km,
+                    incline_percent: row.incline_percent, speed_kmh: row.speed_kmh,
                 });
             }
         }
@@ -142,7 +153,8 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
                     id: row.alt_id, exercise_id: row.exercise_id,
                     exercise_library_id: row.alt_exercise_library_id, alt_order: row.alt_order,
                     name_en: row.alt_name_en, name_ar: row.alt_name_ar,
-                    muscle_group: row.alt_muscle_group, equipment: row.alt_equipment,
+                    muscle_group: row.alt_muscle_group, muscle_group_ar: row.alt_muscle_group_ar,
+                    equipment: row.alt_equipment, equipment_ar: row.alt_equipment_ar,
                     thumbnail_path: toPublicUrl(row.alt_thumbnail_path as string | null),
                     youtube_url:    row.alt_youtube_url,
                     video_path:     toPublicUrl(row.alt_video_path as string | null),
@@ -277,18 +289,23 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
     try {
         const client = await prisma.clients.findFirst({
             where:  { id: req.client!.clientId },
-            select: { id: true, fname: true, lname: true, email: true, phone: true, client_code: true, workspace_id: true },
+            select: {
+                id: true, fname: true, lname: true, email: true, phone: true, client_code: true, workspace_id: true,
+                workspaces: { select: { renewal_link: true } },
+            },
         });
         if (!client) return res.status(404).json({ message: 'Client not found' });
 
         // Effective subscription access is computed once by loadClientAccess; surface
         // it here so the portal can gate UI without an extra round trip.
         const effective = req.clientAccess;
+        const { workspaces, ...clientFields } = client;
         res.json({
-            ...client,
+            ...clientFields,
             status:      effective?.status ?? null,
             withinGrace: effective?.withinGrace ?? false,
             access:      effective?.access ?? null,
+            renewalLink: workspaces?.renewal_link ?? null,
         });
     } catch (err) {
         next(err);
@@ -297,6 +314,100 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
 
 export function getAccess(req: Request, res: Response) {
     res.json(req.clientAccess ?? null);
+}
+
+/**
+ * The client's own plan + payment history — read-only mirror of what the coach
+ * sees on the client's Transactions tab, minus the edit/refund/delete actions.
+ * Reuses mapRow/computePerTxStatuses from utils/transactionStatus so the
+ * freeze-adjusted per-transaction status logic has one implementation, not two.
+ */
+export async function getSubscription(req: Request, res: Response, next: NextFunction) {
+    try {
+        const clientId    = req.client!.clientId;
+        const workspaceId = req.client!.workspaceId;
+
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: workspaceId },
+            select: {
+                current_package:    true,
+                package_variations: {
+                    select: {
+                        name: true, price: true, currency: true, duration: true,
+                        packages: { select: { name: true } },
+                    },
+                },
+                workspaces: { select: { renewal_link: true } },
+            },
+        });
+        if (!client) return res.status(404).json({ message: 'Client not found' });
+
+        const plan = client.package_variations
+            ? {
+                name:         `${client.package_variations.packages.name} — ${client.package_variations.name}`,
+                price:        Number(client.package_variations.price),
+                currency:     client.package_variations.currency,
+                durationDays: client.package_variations.duration,
+              }
+            : client.current_package
+            ? { name: client.current_package, price: null, currency: null, durationDays: null }
+            : null;
+
+        const [txRows, freezeRows, activationRows] = await Promise.all([
+            prisma.transactions.findMany({
+                where:   { workspace_id: workspaceId, client_id: clientId },
+                orderBy: { transaction_date: 'desc' },
+            }),
+            prisma.subscription_freezes.findMany({ where: { client_id: clientId } }),
+            prisma.$queryRaw<{ first_activation: Date | null }[]>`
+                SELECT MIN(activated_at) AS first_activation FROM (
+                    SELECT activated_at FROM training_plans  WHERE workspace_id = ${workspaceId} AND client_id = ${clientId} AND activated_at IS NOT NULL
+                    UNION ALL
+                    SELECT activated_at FROM nutrition_plans WHERE workspace_id = ${workspaceId} AND client_id = ${clientId} AND activated_at IS NOT NULL
+                ) combined
+            `,
+        ]);
+
+        const firstActivation = activationRows[0]?.first_activation
+            ? activationRows[0].first_activation.toISOString()
+            : null;
+
+        const txStatuses = computePerTxStatuses(
+            { [clientId]: txRows as unknown as TxDbRow[] },
+            { [clientId]: freezeRows as unknown as TxDbRow[] },
+            { [clientId]: firstActivation },
+        );
+
+        const transactions = txRows.map(row => ({
+            ...mapTransactionRow(row as unknown as TxDbRow),
+            subscriptionStatus: txStatuses[row.id] ?? null,
+        }));
+
+        const effective = req.clientAccess;
+        let frozenUntil: Date | null = null;
+        if (effective?.status === 'Frozen' && freezeRows.length > 0) {
+            const latestFreeze = [...freezeRows].sort(
+                (a, b) => new Date(b.freeze_start_date).getTime() - new Date(a.freeze_start_date).getTime()
+            )[0];
+            frozenUntil = new Date(
+                new Date(latestFreeze.freeze_start_date).getTime() + latestFreeze.freeze_duration_days * 86400000
+            );
+        }
+
+        res.json({
+            status:             effective?.status ?? null,
+            withinGrace:        effective?.withinGrace ?? false,
+            plan,
+            currentPeriodStart: effective?.currentPeriodStart ?? null,
+            currentPeriodEnd:   effective?.currentPeriodEnd ?? null,
+            totalCoverageEnd:   effective?.totalCoverageEnd ?? null,
+            frozenUntil,
+            renewalLink:        client.workspaces?.renewal_link ?? null,
+            transactions,
+        });
+    } catch (err) {
+        next(err);
+    }
 }
 
 export async function getActivePlan(req: Request, res: Response, next: NextFunction) {
@@ -312,10 +423,12 @@ export async function getActivePlan(req: Request, res: Response, next: NextFunct
                 np.id, np.name, np.client_id, np.workspace_id, np.status, np.created_at, np.updated_at, np.activated_at,
                 nc.id AS cycle_id, nc.plan_id, nc.name AS cycle_name, nc.cycle_order,
                     nc.goal_calories, nc.goal_protein, nc.goal_carbs, nc.goal_fats, nc.note AS cycle_note,
-                nm.id AS meal_id, nm.cycle_id, nm.name AS meal_name, nm.meal_order, nm.note AS meal_note,
-                nmi.id AS item_id, nmi.meal_id, nmi.food_item_id, nmi.amount AS item_amount, nmi.meal_item_order,
+                nm.id AS meal_id, nm.cycle_id AS meal_cycle_id, nm.name AS meal_name, nm.meal_order, nm.note AS meal_note,
+                nmi.id AS item_id, nmi.meal_id AS item_meal_id, nmi.food_item_id, nmi.amount AS item_amount, nmi.meal_item_order,
+                    nmi.is_swapped, nmi.swapped_at, nmi.original_food_item_id,
                 fi.name_en AS food_name, fi.name_ar AS food_name_ar, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving,
                     fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category,
+                fo.name_en AS original_food_name, fo.name_ar AS original_food_name_ar,
                 nmia.id AS alt_id, nmia.meal_item_id, nmia.food_item_id AS alt_food_item_id,
                     nmia.amount AS alt_amount, nmia.alt_order,
                 fi2.name_en AS alt_food_name, fi2.name_ar AS alt_food_name_ar, fi2.serving_unit AS alt_serving_unit,
@@ -328,6 +441,7 @@ export async function getActivePlan(req: Request, res: Response, next: NextFunct
             LEFT JOIN nutrition_meals nm ON nm.cycle_id = nc.id
             LEFT JOIN nutrition_meal_items nmi ON nmi.meal_id = nm.id
             LEFT JOIN food_items fi ON fi.id = nmi.food_item_id
+            LEFT JOIN food_items fo ON fo.id = nmi.original_food_item_id
             LEFT JOIN nutrition_meal_item_alternatives nmia ON nmia.meal_item_id = nmi.id
             LEFT JOIN food_items fi2 ON fi2.id = nmia.food_item_id
             WHERE np.id = ${plan.id}
@@ -353,22 +467,30 @@ export async function getActiveTrainingPlan(req: Request, res: Response, next: N
                 tp.id, tp.name, tp.client_id, tp.workspace_id, tp.status, tp.notes,
                     tp.created_at, tp.updated_at, tp.activated_at,
                 td.id AS day_id, td.plan_id, td.name AS day_name, td.day_order, td.notes AS day_notes,
-                te.id AS exercise_id, te.day_id, te.name AS exercise_name, te.exercise_order,
+                te.id AS exercise_id, te.day_id AS exercise_day_id, te.name AS exercise_name, te.exercise_order,
                     te.equipment, te.notes AS exercise_notes, te.exercise_library_id,
                 el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
-                    el.instructions_en, el.instructions_ar,
-                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir,
+                    el.name_en AS library_name_en, el.name_ar AS library_name_ar,
+                    el.instructions_en, el.instructions_ar, el.tracking_type, el.tracked_metrics,
+                    emg.name_ar AS muscle_group_ar, ee.name_ar AS equipment_ar,
+                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir, ts.rpe,
+                    ts.duration_seconds, ts.distance_km, ts.incline_percent, ts.speed_kmh,
                 tea.id AS alt_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
                 el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
                     el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
+                    emg2.name_ar AS alt_muscle_group_ar, ee2.name_ar AS alt_equipment_ar,
                     el2.thumbnail_path AS alt_thumbnail_path, el2.youtube_url AS alt_youtube_url, el2.video_path AS alt_video_path
             FROM training_plans tp
             LEFT JOIN training_days td ON td.plan_id = tp.id
             LEFT JOIN training_exercises te ON te.day_id = td.id
             LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
+            LEFT JOIN exercise_muscle_groups emg ON emg.workspace_id = ${req.client!.workspaceId} AND emg.name_en = el.muscle_group
+            LEFT JOIN exercise_equipments ee ON ee.workspace_id = ${req.client!.workspaceId} AND ee.name_en = te.equipment
             LEFT JOIN training_sets ts ON ts.exercise_id = te.id
             LEFT JOIN training_exercise_alternatives tea ON tea.exercise_id = te.id
             LEFT JOIN exercise_library el2 ON el2.id = tea.exercise_library_id
+            LEFT JOIN exercise_muscle_groups emg2 ON emg2.workspace_id = ${req.client!.workspaceId} AND emg2.name_en = el2.muscle_group
+            LEFT JOIN exercise_equipments ee2 ON ee2.workspace_id = ${req.client!.workspaceId} AND ee2.name_en = el2.equipment
             WHERE tp.id = ${plan.id}
             ORDER BY td.day_order, te.exercise_order, ts.set_order, tea.alt_order
         `;
@@ -437,10 +559,10 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
                     include: { metrics: { select: { type: true, unit: true, name: true, icon: true } } },
                   })
                 : Promise.resolve([]),
-            request.status !== 'pending' && request.status !== 'scheduled'
+            request.status !== 'pending' && request.status !== 'scheduled' && request.status !== 'sent'
                 ? prisma.form_responses.findMany({
                     where:  { request_id: request.id as string },
-                    select: { question_id: true, answer: true },
+                    select: { id: true, question_id: true, answer: true },
                   })
                 : Promise.resolve([]),
         ]);
@@ -454,7 +576,120 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
             metric_name: (q as unknown as { metrics?: { name: string } }).metrics?.name ?? null,
             metric_icon: (q as unknown as { metrics?: { icon: string | null } }).metrics?.icon ?? null,
         }));
-        res.json({ ...request, questions, responses });
+        const responsesWithHistory = await attachEditHistory(responses);
+        res.json({ ...request, questions, responses: responsesWithHistory });
+    } catch (err) {
+        next(err);
+    }
+}
+
+type ActionItem = {
+    id:        string;
+    kind:      'subscription' | 'pending_form' | 'plan_update';
+    title_en:  string;
+    title_ar?: string | null;
+    subtitle?: string | null;
+    href:      string;
+    createdAt: string;
+};
+
+/**
+ * Aggregates the small set of things a client portal home page treats as
+ * "needs your attention" — pending forms, a coach's plan activation/restart,
+ * and a subscription in its grace period — each read from data that already
+ * exists for other endpoints (form_requests, notifications, clientAccess), so
+ * this is a read-only convenience view, not a new source of truth.
+ *
+ * A fully lapsed subscription (keep_portal_access: false) is handled
+ * elsewhere: portal/layout.js replaces the whole shell with
+ * ClientPortalStatusCard before this page ever renders, so this only needs to
+ * cover the softer "still has access, but should renew soon" grace window.
+ */
+export async function getActionItems(req: Request, res: Response, next: NextFunction) {
+    try {
+        await activateDueClientScheduledRequests(req.client!.clientId);
+
+        // 'sent' is not a distinct client-facing state — it just means the
+        // generic scheduleFormDispatcher cron (scheduler.ts) has since ticked
+        // over a due 'pending' request (matching on its still-populated
+        // scheduled_at). Same "awaiting the client" bucket as 'pending' —
+        // matches the Plans Queue's identical treatment on the coach side.
+        const [pendingForms, planNotifications] = await Promise.all([
+            prisma.$queryRaw<Record<string, unknown>[]>`
+                SELECT fr.id, fr.requested_at,
+                       f.title_en AS form_title_en, f.title_ar AS form_title_ar
+                FROM form_requests fr
+                JOIN forms f ON f.id = fr.form_id
+                WHERE fr.client_id = ${req.client!.clientId} AND fr.status IN ('pending', 'sent')
+                ORDER BY fr.requested_at DESC
+            `,
+            prisma.notifications.findMany({
+                where: {
+                    workspace_id:   req.client!.workspaceId,
+                    recipient_type: 'client',
+                    recipient_id:   req.client!.clientId,
+                    read_at:        null,
+                    type:           { in: ['plan.assigned', 'plan.duration_restarted'] },
+                },
+                orderBy: { created_at: 'desc' },
+            }),
+        ]);
+
+        const items: ActionItem[] = [];
+
+        const access = req.clientAccess;
+        if (access?.status === 'Expired' && access.withinGrace) {
+            const workspace = await prisma.workspaces.findFirst({
+                where:  { id: req.client!.workspaceId },
+                select: { renewal_link: true },
+            });
+            items.push({
+                id:        'subscription',
+                kind:      'subscription',
+                title_en:  'Your subscription is expiring soon',
+                subtitle:  'Renew now to keep uninterrupted access',
+                href:      workspace?.renewal_link || '/portal/profile',
+                createdAt: new Date().toISOString(),
+            });
+        }
+
+        for (const row of pendingForms) {
+            items.push({
+                id:        row.id as string,
+                kind:      'pending_form',
+                title_en:  row.form_title_en as string,
+                title_ar:  row.form_title_ar as string | null,
+                subtitle:  'Check-in form ready to fill',
+                href:      `/portal/forms/${row.id}`,
+                createdAt: new Date(row.requested_at as string).toISOString(),
+            });
+        }
+
+        // A client can accumulate several unread plan.assigned/restarted
+        // notifications for the same plan type (e.g. a coach re-activating a
+        // plan a few times) — only the most recent per type is actionable,
+        // so keep the first one seen (planNotifications is created_at desc).
+        const seenPlanTypes = new Set<string>();
+        for (const n of planNotifications) {
+            const entityType = n.entity_type === 'training_plan' ? 'training_plan' : 'nutrition_plan';
+            if (seenPlanTypes.has(entityType)) continue;
+            seenPlanTypes.add(entityType);
+
+            items.push({
+                id:        n.id,
+                kind:      'plan_update',
+                title_en:  n.title,
+                subtitle:  entityType === 'training_plan' ? 'New training plan' : 'New nutrition plan',
+                href:      entityType === 'training_plan' ? '/portal/training' : '/portal/nutrition',
+                createdAt: n.created_at.toISOString(),
+            });
+        }
+
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Subscription is the most urgent item regardless of recency.
+        items.sort((a, b) => (a.kind === 'subscription' ? -1 : b.kind === 'subscription' ? 1 : 0));
+
+        res.json(items);
     } catch (err) {
         next(err);
     }
@@ -467,7 +702,9 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
     }
     try {
         const request = await prisma.form_requests.findFirst({
-            where:  { id: req.params.request_id as string, client_id: req.client!.clientId, status: 'pending' },
+            // 'sent' means the dispatcher cron ticked over a due 'pending'
+            // request — still awaiting the client's answer, not a distinct state.
+            where:  { id: req.params.request_id as string, client_id: req.client!.clientId, status: { in: ['pending', 'sent'] } },
             select: { id: true, form_id: true, assigned_to: true },
         });
         if (!request) return res.status(404).json({ error: 'Request not found or already submitted' });
@@ -515,6 +752,59 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
         });
 
         res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Lets a client correct a previously submitted answer, any time after
+// submission (no review-lock, no time window — see DECISIONS). Every edit is
+// logged to form_response_edits so both the client and the coach can see the
+// before/after trail on that question. This updates form_responses.answer
+// in place (not an insert), which is what keeps metric-linked answers'
+// progress charts showing only the latest value at that submission's date —
+// see buildTransformationPayload in clients.controller.ts.
+export async function editFormAnswer(req: Request, res: Response, next: NextFunction) {
+    const { answer } = req.body as { answer?: unknown };
+    if (answer === undefined) return res.status(400).json({ error: 'answer is required' });
+
+    try {
+        const request = await prisma.form_requests.findFirst({
+            where:  { id: req.params.request_id as string, client_id: req.client!.clientId },
+            select: { id: true, status: true },
+        });
+        if (!request) return res.status(404).json({ error: 'Request not found' });
+        if (request.status === 'pending' || request.status === 'scheduled' || request.status === 'sent') {
+            return res.status(400).json({ error: 'Submit the form before editing an answer' });
+        }
+
+        const existing = await prisma.form_responses.findFirst({
+            where: { request_id: request.id, question_id: req.params.question_id as string },
+        });
+        if (!existing) return res.status(404).json({ error: 'Answer not found' });
+
+        const newAnswer = answer != null ? String(answer) : '';
+        if (newAnswer === (existing.answer ?? '')) {
+            return res.json({ success: true, answer: existing.answer });
+        }
+
+        const [, updated] = await prisma.$transaction([
+            prisma.form_response_edits.create({
+                data: {
+                    id:                  createId(),
+                    response_id:         existing.id,
+                    previous_answer:     existing.answer,
+                    new_answer:          newAnswer,
+                    edited_by_client_id: req.client!.clientId,
+                },
+            }),
+            prisma.form_responses.update({
+                where: { id: existing.id },
+                data:  { answer: newAnswer },
+            }),
+        ]);
+
+        res.json({ success: true, answer: updated.answer });
     } catch (err) {
         next(err);
     }
@@ -742,19 +1032,33 @@ const HISTORY_LIMIT  = 50;   // sessions returned in the history list
 const PROGRESS_LIMIT = 200;  // sessions scanned to build a progress chart
 
 const loggedSetSchema = z.object({
-    set_order:    z.number().int().nonnegative(),
-    weight:       z.number().nullable().default(null),
-    reps:         z.number().nullable().default(null),
-    rir:          z.number().nullable().default(null),
-    rest_seconds: z.number().int().nullable().default(null),
-    completed:    z.boolean().default(false),
+    set_order:        z.number().int().nonnegative(),
+    weight:           z.number().nullable().default(null),
+    reps:             z.number().nullable().default(null),
+    rir:              z.number().nullable().default(null),
+    rpe:              z.number().nullable().default(null),
+    rest_seconds:     z.number().int().nullable().default(null),
+    duration_seconds: z.number().int().nullable().default(null),
+    distance_km:      z.number().nullable().default(null),
+    incline_percent:  z.number().nullable().default(null),
+    speed_kmh:        z.number().nullable().default(null),
+    completed:        z.boolean().default(false),
 });
 
 const loggedExerciseSchema = z.object({
     exercise_id:         z.string().min(1),
     exercise_library_id: z.string().nullable().default(null),
     name:                z.string().min(1),
+    library_name_en:     z.string().nullable().default(null),
+    library_name_ar:     z.string().nullable().default(null),
     note:                z.string().nullable().default(null),
+    // Snapshotted from the catalog exercise at submission time (like name/
+    // exercise_library_id already are) rather than re-derived later — a coach
+    // could change the exercise's tracking_type/tracked_metrics after a
+    // client logs it, and history/PDF must keep rendering what was actually
+    // prescribed at the time.
+    tracking_type:       z.string().nullable().default(null),
+    tracked_metrics:     z.array(z.string()).nullable().default(null),
     sets:                z.array(loggedSetSchema),
 });
 
@@ -814,21 +1118,125 @@ export async function createWorkoutLog(req: Request, res: Response, next: NextFu
     }
 }
 
+// Instant Save (Training Mode) — the client mints this row's id itself
+// (crypto.randomUUID(), see session/page.js) the moment a session starts, so
+// every debounced autosave and the final Finish both target the SAME row via
+// upsert instead of Finish creating a brand-new one. `completed` (already an
+// existing column, previously always true — see createWorkoutLog below,
+// unchanged) is what distinguishes an in-progress draft from a finished
+// session; every read endpoint in this file and clients.controller.ts filters
+// `completed: true` so a draft never surfaces in history/progress/PRs before
+// the client actually finishes.
+const upsertWorkoutLogSchema = createWorkoutLogSchema.extend({
+    completed: z.boolean().default(false),
+});
+
+export async function upsertWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    const id = req.params.id as string;
+    const parsed = upsertWorkoutLogSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const data = parsed.data;
+
+    try {
+        const existing = await prisma.workout_logs.findUnique({
+            where:  { id },
+            select: { client_id: true, completed: true },
+        });
+        if (existing && existing.client_id !== req.client!.clientId) {
+            return res.status(403).json({ error: 'This workout log belongs to another client' });
+        }
+        // A completed log is an immutable snapshot (DECISIONS.md, 2026-06-17) —
+        // a stray autosave that arrives after Finish (already raced and lost,
+        // see the request-id-guard on the client) must not resurrect or mutate
+        // a session the client has already walked away from. No-op, not an error.
+        if (existing?.completed) {
+            return res.json({ id, completed: true });
+        }
+
+        const sessionDate = new Date(data.started_at);
+        const log = await prisma.workout_logs.upsert({
+            where:  { id },
+            create: {
+                id,
+                client_id:    req.client!.clientId,
+                workspace_id: req.client!.workspaceId,
+                plan_id:      data.plan_id,
+                day_id:       data.day_id,
+                day_index:    data.day_index,
+                date:         Number.isNaN(sessionDate.getTime()) ? new Date() : sessionDate,
+                start_time:   data.started_at,
+                end_time:     data.ended_at,
+                notes:        data.notes,
+                exercises:    data.exercises as object,
+                completed:    data.completed,
+            },
+            update: {
+                end_time:  data.ended_at,
+                notes:     data.notes,
+                exercises: data.exercises as object,
+                completed: data.completed,
+            },
+        });
+
+        res.json(data.completed ? { id: log.id, ...summarizeLog(toLogRow(log)) } : { id: log.id, completed: false });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Lets a fresh page load (same device after a crash/cleared storage, or a
+// different device entirely) find an in-progress draft that localStorage
+// alone can't see — closes the cross-device gap DECISIONS.md flagged as a
+// deliberate v1 trade-off. Bounded to the last 24h so a long-abandoned draft
+// for the same day (e.g. the client did this day, gave up, and is doing it
+// again a week later) never resurfaces as if it were still current.
+export async function getWorkoutLogDraft(req: Request, res: Response, next: NextFunction) {
+    const dayId = req.query.day_id as string | undefined;
+    if (!dayId) return res.status(400).json({ error: 'day_id is required' });
+
+    try {
+        const draft = await prisma.workout_logs.findFirst({
+            where: {
+                client_id: req.client!.clientId,
+                day_id:    dayId,
+                completed: false,
+                date:      { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            },
+            orderBy: { created_at: 'desc' },
+        });
+        if (!draft) return res.json(null);
+
+        res.json({
+            id:         draft.id,
+            plan_id:    draft.plan_id,
+            day_id:     draft.day_id,
+            day_index:  draft.day_index,
+            started_at: draft.start_time,
+            exercises:  parseLoggedExercises(draft.exercises),
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function getWorkoutLogs(req: Request, res: Response, next: NextFunction) {
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
             take:    HISTORY_LIMIT,
             include: { training_days: { select: { name: true } } },
         });
 
         res.json(logs.map(log => ({
-            id:        log.id,
-            date:      log.date,
-            day_id:    log.day_id,
-            day_name:  log.training_days?.name ?? null,
-            notes:     log.notes,
+            id:         log.id,
+            date:       log.date,
+            start_time: log.start_time,
+            day_id:     log.day_id,
+            day_name:   log.training_days?.name ?? null,
+            notes:      log.notes,
             ...summarizeLog(toLogRow(log)),
         })));
     } catch (err) {
@@ -851,8 +1259,12 @@ export async function getWorkoutLogPrevious(req: Request, res: Response, next: N
             name:                e.name,
         }));
 
+        // Scoped to this day_id: an exercise duplicated across multiple training
+        // days (e.g. Bench Press on both Day A and Day B) must not have Day B's
+        // "previous" pull in a set logged under Day A just because it matched by
+        // exercise identity — each day's slot tracks its own history.
         const priorLogs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true, day_id: dayId },
             orderBy: { date: 'desc' },
             take:    HISTORY_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -873,7 +1285,7 @@ export async function getExerciseProgress(req: Request, res: Response, next: Nex
 
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'asc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -897,7 +1309,7 @@ export async function getExerciseInsights(req: Request, res: Response, next: Nex
 
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -925,7 +1337,7 @@ export async function getExerciseInsights(req: Request, res: Response, next: Nex
 export async function getLoggedExercises(req: Request, res: Response, next: NextFunction) {
     try {
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.client!.clientId },
+            where:   { client_id: req.client!.clientId, completed: true },
             orderBy: { date: 'desc' },
             take:    PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -939,7 +1351,7 @@ export async function getLoggedExercises(req: Request, res: Response, next: Next
 export async function getWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({
-            where:   { id: req.params.id as string, client_id: req.client!.clientId },
+            where:   { id: req.params.id as string, client_id: req.client!.clientId, completed: true },
             include: { training_days: { select: { name: true } } },
         });
         if (!log) return res.status(404).json({ error: 'Workout log not found' });
@@ -960,6 +1372,232 @@ export async function getWorkoutLog(req: Request, res: Response, next: NextFunct
     }
 }
 
+// Not restricted to completed:true — deleting an abandoned in-progress draft
+// by id is harmless cleanup, not a history-integrity concern the way reading
+// one into progress/insights/PR calculations would be.
+export async function deleteWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    try {
+        const log = await prisma.workout_logs.findFirst({
+            where:  { id: req.params.id as string, client_id: req.client!.clientId },
+            select: { id: true },
+        });
+        if (!log) return res.status(404).json({ error: 'Workout log not found' });
+
+        await prisma.workout_logs.delete({ where: { id: log.id } });
+        res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ─── food diary (daily food tracking / diet adherence) ──────────────────────
+
+// Midnight UTC for "today" — this app has no per-client timezone setting
+// anywhere yet (checked check_in_schedules, workspaces, clients), so this
+// matches how every other "today" concept in the codebase already resolves:
+// server-clock date, not a client-local one.
+function todayDateOnly(): Date {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+// Builds a fresh snapshot from the client's active plan — called only when
+// no diary entry exists yet for the day. `cycleId` is the cycle the client's
+// own nutrition page currently has selected (plans can have more than one
+// cycle, e.g. a training-day vs. rest-day meal set, with no server-side
+// notion of which one is "current" — the client's own UI is the only thing
+// that knows); falls back to the lowest cycle_order when not given, e.g. a
+// PATCH arriving before any GET has told us which cycle the client was on.
+async function buildTodaySnapshot(clientId: string, cycleId: string | null) {
+    const plan = await prisma.nutrition_plans.findFirst({
+        where:   { client_id: clientId, status: 'active' },
+        orderBy: { updated_at: 'desc' },
+    });
+    if (!plan) return null;
+
+    const cycle = (cycleId
+        ? await prisma.nutrition_cycles.findFirst({ where: { id: cycleId, plan_id: plan.id } })
+        : null
+    ) ?? await prisma.nutrition_cycles.findFirst({ where: { plan_id: plan.id }, orderBy: { cycle_order: 'asc' } });
+    if (!cycle) return null;
+
+    const meals = await prisma.nutrition_meals.findMany({
+        where:   { cycle_id: cycle.id },
+        orderBy: { meal_order: 'asc' },
+        include: { nutrition_meal_items: { orderBy: { meal_item_order: 'asc' }, include: { food_items: true } } },
+    });
+
+    const items: FoodDiaryItem[] = [];
+    for (const meal of meals) {
+        for (const mi of meal.nutrition_meal_items) {
+            if (!mi.food_items) continue; // a removed/orphaned food item — nothing to snapshot
+            items.push({
+                meal_item_id:         mi.id,
+                food_item_id:         mi.food_item_id,
+                meal_name:            meal.name,
+                name_en:              mi.food_items.name_en,
+                name_ar:              mi.food_items.name_ar,
+                prescribed_amount:    Number(mi.amount),
+                amount_eaten:         0,
+                serving_unit:         mi.food_items.serving_unit,
+                serving_size:         mi.food_items.serving_size ? Number(mi.food_items.serving_size) : null,
+                calories_per_serving: Number(mi.food_items.calories_per_serving),
+                protein_per_serving:  Number(mi.food_items.protein_per_serving),
+                carbs_per_serving:    Number(mi.food_items.carbs_per_serving),
+                fats_per_serving:     Number(mi.food_items.fats_per_serving),
+            });
+        }
+    }
+
+    return {
+        plan_id:       plan.id,
+        cycle_id:      cycle.id,
+        items,
+        goal_calories: cycle.goal_calories,
+        goal_protein:  cycle.goal_protein,
+        goal_carbs:    cycle.goal_carbs,
+        goal_fats:     cycle.goal_fats,
+    };
+}
+
+// Get-or-create today's entry. Creating is idempotent against the
+// @@unique([client_id, date]) constraint — two near-simultaneous calls (e.g.
+// two open tabs) race harmlessly to a P2002, the loser just re-reads.
+export async function getTodayFoodDiary(req: Request, res: Response, next: NextFunction) {
+    const cycleId = (req.query.cycle_id as string | undefined) ?? null;
+    const date = todayDateOnly();
+
+    try {
+        let entry = await prisma.food_diary_entries.findUnique({
+            where: { client_id_date: { client_id: req.client!.clientId, date } },
+        });
+
+        if (!entry) {
+            const snapshot = await buildTodaySnapshot(req.client!.clientId, cycleId);
+            if (!snapshot) return res.json(null); // no active plan — nothing to track yet
+
+            try {
+                entry = await prisma.food_diary_entries.create({
+                    data: {
+                        id:            createId(),
+                        client_id:     req.client!.clientId,
+                        workspace_id:  req.client!.workspaceId,
+                        plan_id:       snapshot.plan_id,
+                        cycle_id:      snapshot.cycle_id,
+                        date,
+                        items:         snapshot.items as unknown as object,
+                        goal_calories: snapshot.goal_calories,
+                        goal_protein:  snapshot.goal_protein,
+                        goal_carbs:    snapshot.goal_carbs,
+                        goal_fats:     snapshot.goal_fats,
+                    },
+                });
+            } catch (createErr) {
+                const isDuplicate = (createErr as { code?: string }).code === 'P2002';
+                if (!isDuplicate) throw createErr;
+                entry = await prisma.food_diary_entries.findUnique({
+                    where: { client_id_date: { client_id: req.client!.clientId, date } },
+                });
+            }
+        }
+
+        res.json(entry ? serializeDiaryEntry(entry) : null);
+    } catch (err) {
+        next(err);
+    }
+}
+
+const updateFoodDiaryItemSchema = z.object({
+    meal_item_id: z.string().min(1),
+    amount_eaten: z.number().min(0),
+    cycle_id:     z.string().nullable().optional(),
+});
+
+// Updates a single item's amount_eaten on today's entry, creating the entry
+// first if this is the first interaction of the day (e.g. PATCH called
+// before any GET, or the client's very first tap of the day). Totals are
+// always recomputed server-side from the snapshot's per-serving values —
+// never trusted from the client — so a stale/tampered total can't persist.
+export async function updateTodayFoodDiaryItem(req: Request, res: Response, next: NextFunction) {
+    const parsed = updateFoodDiaryItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const { meal_item_id, amount_eaten, cycle_id } = parsed.data;
+    const date = todayDateOnly();
+
+    try {
+        let entry = await prisma.food_diary_entries.findUnique({
+            where: { client_id_date: { client_id: req.client!.clientId, date } },
+        });
+
+        if (!entry) {
+            const snapshot = await buildTodaySnapshot(req.client!.clientId, cycle_id ?? null);
+            if (!snapshot) return res.status(404).json({ error: 'No active nutrition plan to track' });
+            try {
+                entry = await prisma.food_diary_entries.create({
+                    data: {
+                        id:            createId(),
+                        client_id:     req.client!.clientId,
+                        workspace_id:  req.client!.workspaceId,
+                        plan_id:       snapshot.plan_id,
+                        cycle_id:      snapshot.cycle_id,
+                        date,
+                        items:         snapshot.items as unknown as object,
+                        goal_calories: snapshot.goal_calories,
+                        goal_protein:  snapshot.goal_protein,
+                        goal_carbs:    snapshot.goal_carbs,
+                        goal_fats:     snapshot.goal_fats,
+                    },
+                });
+            } catch (createErr) {
+                const isDuplicate = (createErr as { code?: string }).code === 'P2002';
+                if (!isDuplicate) throw createErr;
+                entry = await prisma.food_diary_entries.findUnique({
+                    where: { client_id_date: { client_id: req.client!.clientId, date } },
+                });
+            }
+        }
+        if (!entry) return res.status(404).json({ error: 'No active nutrition plan to track' });
+
+        const items = (Array.isArray(entry.items) ? entry.items : []) as unknown as FoodDiaryItem[];
+        const itemIndex = items.findIndex((it) => it.meal_item_id === meal_item_id);
+        if (itemIndex === -1) return res.status(404).json({ error: 'This item is not part of today\'s diary' });
+
+        const updatedItems = items.map((it, i) => (i === itemIndex ? { ...it, amount_eaten } : it));
+        const totals = computeTotals(updatedItems);
+
+        const updated = await prisma.food_diary_entries.update({
+            where: { id: entry.id },
+            data: {
+                items:          updatedItems as unknown as object,
+                total_calories: totals.calories,
+                total_protein:  totals.protein,
+                total_carbs:    totals.carbs,
+                total_fats:     totals.fats,
+                updated_at:     new Date(),
+            },
+        });
+
+        res.json(serializeDiaryEntry(updated));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getFoodDiaryHistory(req: Request, res: Response, next: NextFunction) {
+    try {
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: { date: 'desc' },
+            take:    FOOD_DIARY_HISTORY_LIMIT,
+        });
+        res.json(entries.map(serializeDiaryEntry));
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function uploadPhoto(req: Request, res: Response) {
     const file = req.file as (Express.Multer.File & { key?: string; location?: string }) | undefined;
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
@@ -974,6 +1612,28 @@ export const photoUploader = makeUploader(
     ['.jpg', '.jpeg', '.png', '.heic', '.webp'],
     { maxSize: 20 * 1024 * 1024 },
 );
+
+// Attachment question type (Phase 5) — the multer instance is chosen from
+// the route's :category param, which was itself set server-side by the
+// coach when configuring the question (forms.controller.ts), never trusted
+// from the client at upload time beyond selecting which pre-built,
+// already-vetted allowlist applies. See lib/formAttachments.ts.
+export function uploadAttachmentMiddleware(req: Request, res: Response, next: NextFunction) {
+    const category = req.params.category;
+    if (!isValidAttachmentCategory(category)) {
+        return res.status(400).json({ error: 'Invalid attachment category' });
+    }
+    attachmentUploaderFor(category).single('file')(req, res, next);
+}
+
+export async function uploadAttachment(req: Request, res: Response) {
+    const file = req.file as (Express.Multer.File & { key?: string; location?: string }) | undefined;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const key = file.key ?? file.path;
+    const url = toPublicUrl(key);
+    res.status(201).json({ url, name: file.originalname, mime: file.mimetype, size: file.size });
+}
 
 export async function getPortalTransformation(req: Request, res: Response, next: NextFunction) {
     try {

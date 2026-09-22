@@ -41,6 +41,149 @@ import EmptyState from "./EmptyState";
 // header and their buttons sit flush-right, revealed on row hover.
 const isActionsColumn = (key) => key === "_actions" || key === "actions";
 
+// The text/multi/dateRange filter body for one column, shared between the
+// "Other Filters" dropdown's per-column flyout and each pinned filter button
+// below — same controls, just a different value/onChange wiring per caller.
+function renderFilterFields(col, value, onChange) {
+    if (col.filterType === "text") {
+        return (
+            <SearchField
+                autoFocus
+                value={value ?? ""}
+                onChange={onChange}
+                aria-label={`Search ${col.label}`}
+                fullWidth
+            >
+                <SearchField.Group>
+                    <SearchField.SearchIcon />
+                    <SearchField.Input placeholder={`Search ${col.label.toLowerCase()}...`} />
+                    <SearchField.ClearButton />
+                </SearchField.Group>
+            </SearchField>
+        );
+    }
+
+    if (col.filterType === "multi") {
+        return (
+            <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                {col.options.map(option => (
+                    <label
+                        key={option ?? "__null__"}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none"
+                    >
+                        <input
+                            type="checkbox"
+                            checked={(value ?? []).includes(option)}
+                            onChange={e => {
+                                const next = e.target.checked
+                                    ? [...(value ?? []), option]
+                                    : (value ?? []).filter(v => v !== option);
+                                onChange(next);
+                            }}
+                            className="rounded"
+                        />
+                        {col.optionLabel ? col.optionLabel(option) : option}
+                    </label>
+                ))}
+            </div>
+        );
+    }
+
+    if (col.filterType === "dateRange") {
+        return (
+            <DateRangePicker
+                value={
+                    (value?.from && value?.to)
+                        ? { start: parseDate(value.from), end: parseDate(value.to) }
+                        : null
+                }
+                onChange={(range) => {
+                    onChange({ from: range?.start?.toString() ?? "", to: range?.end?.toString() ?? "" });
+                }}
+            >
+                <DateField.Group fullWidth>
+                    <DateField.Input slot="start">
+                        {(segment) => <DateField.Segment segment={segment} />}
+                    </DateField.Input>
+                    <DateRangePicker.RangeSeparator />
+                    <DateField.Input slot="end">
+                        {(segment) => <DateField.Segment segment={segment} />}
+                    </DateField.Input>
+                    <DateField.Suffix>
+                        <DateRangePicker.Trigger>
+                            <DateRangePicker.TriggerIndicator />
+                        </DateRangePicker.Trigger>
+                    </DateField.Suffix>
+                </DateField.Group>
+                <DateRangePicker.Popover>
+                    <RangeCalendar aria-label={col.label}>
+                        <RangeCalendar.Header>
+                            <RangeCalendar.YearPickerTrigger>
+                                <RangeCalendar.YearPickerTriggerHeading />
+                                <RangeCalendar.YearPickerTriggerIndicator />
+                            </RangeCalendar.YearPickerTrigger>
+                            <RangeCalendar.NavButton slot="previous" />
+                            <RangeCalendar.NavButton slot="next" />
+                        </RangeCalendar.Header>
+                        <RangeCalendar.Grid>
+                            <RangeCalendar.GridHeader>
+                                {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                            </RangeCalendar.GridHeader>
+                            <RangeCalendar.GridBody>
+                                {(date) => <RangeCalendar.Cell date={date} />}
+                            </RangeCalendar.GridBody>
+                        </RangeCalendar.Grid>
+                        <RangeCalendar.YearPickerGrid>
+                            <RangeCalendar.YearPickerGridBody>
+                                {({ year }) => <RangeCalendar.YearPickerCell year={year} />}
+                            </RangeCalendar.YearPickerGridBody>
+                        </RangeCalendar.YearPickerGrid>
+                    </RangeCalendar>
+                </DateRangePicker.Popover>
+            </DateRangePicker>
+        );
+    }
+
+    return null;
+}
+
+// A single-column filter, pinned into the toolbar next to "Other Filters" so
+// it's reachable in one click instead of two. Reads/writes straight from the
+// shared filterRules (via upsertFilter) — no local draft state needed since,
+// unlike the general dropdown, each instance is permanently scoped to one column.
+function PinnedFilterButton({ col, filterRules, upsertFilter }) {
+    const [open, setOpen] = useState(false);
+    const existingRule = filterRules.find(r => r.colKey === col.key);
+    const defaultValue = col.filterType === "multi" ? [] : col.filterType === "dateRange" ? { from: "", to: "" } : "";
+    const value = existingRule?.value ?? defaultValue;
+    const Icon = col.icon;
+
+    return (
+        <div className="relative">
+            {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+            <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setOpen(v => !v)}
+                className={existingRule ? "ring-1 ring-primary/50 text-primary" : ""}
+            >
+                {Icon && <Icon size={14} />}
+                {col.label}
+            </Button>
+            {open && (
+                // z-50: must clear the table's stickyEnd column (z-20) below — ties break
+                // by DOM order, and the table (later in the DOM) would otherwise paint on top.
+                // sm:end-0: anchors to the trigger's end edge from `sm` up, where pinned
+                // filters cluster near the toolbar's right side (see the general Filter
+                // button's comment above for why this doesn't apply below `sm`).
+                <div className="absolute z-50 top-full sm:end-0 mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56 max-w-[85vw]">
+                    {renderFilterFields(col, value, (next) => upsertFilter(col.key, next))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function DataTable({
     columns,
     data,
@@ -59,6 +202,29 @@ export default function DataTable({
     toolbarEnd,
     rowClassName,
     emptyState,
+    // Opt-in: when set, search/filter/sort/page-size are snapshotted to
+    // sessionStorage under this key and restored on mount, so navigating away
+    // and back (e.g. a full remount) doesn't reset the coach's view. Scoped to
+    // the tab (not localStorage) since a stale filter shouldn't outlive it.
+    persistKey,
+    // Opt-in: a rowKey value to auto-jump to (paging-wise) once it's present
+    // in the filtered/sorted data — used to surface a row that was just acted
+    // on from elsewhere (e.g. "mark as done") without fighting the coach's
+    // current filters.
+    highlightKey,
+    // Optional override for the general filter button's label — defaults to the
+    // shared "Filter" translation. Callers that pin some columns out of it (see
+    // `pinned` on a column) typically rename it to something like "Other Filters".
+    filterButtonLabel,
+    // Opt-in: { key, phase: "celebrate" | "exit" } | null — plays a one-row
+    // completion animation entirely via CSS (see the .row-celebrate /
+    // .row-exit rules in globals.css). "celebrate" is a one-shot success
+    // pulse; "exit" collapses the row's height/opacity to remove it from the
+    // list without the abrupt jump a plain data-filter would cause. Purely
+    // presentational — the caller (see plansQueue/PlansQueueTable.js) owns
+    // all timing/sequencing and is responsible for actually dropping the row
+    // from `data` once the exit transition has had time to finish.
+    rowTransition,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -66,8 +232,21 @@ export default function DataTable({
     // RTL mode swaps which corners are rounded; this must match HeroUI's own table radius or the border visually misaligns
     const CORNER_RADIUS = 'var(--radius-2xl)';
 
+    // ── Persisted view state (opt-in via persistKey) ────────────
+    // Read once via useState's lazy initializer (not a ref read during
+    // render) — sessionStorage is a sync API and this only needs to seed the
+    // useState values below.
+    const [persisted] = useState(() => {
+        if (!persistKey || typeof window === "undefined") return null;
+        try {
+            return JSON.parse(sessionStorage.getItem(`datatable:${persistKey}`)) ?? null;
+        } catch {
+            return null;
+        }
+    });
+
     // ── Quick search ──────────────────────────────────────────
-    const [quickSearchValue, setQuickSearchValue] = useState("");
+    const [quickSearchValue, setQuickSearchValue] = useState(() => persisted?.quickSearchValue ?? "");
     const [searchFocused, setSearchFocused] = useState(false);
     const searchContainerRef = useRef(null);
 
@@ -85,7 +264,7 @@ export default function DataTable({
 
     // ── Filters ──────────────────────────────────────────────
     // Each rule: { id: string, colKey: string, value: any }
-    const [filterRules, setFilterRules]     = useState([]);
+    const [filterRules, setFilterRules]     = useState(() => persisted?.filterRules ?? []);
     const [addFilterOpen, setAddFilterOpen] = useState(false);
     const [pendingColKey, setPendingColKey] = useState(null);
     const [pendingValue, setPendingValue]   = useState(null);
@@ -132,8 +311,8 @@ export default function DataTable({
     }
 
     // ── Sort ──────────────────────────────────────────────────
-    const [sortKey, setSortKey]             = useState(defaultSort ?? null);
-    const [sortDirection, setSortDirection] = useState(defaultSortDirection ?? "asc");
+    const [sortKey, setSortKey]             = useState(() => persisted?.sortKey ?? defaultSort ?? null);
+    const [sortDirection, setSortDirection] = useState(() => persisted?.sortDirection ?? defaultSortDirection ?? "asc");
 
     const sortDescriptor = sortKey
         ? { column: sortKey, direction: sortDirection === "asc" ? "ascending" : "descending" }
@@ -190,10 +369,14 @@ export default function DataTable({
         return true;
     });
 
+    // Opt-in per column: sort by a derived value (e.g. an assignee's display
+    // name) instead of the raw cell value (e.g. their id), when the two differ.
+    const sortCol = sortKey ? columns.find(c => c.key === sortKey) : null;
+
     const sortedData = sortKey
         ? [...filteredData].sort((a, b) => {
-            const valA = a[sortKey];
-            const valB = b[sortKey];
+            const valA = sortCol?.sortValue ? sortCol.sortValue(a) : a[sortKey];
+            const valB = sortCol?.sortValue ? sortCol.sortValue(b) : b[sortKey];
             if (valA == null && valB == null) return 0;
             if (valA == null) return 1;
             if (valB == null) return -1;
@@ -214,8 +397,8 @@ export default function DataTable({
 
     // ── Pagination ────────────────────────────────────────────
     const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-    const [pageSize, setPageSize]       = useState(10);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize]       = useState(() => persisted?.pageSize ?? 10);
+    const [currentPage, setCurrentPage] = useState(() => persisted?.currentPage ?? 1);
     const [prevFilterId, setPrevFilterId]   = useState(filteredIds);
     const [prevPageSize, setPrevPageSize]   = useState(pageSize);
     if (filteredIds !== prevFilterId || pageSize !== prevPageSize) {
@@ -227,6 +410,32 @@ export default function DataTable({
     const totalPages   = Math.max(1, Math.ceil(sortedData.length / pageSize));
     const safePage     = Math.min(currentPage, totalPages);
     const paginatedData = sortedData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    useEffect(() => {
+        if (!persistKey || typeof window === "undefined") return;
+        sessionStorage.setItem(`datatable:${persistKey}`, JSON.stringify({
+            quickSearchValue, filterRules, sortKey, sortDirection, pageSize, currentPage: safePage,
+        }));
+    }, [persistKey, quickSearchValue, filterRules, sortKey, sortDirection, pageSize, safePage]);
+
+    // ── Highlight / scroll-to (opt-in via highlightKey) ─────────
+    // Auto-jump to whichever page currently contains the row, so a row
+    // surfaced from elsewhere (e.g. "just marked done") is visible without
+    // the coach having to hunt for it — but only if it survives their current
+    // filters; we deliberately don't clear filters to force it into view.
+    // Adjusted during render (not an effect) to match the pageReset pattern
+    // above — avoids an extra commit for a value derived from props/state.
+    // Seeded with a sentinel (not highlightKey itself) so the very first
+    // render — where highlightKey typically already has its target value —
+    // still counts as a "change" and triggers the jump.
+    const [prevHighlightKey, setPrevHighlightKey] = useState(() => Symbol("unset"));
+    if (highlightKey !== prevHighlightKey) {
+        if (highlightKey != null) {
+            const idx = sortedData.findIndex(row => row[rowKey] === highlightKey);
+            if (idx !== -1) setCurrentPage(Math.floor(idx / pageSize) + 1);
+        }
+        setPrevHighlightKey(highlightKey);
+    }
 
     function buildPageList() {
         const pages = [];
@@ -266,16 +475,24 @@ export default function DataTable({
         });
     }
 
-    const primaryCols   = columns.filter((col, i) => col.cardPriority === "primary"   || (!col.cardPriority && i < 3));
-    const secondaryCols = columns.filter((col, i) => col.cardPriority === "secondary" || (!col.cardPriority && i >= 3)).filter(col => col.cardPriority !== "hidden");
+    // Columns marked `hidden` still participate in filtering (the Filter menu
+    // reads from the full `columns` list) but are excluded from the actual
+    // table/card rendering below — a "filter-only" column with no visible cell.
+    const visibleColumns = columns.filter(c => !c.hidden);
+
+    const primaryCols   = visibleColumns.filter((col, i) => col.cardPriority === "primary"   || (!col.cardPriority && i < 3));
+    const secondaryCols = visibleColumns.filter((col, i) => col.cardPriority === "secondary" || (!col.cardPriority && i >= 3)).filter(col => col.cardPriority !== "hidden");
 
     // ── Render ────────────────────────────────────────────────
     return (
         <div>
-            {/* ── Toolbar row 1: search + filter + toolbarEnd ── */}
-            <div className="flex items-center gap-2 mt-4">
+            {/* ── Toolbar row 1: search + filter + toolbarEnd ──
+                 Stacks to two rows below `sm` (search alone, then actions) since
+                 the search field, Filter button, and toolbarEnd's primary action
+                 can't all shrink enough to share one row on a phone-width screen. */}
+            <div className="flex flex-col gap-2 mt-4 sm:flex-row sm:items-center">
                 {quickSearch && (
-                    <div ref={searchContainerRef}>
+                    <div ref={searchContainerRef} className="min-w-0 sm:flex-1">
                         <SearchField
                             value={quickSearchValue}
                             onChange={setQuickSearchValue}
@@ -314,140 +531,69 @@ export default function DataTable({
                     </div>
                 )}
 
-                {/* Filter */}
-                {columns.some(c => c.filterType) && (
-                    <div className="relative">
-                        {addFilterOpen && (
-                            <div className="fixed inset-0 z-10" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
-                        )}
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setAddFilterOpen(v => !v)}
-                        >
-                            <ListFilter size={14} />
-                            {t('filterButton')}
-                        </Button>
-                        {addFilterOpen && (
-                            <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
-                                {columns.filter(c => c.filterType).map(col => (
-                                    <div key={col.key} className="relative">
-                                        <button
-                                            className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
-                                            onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
-                                        >
-                                            {col.label}
-                                            <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
-                                        </button>
+                {/* Actions row — pinned filters, the general Filter button, and
+                    toolbarEnd stay together on their own line so stacking on
+                    mobile (see above) doesn't scatter them across the row. */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Pinned filters — opt-in per column (col.pinned), reachable in one
+                        click instead of living inside the general dropdown below. */}
+                    {columns.filter(c => c.filterType && c.pinned).map(col => (
+                        <PinnedFilterButton key={col.key} col={col} filterRules={filterRules} upsertFilter={upsertFilter} />
+                    ))}
 
-                                        {pendingColKey === col.key && pendingValue !== null && (
-                                            <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
-                                                {col.filterType === "text" && (
-                                                    <SearchField
-                                                        autoFocus
-                                                        value={pendingValue ?? ""}
-                                                        onChange={v => { setPendingValue(v); upsertFilter(col.key, v); }}
-                                                        aria-label={`Search ${col.label}`}
-                                                        fullWidth
-                                                    >
-                                                        <SearchField.Group>
-                                                            <SearchField.SearchIcon />
-                                                            <SearchField.Input placeholder={`Search ${col.label.toLowerCase()}...`} />
-                                                            <SearchField.ClearButton />
-                                                        </SearchField.Group>
-                                                    </SearchField>
-                                                )}
+                    {/* Filter — every remaining (non-pinned) filterable column */}
+                    {columns.some(c => c.filterType && !c.pinned) && (
+                        <div className="relative">
+                            {addFilterOpen && (
+                                <div className="fixed inset-0 z-40" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
+                            )}
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setAddFilterOpen(v => !v)}
+                            >
+                                <ListFilter size={14} />
+                                {filterButtonLabel ?? t('filterButton')}
+                            </Button>
+                            {addFilterOpen && (
+                                // z-50/z-60: must clear the table's stickyEnd column (z-20) below —
+                                // ties break by DOM order, and the table (later in the DOM) would
+                                // otherwise paint on top, hiding this menu behind a pinned column.
+                                // sm:end-0: from `sm` up, this trigger sits near the right/end edge
+                                // of the (single-row) toolbar, right before toolbarEnd, so anchoring
+                                // the menu to its end edge keeps it from running past the viewport
+                                // edge. Below `sm` the toolbar stacks (see the row-1 container above)
+                                // and this button sits at the *start* of its own row instead — the
+                                // default start-aligned position (no override) is what's safe there.
+                                <div className="absolute z-50 top-full sm:end-0 mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48 max-w-[85vw]">
+                                    {columns.filter(c => c.filterType && !c.pinned).map(col => (
+                                        <div key={col.key} className="relative">
+                                            <button
+                                                className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                                onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
+                                            >
+                                                {col.label}
+                                                <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
+                                            </button>
 
-                                                {col.filterType === "multi" && (
-                                                    <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                                                        {col.options.map(option => (
-                                                            <label
-                                                                key={option}
-                                                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none"
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={(pendingValue ?? []).includes(option)}
-                                                                    onChange={e => {
-                                                                        const next = e.target.checked
-                                                                            ? [...(pendingValue ?? []), option]
-                                                                            : (pendingValue ?? []).filter(v => v !== option);
-                                                                        setPendingValue(next);
-                                                                        upsertFilter(col.key, next);
-                                                                    }}
-                                                                    className="rounded"
-                                                                />
-                                                                {col.optionLabel ? col.optionLabel(option) : option}
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                            {pendingColKey === col.key && pendingValue !== null && (
+                                                // Below `sm`, the side flyout (ltr:left-full) has nowhere to
+                                                // open into without running off-screen, so it drops to a
+                                                // stacked, full-width panel under the button instead —
+                                                // exactly the space the column list itself already occupies.
+                                                <div className="static mt-2 w-full sm:absolute sm:z-60 sm:mt-0 sm:ltr:left-full sm:rtl:right-full sm:top-0 sm:ltr:ml-1 sm:rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 sm:w-auto sm:min-w-56">
+                                                    {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
-                                                {col.filterType === "dateRange" && (
-                                                    <DateRangePicker
-                                                        value={
-                                                            (pendingValue?.from && pendingValue?.to)
-                                                                ? { start: parseDate(pendingValue.from), end: parseDate(pendingValue.to) }
-                                                                : null
-                                                        }
-                                                        onChange={(range) => {
-                                                            const next = { from: range?.start?.toString() ?? "", to: range?.end?.toString() ?? "" };
-                                                            setPendingValue(next);
-                                                            upsertFilter(col.key, next);
-                                                        }}
-                                                    >
-                                                        <DateField.Group fullWidth>
-                                                            <DateField.Input slot="start">
-                                                                {(segment) => <DateField.Segment segment={segment} />}
-                                                            </DateField.Input>
-                                                            <DateRangePicker.RangeSeparator />
-                                                            <DateField.Input slot="end">
-                                                                {(segment) => <DateField.Segment segment={segment} />}
-                                                            </DateField.Input>
-                                                            <DateField.Suffix>
-                                                                <DateRangePicker.Trigger>
-                                                                    <DateRangePicker.TriggerIndicator />
-                                                                </DateRangePicker.Trigger>
-                                                            </DateField.Suffix>
-                                                        </DateField.Group>
-                                                        <DateRangePicker.Popover>
-                                                            <RangeCalendar aria-label={col.label}>
-                                                                <RangeCalendar.Header>
-                                                                    <RangeCalendar.YearPickerTrigger>
-                                                                        <RangeCalendar.YearPickerTriggerHeading />
-                                                                        <RangeCalendar.YearPickerTriggerIndicator />
-                                                                    </RangeCalendar.YearPickerTrigger>
-                                                                    <RangeCalendar.NavButton slot="previous" />
-                                                                    <RangeCalendar.NavButton slot="next" />
-                                                                </RangeCalendar.Header>
-                                                                <RangeCalendar.Grid>
-                                                                    <RangeCalendar.GridHeader>
-                                                                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                                                                    </RangeCalendar.GridHeader>
-                                                                    <RangeCalendar.GridBody>
-                                                                        {(date) => <RangeCalendar.Cell date={date} />}
-                                                                    </RangeCalendar.GridBody>
-                                                                </RangeCalendar.Grid>
-                                                                <RangeCalendar.YearPickerGrid>
-                                                                    <RangeCalendar.YearPickerGridBody>
-                                                                        {({year}) => <RangeCalendar.YearPickerCell year={year} />}
-                                                                    </RangeCalendar.YearPickerGridBody>
-                                                                </RangeCalendar.YearPickerGrid>
-                                                            </RangeCalendar>
-                                                        </DateRangePicker.Popover>
-                                                    </DateRangePicker>
-                                                )}
-
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {toolbarEnd && <div className="ms-auto">{toolbarEnd}</div>}
+                    {toolbarEnd && <div className="ms-auto">{toolbarEnd}</div>}
+                </div>
             </div>
 
             {/* ── Toolbar row 2: active filter chips ── */}
@@ -474,8 +620,13 @@ export default function DataTable({
             )}
 
 
-            {/* ── Desktop: HeroUI Table ── */}
-            <div className={`hidden md:block mt-4 ${scrollable ? "overflow-x-auto" : ""}`}>
+            {/* ── Desktop: HeroUI Table ──
+                 lg (1024px), not md (768px) — matches the app's one other
+                 JS-driven "mobile" threshold (Sidebar's drawer breakpoint, see
+                 useMediaQuery("(max-width: 1023px)") in the coach layout), so
+                 the whole page switches to its mobile treatment together
+                 instead of the table going desktop-dense mid-tablet. */}
+            <div className={`hidden lg:block mt-4 ${scrollable ? "overflow-x-auto" : ""}`}>
                 <Table>
                     <Table.ScrollContainer>
                         <Table.Content
@@ -496,17 +647,29 @@ export default function DataTable({
                                         </Checkbox>
                                     </Table.Column>
                                 )}
-                                {columns.map((col, i) => (
+                                {visibleColumns.map((col, i) => (
                                     <Table.Column
                                         key={col.key}
                                         id={col.key}
                                         allowsSorting={!!col.sortable}
                                         isRowHeader={i === 0}
                                         style={col.width ? { width: col.width, minWidth: col.width } : undefined}
-                                        className={isActionsColumn(col.key) ? "text-end" : ""}
+                                        // Unlike the body cell below, .table__column has no background of its
+                                        // own — only the shared .table__header container does — so a sticky
+                                        // header cell truly needs its own bg to stay opaque over what scrolls
+                                        // underneath it. bg-surface-secondary matches .table__header exactly
+                                        // (table.css); no hover state exists on header cells to conflict with.
+                                        // A pinned actions column reads left-aligned, like every other column
+                                        // header — the flush-right treatment is only for the (non-pinned) body
+                                        // buttons, via a plain "actions" column elsewhere in the app.
+                                        // isolate: sticky cells nested inside .table-root's grid+overflow-clip
+                                        // ancestor can fail to get their own compositing layer, letting scrolled
+                                        // content bleed through a fully opaque declared background — isolate
+                                        // forces the browser to paint this cell as its own layer.
+                                        className={`${isActionsColumn(col.key) && !col.stickyEnd ? "text-end" : ""} ${col.stickyEnd ? "sticky isolate ltr:right-0 rtl:left-0 z-20 bg-surface-secondary ltr:border-l rtl:border-r border-separator" : ""}`}
                                     >
                                         {isActionsColumn(col.key)
-                                            ? <span className="sr-only">{col.label}</span>
+                                            ? col.label
                                             : col.sortable
                                                 ? ({ sortDirection: sd }) => (
                                                     <span className="flex items-center justify-between gap-1">
@@ -526,32 +689,66 @@ export default function DataTable({
                                 {paginatedData.map((row, rowIdx) => {
                                     const isFirstRow = rowIdx === 0;
                                     const isLastRow  = rowIdx === paginatedData.length - 1;
+                                    const isTransitionRow = rowTransition?.key === row[rowKey];
+                                    const isExiting       = isTransitionRow && rowTransition.phase === "exit";
+                                    const isCelebrating   = isTransitionRow && rowTransition.phase === "celebrate";
                                     return (
                                         <React.Fragment key={row[rowKey]}>
-                                            <Table.Row id={row[rowKey]} className={`group ${rowClassName ? rowClassName(row) : ""}`}>
+                                            <Table.Row
+                                                id={row[rowKey]}
+                                                className={`group ${rowClassName ? rowClassName(row) : ""} ${isCelebrating ? "row-celebrate" : ""}`}
+                                                // data-real-hover: react-aria's own useHover — the one behind
+                                                // data-hovered/:hover in table.css and globals.css — is disabled
+                                                // outright for any row where the table isn't `selectable` and has
+                                                // no row-level onAction (see react-aria-components' Table.mjs:
+                                                // `useHover({ isDisabled: !allowsSelection && !hasAction })`).
+                                                // Almost none of this app's tables set either, so on hardware
+                                                // where @media (hover: hover) is also false, data-hovered can
+                                                // never become "true" no matter how the row is hovered — react-
+                                                // aria just never turns tracking on. Setting this attribute
+                                                // ourselves, straight on the DOM node (not via React state, to
+                                                // avoid the render-lag this file already steers around
+                                                // elsewhere), sidesteps that gate entirely and works regardless
+                                                // of whether the table is selectable. pointerType !== "touch"
+                                                // mirrors useHover's own touch exclusion so this can't get stuck
+                                                // "on" after a tap on a touch-only device.
+                                                onPointerEnter={(e) => { if (e.pointerType !== "touch") e.currentTarget.setAttribute("data-real-hover", "true"); }}
+                                                onPointerLeave={(e) => { if (e.pointerType !== "touch") e.currentTarget.removeAttribute("data-real-hover"); }}
+                                            >
                                                 {selectable && (() => {
                                                     const s = {};
                                                     if (isRtl) {
                                                         if (isFirstRow) { s.borderTopLeftRadius = 0; s.borderTopRightRadius = CORNER_RADIUS; }
                                                         if (isLastRow)  { s.borderBottomLeftRadius = 0; s.borderBottomRightRadius = CORNER_RADIUS; }
                                                     }
-                                                    return (
-                                                        <Table.Cell className="pe-0" style={Object.keys(s).length ? s : undefined}>
-                                                            <Checkbox
-                                                                aria-label={`Select row ${row[rowKey]}`}
-                                                                slot="selection"
-                                                                variant="secondary"
-                                                            >
-                                                                <Checkbox.Control>
-                                                                    <Checkbox.Indicator />
-                                                                </Checkbox.Control>
+                                                    // Every cell in an exiting row collapses in lockstep (see the
+                                                    // matching block below) so the whole row shrinks uniformly
+                                                    // instead of leaving the checkbox column standing taller than
+                                                    // the rest.
+                                                    const collapse = isTransitionRow
+                                                        ? { transition: "padding 320ms ease", overflow: "hidden", paddingTop: isExiting ? "0px" : undefined, paddingBottom: isExiting ? "0px" : undefined }
+                                                        : null;
+                                                    const checkboxContent = isTransitionRow
+                                                        ? <div style={{ transition: "max-height 320ms ease, opacity 200ms ease", overflow: "hidden", maxHeight: isExiting ? "0px" : "40px", opacity: isExiting ? 0 : 1 }}>
+                                                            <Checkbox aria-label={`Select row ${row[rowKey]}`} slot="selection" variant="secondary">
+                                                                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
                                                             </Checkbox>
+                                                        </div>
+                                                        : (
+                                                            <Checkbox aria-label={`Select row ${row[rowKey]}`} slot="selection" variant="secondary">
+                                                                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                                                            </Checkbox>
+                                                        );
+                                                    const cellStyle = { ...s, ...collapse };
+                                                    return (
+                                                        <Table.Cell className="pe-0" style={Object.keys(cellStyle).length ? cellStyle : undefined}>
+                                                            {checkboxContent}
                                                         </Table.Cell>
                                                     );
                                                 })()}
-                                                {columns.map((col, colIdx) => {
+                                                {visibleColumns.map((col, colIdx) => {
                                                     const isFirstCol = !selectable && colIdx === 0;
-                                                    const isLastCol  = colIdx === columns.length - 1;
+                                                    const isLastCol  = colIdx === visibleColumns.length - 1;
                                                     const isActionsCol = isActionsColumn(col.key);
                                                     const baseStyle  = col.width ? { width: col.width, minWidth: col.width } : {};
                                                     const extra = {};
@@ -561,22 +758,71 @@ export default function DataTable({
                                                         if (isLastRow  && isFirstCol) { extra.borderBottomLeftRadius = 0; extra.borderBottomRightRadius = CORNER_RADIUS; }
                                                         if (isLastRow  && isLastCol)  { extra.borderBottomRightRadius = 0; extra.borderBottomLeftRadius = CORNER_RADIUS; }
                                                     }
-                                                    const cellStyle = Object.keys(extra).length
-                                                        ? { ...baseStyle, ...extra }
-                                                        : (Object.keys(baseStyle).length ? baseStyle : undefined);
+                                                    // The sticky cell's rest/hover/selected backgrounds are plain CSS
+                                                    // (see [data-sticky-end] rules in globals.css), not JS state —
+                                                    // an earlier version tracked hover in React state and computed
+                                                    // this inline, which meant the sticky cell's background could
+                                                    // only update on the next React commit. Measured with a Playwright
+                                                    // long-task trace: a single row's re-render (its HeroUI <Select>,
+                                                    // its Tooltips) blocked the main thread for ~850ms after
+                                                    // mouseenter, so the JS-driven cell visibly lagged ~850ms behind
+                                                    // the native cells, whose bg-surface/40 hover tint is applied by
+                                                    // the browser's :hover engine and never touches JS at all. Using
+                                                    // real :hover/[data-selected] CSS for the sticky cell too removes
+                                                    // that dependency entirely — both now update on the same paint,
+                                                    // regardless of how long React takes to re-render anything else.
+                                                    // Exit collapse: every cell's own vertical padding transitions to
+                                                    // 0 together (not just an inner wrapper's max-height) — padding
+                                                    // is what actually contributes to row height here, so collapsing
+                                                    // only the content and leaving py-3 in place would shrink the
+                                                    // text to nothing while the row itself stayed full height.
+                                                    const collapse = isTransitionRow
+                                                        ? { transition: "padding 320ms ease", overflow: "hidden", paddingTop: isExiting ? "0px" : undefined, paddingBottom: isExiting ? "0px" : undefined }
+                                                        : null;
+                                                    const cellStyle = { ...baseStyle, ...extra, ...collapse };
+                                                    const cellContent = isActionsCol
+                                                        // Buttons sit flush-right and, by default, fade in on row
+                                                        // hover (only the buttons fade, not the cell bg, so the
+                                                        // row's hover highlight shows through behind them) —
+                                                        // opt out per column with `alwaysVisibleActions: true`.
+                                                        // table-row-actions: a plain (non-Tailwind) class so
+                                                        // globals.css can reveal it via [data-hovered="true"] too
+                                                        // — see the comment on that rule for why group-hover
+                                                        // alone isn't enough.
+                                                        ? <div className={`table-row-actions flex justify-end ${col.alwaysVisibleActions ? "" : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"}`}>{col.render ? col.render(row) : row[col.key]}</div>
+                                                        : (col.render ? col.render(row) : row[col.key]);
                                                     return (
                                                         <Table.Cell
                                                             key={col.key}
-                                                            style={cellStyle}
-                                                            className={isActionsCol ? "text-end" : ""}
+                                                            style={Object.keys(cellStyle).length ? cellStyle : undefined}
+                                                            data-sticky-end={col.stickyEnd ? "true" : undefined}
+                                                            // z-20 (not z-10): a focused/hovered control in a neighboring
+                                                            // cell (e.g. the Assigned select) can get its own elevated
+                                                            // stacking context, which was winning over a lower z-index
+                                                            // here and bleeding through the pinned column on hover.
+                                                            // isolate: forces this cell onto its own compositing layer —
+                                                            // .table-root's grid+overflow-clip ancestor can otherwise
+                                                            // let scrolled content bleed through a sticky cell's fully
+                                                            // opaque declared background (a real browser quirk, not a
+                                                            // color mismatch — verified --surface has no alpha channel).
+                                                            // border-separator-tertiary/50 (not border-separator): every
+                                                            // other border in the table body — .table__cell's own
+                                                            // border-b — uses --color-separator-tertiary, a color-mix of
+                                                            // --surface/--surface-foreground at 50% alpha, NOT a
+                                                            // translucent version of the unrelated --separator token.
+                                                            // border-separator is a distinct, unrelated hue (see
+                                                            // theme.css) at full opacity — using it here read as a
+                                                            // harder, differently-colored line next to the table's soft
+                                                            // separator-tertiary grid. (The header sticky divider below
+                                                            // keeps plain border-separator: .table__column::after, its
+                                                            // native divider, uses that same full-opacity token, so it
+                                                            // already matches its own context.)
+                                                            className={`${isActionsCol ? "text-end" : ""} ${col.stickyEnd ? "sticky isolate ltr:right-0 rtl:left-0 z-20 ltr:border-l rtl:border-r border-separator-tertiary/50" : ""}`}
                                                             onPointerDown={(e) => e.stopPropagation()}
                                                         >
-                                                            {isActionsCol
-                                                                // Buttons sit flush-right and fade in on row hover; only
-                                                                // the buttons fade (not the cell bg) so the row's hover
-                                                                // highlight shows through behind them.
-                                                                ? <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">{col.render ? col.render(row) : row[col.key]}</div>
-                                                                : (col.render ? col.render(row) : row[col.key])}
+                                                            {isTransitionRow
+                                                                ? <div style={{ transition: "max-height 320ms ease, opacity 200ms ease", overflow: "hidden", maxHeight: isExiting ? "0px" : "200px", opacity: isExiting ? 0 : 1 }}>{cellContent}</div>
+                                                                : cellContent}
                                                         </Table.Cell>
                                                     );
                                                 })}
@@ -684,8 +930,8 @@ export default function DataTable({
                 </div>
             </div>
 
-            {/* ── Mobile cards ── */}
-            <div className="md:hidden mt-4 flex flex-col gap-3">
+            {/* ── Mobile cards ── (see the lg: note above) */}
+            <div className="lg:hidden mt-4 flex flex-col gap-3">
                 {paginatedData.map(row => {
                     const key       = row[rowKey];
                     const isExpanded = expandedCards.has(key);
@@ -700,21 +946,26 @@ export default function DataTable({
                         >
                             <div className="flex items-start gap-3">
                                 {selectable && (
-                                    <Checkbox
-                                        isSelected={isSelected || false}
-                                        onChange={() => {
-                                            if (!onSelectionChange) return;
-                                            const next = new Set(selectedKeys);
-                                            if (next.has(key)) next.delete(key); else next.add(key);
-                                            onSelectionChange(next);
-                                        }}
-                                        aria-label={`Select row ${key}`}
-                                        className="mt-1 shrink-0"
-                                    >
-                                        <Checkbox.Control>
-                                            <Checkbox.Indicator />
-                                        </Checkbox.Control>
-                                    </Checkbox>
+                                    // The visual control is 16px (HeroUI's .checkbox), well under a
+                                    // usable touch target — this wrapper pads the hit area out to
+                                    // ~44px without changing how the checkbox looks or where it sits.
+                                    <div className="-m-3.5 p-3.5 shrink-0 flex items-start">
+                                        <Checkbox
+                                            isSelected={isSelected || false}
+                                            onChange={() => {
+                                                if (!onSelectionChange) return;
+                                                const next = new Set(selectedKeys);
+                                                if (next.has(key)) next.delete(key); else next.add(key);
+                                                onSelectionChange(next);
+                                            }}
+                                            aria-label={`Select row ${key}`}
+                                            className="mt-1"
+                                        >
+                                            <Checkbox.Control>
+                                                <Checkbox.Indicator />
+                                            </Checkbox.Control>
+                                        </Checkbox>
+                                    </div>
                                 )}
                                 <div className="flex-1 min-w-0">
                                     {primaryCols.map(col => (
@@ -758,6 +1009,34 @@ export default function DataTable({
                     );
                 })}
             </div>
+
+            {/* ── Mobile/tablet pagination — the desktop footer above (with the
+                 numbered-page row and rows-per-page select) is hidden here; this
+                 is a condensed Prev/Next equivalent so paged data stays reachable
+                 below lg, where it would otherwise be stuck on page 1 forever. */}
+            {sortedData.length > 0 && (
+                <div className="lg:hidden mt-3 flex items-center justify-between gap-2">
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        isDisabled={safePage === 1}
+                        onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                        {t('previous')}
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                        {t('pageOf', { page: safePage, total: totalPages })}
+                    </span>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        isDisabled={safePage === totalPages}
+                        onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    >
+                        {t('next')}
+                    </Button>
+                </div>
+            )}
 
             {sortedData.length === 0 && (
                 data.length === 0 ? (

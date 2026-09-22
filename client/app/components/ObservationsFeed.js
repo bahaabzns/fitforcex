@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { NotebookText } from "lucide-react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Skeleton } from "@heroui/react/skeleton";
 import EmptyState from "@/app/components/EmptyState";
 import ObservationCard from "@/app/components/ObservationCard";

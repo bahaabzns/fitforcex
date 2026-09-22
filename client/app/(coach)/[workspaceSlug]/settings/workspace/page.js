@@ -14,6 +14,7 @@ import { Label } from "@heroui/react/label";
 import { Tooltip } from "@heroui/react/tooltip";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import SettingsPlaceholderRow from "../_components/SettingsPlaceholderRow";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function StatusAlert({ status, children }) {
     if (!children) return null;
@@ -33,6 +34,7 @@ export default function WorkspacePage() {
     const tGeneral = useTranslations("workspaceGeneral");
     const tPortal = useTranslations("clientPortalSettings");
     const tCommon = useTranslations("common");
+    usePageTitle(tNav("workspace"));
     const [me, setMe] = useState(null);
     const [workspace, setWorkspace] = useState(null);
 
@@ -47,6 +49,11 @@ export default function WorkspacePage() {
     const [slugError, setSlugError] = useState("");
     const [slugSuccess, setSlugSuccess] = useState("");
 
+    const [renewalLink, setRenewalLink] = useState("");
+    const [renewalLinkSaving, setRenewalLinkSaving] = useState(false);
+    const [renewalLinkError, setRenewalLinkError] = useState("");
+    const [renewalLinkSuccess, setRenewalLinkSuccess] = useState("");
+
     useEffect(() => {
         api.get("/api/auth/me").then(meRes => {
             setMe(meRes.data);
@@ -55,6 +62,7 @@ export default function WorkspacePage() {
             api.get(`/api/workspaces/${wsId}`).then(wsRes => {
                 setWorkspace(wsRes.data);
                 setWsName(wsRes.data?.name ?? "");
+                setRenewalLink(wsRes.data?.renewal_link ?? "");
             });
         });
     }, []);
@@ -79,6 +87,22 @@ export default function WorkspacePage() {
             setRenameError(err.response?.data?.message || t("renameFailed"));
         } finally {
             setRenameSaving(false);
+        }
+    }
+
+    async function handleSaveRenewalLink(e) {
+        e.preventDefault();
+        setRenewalLinkError(""); setRenewalLinkSuccess("");
+        setRenewalLinkSaving(true);
+        try {
+            const res = await api.patch(`/api/workspaces/${wsId}/renewal-link`, { renewalLink: renewalLink.trim() });
+            setWorkspace(prev => ({ ...prev, renewal_link: res.data.renewal_link }));
+            setRenewalLink(res.data.renewal_link ?? "");
+            setRenewalLinkSuccess(t("renewalLinkSaveSuccess"));
+        } catch (err) {
+            setRenewalLinkError(err.response?.data?.message || t("renewalLinkSaveFailed"));
+        } finally {
+            setRenewalLinkSaving(false);
         }
     }
 
@@ -203,6 +227,30 @@ export default function WorkspacePage() {
                                 <Tooltip.Content>{t("portalQuickActions.comingSoon")}</Tooltip.Content>
                             </Tooltip>
                         </div>
+
+                        {/* Renewal link — what the "Renew Subscription" button on the
+                            client portal's expired-subscription screen opens. */}
+                        {isOwner && (
+                            <form onSubmit={handleSaveRenewalLink} className="flex flex-col gap-3 pt-3 border-t border-border">
+                                <div className="flex flex-col gap-1.5">
+                                    <Label>{t("renewalLinkLabel")}</Label>
+                                    <TextField variant="secondary" fullWidth value={renewalLink} onChange={setRenewalLink}>
+                                        <Input type="url" placeholder="https://" />
+                                    </TextField>
+                                    <p className="text-xs text-muted-foreground">{t("renewalLinkHint")}</p>
+                                </div>
+                                <StatusAlert status="danger">{renewalLinkError}</StatusAlert>
+                                <StatusAlert status="success">{renewalLinkSuccess}</StatusAlert>
+                                <Button
+                                    type="submit"
+                                    isDisabled={renewalLinkSaving || renewalLink.trim() === (workspace?.renewal_link ?? "")}
+                                    variant="primary"
+                                    className="self-start"
+                                >
+                                    {renewalLinkSaving ? t("saving") : t("save")}
+                                </Button>
+                            </form>
+                        )}
 
                         {/* Slug customization */}
                         {isOwner && !workspace?.slug_customized && (

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { NotebookText } from "lucide-react";
 import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
@@ -9,8 +9,10 @@ import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, NumberField, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import MacroStat from "./MacroStat";
+import { SortableList, SortableItem } from "@/app/components/SortableList";
+import { localizedFoodName } from "@/utils/foodLocalization";
 
 export default function RightPanel({
     selectedMeal,
@@ -32,10 +34,7 @@ export default function RightPanel({
 }) {
     const [insightsItem, setInsightsItem] = useState(null);
     const t = useTranslations('nutrition');
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
-    const dragRef = useRef(null);
-    const hoverRef = useRef(null);
+    const isRTL = useLocale() === 'ar';
     const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
     const [expandedItemIds, setExpandedItemIds] = useState(new Set());
 
@@ -80,13 +79,6 @@ export default function RightPanel({
     };
 
     const currentItems = selectedMeal.items;
-    const previewItems = (() => {
-        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentItems;
-        const arr = [...currentItems];
-        const [moved] = arr.splice(dragIndex, 1);
-        arr.splice(hoverIndex, 0, moved);
-        return arr;
-    })();
 
     return (
         <>
@@ -150,21 +142,19 @@ export default function RightPanel({
                     {expandedKeys.has("items") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedItemIds} onExpandedChange={handleItemExpandedChange} className="flex flex-col gap-2 px-1 py-1">
-                                    {previewItems.map((item) => {
-                                        const originalIndex = currentItems.findIndex(i => i.id === item.id);
-                                        const isDragging = dragIndex !== null && currentItems[dragIndex]?.id === item.id;
+                                    <SortableList items={currentItems} onReorder={handleReorderFoodItems}>
+                                    {(item, originalIndex) => {
                                         const alternatives = item.alternatives ?? [];
                                         const itemMacros = calcItem(item);
                                         return (
-                                            <Disclosure key={item.id} id={String(item.id)} className={`group/disc rounded-xl overflow-hidden bg-app-surface-card shadow-surface transition-all duration-150 select-none ${isDragging ? "opacity-30 scale-95" : ""}`}>
+                                            <SortableItem key={item.id} id={item.id}>
+                                            {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                                            <Disclosure ref={setNodeRef} style={style} id={String(item.id)} className={`group/disc rounded-xl overflow-hidden bg-app-surface-card shadow-surface transition-all duration-150 select-none ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}>
                                                 <Disclosure.Heading>
                                                     <div
-                                                        draggable
-                                                        onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
-                                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
-                                                        onDrop={() => { handleReorderFoodItems(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                        className="group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
+                                                        {...attributes}
+                                                        {...listeners}
+                                                        className="group flex items-center gap-3 px-3 py-2 cursor-pointer touch-none transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
                                                         onClick={() => {
                                                             if (alternatives.length === 0) return;
                                                             const key = String(item.id);
@@ -184,8 +174,8 @@ export default function RightPanel({
 
                                                         {/* Name + quantity stepper */}
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
-                                                                {item.name}
+                                                            <p translate="no" className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
+                                                                {localizedFoodName(item.name, item.name_ar, isRTL)}
                                                             </p>
                                                             <div className="flex items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
                                                                 <NumberField
@@ -203,12 +193,12 @@ export default function RightPanel({
                                                             </div>
                                                             {alternatives.length > 0 && (
                                                                 <div
-                                                                    title={alternatives.map(a => a.name).filter(Boolean).join(', ')}
+                                                                    title={alternatives.map(a => localizedFoodName(a.name, a.name_ar, isRTL)).filter(Boolean).join(', ')}
                                                                     className="mt-1 flex items-center w-full text-xs text-muted-foreground/70 group-hover:text-muted-foreground group-data-open/disc:text-primary leading-none transition-colors"
                                                                 >
                                                                     <span className="font-medium">{t('alternativesCount', { count: alternatives.length })}</span>
                                                                     <span className="text-muted-foreground/40 mx-1">·</span>
-                                                                    <span className="truncate min-w-0 flex-1">{alternatives.slice(0, 2).map(a => a.name).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
+                                                                    <span translate="no" className="truncate min-w-0 flex-1">{alternatives.slice(0, 2).map(a => localizedFoodName(a.name, a.name_ar, isRTL)).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`ml-0.5 shrink-0 transition-transform ${expandedItemIds.has(String(item.id)) ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
                                                                 </div>
                                                             )}
@@ -270,7 +260,7 @@ export default function RightPanel({
                                                                 return (
                                                                 <div key={alt.id} className="group flex items-center gap-2 px-2 py-2.5 rounded-md hover:bg-default/60 transition-colors">
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-sm text-foreground/75 truncate">{alt.name}</p>
+                                                                        <p translate="no" className="text-sm text-foreground/75 truncate">{localizedFoodName(alt.name, alt.name_ar, isRTL)}</p>
                                                                         <div className="flex items-center gap-1.5 mt-0.5">
                                                                             <NumberField
                                                                                 value={Number(alt.amount) || 0}
@@ -318,8 +308,11 @@ export default function RightPanel({
                                                 </Disclosure.Content>
                                                 )}
                                             </Disclosure>
+                                            )}
+                                            </SortableItem>
                                         );
-                                    })}
+                                    }}
+                                    </SortableList>
                                 </DisclosureGroup>
                     </ScrollShadow>
                     )}

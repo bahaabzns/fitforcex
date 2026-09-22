@@ -12,47 +12,24 @@ import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
     fetchUserWorkspaces, fetchPendingInvitationsCount, issueToken,
     storeAndSendVerificationCode, createSession, revokeSession,
+    assertEmailPhoneAvailable, SignupFieldError,
 } from './auth.service';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
-        const { fname, lname, email, password, phone, metaEventId } = req.body as Record<string, string | undefined>;
+        const { fname, lname, email, password, phone, workspaceName, metaEventId } = req.body as Record<string, string | undefined>;
 
-        if (!email || typeof email !== 'string' || !email.trim()) {
-            return res.status(400).json({ message: 'Email is required' });
-        }
-        if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-            return res.status(400).json({ message: 'Invalid email format' });
-        }
         if (!password || typeof password !== 'string' || !password.trim()) {
             return res.status(400).json({ message: 'Password is required' });
         }
         if (password.length < 8) {
             return res.status(400).json({ message: 'Password must be at least 8 characters' });
         }
-        if (!phone || typeof phone !== 'string' || !phone.trim()) {
-            return res.status(400).json({ message: 'Phone number is required' });
-        }
 
-        const normalizedEmail = normalizeEmail(email);
-        const trimmedPhone = phone.trim();
-
-        // Email and phone must each be unique across coaches. (email has a DB unique
-        // constraint; phone does not, so it's enforced here.) Email is matched
-        // case-insensitively so "John@x.com" and "john@x.com" collide.
-        const existing = await prisma.users.findFirst({
-            where:  { OR: [{ email: { equals: normalizedEmail, mode: 'insensitive' } }, { phone: trimmedPhone }] },
-            select: { email: true, phone: true },
-        });
-        if (existing) {
-            const message = normalizeEmail(existing.email) === normalizedEmail
-                ? 'An account with this email already exists'
-                : 'An account with this phone number already exists';
-            return res.status(409).json({ message });
-        }
+        const { normalizedEmail, trimmedPhone } = await assertEmailPhoneAvailable(email, phone);
 
         const hashed         = await bcrypt.hash(password, 10);
-        const rawSlug        = email.split('@')[0] || `${fname}-${lname}`;
+        const rawSlug        = normalizedEmail.split('@')[0] || `${fname}-${lname}`;
         const normalizedSlug = normalizeSlug(rawSlug) || `coach-${Date.now()}`;
 
         const slugConflict = await prisma.workspaces.findFirst({
@@ -74,9 +51,12 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                     select: { id: true, fname: true, lname: true, email: true },
                 });
 
+                // Platform/brand name is an optional checkout-wizard field (step 1) — falls
+                // back to the same auto-derived default as before when left blank.
+                const trimmedWorkspaceName = workspaceName?.trim();
                 await tx.workspaces.create({
                     data: {
-                        id: workspaceId, slug, name: `${fname}'s Workspace`,
+                        id: workspaceId, slug, name: trimmedWorkspaceName || `${fname}'s Workspace`,
                         owner_id: newUser.id, slug_customized: false,
                         clone_status: 'pending',
                     },
@@ -87,21 +67,48 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                     data:  { default_workspace_id: workspaceId },
                 });
 
-                const defaultPlan = await tx.plans.findFirst({
-                    where:  { is_default: true },
-                    select: { id: true, trial_days: true },
-                });
+                // Founder decision 10: every new workspace starts the same way, regardless
+                // of which plan/variation a coach was looking at on the landing page — the
+                // global trial toggle decides it. Enabled → OneForce Trial (auto-reverts to
+                // Free on expiry, see trialSweep.ts). Disabled → straight onto Free.
+                const trialSettings = await tx.trial_settings.findUnique({ where: { id: 'singleton' } });
 
-                if (defaultPlan) {
-                    const expiresAt = defaultPlan.trial_days
-                        ? new Date(Date.now() + Number(defaultPlan.trial_days) * 86400000)
-                        : null;
+                const trialPlan = trialSettings?.trial_enabled
+                    ? await tx.plans.findFirst({
+                        where:  { name: 'oneforce', is_active: true },
+                        select: { id: true, plan_variations: { where: { is_default: true }, select: { id: true, price_monthly: true, currency: true } } },
+                    })
+                    : null;
+
+                if (trialPlan?.plan_variations[0]) {
+                    const variation = trialPlan.plan_variations[0];
                     await tx.workspace_subscriptions.create({
                         data: {
-                            id: createId(), workspace_id: workspaceId, plan_id: defaultPlan.id,
-                            expires_at: expiresAt,
+                            id: createId(), workspace_id: workspaceId,
+                            plan_id: trialPlan.id, variation_id: variation.id,
+                            locked_price_monthly: variation.price_monthly,
+                            locked_currency: variation.currency,
+                            status: 'trialing',
+                            expires_at: new Date(Date.now() + Number(trialSettings!.trial_duration_days) * 86400000),
                         },
                     });
+                } else {
+                    const freePlan = await tx.plans.findFirst({
+                        where:  { name: 'free', is_active: true },
+                        select: { id: true, plan_variations: { where: { is_default: true }, select: { id: true, price_monthly: true, currency: true } } },
+                    });
+
+                    if (freePlan) {
+                        const variation = freePlan.plan_variations[0];
+                        await tx.workspace_subscriptions.create({
+                            data: {
+                                id: createId(), workspace_id: workspaceId, plan_id: freePlan.id,
+                                variation_id: variation?.id,
+                                locked_price_monthly: variation?.price_monthly,
+                                locked_currency: variation?.currency,
+                            },
+                        });
+                    }
                 }
 
                 return [newUser];
@@ -151,6 +158,26 @@ export async function register(req: Request, res: Response, next: NextFunction) 
             throw err;
         }
     } catch (err) {
+        if (err instanceof SignupFieldError) {
+            return res.status(err.status).json({ message: err.message });
+        }
+        next(err);
+    }
+}
+
+// Checkout wizard step 1 ("Details") — lets the frontend surface a bad/duplicate
+// email or phone before the coach picks a payment method, without creating any
+// account. Registration itself still re-validates (and actually creates the
+// account) at checkout time; this is a pure pre-check, side-effect free.
+export async function checkSignupAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { email, phone } = req.body as Record<string, string | undefined>;
+        await assertEmailPhoneAvailable(email, phone);
+        res.status(200).json({ available: true });
+    } catch (err) {
+        if (err instanceof SignupFieldError) {
+            return res.status(err.status).json({ available: false, message: err.message });
+        }
         next(err);
     }
 }

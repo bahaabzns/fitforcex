@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Copy, Check, Trash2, X, CreditCard, ClipboardList, FileText, Snowflake, Sun, ListChecks, Users } from 'lucide-react';
 import DataTable from "@/app/components/DataTable";
+import ErrorState from "@/app/components/ErrorState";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import Stepper from "@/app/components/Stepper";
 import ActionBar from "@/app/components/ActionBar";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import TransactionModal from "@/app/components/TransactionModal";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
@@ -32,6 +34,8 @@ import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Link as UILink } from "@heroui/react/link";
 import { today, getLocalTimeZone } from "@internationalized/date";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 
 // --- HELPERS ---
 function statusChipColor(status) {
@@ -133,9 +137,15 @@ function ReviewRow({ label, value, mono }) {
 export default function ClientsPage() {
     const t = useTranslations('clients');
     const tCommon = useTranslations('common');
+    const tError = useTranslations('error');
+    usePageTitle(t('pageTitle'));
     const locale = useLocale();
     const { formatDate } = useDateFormatter();
     const { workspaceSlug } = useParams();
+    // Below `sm` the Add Client wizard's stepper switches from a fixed-width
+    // side rail to a horizontal strip above the form — a vertical rail eats
+    // ~176px of an already-narrow modal and leaves almost nothing for fields.
+    const isNarrowModal = useMediaQuery("(max-width: 639px)");
 
     // Forms store localized titles (title_en / title_ar); resolve by active locale.
     const formTitle = (f) => (locale === "ar" ? f.title_ar || f.title_en : f.title_en) || f.title_en;
@@ -144,6 +154,7 @@ export default function ClientsPage() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [availableForms, setAvailableForms] = useState([]);
     const [loading, setLoading]           = useState(true);
+    const [loadError, setLoadError]       = useState(false); // clients fetch failed — distinct from an empty roster
     const [credsModal, setCredsModal]         = useState(null); // { email, password } | null
     const [credsCopied, setCredsCopied]       = useState(false);
     const [clientLimitModal, setClientLimitModal] = useState(null); // { limit: number } | null
@@ -197,21 +208,47 @@ export default function ClientsPage() {
     // Bulk transaction — record one transaction per selected client (shared TransactionModal)
     const [showTxModal, setShowTxModal]                 = useState(false);
 
-    // Clients (active + archived in one list) plus reference data. Archived
-    // clients are surfaced via the "Archived" status filter and dimmed in the row.
-    useEffect(() => {
-        Promise.all([
-            api.get("/api/clients?page=1&limit=10000"),
+    // The clients list is the page's critical data — its own request, its own
+    // error state. A failure here shows a retry card, never a silent "empty
+    // roster" (archived clients are in this same list, surfaced via the
+    // "Archived" status filter and dimmed in the row).
+    const loadClients = useCallback(() => {
+        api.get("/api/clients?page=1&limit=10000")
+            .then(({ data }) => { setClients(data.data ?? []); setLoadError(false); })
+            .catch((err) => { console.error("Failed to load clients:", err); setLoadError(true); })
+            .finally(() => setLoading(false));
+    }, []);
+
+    // Reference data for the Add-Client wizard and column filters. Loaded
+    // independently and per-request tolerant: a blip on packages/forms must not
+    // blank the clients table (it did — all four shared one Promise.all).
+    const loadReferenceData = useCallback(() => {
+        Promise.allSettled([
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
             api.get("/api/forms"),
-        ]).then(([clientRes, pkgRes, pmRes, formsRes]) => {
-            setClients(clientRes.data.data ?? []);
-            setPackages(pkgRes.data ?? []);
-            setPaymentMethods((pmRes.data ?? []).filter(m => m.active));
-            setAvailableForms((formsRes.data ?? []).filter(f => f.status === "active" || f.active));
-        }).catch(console.error).finally(() => setLoading(false));
+        ]).then(([pkgRes, pmRes, formsRes]) => {
+            if (pkgRes.status === "fulfilled") setPackages(pkgRes.value.data ?? []);
+            else console.error("Failed to load packages:", pkgRes.reason);
+            if (pmRes.status === "fulfilled") setPaymentMethods((pmRes.value.data ?? []).filter(m => m.active));
+            else console.error("Failed to load payment methods:", pmRes.reason);
+            if (formsRes.status === "fulfilled") setAvailableForms((formsRes.value.data ?? []).filter(f => f.status === "active" || f.active));
+            else console.error("Failed to load forms:", formsRes.reason);
+        });
     }, []);
+
+    // Retry handler for the error card — reset to the loading state, then re-fetch.
+    const retryLoad = useCallback(() => {
+        setLoadError(false);
+        setLoading(true);
+        loadClients();
+        loadReferenceData();
+    }, [loadClients, loadReferenceData]);
+
+    useEffect(() => {
+        loadClients();
+        loadReferenceData();
+    }, [loadClients, loadReferenceData]);
 
     // Derived option lists
     const packageOptions = packages.flatMap(p =>
@@ -593,12 +630,20 @@ export default function ClientsPage() {
         phone: Array.isArray(c.phones) && c.phones.length > 0 ? c.phones : (c.phone ? [{ countryCode: "", number: c.phone }] : []),
         phoneSearch: (Array.isArray(c.phones) ? c.phones : []).map(p => `${p.countryCode} ${p.number}`).join(" "),
         currentPackage: c.current_package || "—",
+        currentPackageVariationId: c.current_package_variation_id || null,
         currentSubscriptionStatus: c.subscription_status || "Active",
         isArchived: !!c.is_archived,
         dateCreated: c.created_at,
     }));
 
-    const uniquePackages = [...new Set(clients.map(c => c.current_package).filter(Boolean))];
+    // Filter options come from the live Packages module (packageOptions above), not
+    // from clients' stored current_package text — that text is a point-in-time
+    // snapshot that never updates after a package/variation rename, so building the
+    // dropdown from distinct client values surfaced stale/renamed labels alongside
+    // the current ones. Matching happens on the variation id (a stable FK), not the
+    // label, so renames stay correct automatically.
+    const packageFilterOptions = packageOptions.map(p => p.variationId);
+    const packageFilterLabels = new Map(packageOptions.map(p => [p.variationId, p.label]));
 
     const columns = [
         {
@@ -640,7 +685,9 @@ export default function ClientsPage() {
             key: "currentPackage",
             label: t('colPackage'),
             filterType: "multi",
-            options: uniquePackages,
+            options: packageFilterOptions,
+            optionLabel: (variationId) => packageFilterLabels.get(variationId) ?? variationId,
+            filterValue: (row) => row.currentPackageVariationId,
             sortable: true,
         },
         {
@@ -649,6 +696,10 @@ export default function ClientsPage() {
             filterType: "multi",
             options: ["Active", "Expired", "Frozen", "Pre-start", "Archived", "No Subscriptions", "Cancelled", "Refunded"],
             sortable: true,
+            // Shown on the mobile card front (not collapsed behind "show more")
+            // — a client's active/frozen/expired status is the field a coach
+            // most needs at a glance when scanning the roster on a phone.
+            cardPriority: "primary",
             render: (row) => (
                 <Chip size="sm" variant="soft" color={statusChipColor(row.currentSubscriptionStatus)}>
                     {row.currentSubscriptionStatus}
@@ -666,8 +717,8 @@ export default function ClientsPage() {
 
     if (loading) {
         return (
-            <div className="p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-6">{t('pageTitle')}</h1>
+            <div className="p-4 sm:p-6 lg:p-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">{t('pageTitle')}</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
@@ -675,25 +726,42 @@ export default function ClientsPage() {
         );
     }
 
+    // The clients request failed — offer a retry instead of an empty table that
+    // reads as "you have no clients".
+    if (loadError) {
+        return <ErrorState error={{ message: tError('failedToLoad') }} reset={retryLoad} />;
+    }
+
     return (
-        <div className="p-8 flex flex-col gap-6">
+        <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">{t('pageTitle')}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t('pageTitle')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('pageDescription')}</p>
             </div>
+
+            <TriggerInsightBannerGroup
+                basePath="/api/insights"
+                events={["first_client_added", "first_client_archived"]}
+            />
 
             {/* Add Client Wizard Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={t('addClientTitle')} dialogClassName="max-w-[40.04rem]">
                 {/* noValidate: native required-field validation would block submit before our
                     per-step validateStep() runs; we own validation/highlighting in JS. */}
-                <form onSubmit={handleFormSubmit} noValidate className="flex gap-6 px-1 py-1">
-                    {/* Vertical stepper (left column) */}
-                    <div className="w-44 shrink-0 pt-1">
-                        <Stepper steps={WIZARD_STEPS} current={currentStep} orientation="vertical" onStepClick={(i) => { clearErrors(); setCurrentStep(i); }} />
+                <form onSubmit={handleFormSubmit} noValidate className="flex flex-col sm:flex-row gap-4 sm:gap-6 px-1 py-1">
+                    {/* Stepper — horizontal strip above the form on mobile,
+                        vertical rail beside it from `sm` up. */}
+                    <div className="w-full sm:w-44 sm:shrink-0 sm:pt-1">
+                        <Stepper
+                            steps={WIZARD_STEPS}
+                            current={currentStep}
+                            orientation={isNarrowModal ? "horizontal" : "vertical"}
+                            onStepClick={(i) => { clearErrors(); setCurrentStep(i); }}
+                        />
                     </div>
 
-                    {/* Step content (right column) */}
+                    {/* Step content */}
                     <div className="flex min-w-0 flex-1 flex-col gap-5">
                     {/* Submit-level error */}
                     {generalError && (

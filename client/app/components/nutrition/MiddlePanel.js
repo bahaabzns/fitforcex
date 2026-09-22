@@ -1,16 +1,20 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { Target } from "lucide-react";
 import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
+import FoodDiaryAdherenceModal from "./FoodDiaryAdherenceModal";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
+import { adherenceColor } from "@/utils/adherence";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import MacroStat from "./MacroStat";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "../CardActionsMenu";
+import { SortableList, SortableItem, rectSortingStrategy } from "@/app/components/SortableList";
 
 export default function MiddlePanel({
     selectedPlan,
@@ -39,17 +43,12 @@ export default function MiddlePanel({
     setActivateModal,
     activating,
     handleActivateAndMark,
+    foodAdherence,
 }) {
     const t = useTranslations('nutrition');
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
-    const [cycleDragIndex, setCycleDragIndex] = useState(null);
-    const [cycleHoverIndex, setCycleHoverIndex] = useState(null);
-    const dragRef = useRef(null);
-    const hoverRef = useRef(null);
-    const cycleDragRef = useRef(null);
-    const cycleHoverRef = useRef(null);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["meals", "notes"]));
+    const [adherenceModalOpen, setAdherenceModalOpen] = useState(false);
+    const planAdherence = (foodAdherence?.plans ?? []).find((p) => p.planId === selectedPlan?.id) ?? null;
 
     const planTitleRef = useRef(null);
     const cycleTitleRef = useRef(null);
@@ -80,21 +79,6 @@ export default function MiddlePanel({
     }, [pendingFocusCycleId, selectedCycleIndex, selectedPlan.cycles, setPendingFocusCycleId]);
 
     const currentMeals = selectedPlan.cycles[selectedCycleIndex]?.meals ?? [];
-    const previewMeals = (() => {
-        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentMeals;
-        const arr = [...currentMeals];
-        const [moved] = arr.splice(dragIndex, 1);
-        arr.splice(hoverIndex, 0, moved);
-        return arr;
-    })();
-
-    const previewCycles = (() => {
-        if (cycleDragIndex === null || cycleHoverIndex === null || cycleDragIndex === cycleHoverIndex) return selectedPlan.cycles;
-        const arr = [...selectedPlan.cycles];
-        const [moved] = arr.splice(cycleDragIndex, 1);
-        arr.splice(cycleHoverIndex, 0, moved);
-        return arr;
-    })();
     const isSelectedPlanDirty = dirtyPlanIds?.includes(String(selectedPlan.id));
 
     return (
@@ -122,6 +106,17 @@ export default function MiddlePanel({
                     <Chip size="sm" className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 shrink-0">
                         {t('saved')}
                     </Chip>
+                )}
+                {planAdherence && (
+                    <button
+                        type="button"
+                        title={t('planAdherenceHint')}
+                        onClick={() => setAdherenceModalOpen(true)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full border border-border text-xs font-semibold shrink-0 hover:bg-default transition-colors cursor-pointer ${adherenceColor(planAdherence.avgAdherence)}`}
+                    >
+                        <Target className="w-3.5 h-3.5" />
+                        {planAdherence.avgAdherence !== null ? `${planAdherence.avgAdherence}%` : t('noGoalSet')}
+                    </button>
                 )}
                 <button
                     title={t('closePanel')}
@@ -198,21 +193,20 @@ export default function MiddlePanel({
                     <Disclosure.Body className="px-0 pt-0">
                         {selectedPlan.cycles.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-2">
-                                {previewCycles.map((planCycle) => {
-                                    const originalIndex = selectedPlan.cycles.findIndex(c => c.id === planCycle.id);
-                                    const isDragging = cycleDragIndex !== null && selectedPlan.cycles[cycleDragIndex]?.id === planCycle.id;
+                                <SortableList items={selectedPlan.cycles} onReorder={handleReorderCycles} strategy={rectSortingStrategy}>
+                                {(planCycle, originalIndex) => {
                                     const isActive = planCycle.id === selectedPlan.cycles[selectedCycleIndex]?.id;
                                     const canDelete = selectedPlan.cycles.length > 1;
                                     return (
+                                        <SortableItem key={planCycle.id} id={planCycle.id}>
+                                        {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                         <div
-                                            key={planCycle.id}
-                                            draggable
-                                            onDragStart={() => { setCycleDragIndex(originalIndex); cycleDragRef.current = originalIndex; }}
-                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== cycleDragRef.current) { setCycleHoverIndex(originalIndex); cycleHoverRef.current = originalIndex; } }}
-                                            onDrop={() => { handleReorderCycles(cycleDragRef.current, cycleHoverRef.current); setCycleDragIndex(null); setCycleHoverIndex(null); cycleDragRef.current = null; cycleHoverRef.current = null; }}
-                                            onDragEnd={() => { setCycleDragIndex(null); setCycleHoverIndex(null); cycleDragRef.current = null; cycleHoverRef.current = null; }}
-                                            className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all cursor-grab select-none ${
-                                                isDragging ? "opacity-30 scale-95" : ""
+                                            ref={setNodeRef}
+                                            style={style}
+                                            {...attributes}
+                                            {...listeners}
+                                            className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all cursor-grab select-none touch-none ${
+                                                isDragging ? "opacity-30 scale-95 z-10" : ""
                                             } ${
                                                 isActive
                                                     ? "bg-primary text-white"
@@ -248,8 +242,11 @@ export default function MiddlePanel({
                                                 </button>
                                             </div>
                                         </div>
+                                        )}
+                                        </SortableItem>
                                     );
-                                })}
+                                }}
+                                </SortableList>
                             </div>
                         )}
                     </Disclosure.Body>
@@ -293,21 +290,20 @@ export default function MiddlePanel({
                                     </Surface>
                                 ) : (
                                     <div className="flex flex-col gap-2 px-1 py-1">
-                                    {previewMeals.map((meal) => {
-                                        const originalIndex = currentMeals.findIndex(m => m.id === meal.id);
-                                        const isDragging = dragIndex !== null && currentMeals[dragIndex]?.id === meal.id;
+                                    <SortableList items={currentMeals} onReorder={handleReorderMeals}>
+                                    {(meal, originalIndex) => {
                                         const mealTotals = calcMeal(meal);
                                         const isSelected = selectedMeal && selectedMeal.id === meal.id;
                                         return (
+                                            <SortableItem key={meal.id} id={meal.id}>
+                                            {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                             <div
-                                                key={meal.id}
-                                                draggable
-                                                onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
-                                                onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
-                                                onDrop={() => { handleReorderMeals(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none shadow-surface transition-all duration-150 ${
-                                                    isDragging ? "opacity-30 scale-95" : ""
+                                                ref={setNodeRef}
+                                                style={style}
+                                                {...attributes}
+                                                {...listeners}
+                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none touch-none shadow-surface transition-all duration-150 ${
+                                                    isDragging ? "opacity-30 scale-95 z-10" : ""
                                                 } ${
                                                     isSelected
                                                         ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
@@ -346,8 +342,11 @@ export default function MiddlePanel({
                                                     ]}
                                                 />
                                             </div>
+                                            )}
+                                            </SortableItem>
                                         );
-                                    })}
+                                    }}
+                                    </SortableList>
                                     </div>
                                 )}
                     </ScrollShadow>
@@ -419,6 +418,16 @@ export default function MiddlePanel({
                 </Modal.Container>
             </Modal.Backdrop>
         </Modal>
+        {/* Keyed by plan id so switching plans in the builder resets the modal's
+            own selected-plan state instead of reopening on whatever plan was
+            last picked -- the modal doesn't unmount on close, only on this. */}
+        <FoodDiaryAdherenceModal
+            key={selectedPlan.id}
+            open={adherenceModalOpen}
+            onClose={() => setAdherenceModalOpen(false)}
+            data={foodAdherence}
+            planId={selectedPlan.id}
+        />
         </>
     );
 }

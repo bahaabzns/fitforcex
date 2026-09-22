@@ -7,9 +7,10 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { ProgressBar } from "@heroui/react/progress-bar";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
+import PlanIcon from "@/app/components/PlanIcon";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
 import ObservationModal from "@/app/components/ObservationModal";
@@ -17,11 +18,6 @@ import ObservationModal from "@/app/components/ObservationModal";
 const StatusDot = () => (
     <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
         <circle cx="3" cy="3" r="3" fill="currentColor" />
-    </svg>
-);
-const PlanIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
     </svg>
 );
 function formatRelativeTime(dateStr, t) {
@@ -104,7 +100,7 @@ export default function LeftPanel({
 
     const dirtyPlanCount = dirtyPlanIds?.length ?? 0;
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
-    const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
+    const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled' && !r.is_archived);
 
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">

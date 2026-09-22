@@ -4,36 +4,29 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/axios";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
 import { Send } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import MessageComposer from "@/app/components/MessageComposer";
 import MessageRow from "@/app/components/MessageRow";
 import EmptyState from "@/app/components/EmptyState";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
+import { getDateLabel } from "@/utils/date";
 
 const POLL_INTERVAL_MS = 5000;
 
 const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
 
-function formatGroupTime(ts) {
+function formatGroupTime(ts, locale) {
     if (!ts) return '';
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function getDateLabel(ts) {
-    const date = new Date(ts);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 // Groups consecutive messages from the same sender within a 5-minute window.
-function buildSegments(messages) {
+function buildSegments(messages, locale, dayLabels) {
     const groups = [];
     messages.forEach(msg => {
         const last = groups[groups.length - 1];
@@ -52,7 +45,7 @@ function buildSegments(messages) {
     groups.forEach(group => {
         const dateStr = new Date(group.messages[0].created_at).toDateString();
         if (dateStr !== lastDate) {
-            segments.push({ type: 'date', label: getDateLabel(group.messages[0].created_at) });
+            segments.push({ type: 'date', label: getDateLabel(group.messages[0].created_at, locale, dayLabels) });
             lastDate = dateStr;
         }
         segments.push({ type: 'group', group });
@@ -79,8 +72,9 @@ function bubbleRadius(isOwn, pos) {
 
 export default function ClientMessagesPage() {
     const t = useTranslations('portal.messages');
+    const locale = useLocale();
+    usePageTitle(t('title'));
     const [messages, setMessages] = useState([]);
-    const [coachName, setCoachName] = useState('');
     const [editingMessage, setEditingMessage] = useState(null);
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
@@ -91,11 +85,10 @@ export default function ClientMessagesPage() {
         try {
             const res = await api.get('/api/client-portal/messages');
             setMessages(res.data.messages);
-            if (res.data.coachName && !coachName) setCoachName(res.data.coachName);
         } catch {
             // silent
         }
-    }, [coachName]);
+    }, []);
 
     useEffect(() => { fetchMessages().finally(() => setLoading(false)); }, [fetchMessages]);
 
@@ -145,22 +138,28 @@ export default function ClientMessagesPage() {
         } catch { /* silent */ }
     };
 
-    const segments = buildSegments(messages);
+    const segments = buildSegments(messages, locale, { today: t('today'), yesterday: t('yesterday') });
 
     return (
         <div className="flex flex-col h-[calc(100dvh-120px)] p-3">
+            <div className="shrink-0">
+                <TriggerInsightBanner
+                    triggerEvent="first_message_sent_by_client"
+                    checkUrl="/api/client-portal/prompts/for-trigger/first_message_sent_by_client"
+                    respondUrlPrefix="/api/client-portal/prompts"
+                    dismissUrlPrefix="/api/client-portal/prompts"
+                />
+            </div>
             <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                 {/* Header */}
                 <Card.Header className="flex-row items-center gap-3 px-4 py-3 shrink-0">
                     <Avatar size="sm" color="primary" className="shrink-0">
-                        <Avatar.Fallback>
-                            {coachName ? coachName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'C'}
-                        </Avatar.Fallback>
+                        <Avatar.Fallback>C</Avatar.Fallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">
-                            {coachName || t('coachFallback')}
+                            {t('coachFallback')}
                         </p>
                         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
                     </div>
@@ -221,7 +220,7 @@ export default function ClientMessagesPage() {
                                             );
                                         })}
                                         <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
-                                            {formatGroupTime(group.messages[group.messages.length - 1].created_at)}
+                                            {formatGroupTime(group.messages[group.messages.length - 1].created_at, locale)}
                                         </span>
                                     </div>
                                 );

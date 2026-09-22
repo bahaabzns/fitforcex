@@ -6,6 +6,7 @@ import { ProgressBar } from "@heroui/react/progress-bar";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { InputGroup } from "@heroui/react/input-group";
+import Typography from "@/app/components/Typography";
 
 const ACTIVITY_LEVEL_VALUES = [1.2, 1.375, 1.55, 1.725, 1.9];
 
@@ -57,9 +58,9 @@ function calcBMR(formula, gender, { age, weight, height, neck, waist, hip }) {
 
 function SectionLabel({ children }) {
     return (
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+        <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-2">
             {children}
-        </p>
+        </Typography>
     );
 }
 

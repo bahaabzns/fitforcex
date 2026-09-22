@@ -10,10 +10,12 @@ import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function LoginContent() {
     const t = useTranslations('auth');
     const tCommon = useTranslations('common');
+    usePageTitle(t('coachLogin'));
     const router = useRouter();
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -49,7 +51,7 @@ function LoginContent() {
             if (!slug) { router.push('/login'); return; }
             redirectToDashboard(slug);
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid email or password.');
+            setError(err.response?.data?.message || err.response?.data?.error || 'Invalid email or password.');
         } finally {
             setLoading(false);
         }

@@ -49,6 +49,21 @@ class FormsRepository {
       throw ApiException.fromDio(e);
     }
   }
+
+  Future<void> editAnswer(
+    String requestId,
+    String questionId,
+    String answer,
+  ) async {
+    try {
+      await _dio.patch<Map<String, dynamic>>(
+        '/api/client-portal/form-requests/$requestId/answers/$questionId',
+        data: {'answer': answer},
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 }
 
 final formsRepositoryProvider = Provider<FormsRepository>(

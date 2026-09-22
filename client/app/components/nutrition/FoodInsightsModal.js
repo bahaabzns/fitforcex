@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "@heroui/react/modal";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import api from "@/lib/axios";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";

@@ -1,8 +1,35 @@
-import Link from "next/link";
-import { Chip } from "@heroui/react/chip";
-import { CheckCircle2 } from 'lucide-react';
+'use client';
 
-function FeatureSection({ chip, heading, bullets, reversed, dimBg }) {
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Chip } from "@heroui/react/chip";
+import { useScrollReveal } from "@/lib/useScrollReveal";
+
+const SCREENSHOTS = {
+    feature1: "/unlimited.png",
+    feature2: "/Untitled-1.png",
+    feature3: "/delivery.png",
+    feature4: "/library.png",
+    feature5: "/Client Progress Tracking.png",
+    feature6: "/EasyToUse.png",
+};
+
+// Double-checkmark bullet icon, matching the old design's bullet treatment.
+function DoubleCheckIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true">
+            <path d="M2 12.5l4 4 8-8" stroke="var(--color-primary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+            <path d="M7 12.5l4 4 8-8" stroke="var(--color-primary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+function FeatureSection({ featureKey, reversed, dimBg, ctaLabel, noCreditCardLabel }) {
+    const t = useTranslations(`landing.features.${featureKey}`);
+    const bullets = t.raw("bullets");
+    const textRef = useScrollReveal();
+    const imageRef = useScrollReveal();
+
     return (
         <section
             className="py-16 md:py-24 px-6"
@@ -14,17 +41,20 @@ function FeatureSection({ chip, heading, bullets, reversed, dimBg }) {
                 }`}
             >
                 {/* ── Text block ── */}
-                <div className="flex-1 flex flex-col gap-6 max-w-lg">
+                <div
+                    ref={textRef}
+                    className={`animate-on-scroll ${reversed ? "fade-in-right" : "fade-in-left"} flex-1 flex flex-col gap-6 max-w-lg`}
+                >
                     <Chip color="accent" size="sm">
-                        {chip}
+                        {t("category")}
                     </Chip>
                     <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
-                        {heading}
+                        {t("title")}
                     </h2>
                     <ul className="flex flex-col gap-4">
                         {bullets.map((b, i) => (
                             <li key={i} className="flex items-start gap-3">
-                                <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                                <DoubleCheckIcon />
                                 <span className="text-white/60 leading-relaxed">{b}</span>
                             </li>
                         ))}
@@ -34,14 +64,17 @@ function FeatureSection({ chip, heading, bullets, reversed, dimBg }) {
                             href="/register"
                             className="button button--primary button--md w-fit"
                         >
-                            Get Started – It&apos;s FREE!
+                            {ctaLabel}
                         </Link>
-                        <p className="text-white/50 text-sm">✓ No credit card needed, cancel any time</p>
+                        <p className="text-white/50 text-sm">✓ {noCreditCardLabel}</p>
                     </div>
                 </div>
 
                 {/* ── Image block ── */}
-                <div className="flex-1 w-full">
+                <div
+                    ref={imageRef}
+                    className={`animate-on-scroll ${reversed ? "fade-in-left" : "fade-in-right"} flex-1 w-full`}
+                >
                     <div
                         className="rounded-2xl border border-white/10 overflow-hidden"
                         style={{
@@ -50,8 +83,8 @@ function FeatureSection({ chip, heading, bullets, reversed, dimBg }) {
                         }}
                     >
                         <img
-                            src="/image_placeholder.png"
-                            alt={heading}
+                            src={SCREENSHOTS[featureKey]}
+                            alt={t("title")}
                             className="w-full"
                         />
                     </div>
@@ -62,81 +95,18 @@ function FeatureSection({ chip, heading, bullets, reversed, dimBg }) {
 }
 
 export default function LandingFeatures() {
+    const tHero = useTranslations("landing.hero");
+    const ctaLabel = tHero("cta");
+    const noCreditCardLabel = tHero("noCreditCard");
+
     return (
         <div id="features">
-
-            <FeatureSection
-                chip="Client Management"
-                heading="Unlimited Number of Clients"
-                bullets={[
-                    "Add as many clients as you want with no caps or restrictions",
-                    "No forced upgrades or hidden fees as your business grows",
-                    "Complete freedom to scale your coaching exactly the way you choose",
-                ]}
-                reversed={false}
-                dimBg={false}
-            />
-
-            <FeatureSection
-                chip="Accessibility"
-                heading="Work From Anywhere"
-                bullets={[
-                    "Fully optimized for mobile, laptop, and tablet",
-                    "Manage clients, send plans, and reply to chats from anywhere",
-                    "Your entire workflow stays with you — gym, home, café, or traveling",
-                ]}
-                reversed={true}
-                dimBg={true}
-            />
-
-            <FeatureSection
-                chip="Plan Delivery"
-                heading="Deliver Plans the Way You Want"
-                bullets={[
-                    "Choose between professional PDF, organized client portal, or mobile app",
-                    "Pick the format that fits your brand and gives clients a premium experience",
-                    "Fast, polished, and impressive delivery every single time",
-                ]}
-                reversed={false}
-                dimBg={false}
-            />
-
-            <FeatureSection
-                chip="Libraries"
-                heading="Ready-to-Use Exercise & Food Libraries"
-                bullets={[
-                    "Hundreds of exercises with GIF demonstrations and full food database",
-                    "No more collecting data from scratch or building lists manually",
-                    "Every item is fully editable to tailor plans to your coaching style",
-                ]}
-                reversed={true}
-                dimBg={true}
-            />
-
-            <FeatureSection
-                chip="Progress Tracking"
-                heading="Client Progress Tracking"
-                bullets={[
-                    "Check-ins, workout logs, progress photos — all in one place",
-                    "Monitor every client day by day and make smarter decisions faster",
-                    "Boosts engagement, speeds up results, and improves commitment",
-                ]}
-                reversed={false}
-                dimBg={false}
-            />
-
-            <FeatureSection
-                chip="User Experience"
-                heading="Extremely Easy to Use"
-                bullets={[
-                    "Clean, intuitive interface helps you create full plans in minutes",
-                    "Clients receive everything neatly organized in their own portal",
-                    "No confusion, no complexity — just a smooth premium experience",
-                ]}
-                reversed={true}
-                dimBg={true}
-            />
-
+            <FeatureSection featureKey="feature1" reversed={false} dimBg={false} ctaLabel={ctaLabel} noCreditCardLabel={noCreditCardLabel} />
+            <FeatureSection featureKey="feature2" reversed={true} dimBg={true} ctaLabel={ctaLabel} noCreditCardLabel={noCreditCardLabel} />
+            <FeatureSection featureKey="feature3" reversed={false} dimBg={false} ctaLabel={ctaLabel} noCreditCardLabel={noCreditCardLabel} />
+            <FeatureSection featureKey="feature4" reversed={true} dimBg={true} ctaLabel={ctaLabel} noCreditCardLabel={noCreditCardLabel} />
+            <FeatureSection featureKey="feature5" reversed={false} dimBg={false} ctaLabel={ctaLabel} noCreditCardLabel={noCreditCardLabel} />
+            <FeatureSection featureKey="feature6" reversed={true} dimBg={true} ctaLabel={ctaLabel} noCreditCardLabel={noCreditCardLabel} />
         </div>
     );
 }

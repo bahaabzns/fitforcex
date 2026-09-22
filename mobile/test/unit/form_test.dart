@@ -2,6 +2,25 @@ import 'package:fitforce_x/shared/models/form.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('formRequestNeedsAction', () {
+    FormRequestSummary withStatus(String status) =>
+        FormRequestSummary(id: 'r1', status: status);
+
+    test('true for pending, scheduled, and sent', () {
+      expect(formRequestNeedsAction(withStatus(formStatusPending)), isTrue);
+      expect(formRequestNeedsAction(withStatus(formStatusScheduled)), isTrue);
+      // 'sent' is stamped by the server's dispatcher cron on an already-due
+      // 'pending' request — still awaiting the client's answer, not a
+      // distinct status the client should ever see as resolved.
+      expect(formRequestNeedsAction(withStatus(formStatusSent)), isTrue);
+    });
+
+    test('false once submitted or reviewed', () {
+      expect(formRequestNeedsAction(withStatus(formStatusSubmitted)), isFalse);
+      expect(formRequestNeedsAction(withStatus(formStatusReviewed)), isFalse);
+    });
+  });
+
   group('FormRequestSummary.fromJson', () {
     test('maps snake_case request fields', () {
       final r = FormRequestSummary.fromJson(const {
@@ -43,7 +62,18 @@ void main() {
           },
         ],
         'responses': [
-          {'question_id': 'q1', 'answer': 'Good'},
+          {
+            'question_id': 'q1',
+            'answer': 'Good',
+            'edited': true,
+            'history': [
+              {
+                'previous_answer': 'Bad',
+                'new_answer': 'Good',
+                'edited_at': '2026-08-20T10:00:00Z',
+              },
+            ],
+          },
         ],
       });
 
@@ -55,6 +85,20 @@ void main() {
       expect(q1.optionsAr, ['جيد', 'سيئ']);
       expect(d.questions[1].maxValue, 5);
       expect(d.responses.single.answer, 'Good');
+      expect(d.responses.single.edited, isTrue);
+      expect(d.responses.single.history.single.previousAnswer, 'Bad');
+      expect(d.responses.single.history.single.newAnswer, 'Good');
+    });
+
+    test('defaults edited to false and history to empty when absent', () {
+      final d = FormRequestDetail.fromJson(const {
+        'id': 'r1',
+        'responses': [
+          {'question_id': 'q1', 'answer': 'Good'},
+        ],
+      });
+      expect(d.responses.single.edited, isFalse);
+      expect(d.responses.single.history, isEmpty);
     });
 
     test('defaults options to empty when null/absent', () {

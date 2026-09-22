@@ -3,7 +3,7 @@
  * Run this first to confirm column names before writing the migration.
  *
  * Usage (from server/):
- *   PG_OLD_URL="postgresql://fitforce_user:Canyouseeme%40441199@localhost:5432/fitforce_old" \
+ *   PG_OLD_URL="postgresql://fitforce_user:<password>@localhost:5432/fitforce_old" \
  *   npx tsx src/scripts/inspect-old-forms.ts
  */
 

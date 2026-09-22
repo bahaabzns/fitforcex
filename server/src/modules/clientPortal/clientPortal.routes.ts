@@ -10,6 +10,9 @@ import {
 import { loginLimiter, workspaceDiscoveryLimiter } from '../../middleware/rateLimit';
 import * as clientPortalController from './clientPortal.controller';
 import * as clientPortalNotificationsController from './clientPortalNotifications.controller';
+import * as clientPortalInsightsController from './clientPortalInsights.controller';
+import * as clientPortalFoodSwapController from './clientPortalFoodSwap.controller';
+import { screenshotUploader, uploadScreenshot } from '../insights/insights.controller';
 
 const router = Router();
 
@@ -155,6 +158,20 @@ router.get('/access', ...authed, clientPortalController.getAccess);
 
 /**
  * @openapi
+ * /client-portal/subscription:
+ *   get:
+ *     summary: Get the client's own plan details and payment history
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ status, withinGrace, plan, currentPeriodStart, currentPeriodEnd, totalCoverageEnd, frozenUntil, renewalLink, transactions }"
+ */
+router.get('/subscription', ...authed, clientPortalController.getSubscription);
+
+/**
+ * @openapi
  * /client-portal/active-plan:
  *   get:
  *     summary: Get the client's currently active nutrition plan
@@ -170,6 +187,89 @@ router.get('/access', ...authed, clientPortalController.getAccess);
  *               $ref: '#/components/schemas/NutritionPlan'
  */
 router.get('/active-plan', ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getActivePlan);
+
+/**
+ * @openapi
+ * /client-portal/meal-items/{mealItemId}/swap-search:
+ *   get:
+ *     summary: Search foods in the same category as the current meal item for an equivalent swap
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: mealItemId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: query
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Current food plus candidate alternatives (same food category) with pre-computed equivalent amounts
+ */
+router.get(
+    '/meal-items/:mealItemId/swap-search',
+    ...open,
+    requireClientAccess('view_nutrition_plans'),
+    clientPortalFoodSwapController.searchSwapAlternatives
+);
+
+/**
+ * @openapi
+ * /client-portal/meal-items/{mealItemId}/swap:
+ *   post:
+ *     summary: Swap a meal item's food for a backend-computed equivalent amount
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: mealItemId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               alternativeFoodId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Swap applied
+ */
+router.post(
+    '/meal-items/:mealItemId/swap',
+    ...open,
+    requireClientAccess('allow_food_swap'),
+    clientPortalFoodSwapController.swapMealItemFood
+);
+
+/**
+ * @openapi
+ * /client-portal/meal-items/{mealItemId}/swap/reset:
+ *   post:
+ *     summary: Reset a swapped meal item back to the coach's original prescription
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: mealItemId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Reset applied
+ */
+router.post(
+    '/meal-items/:mealItemId/swap/reset',
+    ...open,
+    requireClientAccess('allow_food_swap'),
+    clientPortalFoodSwapController.resetMealItemFood
+);
 
 /**
  * @openapi
@@ -241,12 +341,69 @@ router.get('/active-training-plan', ...open, requireClientAccess('view_training_
  *     responses:
  *       200:
  *         description: Form submitted
+ *
+ * /client-portal/form-requests/{request_id}/answers/{question_id}:
+ *   patch:
+ *     summary: Edit a single previously submitted answer — logs a form_response_edits entry
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: request_id, required: true, schema: { type: string } }
+ *       - { in: path, name: question_id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [answer]
+ *             properties:
+ *               answer: { type: string }
+ *     responses:
+ *       200:
+ *         description: "{ success, answer }"
+ *       400:
+ *         description: Form not submitted yet
+ *       404:
+ *         description: Request or answer not found
  */
 router.get('/form-requests',                     ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequests);
 router.get('/form-requests/:request_id',         ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequest);
 router.post('/form-requests/:request_id/submit', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.submitFormRequest);
+router.patch('/form-requests/:request_id/answers/:question_id', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.editFormAnswer);
+
+/**
+ * @openapi
+ * /client-portal/action-items:
+ *   get:
+ *     summary: Things needing the client's attention — pending forms, new/restarted plans, subscription renewal
+ *     tags: [Client Portal]
+ *     responses:
+ *       200:
+ *         description: List of action items, most urgent first
+ */
+router.get('/action-items', ...open, clientPortalController.getActionItems);
 
 router.post('/uploads/photo', ...open, clientPortalController.photoUploader.single('photo'), clientPortalController.uploadPhoto);
+
+/**
+ * @openapi
+ * /client-portal/uploads/attachment/{category}:
+ *   post:
+ *     summary: Upload a file for an "attachment" form question, validated against the question's configured category
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: category, required: true, schema: { type: string, enum: [images, documents, videos, any] } }
+ *     responses:
+ *       201:
+ *         description: "{ url, name, mime, size }"
+ *       400:
+ *         description: Invalid category, no file, or a file outside the category's allowlist
+ */
+router.post('/uploads/attachment/:category', ...open, clientPortalController.uploadAttachmentMiddleware, clientPortalController.uploadAttachment);
 
 /**
  * @openapi
@@ -395,6 +552,18 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
  *       400:
  *         description: Validation failed
  *
+ * /client-portal/workout-logs/draft:
+ *   get:
+ *     summary: Find an in-progress (not yet finished) draft for a training day, if any — Instant Save's cross-device/cross-session resume path
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: day_id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: The draft (id, plan_id, day_id, day_index, started_at, exercises), or null if none
+ *
  * /client-portal/workout-logs/previous:
  *   get:
  *     summary: Previous logged sets per exercise for a training day
@@ -446,16 +615,105 @@ router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messag
  *         description: Session detail
  *       404:
  *         description: Not found
+ *   put:
+ *     summary: >
+ *       Instant Save — upsert a workout log by a client-generated id. Used for
+ *       both the debounced in-progress autosave (completed:false) and Finish
+ *       (completed:true), so both target the same row instead of Finish
+ *       creating a second one. A no-op once the row is already completed —
+ *       a finished session is an immutable snapshot.
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Draft saved, or (completed:true) the finished session's summary
+ *       400:
+ *         description: Validation failed
+ *       403:
+ *         description: This id belongs to another client's workout log
+ *   delete:
+ *     summary: Delete a logged session
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *       404:
+ *         description: Not found
  */
 // Specific routes before the parameterized /:id (§8.6).
 // Logging a session needs the training plan; reading history needs progress-history view.
 router.get('/workout-logs',                   ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLogs);
 router.post('/workout-logs',                  ...open, requireClientAccess('view_training_plans'),   clientPortalController.createWorkoutLog);
+router.get('/workout-logs/draft',             ...open, requireClientAccess('view_training_plans'),   clientPortalController.getWorkoutLogDraft);
 router.get('/workout-logs/previous',          ...open, requireClientAccess('view_training_plans'),   clientPortalController.getWorkoutLogPrevious);
 router.get('/workout-logs/exercise-progress', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseProgress);
 router.get('/workout-logs/exercise-insights', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseInsights);
 router.get('/workout-logs/exercises',         ...open, requireClientAccess('view_progress_history'), clientPortalController.getLoggedExercises);
 router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
+router.put('/workout-logs/:id',               ...open, requireClientAccess('view_training_plans'),   clientPortalController.upsertWorkoutLog);
+router.delete('/workout-logs/:id',            ...open, requireClientAccess('view_progress_history'), clientPortalController.deleteWorkoutLog);
+
+/**
+ * @openapi
+ * /client-portal/food-diary/today:
+ *   get:
+ *     summary: Get (or create, from the active nutrition plan) today's food diary entry
+ *     description: >
+ *       Returns null when the client has no active nutrition plan yet. Pass
+ *       `cycle_id` (the cycle the client's own nutrition page currently has
+ *       selected) so the first-ever entry of the day snapshots the right
+ *       cycle's items — irrelevant once an entry for today already exists,
+ *       since the snapshot is then fixed for the day.
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: cycle_id, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: The diary entry, or null if there's no active plan
+ *   patch:
+ *     summary: Record how much of one item the client ate today
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [meal_item_id, amount_eaten]
+ *             properties:
+ *               meal_item_id: { type: string }
+ *               amount_eaten: { type: number, minimum: 0 }
+ *               cycle_id:     { type: string, nullable: true }
+ *     responses:
+ *       200:
+ *         description: Updated entry with recomputed totals + adherence
+ *       404:
+ *         description: No active plan, or the item isn't part of today's diary
+ *
+ * /client-portal/food-diary/history:
+ *   get:
+ *     summary: The client's own past food diary entries, most recent first
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of diary entries
+ */
+router.get('/food-diary/today',     ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getTodayFoodDiary);
+router.patch('/food-diary/today',   ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.updateTodayFoodDiaryItem);
+router.get('/food-diary/history',   ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getFoodDiaryHistory);
 
 /**
  * @openapi
@@ -520,5 +778,56 @@ router.get('/notifications',              ...open, clientPortalNotificationsCont
 router.get('/notifications/unread-count', ...open, clientPortalNotificationsController.getUnreadCount);
 router.patch('/notifications/read-all',   ...open, clientPortalNotificationsController.markAllRead);
 router.patch('/notifications/:id/read',   ...open, clientPortalNotificationsController.markRead);
+
+/**
+ * @openapi
+ * /client-portal/insights:
+ *   post:
+ *     summary: Submit organic feedback (bug, feature request, or a standalone rating)
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201: { description: Insight created }
+ *       400: { description: Invalid sourceType or missing required field }
+ *
+ * /client-portal/prompts/active:
+ *   get:
+ *     summary: Get the currently active Founder Prompt targeted at this client, if any and not yet answered
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: The active prompt, or null }
+ *
+ * /client-portal/prompts/post-session:
+ *   get:
+ *     summary: Get the recurring Post-Session Feedback prompt shown on the Training Mode completion page
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: The prompt, or null if not currently active }
+ *
+ * /client-portal/prompts/{id}/respond:
+ *   post:
+ *     summary: Answer an active Founder Prompt
+ *     tags: [Client Portal, Insights]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       201: { description: Response recorded }
+ *       404: { description: This prompt is no longer active }
+ */
+router.post('/insights',            ...open, clientPortalInsightsController.submitInsight);
+router.post('/insights/screenshot', ...open, screenshotUploader.single('file'), uploadScreenshot);
+router.get('/prompts/active',              ...open, clientPortalInsightsController.getActivePrompt);
+router.get('/prompts/post-session',        ...open, clientPortalInsightsController.getPostSessionPrompt);
+router.get('/prompts/for-trigger/:event',  ...open, clientPortalInsightsController.getPromptForTrigger);
+router.post('/prompts/:id/respond',        ...open, clientPortalInsightsController.respondToPrompt);
+router.post('/prompts/:id/dismiss',        ...open, clientPortalInsightsController.dismissPrompt);
+router.post('/prompts/:id/started',        ...open, clientPortalInsightsController.startPrompt);
 
 export default router;

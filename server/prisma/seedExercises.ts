@@ -224,6 +224,8 @@ const EXERCISES = [
     equipment: 'Bodyweight',
     youtube_url: 'https://www.youtube.com/watch?v=ASdvN_XEl_c',
     instructions_en: 'Forearms on the floor, elbows under shoulders. Form a straight line from head to heels — do not sag or pike. Brace as if someone will punch your stomach. Hold the position for time.',
+    tracking_type: 'time_based',
+    tracked_metrics: ['duration_seconds'],
   },
   {
     name_en: 'Cable Crunch',
@@ -277,13 +279,26 @@ async function main() {
       where: { workspace_id: workspace.id, name_en: ex.name_en },
     });
     if (existing) {
-      // Update youtube_url if it's missing
-      if (!existing.youtube_url && ex.youtube_url) {
+      // Backfill youtube_url/tracking_type/tracked_metrics if any is missing
+      // or stale — this catches rows seeded before the tracking-type feature
+      // existed (e.g. "Plank" defaulting to 'sets_reps' when it should be
+      // 'time_based' + duration, see exerciseTrackingTypes.ts).
+      const needsYoutubeUrl = !existing.youtube_url && ex.youtube_url;
+      const needsTrackingType = ex.tracking_type && existing.tracking_type !== ex.tracking_type;
+      const wantedMetrics = ex.tracked_metrics ?? [];
+      const needsTrackedMetrics = ex.tracking_type
+          && JSON.stringify([...existing.tracked_metrics].sort()) !== JSON.stringify([...wantedMetrics].sort());
+      if (needsYoutubeUrl || needsTrackingType || needsTrackedMetrics) {
         await prisma.exercise_library.update({
           where: { id: existing.id },
-          data: { youtube_url: ex.youtube_url, updated_at: new Date() },
+          data: {
+            ...(needsYoutubeUrl ? { youtube_url: ex.youtube_url } : {}),
+            ...(needsTrackingType ? { tracking_type: ex.tracking_type } : {}),
+            ...(needsTrackedMetrics ? { tracked_metrics: wantedMetrics } : {}),
+            updated_at: new Date(),
+          },
         });
-        console.log(`  ~ Updated youtube_url: ${ex.name_en}`);
+        console.log(`  ~ Updated ${ex.name_en}`);
       } else {
         skipped++;
       }
@@ -298,6 +313,8 @@ async function main() {
           equipment:       ex.equipment,
           youtube_url:     ex.youtube_url,
           instructions_en: ex.instructions_en,
+          tracking_type:   ex.tracking_type ?? 'sets_reps',
+          tracked_metrics: ex.tracked_metrics ?? [],
         },
       });
       console.log(`  + Exercise: ${ex.name_en}`);

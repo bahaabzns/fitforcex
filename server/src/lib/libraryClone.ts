@@ -76,22 +76,29 @@ async function cloneMasterForms(workspaceId: string): Promise<{ forms: number; q
         await prisma.forms.update({ where: { id: newFormId }, data: { current_version_id: versionId } });
 
         if (mf.questions.length) {
+            // Each cloned question starts a brand-new lineage (it's not a
+            // version fork of an existing coach question) — same rule as
+            // createQuestion's new-question path.
             await prisma.form_version_questions.createMany({
-                data: mf.questions.map((q) => ({
-                    id:              createId(),
-                    form_version_id: versionId,
-                    label_en:        q.label_en,
-                    label_ar:        q.label_ar,
-                    type:            q.type,
-                    required:        q.required,
-                    order_index:     q.order_index,
-                    options:         q.options ?? Prisma.DbNull,
-                    options_ar:      q.options_ar ?? Prisma.DbNull,
-                    placeholder_en:  q.placeholder_en,
-                    placeholder_ar:  q.placeholder_ar,
-                    min_value:       q.min_value,
-                    max_value:       q.max_value,
-                })),
+                data: mf.questions.map((q) => {
+                    const newQuestionId = createId();
+                    return {
+                        id:                 newQuestionId,
+                        form_version_id:    versionId,
+                        label_en:           q.label_en,
+                        label_ar:           q.label_ar,
+                        type:               q.type,
+                        required:           q.required,
+                        order_index:        q.order_index,
+                        options:            q.options ?? Prisma.DbNull,
+                        options_ar:         q.options_ar ?? Prisma.DbNull,
+                        placeholder_en:     q.placeholder_en,
+                        placeholder_ar:     q.placeholder_ar,
+                        min_value:          q.min_value,
+                        max_value:          q.max_value,
+                        origin_question_id: newQuestionId,
+                    };
+                }),
             });
             questionCount += mf.questions.length;
         }
@@ -104,6 +111,118 @@ async function cloneInBatches<TRow, TData>(rows: TRow[], map: (row: TRow) => TDa
     for (const batch of chunk(rows, BATCH_SIZE)) {
         await insert(batch.map(map));
     }
+}
+
+export type LibraryResourceKey = 'muscle-groups' | 'equipment' | 'exercises' | 'food-categories' | 'food-items';
+
+type MasterRow = { name_en: string } & Record<string, unknown>;
+
+// One entry per Default Library resource: where its master rows live, which
+// workspace-scoped table they clone into, and how a master row maps to a
+// workspace row. Shared by the full signup clone (cloneDefaultLibraries) and
+// the super-admin single-resource reseed (seedWorkspaceLibrary) so the two
+// paths can never drift apart on field mapping.
+const RESOURCE_CLONE: Record<LibraryResourceKey, {
+    findMaster: () => Promise<MasterRow[]>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delegate: any;
+    mapRow: (row: MasterRow, workspaceId: string) => Record<string, unknown>;
+    // Column to patch on an already-existing workspace row (matched by name_en)
+    // when the master has a value and the workspace row doesn't. Only used by
+    // seedWorkspaceLibrary; never overwrites a non-empty value or touches any
+    // other field, so it can't clobber a coach's own edits.
+    backfillField?: string;
+}> = {
+    'muscle-groups': {
+        findMaster: () => prisma.master_exercise_muscle_groups.findMany(),
+        delegate: prisma.exercise_muscle_groups,
+        mapRow: (m, workspaceId) => ({ id: createId(), workspace_id: workspaceId, name_en: m.name_en, name_ar: m.name_ar }),
+    },
+    'equipment': {
+        findMaster: () => prisma.master_exercise_equipments.findMany(),
+        delegate: prisma.exercise_equipments,
+        mapRow: (e, workspaceId) => ({ id: createId(), workspace_id: workspaceId, name_en: e.name_en, name_ar: e.name_ar }),
+    },
+    'exercises': {
+        findMaster: () => prisma.master_exercise_library.findMany(),
+        delegate: prisma.exercise_library,
+        backfillField: 'thumbnail_path',
+        mapRow: (ex, workspaceId) => ({
+            id: createId(), workspace_id: workspaceId,
+            name_en: ex.name_en, name_ar: ex.name_ar,
+            muscle_group: ex.muscle_group, equipment: ex.equipment,
+            youtube_url: ex.youtube_url, video_path: ex.video_path, thumbnail_path: ex.thumbnail_path,
+            instructions_en: ex.instructions_en, instructions_ar: ex.instructions_ar,
+        }),
+    },
+    'food-categories': {
+        findMaster: () => prisma.master_food_categories.findMany(),
+        delegate: prisma.food_categories,
+        mapRow: (c, workspaceId) => ({ id: createId(), workspace_id: workspaceId, name_en: c.name_en, name_ar: c.name_ar }),
+    },
+    'food-items': {
+        findMaster: () => prisma.master_food_items.findMany(),
+        delegate: prisma.food_items,
+        mapRow: (f, workspaceId) => ({
+            id: createId(), workspace_id: workspaceId,
+            name_en: f.name_en, name_ar: f.name_ar, food_category: f.food_category,
+            serving_size: f.serving_size, serving_unit: f.serving_unit,
+            calories_per_serving: f.calories_per_serving, protein_per_serving: f.protein_per_serving,
+            carbs_per_serving: f.carbs_per_serving, fats_per_serving: f.fats_per_serving,
+        }),
+    },
+};
+
+export class WorkspaceNotFoundError extends Error {
+    constructor(workspaceId: string) {
+        super(`Workspace ${workspaceId} not found`);
+    }
+}
+
+/**
+ * Clone one Default Library resource into one workspace. Unlike
+ * cloneDefaultLibraries (full clone, signup-only, guarded by clone_status),
+ * this is meant to be safe to run repeatedly against an already-cloned
+ * workspace — e.g. a super admin re-seeding just the Exercises library after
+ * adding new master rows. Only tables with a DB-level unique constraint
+ * (muscle-groups, equipment) get real duplicate protection from
+ * skipDuplicates; exercises/food-items/food-categories have no such
+ * constraint, so we dedupe by name_en against the workspace's existing rows
+ * before inserting.
+ */
+export async function seedWorkspaceLibrary(workspaceId: string, resource: LibraryResourceKey): Promise<{ seeded: number; backfilled: number; skipped: number }> {
+    const ws = await prisma.workspaces.findUnique({ where: { id: workspaceId }, select: { id: true } });
+    if (!ws) throw new WorkspaceNotFoundError(workspaceId);
+
+    const cfg = RESOURCE_CLONE[resource];
+    const backfillField = cfg.backfillField;
+    const [masterRows, existingRows] = await Promise.all([
+        cfg.findMaster(),
+        cfg.delegate.findMany({
+            where:  { workspace_id: workspaceId },
+            select: { id: true, name_en: true, ...(backfillField ? { [backfillField]: true } : {}) },
+        }) as Promise<({ id: string; name_en: string } & Record<string, unknown>)[]>,
+    ]);
+
+    const existingByName = new Map(existingRows.map((r) => [r.name_en, r]));
+    const toInsert = masterRows.filter((r) => !existingByName.has(r.name_en));
+
+    let backfilled = 0;
+    if (backfillField) {
+        for (const master of masterRows) {
+            const existing = existingByName.get(master.name_en);
+            if (!existing) continue;
+            const masterValue = master[backfillField];
+            if (masterValue && !existing[backfillField]) {
+                await cfg.delegate.update({ where: { id: existing.id }, data: { [backfillField]: masterValue } });
+                backfilled++;
+            }
+        }
+    }
+
+    await cloneInBatches(toInsert, (r) => cfg.mapRow(r, workspaceId), (data) => cfg.delegate.createMany({ data, skipDuplicates: true }));
+
+    return { seeded: toInsert.length, backfilled, skipped: masterRows.length - toInsert.length - backfilled };
 }
 
 /**
@@ -128,51 +247,18 @@ export async function cloneDefaultLibraries(workspaceId: string): Promise<void> 
     await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'cloning', clone_error: null } });
 
     try {
-        const [muscleGroups, equipment, exercises, foodCategories, foodItems] = await Promise.all([
-            prisma.master_exercise_muscle_groups.findMany(),
-            prisma.master_exercise_equipments.findMany(),
-            prisma.master_exercise_library.findMany(),
-            prisma.master_food_categories.findMany(),
-            prisma.master_food_items.findMany(),
-        ]);
-
-        await cloneInBatches(muscleGroups,
-            (m) => ({ id: createId(), workspace_id: workspaceId, name_en: m.name_en, name_ar: m.name_ar }),
-            (data) => prisma.exercise_muscle_groups.createMany({ data, skipDuplicates: true }));
-
-        await cloneInBatches(equipment,
-            (e) => ({ id: createId(), workspace_id: workspaceId, name_en: e.name_en, name_ar: e.name_ar }),
-            (data) => prisma.exercise_equipments.createMany({ data, skipDuplicates: true }));
-
-        await cloneInBatches(exercises,
-            (ex) => ({
-                id: createId(), workspace_id: workspaceId,
-                name_en: ex.name_en, name_ar: ex.name_ar,
-                muscle_group: ex.muscle_group, equipment: ex.equipment,
-                youtube_url: ex.youtube_url, video_path: ex.video_path, thumbnail_path: ex.thumbnail_path,
-                instructions_en: ex.instructions_en, instructions_ar: ex.instructions_ar,
-            }),
-            (data) => prisma.exercise_library.createMany({ data, skipDuplicates: true }));
-
-        await cloneInBatches(foodCategories,
-            (c) => ({ id: createId(), workspace_id: workspaceId, name_en: c.name_en, name_ar: c.name_ar }),
-            (data) => prisma.food_categories.createMany({ data, skipDuplicates: true }));
-
-        await cloneInBatches(foodItems,
-            (f) => ({
-                id: createId(), workspace_id: workspaceId,
-                name_en: f.name_en, name_ar: f.name_ar, food_category: f.food_category,
-                serving_size: f.serving_size, serving_unit: f.serving_unit,
-                calories_per_serving: f.calories_per_serving, protein_per_serving: f.protein_per_serving,
-                carbs_per_serving: f.carbs_per_serving, fats_per_serving: f.fats_per_serving,
-            }),
-            (data) => prisma.food_items.createMany({ data, skipDuplicates: true }));
+        const counts: Record<string, number> = {};
+        for (const [resource, cfg] of Object.entries(RESOURCE_CLONE) as [LibraryResourceKey, typeof RESOURCE_CLONE[LibraryResourceKey]][]) {
+            const rows = await cfg.findMaster();
+            await cloneInBatches(rows, (r) => cfg.mapRow(r, workspaceId), (data) => cfg.delegate.createMany({ data, skipDuplicates: true }));
+            counts[resource] = rows.length;
+        }
 
         const forms = await cloneMasterForms(workspaceId);
         const metricCount = await seedWorkspaceMetrics(workspaceId);
 
         await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'ready', clone_error: null } });
-        logger.info({ workspaceId, counts: { muscleGroups: muscleGroups.length, equipment: equipment.length, exercises: exercises.length, foodCategories: foodCategories.length, foodItems: foodItems.length, forms: forms.forms, formQuestions: forms.questions, metrics: metricCount } }, '[libraryClone] completed');
+        logger.info({ workspaceId, counts: { ...counts, forms: forms.forms, formQuestions: forms.questions, metrics: metricCount } }, '[libraryClone] completed');
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'failed', clone_error: message } }).catch(() => {});

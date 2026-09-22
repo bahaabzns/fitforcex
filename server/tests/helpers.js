@@ -32,11 +32,11 @@ async function resetDatabase() {
     // Plans are not truncated (other workspaces may depend on them across test runs),
     // so use ON CONFLICT DO NOTHING to keep this idempotent.
     await pool.query(`
-        INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly)
+        INSERT INTO plans (name, display_name, max_team_seats, price_monthly)
         VALUES
-            ('free',       'Free',       1,    1,    0),
-            ('starter',    'Starter',    5,    3,    29),
-            ('pro',        'Pro',        null, null, 79)
+            ('free',       'Free',       1,    0),
+            ('starter',    'Starter',    5,    29),
+            ('pro',        'Pro',        null, 79)
         ON CONFLICT (name) DO NOTHING
     `);
 }

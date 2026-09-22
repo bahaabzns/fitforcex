@@ -51,3 +51,17 @@ export function formatClock(seconds) {
     const secs  = total % 60;
     return `${mins}:${String(secs).padStart(2, "0")}`;
 }
+
+// The training builder seeds a new set's tempo with "-" as a placeholder
+// (see handleAddExercise/handleAddMultipleExercises in useTrainingPlan.js) —
+// it reads as "not filled in" the same as null/"", so treat all three as
+// blank when deciding whether a coach actually entered a tempo.
+export function hasTempoValue(tempo) {
+    const trimmed = tempo?.trim();
+    return Boolean(trimmed) && trimmed !== "-";
+}
+
+/** RIR (Int?) has no placeholder sentinel like tempo — null is the only "not set" state. */
+export function hasRirValue(rir) {
+    return rir != null;
+}

@@ -13,6 +13,7 @@ const READ_ONLY = {
     allow_submit_checkins:      false,
     allow_booking_appointments: false,
     allow_download_files:       false,
+    allow_food_swap:            false,
 };
 
 function policyBody(overrides: { expired?: object; frozen?: object } = {}) {

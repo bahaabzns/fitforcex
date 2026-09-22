@@ -8,6 +8,7 @@ import { Button } from "@heroui/react/button";
 import api from "@/lib/axios";
 import ObservationModal from "@/app/components/ObservationModal";
 import ObservationsFeed from "@/app/components/ObservationsFeed";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 export default function ClientObservationsPage() {
     const { id } = useParams();
@@ -64,6 +65,14 @@ export default function ClientObservationsPage() {
                 <Button variant="primary" size="sm" onPress={openCreate}>
                     <Plus size={15} /> {t("addObservationButton")}
                 </Button>
+            </div>
+            <div className="shrink-0">
+                <TriggerInsightBanner
+                    triggerEvent="first_client_observation_logged"
+                    checkUrl="/api/insights/prompts/for-trigger/first_client_observation_logged"
+                    respondUrlPrefix="/api/insights/prompts"
+                    dismissUrlPrefix="/api/insights/prompts"
+                />
             </div>
             <div className="flex-1 min-h-0">
                 <ObservationsFeed

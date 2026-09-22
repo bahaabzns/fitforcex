@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileText, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileText, LogOut, Inbox, MessageCircleQuestion, Map } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { Avatar } from '@heroui/react/avatar';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 const NAV = [
     { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -17,6 +18,9 @@ const NAV = [
     { href: '/templates',  label: 'Default Templates', icon: FileText },
     { href: '/plans',      label: 'Plans',       icon: Package },
     { href: '/payments',   label: 'Payments',    icon: CreditCard },
+    { href: '/insights',   label: 'Insights',    icon: Inbox },
+    { href: '/prompts',    label: 'Prompts',     icon: MessageCircleQuestion },
+    { href: '/roadmap',    label: 'Roadmap',     icon: Map },
 ];
 
 export default function AdminLayout({ children }) {
@@ -26,6 +30,8 @@ export default function AdminLayout({ children }) {
     const [loading, setLoading] = useState(true);
 
     const isLoginPage = pathname === '/login';
+    const activeNavItem = NAV.find(({ href, exact }) => (exact ? pathname === href : pathname.startsWith(href)));
+    usePageTitle(isLoginPage ? 'Admin Login' : `Admin · ${activeNavItem?.label ?? 'Dashboard'}`);
 
     useEffect(() => {
         if (isLoginPage) { setLoading(false); return; }

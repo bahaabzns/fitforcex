@@ -1,6 +1,7 @@
 "use client";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import api from "@/lib/axios";
 import { PageHeaderActionsContext } from "@/app/contexts/pageHeaderActions";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
@@ -8,6 +9,7 @@ import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, NotebookTe
 import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 // Sliding white indicator that tracks the active tab position.
 // Placed inside TabListContainer (position:relative) so it overlays the TabList background.
@@ -65,9 +67,21 @@ export default function ClientLayout({ children }) {
     const router = useRouter();
     const tClients = useTranslations('clients');
     const tNav = useTranslations('nav');
+    const tWorkoutLogs = useTranslations('workoutLogs');
     const locale = useLocale();
     const isRtl = locale === 'ar';
     const { headerCollapsed, setHeaderCollapsed } = useHeaderCollapse();
+
+    // Fetched only for the tab title (distinguishes clients across many open tabs) —
+    // the tab pages each fetch the full client record themselves as needed.
+    const [clientCode, setClientCode] = useState(null);
+    useEffect(() => {
+        let cancelled = false;
+        api.get(`/api/clients/${id}`)
+            .then(res => { if (!cancelled) setClientCode(res.data?.code ?? res.data?.client_code ?? null); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [id]);
 
     const isNutrition = pathname === `/${workspaceSlug}/clients/${id}/nutrition`;
     const isTraining  = pathname === `/${workspaceSlug}/clients/${id}/training`;
@@ -118,6 +132,13 @@ export default function ClientLayout({ children }) {
     ];
 
     const selectedKey = tabs.find((t) => t.href === pathname)?.id ?? "overview";
+
+    const activeSectionName = isNutrition ? tNav('nutrition')
+        : isTraining ? tNav('training')
+        : pathname.endsWith('/transformation') ? tNav('transformation')
+        : pathname.endsWith('/workout-logs') ? tWorkoutLogs('pageTitle')
+        : (tabs.find((t) => t.href === pathname)?.name ?? tClients('tabOverview'));
+    usePageTitle(clientCode ? `#${clientCode} · ${activeSectionName}` : activeSectionName);
 
     return (
         <div className="p-6 flex flex-col h-full">

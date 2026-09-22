@@ -12,18 +12,31 @@ import '../../core/unread/unread_indicators.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/floating_pill.dart';
+import '../../core/widgets/new_feature_hint.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/training_plan.dart';
+import '../../shared/models/workout_log.dart';
+import '../../shared/models/workout_session.dart';
+import '../../shared/utils/exercise_tracking_types.dart';
+import '../../shared/utils/format_amount.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/media_url.dart';
+import '../../shared/utils/workout.dart';
 import '../access/restricted_view.dart';
+import 'session_store.dart';
 import 'training_repository.dart';
+import 'widgets/exercise_insights_modal.dart';
+import 'widgets/coach_note_modal.dart';
 import 'widgets/exercise_video.dart';
+import 'workout_repository.dart';
 
 /// The client's active training plan. Parity port of the web portal training
-/// page: day tabs, collapsible plan/day notes, exercise cards with thumbnail,
-/// muscle/equipment chips, sets grid, alternatives, and inline video.
+/// page: day tabs, collapsible plan/day notes, and exercise cards sharing the
+/// live session card's video player, chip styling and compact set grid — plus
+/// a floating "Start"/"Continue {day}" trigger that picks up a session left
+/// running in the background (see [session_store.dart]).
 class TrainingPage extends ConsumerStatefulWidget {
   const TrainingPage({super.key});
 
@@ -102,7 +115,46 @@ class _TrainingView extends ConsumerStatefulWidget {
 
 class _TrainingViewState extends ConsumerState<_TrainingView> {
   int _activeDay = 0;
-  String? _openVideoId;
+
+  // A session minimized back to this page (or resumed from a killed app)
+  // shows here as a live "Continue {day}" trigger instead of "Start" —
+  // polled every tick rather than derived from push/pop navigation events,
+  // since the plain read from shared_preferences is cheap and this covers
+  // every way the client can land back on this page (pop, deep link, a
+  // finish/discard that replaces the route) without relying on go_router's
+  // future-resolution semantics for any of them.
+  WorkoutSession? _activeSession;
+  Timer? _ticker;
+  int _nowMs = DateTime.now().millisecondsSinceEpoch;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshActiveSession());
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _nowMs = DateTime.now().millisecondsSinceEpoch);
+      unawaited(_refreshActiveSession());
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshActiveSession() async {
+    final saved = await ref.read(sessionStoreProvider).read();
+    if (mounted && saved != _activeSession) {
+      setState(() => _activeSession = saved);
+    }
+  }
+
+  Future<void> _openSession(int dayIndex) async {
+    await context.push('${AppRoutes.trainingSession}?day=$dayIndex');
+    if (mounted) unawaited(_refreshActiveSession());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,99 +164,180 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
     final plan = widget.plan;
     final day = plan.days[_activeDay.clamp(0, plan.days.length - 1)];
     final hasExercises = day.exercises.isNotEmpty;
+    final previous = hasExercises
+        ? ref.watch(dayPreviousProvider(day.id)).asData?.value ?? const {}
+        : const <String, List<PreviousSet>>{};
+    // Captured once per build: _activeSession is refreshed by a 1s ticker
+    // and could otherwise go null between this render and a tap landing,
+    // null-checking the _ContinueTrigger onTap closure below.
+    final activeSession = _activeSession;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+    return Stack(
       children: [
-        Text(
-          plan.name.isEmpty ? l10n.trainingTitle : plan.name,
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-
-        if (plan.days.length > 1) ...[
-          PillTabs(
-            labels: [for (final d in plan.days) d.name],
-            selectedIndex: _activeDay,
-            onSelected: (i) => setState(() {
-              _activeDay = i;
-              _openVideoId = null;
-            }),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // Training Mode actions (session/history/progress land in Phase 4)
-        if (hasExercises) ...[
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => context.push(
-                    '${AppRoutes.trainingSession}?day=$_activeDay',
+        ListView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 90),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    plan.name.isEmpty ? l10n.trainingTitle : plan.name,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: Text(l10n.trainingStart),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _IconAction(
-                icon: Icons.history,
-                tooltip: l10n.trainingHistory,
-                onTap: () => context.push(AppRoutes.trainingHistory),
-              ),
-              const SizedBox(width: 8),
-              _IconAction(
-                icon: Icons.show_chart,
-                tooltip: l10n.trainingProgress,
-                onTap: () => context.push(AppRoutes.trainingProgress),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // Plan-level coach note (amber)
-        if ((plan.notes ?? '').trim().isNotEmpty) ...[
-          CollapsibleNote(label: l10n.trainingCoachNote, body: plan.notes!),
-          const SizedBox(height: 12),
-        ],
-
-        // Day note (primary)
-        if ((day.notes ?? '').trim().isNotEmpty) ...[
-          CollapsibleNote(
-            label: l10n.trainingDayNote,
-            body: day.notes!,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        if (!hasExercises)
-          _InfoCard(text: l10n.trainingNoExercises)
-        else ...[
-          _SectionSeparator(label: l10n.trainingExercises),
-          const SizedBox(height: 12),
-          for (var i = 0; i < day.exercises.length; i++) ...[
-            _ExerciseCard(
-              exercise: day.exercises[i],
-              index: i,
-              locale: locale,
-              baseUrl: baseUrl,
-              videoOpen: _openVideoId == day.exercises[i].id,
-              onToggleVideo: () => setState(() {
-                _openVideoId = _openVideoId == day.exercises[i].id
-                    ? null
-                    : day.exercises[i].id;
-              }),
+                if (hasExercises) ...[
+                  _IconAction(
+                    icon: Icons.history,
+                    tooltip: l10n.trainingHistory,
+                    onTap: () => context.push(AppRoutes.trainingHistory),
+                  ),
+                  const SizedBox(width: 8),
+                  _IconAction(
+                    icon: Icons.show_chart,
+                    tooltip: l10n.trainingProgress,
+                    onTap: () => context.push(AppRoutes.trainingProgress),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+
+            if (plan.days.length > 1) ...[
+              PillTabs(
+                labels: [for (final d in plan.days) d.name],
+                selectedIndex: _activeDay,
+                onSelected: (i) => setState(() => _activeDay = i),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Plan-level coach note (amber)
+            if ((plan.notes ?? '').trim().isNotEmpty) ...[
+              CollapsibleNote(label: l10n.trainingCoachNote, body: plan.notes!),
+              const SizedBox(height: 12),
+            ],
+
+            // Day note (primary)
+            if ((day.notes ?? '').trim().isNotEmpty) ...[
+              CollapsibleNote(
+                label: l10n.trainingDayNote,
+                body: day.notes!,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            if (!hasExercises)
+              _InfoCard(title: day.name, text: l10n.trainingRestDayHint)
+            else ...[
+              _SectionSeparator(label: l10n.trainingExercises),
+              const SizedBox(height: 12),
+              for (var i = 0; i < day.exercises.length; i++) ...[
+                if (i > 0) ...[
+                  const SizedBox(height: 4),
+                  Divider(color: context.appColors.border.withValues(alpha: 0.5)),
+                  const SizedBox(height: 12),
+                ],
+                _ExerciseCard(
+                  exercise: day.exercises[i],
+                  locale: locale,
+                  baseUrl: baseUrl,
+                  previous: previous[day.exercises[i].id] ?? const [],
+                  isFirst: i == 0,
+                ),
+              ],
+            ],
           ],
-        ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 16,
+          child: SafeArea(
+            top: false,
+            child: Center(
+              child: activeSession != null
+                  ? NewFeatureHint(
+                      featureKey: 'resume_session_hint',
+                      active: true,
+                      message: l10n.trainingResumeSessionHint,
+                      dismissLabel: l10n.trainingResumeSessionHintDismiss,
+                      badgeLabel: l10n.trainingResumeSessionNewFeature,
+                      child: _ContinueTrigger(
+                        session: activeSession,
+                        nowMs: _nowMs,
+                        onTap: () {
+                          unawaited(ref
+                              .read(featureHintSeenProvider(
+                                      'resume_session_hint')
+                                  .notifier)
+                              .dismiss());
+                          _openSession(activeSession.dayIndex);
+                        },
+                      ),
+                    )
+                  : (hasExercises
+                      ? _StartTrigger(onTap: () => _openSession(_activeDay))
+                      : const SizedBox.shrink()),
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _StartTrigger extends StatelessWidget {
+  const _StartTrigger({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return FloatingPill(
+      onTap: onTap,
+      child: FloatingPillLabel(icon: Icons.play_arrow, label: l10n.trainingStart),
+    );
+  }
+}
+
+class _ContinueTrigger extends StatelessWidget {
+  const _ContinueTrigger({
+    required this.session,
+    required this.nowMs,
+    required this.onTap,
+  });
+
+  final WorkoutSession session;
+  final int nowMs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final started = DateTime.tryParse(session.startedAt);
+    final elapsed = started != null
+        ? ((nowMs - started.millisecondsSinceEpoch) / 1000).floor()
+        : 0;
+    return FloatingPill(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            l10n.trainingContinueDay(session.dayName),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            formatDuration(elapsed),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -212,201 +345,143 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
 class _ExerciseCard extends StatelessWidget {
   const _ExerciseCard({
     required this.exercise,
-    required this.index,
     required this.locale,
     required this.baseUrl,
-    required this.videoOpen,
-    required this.onToggleVideo,
+    required this.previous,
+    required this.isFirst,
   });
 
   final TrainingExercise exercise;
-  final int index;
   final String locale;
   final String baseUrl;
-  final bool videoOpen;
-  final VoidCallback onToggleVideo;
+  final List<PreviousSet> previous;
+  final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final muted = context.appColors.mutedForeground;
-    final primary = Theme.of(context).colorScheme.primary;
-    final hasVideo = (exercise.youtubeUrl ?? '').isNotEmpty ||
-        (exercise.videoPath ?? '').isNotEmpty;
-    final instructions = localizedField(
-      base: exercise.instructionsEn ?? '',
-      arabic: exercise.instructionsAr,
+    final hasMedia = (exercise.youtubeUrl ?? '').isNotEmpty ||
+        (exercise.videoPath ?? '').isNotEmpty ||
+        (exercise.thumbnailPath ?? '').isNotEmpty;
+    final exerciseName = localizedField(
+      base: exercise.libraryNameEn ?? exercise.name,
+      arabic: exercise.libraryNameAr,
+      localeCode: locale,
+    );
+    final muscleGroup = localizedField(
+      base: exercise.muscleGroup ?? '',
+      arabic: exercise.muscleGroupAr,
+      localeCode: locale,
+    );
+    final equipment = localizedField(
+      base: exercise.equipment ?? '',
+      arabic: exercise.equipmentAr,
       localeCode: locale,
     );
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasMedia) ...[
+          ExerciseVideo(
+            youtubeUrl: exercise.youtubeUrl,
+            videoUrl: resolveMediaUrl(exercise.videoPath, baseUrl),
+            thumbnailUrl: resolveMediaUrl(exercise.thumbnailPath, baseUrl),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Thumbnail(
-                    url: resolveMediaUrl(exercise.thumbnailPath, baseUrl)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text('#${index + 1}',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: primary)),
-                          Text(exercise.name,
-                              style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w600)),
-                          if (hasVideo)
-                            _VideoToggle(
-                              open: videoOpen,
-                              onTap: onToggleVideo,
-                              openLabel: l10n.trainingHideVideo,
-                              closedLabel: l10n.trainingWatchVideo,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if ((exercise.muscleGroup ?? '').isNotEmpty)
-                            _Chip(label: exercise.muscleGroup!),
-                          if ((exercise.equipment ?? '').isNotEmpty)
-                            _Chip(
-                              label: exercise.equipment!,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                        ],
-                      ),
-                    ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(exerciseName,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  if (muscleGroup.isNotEmpty || equipment.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (muscleGroup.isNotEmpty) _Chip(label: muscleGroup),
+                        if (equipment.isNotEmpty)
+                          _Chip(label: equipment, color: const Color(0xFF8B5CF6)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _CompactIconAction(
+              icon: Icons.show_chart,
+              tooltip: l10n.trainingInsights,
+              onTap: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => ExerciseInsightsModal(
+                  exerciseLibraryId: exercise.exerciseLibraryId,
+                  exerciseId: exercise.id,
+                  exerciseName: exerciseName,
+                ),
+              ),
+            ),
+            NewFeatureHint(
+              featureKey: 'exercise_instructions_hint',
+              active: isFirst,
+              message: l10n.trainingInstructionsHint,
+              dismissLabel: l10n.trainingInstructionsHintDismiss,
+              badgeLabel: l10n.trainingInstructionsNewFeature,
+              // Opens upward: this icon sits inside the first exercise's own
+              // row, and "below" would grow toward whatever the *next* list
+              // item happens to be (the very next row in a short plan) —
+              // above stays over this same card's header instead.
+              preferBelow: false,
+              child: _CompactIconAction(
+                icon: Icons.menu_book_outlined,
+                tooltip: l10n.trainingCoachNote,
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => CoachNoteModal(
+                    instructionsEn: exercise.instructionsEn,
+                    instructionsAr: exercise.instructionsAr,
                   ),
                 ),
-              ],
-            ),
-            if (videoOpen && hasVideo) ...[
-              const SizedBox(height: 12),
-              ExerciseVideo(
-                youtubeUrl: exercise.youtubeUrl,
-                videoUrl: resolveMediaUrl(exercise.videoPath, baseUrl),
-              ),
-            ],
-            if ((exercise.notes ?? '').isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(exercise.notes!,
-                  style: TextStyle(
-                      fontSize: 12, fontStyle: FontStyle.italic, color: muted)),
-            ],
-            if (instructions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(instructions, style: TextStyle(fontSize: 12, color: muted)),
-            ],
-            if (exercise.sets.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _SetsTable(sets: exercise.sets),
-            ],
-            if (exercise.alternatives.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _Alternatives(
-                alternatives: exercise.alternatives,
-                locale: locale,
-                baseUrl: baseUrl,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({this.url});
-  final String? url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 56,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: context.appColors.secondary,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: url == null
-          ? Icon(Icons.fitness_center,
-              color: context.appColors.mutedForeground.withValues(alpha: 0.4))
-          : Image.network(
-              url!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Icon(
-                Icons.fitness_center,
-                color: context.appColors.mutedForeground.withValues(alpha: 0.4),
-              ),
-            ),
-    );
-  }
-}
-
-class _VideoToggle extends StatelessWidget {
-  const _VideoToggle({
-    required this.open,
-    required this.onTap,
-    required this.openLabel,
-    required this.closedLabel,
-  });
-
-  final bool open;
-  final VoidCallback onTap;
-  final String openLabel;
-  final String closedLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: open ? primary : Colors.transparent,
-          border: Border.all(color: open ? primary : context.appColors.border),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.play_arrow,
-                size: 12,
-                color: open
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : context.appColors.mutedForeground),
-            const SizedBox(width: 2),
-            Text(
-              open ? openLabel : closedLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: open
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : context.appColors.mutedForeground,
               ),
             ),
           ],
         ),
-      ),
+        if ((exercise.notes ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsetsDirectional.only(start: 10),
+            decoration: BoxDecoration(
+              border: BorderDirectional(
+                start: BorderSide(
+                    color: context.appColors.warning.withValues(alpha: 0.6),
+                    width: 2),
+              ),
+            ),
+            child: Text(exercise.notes!,
+                style: TextStyle(fontSize: 12, color: muted)),
+          ),
+        ],
+        if (exercise.sets.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _SetsTable(
+            sets: exercise.sets,
+            trackingType: exercise.trackingType,
+            trackedMetrics: exercise.trackedMetrics,
+            previous: previous,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -432,9 +507,42 @@ class _Chip extends StatelessWidget {
   }
 }
 
+/// Reads one named field off a [TrainingSet] by the tracking-config's field
+/// name string. Used both for the read-only target columns (tempo/rir/rpe)
+/// and the primary columns (reps, or duration/distance/incline/speed).
+String? _trainingSetValue(TrainingSet set, String field) => switch (field) {
+      'reps' => set.reps,
+      'tempo' => set.tempo,
+      'rir' => set.rir?.toString(),
+      'rpe' => set.rpe != null ? prettyAmount(set.rpe!) : null,
+      'duration_seconds' => set.durationSeconds?.toString(),
+      'distance_km' => set.distanceKm != null ? prettyAmount(set.distanceKm!) : null,
+      'incline_percent' => set.inclinePercent != null ? prettyAmount(set.inclinePercent!) : null,
+      'speed_kmh' => set.speedKmh != null ? prettyAmount(set.speedKmh!) : null,
+      _ => null,
+    };
+
+String _formatFieldValue(String field, String? value) {
+  if (value == null || value.isEmpty) return '—';
+  if (field == 'duration_seconds') {
+    final secs = int.tryParse(value);
+    return secs != null ? formatClock(secs) : value;
+  }
+  return value;
+}
+
 class _SetsTable extends StatelessWidget {
-  const _SetsTable({required this.sets});
+  const _SetsTable({
+    required this.sets,
+    required this.trackingType,
+    required this.trackedMetrics,
+    required this.previous,
+  });
+
   final List<TrainingSet> sets;
+  final String? trackingType;
+  final List<String>? trackedMetrics;
+  final List<PreviousSet> previous;
 
   @override
   Widget build(BuildContext context) {
@@ -447,18 +555,32 @@ class _SetsTable extends StatelessWidget {
       color: muted.withValues(alpha: 0.7),
     );
 
-    Widget cell(String text, TextStyle? style) =>
-        Expanded(child: Text(text, style: style));
+    final category = categoryOf(trackingType);
+    // rest_seconds is prescribed but never a displayed column here (matches
+    // the live session log card).
+    final fields = prescribedFieldsFor(trackingType, trackedMetrics)
+        .where((f) => f != 'rest_seconds')
+        .toList();
+    final primaryFields =
+        category == setsReps ? fields.where((f) => f == 'reps').toList() : fields;
+    // Column set is entirely the coach's choice (trackedMetrics) — not
+    // whether a particular set happens to have a value, matching web.
+    final targetFields = category == setsReps
+        ? fields.where((f) => f != 'reps').toList()
+        : const <String>[];
+
+    Widget cell(String text, TextStyle? style) => Expanded(
+        child: Text(text,
+            style: style, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis));
 
     return Column(
       children: [
         Row(
           children: [
             cell(l10n.trainingSet.toUpperCase(), header),
-            cell(l10n.trainingReps.toUpperCase(), header),
-            cell(l10n.trainingRest.toUpperCase(), header),
-            cell(l10n.trainingTempo.toUpperCase(), header),
-            cell(l10n.trainingRir.toUpperCase(), header),
+            cell(l10n.trainingPreviousShort.toUpperCase(), header),
+            for (final field in [...primaryFields, ...targetFields])
+              cell(fieldLabel(l10n, field, shortReps: false).toUpperCase(), header),
           ],
         ),
         const SizedBox(height: 4),
@@ -468,15 +590,15 @@ class _SetsTable extends StatelessWidget {
             child: Row(
               children: [
                 cell('${i + 1}', TextStyle(fontSize: 12, color: muted)),
-                cell(sets[i].reps ?? '—', const TextStyle(fontSize: 13)),
                 cell(
-                    sets[i].restSeconds != null
-                        ? '${sets[i].restSeconds}s'
-                        : '—',
-                    const TextStyle(fontSize: 13)),
-                cell(sets[i].tempo ?? '—', const TextStyle(fontSize: 13)),
-                cell(sets[i].rir?.toString() ?? '—',
-                    const TextStyle(fontSize: 13)),
+                  previousSetLabel(previousSetFor(previous, sets[i].setOrder), category) ?? '—',
+                  TextStyle(fontSize: 10, color: muted.withValues(alpha: 0.6)),
+                ),
+                for (final field in [...primaryFields, ...targetFields])
+                  cell(
+                    _formatFieldValue(field, _trainingSetValue(sets[i], field)),
+                    const TextStyle(fontSize: 13),
+                  ),
               ],
             ),
           ),
@@ -485,71 +607,27 @@ class _SetsTable extends StatelessWidget {
   }
 }
 
-class _Alternatives extends StatelessWidget {
-  const _Alternatives({
-    required this.alternatives,
-    required this.locale,
-    required this.baseUrl,
+class _CompactIconAction extends StatelessWidget {
+  const _CompactIconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
   });
 
-  final List<TrainingAlternative> alternatives;
-  final String locale;
-  final String baseUrl;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final muted = context.appColors.mutedForeground;
-
-    return Container(
-      padding: const EdgeInsetsDirectional.only(start: 12),
-      decoration: BoxDecoration(
-        border: BorderDirectional(
-          start: BorderSide(color: context.appColors.border, width: 2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l10n.trainingAlternatives,
-              style: TextStyle(fontSize: 10, color: muted)),
-          const SizedBox(height: 6),
-          for (final alt in alternatives)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Row(
-                children: [
-                  if (resolveMediaUrl(alt.thumbnailPath, baseUrl) != null) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        resolveMediaUrl(alt.thumbnailPath, baseUrl)!,
-                        width: 32,
-                        height: 32,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const SizedBox(width: 32, height: 32),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Text(
-                      localizedField(
-                        base: alt.nameEn ?? '',
-                        arabic: alt.nameAr,
-                        localeCode: locale,
-                      ),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  if ((alt.muscleGroup ?? '').isNotEmpty)
-                    Text(alt.muscleGroup!,
-                        style: TextStyle(fontSize: 11, color: muted)),
-                ],
-              ),
-            ),
-        ],
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18, color: context.appColors.mutedForeground),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
       ),
     );
   }
@@ -614,7 +692,8 @@ class _SectionSeparator extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.text});
+  const _InfoCard({this.title, required this.text});
+  final String? title;
   final String text;
 
   @override
@@ -623,8 +702,22 @@ class _InfoCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
         child: Center(
-          child: Text(text,
-              style: TextStyle(color: context.appColors.mutedForeground)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title != null && title!.isNotEmpty) ...[
+                Text(title!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+              ],
+              Text(text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.appColors.mutedForeground)),
+            ],
+          ),
         ),
       ),
     );

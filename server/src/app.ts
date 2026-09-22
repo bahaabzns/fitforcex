@@ -18,13 +18,18 @@ import { prisma } from './lib/prisma';
 import {
     scheduleFormDispatcher,
     scheduleSubscriptionExpiry,
+    scheduleTrialExpiry,
     scheduleSessionCleanup,
     scheduleClientStatusSync,
     scheduleCheckInDispatch,
+    scheduleInsightPromptExpiry,
 } from './middleware/scheduler';
 
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
 process.on('SIGTERM', async () => { await prisma.$disconnect(); process.exit(0); });
+
+// Sentry.init() now lives in instrument.ts, imported first by server.ts —
+// see that file for why. Kept imported here only for captureException below.
 
 import authRouter        from './modules/auth/index';
 import dashboardRouter   from './modules/dashboard/index';
@@ -46,21 +51,17 @@ import subscriptionPoliciesRouter from './modules/subscriptionPolicies/index';
 import notificationsRouter from './modules/notifications/index';
 import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 import metricsRouter from './modules/metrics/index';
-
-Sentry.init({
-    dsn:              env.SENTRY_DSN,
-    environment:      env.NODE_ENV,
-    release:          process.env.npm_package_version,
-    enabled:          !!env.SENTRY_DSN,
-    tracesSampleRate: env.NODE_ENV === 'production' ? 0.1 : 1.0,
-});
+import insightsRouter from './modules/insights/index';
+import pdfExportRouter from './modules/pdfExport/index';
 
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
     scheduleSubscriptionExpiry();
+    scheduleTrialExpiry();
     scheduleSessionCleanup();
     scheduleClientStatusSync();
     scheduleCheckInDispatch();
+    scheduleInsightPromptExpiry();
 }
 
 const serverStartTime = Date.now();
@@ -104,6 +105,14 @@ app.use(cors({
 // Webhook registered BEFORE express.json() — needs raw body for HMAC verification
 app.use('/api/payments/webhook', paymentsWebhookRouter);
 
+// Google Forms Import's paste-page-source fallback: a full Google Forms page
+// source (especially the signed-in view, with extra account-switcher chrome)
+// routinely exceeds the global 100kb JSON limit below. Scoped bigger limit
+// for just this one authenticated route rather than raising the global
+// default everywhere — same register-before-the-global-parser pattern the
+// webhook above uses, since body-parser no-ops once a body is already parsed.
+app.use('/api/forms/import/google-forms-preview', express.json({ limit: '5mb' }));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(pinoHttp({ logger }));
@@ -134,6 +143,8 @@ app.use('/api/billing',        apiLimiter, billingRouter);
 app.use('/api/subscription-policies', apiLimiter, subscriptionPoliciesRouter);
 app.use('/api/notifications',  apiLimiter, notificationsRouter);
 app.use('/api/metrics',        apiLimiter, metricsRouter);
+app.use('/api/insights',       apiLimiter, insightsRouter);
+app.use('/api/pdf-export',     apiLimiter, pdfExportRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -190,6 +201,11 @@ app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, r
     if (status >= 500) {
         logger.error({ err }, 'Unhandled server error');
         Sentry.captureException(err);
+        // Internal errors (DB driver messages, stack traces, etc.) are logged
+        // above but never sent to the client — only intentional, thrown
+        // errors (4xx, status already set) carry their message to the response.
+        res.status(status).json({ error: 'Internal server error' });
+        return;
     }
     res.status(status).json({ error: err.message ?? 'Internal server error' });
 });

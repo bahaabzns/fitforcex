@@ -1,0 +1,32 @@
+#!/bin/sh
+# Auto-flags commits touching the client web portal in PARITY.md so a
+# mobile-parity entry can't be silently forgotten. See PARITY.md for the
+# one-time `git config core.hooksPath .githooks` setup this depends on.
+
+repo_root=$(git rev-parse --show-toplevel) || exit 0
+parity_file="$repo_root/PARITY.md"
+[ -f "$parity_file" ] || exit 0
+
+scoped_files=$(git diff-tree --no-commit-id --name-only -r HEAD -- \
+  'client/app/(client)/portal' \
+  'client/app/components/nutrition' \
+  'client/utils')
+
+[ -z "$scoped_files" ] && exit 0
+
+sha=$(git rev-parse --short HEAD)
+today=$(date +%Y-%m-%d)
+subject=$(git log -1 --format=%s)
+file_list=$(printf '%s' "$scoped_files" | tr '\n' ' ' | sed 's/ *$//')
+
+entry="- [ ] ${today} — ${sha} — TODO(area) — \"${subject}\" touched: ${file_list} — fill in what changed and why it matters for mobile"
+
+tmp_file="${parity_file}.tmp"
+awk -v newline="$entry" '
+  /^## Pending$/ { print; print newline; skip=1; next }
+  skip==1 && /^_\(empty/ { skip=0; next }
+  { print }
+' "$parity_file" > "$tmp_file" && mv "$tmp_file" "$parity_file"
+
+echo ""
+echo "[parity] Logged this commit in PARITY.md (portal files touched) — fill in the TODO summary."

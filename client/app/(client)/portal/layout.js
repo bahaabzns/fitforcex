@@ -4,13 +4,14 @@ import { usePathname } from "next/navigation";
 import ClientPortalNav from "@/app/components/ClientPortalNav";
 import ClientPortalProvider, { useClientPortal } from "@/app/components/ClientPortalProvider";
 import ClientPortalStatusCard from "@/app/components/ClientPortalStatusCard";
+import InsightBanner from "@/app/components/insights/InsightBanner";
 import { Skeleton } from "@heroui/react/skeleton";
 
-const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
+const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/subscription', '/portal/notifications', '/portal/messages'];
 
 // Renders inside the provider so it can read the loaded access state.
 function PortalShell({ children }) {
-    const { loading, access, status } = useClientPortal();
+    const { loading, access, status, me } = useClientPortal();
 
     if (loading) {
         return (
@@ -24,7 +25,10 @@ function PortalShell({ children }) {
     if (access && access.keep_portal_access === false) {
         return (
             <div className="min-h-screen bg-background text-foreground">
-                <ClientPortalStatusCard variant={status === "Frozen" ? "frozen" : "expired"} />
+                <ClientPortalStatusCard
+                    variant={status === "Frozen" ? "frozen" : "expired"}
+                    renewalLink={me?.renewalLink ?? null}
+                />
             </div>
         );
     }
@@ -32,9 +36,13 @@ function PortalShell({ children }) {
     return (
         <div className="min-h-screen bg-background text-foreground">
             <ClientPortalNav />
-            <main className="pb-16">
+            <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
                 {children}
             </main>
+            <InsightBanner
+                activePromptUrl="/api/client-portal/prompts/active"
+                respondUrlPrefix="/api/client-portal/prompts"
+            />
         </div>
     );
 }

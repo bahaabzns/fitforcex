@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
+import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission, { requireAnyPermission } from '../../middleware/requirePermission';
 import * as packagesController from './packages.controller';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authMiddleware, subscriptionAccessGate);
 router.use((req, res, next) => {
     // Reading the package catalog isn't finance-only: it's needed wherever a client
     // gets assigned a package variation (Clients page, client transactions), so any

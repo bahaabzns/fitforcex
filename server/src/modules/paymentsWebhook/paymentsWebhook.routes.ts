@@ -8,13 +8,13 @@ const router = Router();
  * @openapi
  * /payments/webhook:
  *   post:
- *     summary: Fawaterak payment webhook receiver
+ *     summary: Paymob payment webhook receiver
  *     tags: [Payments Webhook]
  *     security: []
  *     description: >
- *       Called by Fawaterak after a payment event. Registered before express.json()
- *       so the raw body is preserved for HMAC signature verification.
- *       Not callable by end users — Fawaterak is the caller.
+ *       Called by Paymob after a payment event ("Transaction Processed Callback").
+ *       Registered before express.json() so the raw body is preserved for HMAC signature
+ *       verification. Not callable by end users — Paymob is the caller.
  *     requestBody:
  *       content:
  *         application/json:
@@ -27,7 +27,7 @@ const router = Router();
  *         description: Invalid signature or malformed payload
  */
 // Registered BEFORE express.json() in app.ts so the raw body is preserved for HMAC verification.
-// No authMiddleware — Fawaterak is the caller, not a logged-in user.
+// No authMiddleware — Paymob is the caller, not a logged-in user.
 router.post('/', express.raw({ type: '*/*' }), handleWebhook);
 
 export default router;

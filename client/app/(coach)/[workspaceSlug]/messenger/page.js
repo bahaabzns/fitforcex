@@ -12,7 +12,8 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
+import Typography from "@/app/components/Typography";
 import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
@@ -23,7 +24,9 @@ import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
 import MessageComposer from "@/app/components/MessageComposer";
 import MessageRow from "@/app/components/MessageRow";
 import ObservationCard from "@/app/components/ObservationCard";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import ObservationModal from "@/app/components/ObservationModal";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -111,11 +114,13 @@ export default function MessengerPage() {
     const router = useRouter();
     const t = useTranslations('messenger');
     const tFilter = useTranslations('filter');
+    usePageTitle(t('title'));
     const locale = useLocale();
     const isRtl = locale === 'ar';
     const { formatDate } = useDateFormatter();
 
     const [threads, setThreads] = useState([]);
+    const [packages, setPackages] = useState([]);
     const [search, setSearch] = useState('');
     const [packageFilter, setPackageFilter] = useState([]);
     const [statusFilter, setStatusFilter] = useState([]);
@@ -126,6 +131,11 @@ export default function MessengerPage() {
     const filterAnchorRef = useRef(null);
     const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first
     const [broadcastOpen, setBroadcastOpen] = useState(false);
+    // selectedClientId identifies which row/panel is open and is always set once a
+    // row is picked; selectedThreadId is the real threads.id and is null until a
+    // conversation actually exists (a client can appear in the list — see
+    // getThreads — before ever having sent/received a message).
+    const [selectedClientId, setSelectedClientId] = useState(null);
     const [selectedThreadId, setSelectedThreadId] = useState(null);
     const [messages, setMessages] = useState([]);
     const [editingMessage, setEditingMessage] = useState(null);
@@ -142,6 +152,28 @@ export default function MessengerPage() {
     const pollRef = useRef(null);
     const prevMessageCountRef = useRef(0);
 
+
+    // Every row in `threads` now represents a client (see getThreads), so lookups
+    // by client id work even before a conversation exists (thread.id === null).
+    const selectedThread = threads.find(thread => thread.client_id === selectedClientId) ?? null;
+
+    // Declared ahead of the effects below (deep-link matching) that call it.
+    const handleSelectThread = (thread) => {
+        setSelectedClientId(thread.client_id);
+        setSelectedThreadId(thread.id ?? null);
+        setMessages([]);
+        setEditingMessage(null);
+        setProfileLoading(true);
+        api.get(`/api/clients/${thread.client_id}`)
+            .then(res => setClientProfile(res.data))
+            .catch(() => setClientProfile(null))
+            .finally(() => setProfileLoading(false));
+
+        setRecentObservations([]);
+        api.get(`/api/clients/${thread.client_id}/observations?limit=2`)
+            .then(res => setRecentObservations(Array.isArray(res.data) ? res.data : []))
+            .catch(() => setRecentObservations([]));
+    };
 
     // ── Data fetching ──────────────────────────────────────────────────────────
     const fetchThreads = useCallback(async () => {
@@ -161,17 +193,29 @@ export default function MessengerPage() {
 
     useEffect(() => { fetchThreads().finally(() => setThreadsLoading(false)); }, [fetchThreads]);
     useEffect(() => { api.get('/api/auth/me').then(res => setMe(res.data)).catch(() => {}); }, []);
+    useEffect(() => { api.get('/api/packages').then(res => setPackages(res.data ?? [])).catch(() => {}); }, []);
 
-    // Deep link from a notification click (?threadId=...) — select once, then
+    // Deep link from a notification click (?threadId=...) — select once threads
+    // have loaded (a notification always points at a real thread/message), then
     // drop the query param so the 5s poll/back button don't re-trigger it.
+    const [pendingDeepLinkThreadId, setPendingDeepLinkThreadId] = useState(null);
     useEffect(() => {
         const threadId = searchParams.get('threadId');
         if (threadId) {
-            setSelectedThreadId(threadId);
+            setPendingDeepLinkThreadId(threadId);
             router.replace(`/${workspaceSlug}/messenger`);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+    useEffect(() => {
+        if (!pendingDeepLinkThreadId) return;
+        const thread = threads.find(t => t.id === pendingDeepLinkThreadId);
+        if (thread) {
+            handleSelectThread(thread);
+            setPendingDeepLinkThreadId(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingDeepLinkThreadId, threads]);
 
     // Backgrounded/minimized tabs kept polling every 5s forever — a workspace
     // with several coaches each leaving a messenger tab open in the background
@@ -181,7 +225,7 @@ export default function MessengerPage() {
     useEffect(() => {
         const tick = () => {
             fetchThreads();
-            if (selectedThreadId) fetchMessages(selectedThreadId);
+            if (selectedThread?.id) fetchMessages(selectedThread.id);
         };
 
         const start = () => {
@@ -204,13 +248,13 @@ export default function MessengerPage() {
             clearInterval(pollRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [selectedThreadId, fetchThreads, fetchMessages]);
+    }, [selectedThread?.id, fetchThreads, fetchMessages]);
 
     useEffect(() => {
-        if (!selectedThreadId) return;
+        if (!selectedThread?.id) { setMessages([]); return; }
         setMessagesLoading(true);
-        fetchMessages(selectedThreadId).finally(() => setMessagesLoading(false));
-    }, [selectedThreadId, fetchMessages]);
+        fetchMessages(selectedThread.id).finally(() => setMessagesLoading(false));
+    }, [selectedThread?.id, fetchMessages]);
 
     useEffect(() => {
         // The 5s poll refetches the same thread and replaces `messages` with a new
@@ -243,14 +287,20 @@ export default function MessengerPage() {
         };
     }, [filterOpen, isRtl]);
 
-    // ── Filter options derived from the loaded threads ──────────────────────────
+    // ── Filter options ───────────────────────────────────────────────────────────
+    // Package options come from the live Packages module (like the clients page),
+    // not from whichever packages happen to appear among already-loaded threads —
+    // matched by variation id so a rename can't leave a stale label behind.
+    const packageVariationOptions = useMemo(() => packages.flatMap(p =>
+        p.variations.map(v => ({ id: v.id, label: `${p.name} — ${v.name}` }))
+    ), [packages]);
+    const packageLabelById = useMemo(() => new Map(packageVariationOptions.map(o => [o.id, o.label])), [packageVariationOptions]);
+
     const packageOptions = useMemo(() => {
-        const pkgs = new Set();
-        let hasNone = false;
-        threads.forEach(thread => { thread.current_package ? pkgs.add(thread.current_package) : (hasNone = true); });
-        const sorted = [...pkgs].sort();
-        return hasNone ? [...sorted, NO_PACKAGE] : sorted;
-    }, [threads]);
+        const hasNone = threads.some(thread => !thread.current_package_variation_id);
+        const ids = packageVariationOptions.map(o => o.id);
+        return hasNone ? [...ids, NO_PACKAGE] : ids;
+    }, [packageVariationOptions, threads]);
 
     const statusOptions = useMemo(() => {
         const present = new Set(threads.map(thread => thread.subscription_status).filter(Boolean));
@@ -263,7 +313,7 @@ export default function MessengerPage() {
         {
             key: 'package', label: t('filterPackage'), options: packageOptions,
             selected: packageFilter, onChange: setPackageFilter,
-            optionLabel: opt => opt === NO_PACKAGE ? t('filterNoPackage') : opt,
+            optionLabel: opt => opt === NO_PACKAGE ? t('filterNoPackage') : (packageLabelById.get(opt) ?? opt),
         },
         {
             key: 'status', label: t('filterSubscriptionStatus'), options: statusOptions,
@@ -294,7 +344,7 @@ export default function MessengerPage() {
             );
         }
         if (packageFilter.length) {
-            result = result.filter(thread => packageFilter.includes(thread.current_package || NO_PACKAGE));
+            result = result.filter(thread => packageFilter.includes(thread.current_package_variation_id || NO_PACKAGE));
         }
         if (statusFilter.length) {
             result = result.filter(thread => statusFilter.includes(thread.subscription_status));
@@ -311,37 +361,34 @@ export default function MessengerPage() {
     }, [search, threads, packageFilter, statusFilter, senderFilter, sortOrder]);
 
     // ── Actions ────────────────────────────────────────────────────────────────
-    const handleSelectThread = (thread) => {
-        setSelectedThreadId(thread.id);
-        setMessages([]);
-        setEditingMessage(null);
-        setProfileLoading(true);
-        api.get(`/api/clients/${thread.client_id}`)
-            .then(res => setClientProfile(res.data))
-            .catch(() => setClientProfile(null))
-            .finally(() => setProfileLoading(false));
-
-        setRecentObservations([]);
-        api.get(`/api/clients/${thread.client_id}/observations?limit=2`)
-            .then(res => setRecentObservations(Array.isArray(res.data) ? res.data : []))
-            .catch(() => setRecentObservations([]));
+    // A client can be selected before any conversation exists (thread.id === null,
+    // see getThreads) — lazily create the thread on first send, exactly like the
+    // client's own first message would (createThread upserts, so this is safe to
+    // call even if one now exists from a race with an incoming client message).
+    const ensureThreadId = async () => {
+        if (selectedThread?.id) return selectedThread.id;
+        const res = await api.post('/api/messenger/threads', { clientId: selectedClientId });
+        setSelectedThreadId(res.data.id);
+        return res.data.id;
     };
 
     // These intentionally don't catch — MessageComposer keeps the draft/attachment/
     // edit state intact on failure so the user can retry, matching the prior
     // "silent — message stays in draft" behavior of the old inline send handler.
     const handleSendText = async (body) => {
-        const res = await api.post(`/api/messenger/threads/${selectedThreadId}/messages`, { body });
+        const threadId = await ensureThreadId();
+        const res = await api.post(`/api/messenger/threads/${threadId}/messages`, { body });
         setMessages(prev => [...prev, res.data]);
         fetchThreads();
     };
 
     const handleSendAttachment = async (attachment, caption) => {
+        const threadId = await ensureThreadId();
         const formData = new FormData();
         formData.append('file', attachment.file, attachment.name);
         if (caption) formData.append('body', caption);
         if (attachment.durationSeconds) formData.append('durationSeconds', String(attachment.durationSeconds));
-        const res = await api.post(`/api/messenger/threads/${selectedThreadId}/attachments`, formData);
+        const res = await api.post(`/api/messenger/threads/${threadId}/attachments`, formData);
         setMessages(prev => [...prev, res.data]);
         fetchThreads();
     };
@@ -364,22 +411,30 @@ export default function MessengerPage() {
     };
 
     const handleToggleStatus = async () => {
-        if (!selectedThreadId || !selectedThread) return;
+        if (!selectedThread?.id) return;
+        const threadId = selectedThread.id;
         const newStatus = selectedThread.status === 'open' ? 'closed' : 'open';
         setTogglingStatus(true);
         try {
-            await api.patch(`/api/messenger/threads/${selectedThreadId}/status`, { status: newStatus });
-            setThreads(prev => prev.map(t => t.id === selectedThreadId ? { ...t, status: newStatus } : t));
+            await api.patch(`/api/messenger/threads/${threadId}/status`, { status: newStatus });
+            setThreads(prev => prev.map(t => t.id === threadId ? { ...t, status: newStatus } : t));
         } catch { /* silent */ }
         finally { setTogglingStatus(false); }
     };
 
-    const selectedThread = threads.find(thread => thread.id === selectedThreadId);
     const segments = buildSegments(messages, locale, { today: t('today'), yesterday: t('yesterday') });
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden p-3">
+            <div className="shrink-0">
+                <TriggerInsightBanner
+                    triggerEvent="first_message_sent_by_coach"
+                    checkUrl="/api/insights/prompts/for-trigger/first_message_sent_by_coach"
+                    respondUrlPrefix="/api/insights/prompts"
+                    dismissUrlPrefix="/api/insights/prompts"
+                />
+            </div>
             <div className="flex flex-row flex-1 min-h-0 overflow-hidden gap-2">
 
                 {/* ── Panel 1: Conversations ─────────────────────────────── */}
@@ -499,7 +554,7 @@ export default function MessengerPage() {
                                 size="sm"
                                 variant="secondary"
                                 className="gap-1.5 bg-surface! border-surface!"
-                                isDisabled={filteredThreads.length === 0}
+                                isDisabled={!filteredThreads.some(thread => thread.id)}
                                 onClick={() => setBroadcastOpen(true)}
                             >
                                 <Megaphone size={13} />
@@ -524,11 +579,11 @@ export default function MessengerPage() {
                                 <ListBox
                                     selectionMode="single"
                                     disallowEmptySelection
-                                    selectedKeys={selectedThreadId ? [selectedThreadId] : []}
+                                    selectedKeys={selectedClientId ? [selectedClientId] : []}
                                     onSelectionChange={(keys) => {
                                         const id = [...keys][0];
                                         if (!id) return;
-                                        const thread = filteredThreads.find(t => t.id === id);
+                                        const thread = filteredThreads.find(t => t.client_id === id);
                                         if (thread) handleSelectThread(thread);
                                     }}
                                     aria-label={t('title')}
@@ -548,8 +603,8 @@ export default function MessengerPage() {
                                         const hasUnread = thread.unread_count > 0;
                                         return (
                                             <ListBox.Item
-                                                key={thread.id}
-                                                id={thread.id}
+                                                key={thread.client_id}
+                                                id={thread.client_id}
                                                 textValue={`${thread.fname} ${thread.lname}`}
                                                 className="items-start gap-3 rounded-xl px-3 py-2.5 mb-0.5 cursor-pointer [&:hover]:bg-surface data-[selected=true]:bg-surface data-[selected=true]:[&:hover]:bg-surface focus:outline-none! focus:ring-0! focus:shadow-none! focus-visible:outline-none! focus-visible:ring-0! focus-visible:shadow-none!"
                                             >
@@ -592,7 +647,7 @@ export default function MessengerPage() {
                 <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
                     <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
-                        {!selectedThreadId ? (
+                        {!selectedClientId ? (
                             <Card.Content className="flex-1 flex flex-col items-center justify-center p-8">
                                 <EmptyState
                                     variant="firstTime"
@@ -622,7 +677,7 @@ export default function MessengerPage() {
                                         size="sm"
                                         className="shrink-0 text-muted-foreground"
                                         aria-label="Close chat"
-                                        onClick={() => setSelectedThreadId(null)}
+                                        onClick={() => { setSelectedClientId(null); setSelectedThreadId(null); }}
                                     >
                                         <X size={15} />
                                     </Button>
@@ -712,7 +767,7 @@ export default function MessengerPage() {
                     <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                         <Card.Content className="flex flex-col flex-1 min-h-0 p-5">
-                            {!selectedThreadId ? (
+                            {!selectedClientId ? (
                                 <div className="flex-1 flex items-center justify-center">
                                     <EmptyState
                                         variant="firstTime"
@@ -805,10 +860,10 @@ export default function MessengerPage() {
                                     <Separator className="mt-4 mb-4 shrink-0" />
                                     <div className="shrink-0">
                                         <div className="flex items-center justify-between mb-2">
-                                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                            <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider flex items-center gap-1.5">
                                                 <NotebookText size={12} />
                                                 {t('recentObservations')}
-                                            </p>
+                                            </Typography>
                                             <Button
                                                 isIconOnly
                                                 variant="ghost"
@@ -875,7 +930,7 @@ export default function MessengerPage() {
             <BroadcastMessageModal
                 open={broadcastOpen}
                 onClose={() => setBroadcastOpen(false)}
-                threadIds={filteredThreads.map(thread => thread.id)}
+                threadIds={filteredThreads.map(thread => thread.id).filter(Boolean)}
                 onSuccess={() => fetchThreads()}
             />
         </div>

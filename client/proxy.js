@@ -5,6 +5,27 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'fitforce.app';
 // Subdomains that are NOT coach slugs — route normally
 const RESERVED = new Set(['my', 'admin', 'www', 'api', 'mail', 'smtp']);
 
+// Local dev root domains where the incoming port must be preserved on
+// subdomain redirects (see the port-setter comment below) — 'localhost' for
+// plain dev, 'lvh.me' for subdomain smoke-testing (see client/.env.local).
+const LOCAL_DEV_ROOT_DOMAINS = new Set(['localhost', 'lvh.me']);
+
+// Landing page and the checkout/signup wizard default to Arabic for a first-time visitor —
+// every other route keeps the app's normal English default (see i18n/request.js). Only
+// kicks in when no NEXT_LOCALE cookie exists yet; an explicit language choice (via
+// LanguageSwitcher.js) always wins, since the cookie is checked before this header there.
+const ARABIC_DEFAULT_PATHS = new Set(['/', '/register']);
+
+function withDefaultLocale(request) {
+    const { pathname } = request.nextUrl;
+    if (request.cookies.has('NEXT_LOCALE') || !ARABIC_DEFAULT_PATHS.has(pathname)) {
+        return NextResponse.next();
+    }
+    const headers = new Headers(request.headers);
+    headers.set('x-default-locale', 'ar');
+    return NextResponse.next({ request: { headers } });
+}
+
 export function proxy(request) {
     const host = request.headers.get('host') || '';
     const hostname = host.split(':')[0]; // strip port if present
@@ -27,19 +48,28 @@ export function proxy(request) {
         const PUBLIC_ROOT_SEGMENTS = new Set([
             '', 'login', 'register', 'forgot-password', 'reset-password',
             'check-mail', 'verify-email-required', 'portal', 'admin', 'api',
+            'privacy', 'delete-account', 'about', 'contact', 'refund-policy',
+            'delivery-policy',
         ]);
         if (firstSegment && !PUBLIC_ROOT_SEGMENTS.has(firstSegment)) {
             const url = request.nextUrl.clone();
-            url.host = `my.${ROOT_DOMAIN}`;
+            // Use hostname + port setters, not `url.host = ...`: the WHATWG
+            // host setter only overwrites the port if the new value contains
+            // an explicit ":port", so it would silently keep whatever port
+            // was on the incoming request (e.g. an internal 3000 behind the
+            // reverse proxy) and leak it into the production redirect.
+            url.hostname = `my.${ROOT_DOMAIN}`;
+            url.port = LOCAL_DEV_ROOT_DOMAINS.has(ROOT_DOMAIN) ? url.port : '';
             return NextResponse.redirect(url);
         }
-        return NextResponse.next();
+        return withDefaultLocale(request);
     }
 
     // Block /admin on non-admin subdomains → redirect to admin.ROOT_DOMAIN
     if (pathname.startsWith('/admin') && subdomain !== 'admin') {
         const url = request.nextUrl.clone();
-        url.host = `admin.${ROOT_DOMAIN}`;
+        url.hostname = `admin.${ROOT_DOMAIN}`;
+        url.port = LOCAL_DEV_ROOT_DOMAINS.has(ROOT_DOMAIN) ? url.port : '';
         return NextResponse.redirect(url);
     }
 

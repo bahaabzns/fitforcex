@@ -1,10 +1,14 @@
 import { cookies } from "next/headers";
 import { getLocale, getMessages } from "next-intl/server";
-import { Inter } from "next/font/google";
+import { Noto_Sans_Arabic } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const notoSansArabic = Noto_Sans_Arabic({
+    subsets: ["arabic", "latin"],
+    weight: ["400", "500", "600", "700"],
+    variable: "--font-sans-base",
+});
 
 export const metadata = {
     title: "FitForce",
@@ -19,7 +23,7 @@ export default async function RootLayout({ children }) {
     const dir = locale === "ar" ? "rtl" : "ltr";
 
     return (
-        <html lang={locale} dir={dir} className={inter.variable} suppressHydrationWarning>
+        <html lang={locale} dir={dir} className={notoSansArabic.variable} suppressHydrationWarning>
             <body suppressHydrationWarning>
                 <Providers defaultTheme={theme} locale={locale} messages={messages}>
                     {children}

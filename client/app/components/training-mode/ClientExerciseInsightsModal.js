@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Modal } from "@heroui/react/modal";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Chip } from "@heroui/react/chip";
 import { Spinner } from "@heroui/react/spinner";
 import LineChart from "@/app/components/charts/LineChart";
+import Typography from "@/app/components/Typography";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 
@@ -17,7 +18,11 @@ const METRICS = [
 ];
 
 function SectionLabel({ children }) {
-    return <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{children}</p>;
+    return (
+        <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider mb-2">
+            {children}
+        </Typography>
+    );
 }
 
 // Client-portal counterpart to the coach's ExerciseInsightsModal — same shared
@@ -26,6 +31,8 @@ function SectionLabel({ children }) {
 // insight cards, observations, or workspace-role checks.
 export default function ClientExerciseInsightsModal({ open, onClose, exercise }) {
     const t = useTranslations("portal.training");
+    const isRTL = useLocale() === 'ar';
+    const exerciseName = (isRTL && exercise?.library_name_ar) || exercise?.library_name_en || exercise?.name;
     const { formatDate } = useDateFormatter();
 
     const [insights, setInsights] = useState(null);
@@ -72,7 +79,7 @@ export default function ClientExerciseInsightsModal({ open, onClose, exercise })
                 <Modal.Container className="max-w-2xl w-full">
                     <Modal.Dialog>
                         <Modal.Header>
-                            <Modal.Heading>{exercise?.name ?? t("progress")}</Modal.Heading>
+                            <Modal.Heading>{exerciseName ?? t("progress")}</Modal.Heading>
                             <Modal.CloseTrigger />
                         </Modal.Header>
                         <Modal.Body>

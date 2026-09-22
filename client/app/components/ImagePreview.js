@@ -47,7 +47,7 @@ export default function ImagePreview({ src, alt = "", isPdf = false, title, trig
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setOpen(true); }}
                 className={`inline-flex cursor-pointer ${triggerClassName}`}
-                aria-label={title || alt || "Preview image"}
+                aria-label={title || alt || t("previewImage")}
                 title={title || alt}
             >
                 {trigger}

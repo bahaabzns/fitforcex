@@ -10,11 +10,41 @@ import { Input } from "@heroui/react/input";
 import { TextArea } from "@heroui/react/textarea";
 import { Table } from "@heroui/react/table";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
 import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
+import Typography from "@/app/components/Typography";
+import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import { SortableList, SortableItem } from "@/app/components/SortableList";
+import { prescribedFieldsFor } from "@/utils/exerciseTrackingTypes";
 
 const SET_INPUT_CLASS = "h-6 px-1.5 py-0 text-sm font-semibold text-center shadow-none w-full !rounded";
+
+// i18n key ('training' namespace) per prescribable set field — see
+// exerciseTrackingTypes.js for the category -> base/selectable field config.
+const SET_FIELD_LABEL_KEY = {
+    reps: "reps",
+    rest_seconds: "rest",
+    tempo: "tempo",
+    rir: "rir",
+    rpe: "rpe",
+    duration_seconds: "duration",
+    distance_km: "distance",
+    incline_percent: "incline",
+    speed_kmh: "speed",
+};
+
+// Unit shown alongside the column header — the builder takes raw numeric
+// input (unlike the client portal, which formats duration as mm:ss for
+// display), so "sec" here means "type seconds", not a formatted clock.
+// Unitless fields (reps/tempo/rir — free text or a plain count) are omitted.
+const SET_FIELD_UNIT = {
+    rest_seconds: "sec",
+    duration_seconds: "sec",
+    distance_km: "km",
+    incline_percent: "%",
+    speed_kmh: "km/h",
+};
 
 function handleSetInputTab(e) {
     if (e.key === 'Enter') { e.target.blur(); return; }
@@ -67,6 +97,12 @@ const LayersIcon = () => (
         <path d="M2 12l10 5 10-5"/>
     </svg>
 );
+const SwapIcon = ({ size = 14 }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/>
+        <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
+    </svg>
+);
 const TrendingUpIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
@@ -78,6 +114,7 @@ export default function RightPanel({
     selectedDay,
     handleAddExercise,
     handleAddMultipleExercises,
+    handleReplaceExercise,
     handleDeleteExercise,
     handleUpdateExerciseNotes,
     handleReorderExercises,
@@ -96,13 +133,13 @@ export default function RightPanel({
 }) {
     const t = useTranslations('training');
     const locale = useLocale();
+    const isRTL = locale === 'ar';
     const [showPicker, setShowPicker] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises", "notes"]));
-    const [dragIndex, setDragIndex] = useState(null);
-    const [hoverIndex, setHoverIndex] = useState(null);
     const [videoModalId, setVideoModalId] = useState(null);
     const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
     const [insightsExercise, setInsightsExercise] = useState(null);
+    const [replacingExerciseId, setReplacingExerciseId] = useState(null);
 
     const toggleExercise = (exercise) => {
         const key = exercise.exercise_library_id ?? exercise.id;
@@ -153,6 +190,18 @@ export default function RightPanel({
                 open={showPicker}
                 onClose={() => setShowPicker(false)}
                 onAddExercises={(items) => { handleAddMultipleExercises(selectedDay.id, items); setShowPicker(false); }}
+            />
+
+            <ExercisePickerModal
+                open={!!replacingExerciseId}
+                onClose={() => setReplacingExerciseId(null)}
+                single
+                title={t('replaceExercise')}
+                confirmLabel={t('replaceExercise')}
+                onAddExercises={(items) => {
+                    if (items[0]) handleReplaceExercise(selectedDay.id, replacingExerciseId, items[0]);
+                    setReplacingExerciseId(null);
+                }}
             />
 
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
@@ -208,30 +257,23 @@ export default function RightPanel({
                                 <div className="space-y-1.5 px-1 py-2">
                                     {(() => {
                                         const exercises = selectedDay.exercises ?? [];
-                                        const preview = (() => {
-                                            if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return exercises;
-                                            const arr = [...exercises];
-                                            const [moved] = arr.splice(dragIndex, 1);
-                                            arr.splice(hoverIndex, 0, moved);
-                                            return arr;
-                                        })();
-                                        return preview.map((exercise) => {
-                                        const originalIndex = exercises.findIndex((e) => e.id === exercise.id);
-                                        const isDragging = dragIndex !== null && exercises[dragIndex]?.id === exercise.id;
+                                        return (
+                                        <SortableList items={exercises} onReorder={(from, to) => handleReorderExercises(selectedDay.id, from, to)}>
+                                        {(exercise, originalIndex) => {
                                         const exerciseName = getLocalizedField(exercise, "library_name", locale) || exercise.name || "";
                                         const setCount = exercise.sets?.length ?? 0;
                                         const expandKey = exercise.exercise_library_id ?? exercise.id;
                                         const isExpanded = expandedExerciseIds.has(expandKey);
                                         const hasVideo = exercise.youtube_url || exercise.video_path;
                                         return (
+                                        <SortableItem key={exercise.id} id={exercise.id}>
+                                        {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                         <div
-                                            key={exercise.id}
-                                            draggable
-                                            onDragStart={() => setDragIndex(originalIndex)}
-                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                            onDrop={() => { handleReorderExercises(selectedDay.id, dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                            onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                            className={`group select-none transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                            ref={setNodeRef}
+                                            style={style}
+                                            {...attributes}
+                                            {...listeners}
+                                            className={`group select-none touch-none transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}
                                         >
                                             {/* Exercise row */}
                                             <div onClick={() => toggleExercise(exercise)} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${isExpanded ? "bg-app-surface-selected hover:bg-app-surface-selected/80" : "hover:bg-app-surface-hover"}`}>
@@ -261,7 +303,11 @@ export default function RightPanel({
                                                         {exerciseName}
                                                     </p>
                                                     <p className="text-xs leading-5 text-muted truncate">
-                                                        {exercise.muscle_group ? `${exercise.muscle_group} · ` : ""}{exercise.equipment ? `${exercise.equipment} · ` : ""}{setCount} sets
+                                                        {(() => {
+                                                            const muscleGroup = (isRTL && exercise.muscle_group_ar) || exercise.muscle_group;
+                                                            const equipment   = (isRTL && exercise.equipment_ar) || exercise.equipment;
+                                                            return <>{muscleGroup ? `${muscleGroup} · ` : ""}{equipment ? `${equipment} · ` : ""}{setCount} sets</>;
+                                                        })()}
                                                     </p>
                                                 </div>
                                                 {/* Actions */}
@@ -296,6 +342,23 @@ export default function RightPanel({
                                                             )}
                                                         </button>
                                                     )}
+                                                    {/* NewFeatureTooltip's trigger click handler doesn't
+                                                        receive the event, so stopPropagation is applied on
+                                                        this wrapping span instead — it still runs before the
+                                                        click bubbles up to the row's onClick (toggle expand). */}
+                                                    <span title={t('replaceExercise')} onClick={(e) => e.stopPropagation()}>
+                                                        <NewFeatureTooltip
+                                                            featureKey="replace_exercise_hint"
+                                                            active={originalIndex === 0}
+                                                            message={t('replaceExerciseHint')}
+                                                            dismissLabel={t('replaceExerciseHintDismiss')}
+                                                            badgeLabel={t('replaceExerciseNewFeature')}
+                                                            onTriggerClick={() => setReplacingExerciseId(exercise.id)}
+                                                            triggerClassName="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                        >
+                                                            <SwapIcon size={16} />
+                                                        </NewFeatureTooltip>
+                                                    </span>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
                                                         className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
@@ -311,7 +374,7 @@ export default function RightPanel({
                                             <div className="px-3 pb-4 pt-0 flex flex-col gap-0">
                                                 {/* Sets header */}
                                                 <div className="flex items-center justify-between py-2 mt-2 mb-3 border-b border-border/20">
-                                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('sets')}</span>
+                                                    <Typography as="span" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">{t('sets')}</Typography>
                                                     <button
                                                         title={t('addSet')}
                                                         onClick={() => handleAddSet(selectedDay.id, exercise.id)}
@@ -321,42 +384,41 @@ export default function RightPanel({
                                                     </button>
                                                 </div>
 
-                                            {/* Sets table */}
+                                            {/* Sets table — columns are driven by the exercise's tracking
+                                                type (Reps & Weight / Duration / Duration + Cardio), see
+                                                exerciseTrackingTypes.js for the field list per type. */}
+                                            {(() => {
+                                            const prescribedFields = prescribedFieldsFor(exercise);
+                                            return (
                                             <Table variant="secondary" aria-label="Sets" className="sets-table mb-0">
                                                 <Table.ScrollContainer>
                                                     <Table.Content aria-label="Sets">
                                                         <Table.Header>
                                                             <Table.Column isRowHeader className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">#</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('reps')}</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('rest')}</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('tempo')}</Table.Column>
-                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('rir')}</Table.Column>
+                                                            {prescribedFields.map((field) => (
+                                                                <Table.Column key={field} className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">
+                                                                    {t(SET_FIELD_LABEL_KEY[field])}
+                                                                    {SET_FIELD_UNIT[field] ? ` (${SET_FIELD_UNIT[field]})` : ""}
+                                                                </Table.Column>
+                                                            ))}
                                                             <Table.Column className="p-1.5 text-end"><span className="sr-only">Actions</span></Table.Column>
                                                         </Table.Header>
                                                         <Table.Body>
                                                             {(exercise.sets ?? []).map((set, sIdx) => (
                                                                 <Table.Row key={set.id} id={set.id} className="group/set">
                                                                     <Table.Cell className="p-1.5 text-xs text-muted">{sIdx + 1}</Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell className="p-1.5">
-                                                                        <TextField className="min-w-0" value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
-                                                                        </TextField>
-                                                                    </Table.Cell>
+                                                                    {prescribedFields.map((field) => (
+                                                                        <Table.Cell key={field} className="p-1.5">
+                                                                            <TextField
+                                                                                className="min-w-0"
+                                                                                value={String(set[field] ?? "")}
+                                                                                onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, field, val)}
+                                                                                aria-label={t(SET_FIELD_LABEL_KEY[field])}
+                                                                            >
+                                                                                <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
+                                                                            </TextField>
+                                                                        </Table.Cell>
+                                                                    ))}
                                                                     <Table.Cell className="p-1.5">
                                                                         <div className="flex justify-end gap-0.5">
                                                                             <button
@@ -383,6 +445,8 @@ export default function RightPanel({
                                                     </Table.Content>
                                                 </Table.ScrollContainer>
                                             </Table>
+                                            );
+                                            })()}
 
                                             {/* Exercise notes — secondary section */}
                                             <div className="mt-5 border-t border-border/50" />
@@ -397,13 +461,18 @@ export default function RightPanel({
                                             </div>
                                             )}
                                         </div>
+                                        )}
+                                        </SortableItem>
                                         );
-                                        });
+                                        }}
+                                        </SortableList>
+                                        );
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
-                                        <div className="py-8 flex items-center justify-center">
+                                        <div className="py-8 flex flex-col items-center justify-center gap-1 text-center">
                                             <p className="text-sm text-muted-foreground">{t('noExercises')}</p>
+                                            <p className="text-xs text-muted-foreground/70">{t('restDayHint')}</p>
                                         </div>
                                     )}
                                 </div>

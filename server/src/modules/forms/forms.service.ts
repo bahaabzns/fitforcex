@@ -171,6 +171,12 @@ async function forkVersion(
                 min_value:      q.min_value,
                 max_value:      q.max_value,
                 metric_id:      q.metric_id,
+                // Question lineage tracking — propagate the source's root
+                // forward (never regenerate) so every clone born from the
+                // same original question, across any number of forks,
+                // keeps pointing at one shared root. See
+                // migrations/043_form_version_questions_lineage.js.
+                origin_question_id: q.origin_question_id,
             })),
         });
         for (const { oldId, newId } of clones) questionIdMap.set(oldId, newId);

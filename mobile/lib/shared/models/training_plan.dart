@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'json_converters.dart';
+
 part 'training_plan.freezed.dart';
 part 'training_plan.g.dart';
 
@@ -39,11 +41,15 @@ abstract class TrainingExercise with _$TrainingExercise {
   const factory TrainingExercise({
     required String id,
     @Default('') String name,
+    @JsonKey(name: 'library_name_en') String? libraryNameEn,
+    @JsonKey(name: 'library_name_ar') String? libraryNameAr,
     @JsonKey(name: 'exercise_order') @Default(0) int exerciseOrder,
     @JsonKey(name: 'exercise_library_id') String? exerciseLibraryId,
     String? equipment,
+    @JsonKey(name: 'equipment_ar') String? equipmentAr,
     String? notes,
     @JsonKey(name: 'muscle_group') String? muscleGroup,
+    @JsonKey(name: 'muscle_group_ar') String? muscleGroupAr,
     @JsonKey(name: 'thumbnail_path') String? thumbnailPath,
     @JsonKey(name: 'video_path') String? videoPath,
     @JsonKey(name: 'youtube_url') String? youtubeUrl,
@@ -51,6 +57,9 @@ abstract class TrainingExercise with _$TrainingExercise {
     @JsonKey(name: 'instructions_ar') String? instructionsAr,
     @Default(<TrainingSet>[]) List<TrainingSet> sets,
     @Default(<TrainingAlternative>[]) List<TrainingAlternative> alternatives,
+    @JsonKey(name: 'tracking_type') String? trackingType,
+    @JsonKey(name: 'tracked_metrics', fromJson: _stringListOrNull)
+    List<String>? trackedMetrics,
   }) = _TrainingExercise;
 
   factory TrainingExercise.fromJson(Map<String, dynamic> json) =>
@@ -67,6 +76,13 @@ abstract class TrainingSet with _$TrainingSet {
     @JsonKey(name: 'rest_seconds') int? restSeconds,
     String? tempo,
     int? rir,
+    @NumToDoubleOrNull() double? rpe,
+    @JsonKey(name: 'duration_seconds') int? durationSeconds,
+    @JsonKey(name: 'distance_km') @NumToDoubleOrNull() double? distanceKm,
+    @JsonKey(name: 'incline_percent')
+    @NumToDoubleOrNull()
+    double? inclinePercent,
+    @JsonKey(name: 'speed_kmh') @NumToDoubleOrNull() double? speedKmh,
   }) = _TrainingSet;
 
   factory TrainingSet.fromJson(Map<String, dynamic> json) =>
@@ -81,7 +97,9 @@ abstract class TrainingAlternative with _$TrainingAlternative {
     @JsonKey(name: 'name_en') String? nameEn,
     @JsonKey(name: 'name_ar') String? nameAr,
     @JsonKey(name: 'muscle_group') String? muscleGroup,
+    @JsonKey(name: 'muscle_group_ar') String? muscleGroupAr,
     String? equipment,
+    @JsonKey(name: 'equipment_ar') String? equipmentAr,
     @JsonKey(name: 'thumbnail_path') String? thumbnailPath,
     @JsonKey(name: 'youtube_url') String? youtubeUrl,
     @JsonKey(name: 'video_path') String? videoPath,
@@ -92,3 +110,6 @@ abstract class TrainingAlternative with _$TrainingAlternative {
 }
 
 String? _toStringOrNull(dynamic value) => value?.toString();
+
+List<String>? _stringListOrNull(dynamic value) =>
+    value is List ? value.map((e) => e.toString()).toList() : null;

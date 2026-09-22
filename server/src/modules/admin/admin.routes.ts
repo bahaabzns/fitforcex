@@ -4,8 +4,15 @@ import { loginLimiter } from '../../middleware/rateLimit';
 import * as adminController from './admin.controller';
 import * as libraryController from './defaultLibraries.controller';
 import * as templateController from './adminFormTemplates.controller';
+import insightsAdminRouter from '../insights/insightsAdmin.routes';
 
 const router = Router();
+
+// The Insights System's admin surface (Insights inbox, Prompts, Roadmap) —
+// mounted here rather than as its own top-level /api/admin/insights router so
+// it goes through the exact same subdomain/auth gate as every other admin
+// route without a second registration in app.ts.
+router.use(insightsAdminRouter);
 
 /**
  * @openapi
@@ -151,12 +158,80 @@ router.get('/users/:id', adminAuthMiddleware, adminController.getUserById);
  *     responses:
  *       200:
  *         description: Workspace archived
+ *
+ * /admin/workspaces/{id}/resync-price:
+ *   post:
+ *     summary: Opt a workspace into its variation's current public price (no payment)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Locked price resynced
+ *
+ * /admin/workspaces/{id}/manual-payment:
+ *   post:
+ *     summary: Record a payment that happened outside the payment gateway and activate it immediately
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [planId, variationId]
+ *             properties:
+ *               planId:      { type: string }
+ *               variationId: { type: string }
+ *               amount:       { type: number }
+ *               currency:     { type: string }
+ *               durationDays: { type: integer }
+ *               notes:        { type: string }
+ *               startDate:    { type: string, format: date, description: "Backdate/schedule the subscription's effective start; defaults to now" }
+ *     responses:
+ *       201:
+ *         description: Payment recorded and subscription activated
+ *
+ * /admin/workspaces/{id}/manual-addon:
+ *   post:
+ *     summary: Grant an add-on to a workspace outside the payment gateway and apply it immediately
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [addonId]
+ *             properties:
+ *               addonId:      { type: string }
+ *               quantity:     { type: integer, description: "Units of this add-on to grant at once; defaults to 1" }
+ *               amount:       { type: number, description: "Total price for all units; defaults to the add-on's catalog price × quantity" }
+ *               currency:     { type: string }
+ *               durationDays: { type: integer }
+ *               notes:        { type: string }
+ *     responses:
+ *       201:
+ *         description: Add-on recorded and applied
  */
-router.get('/workspaces',                  adminAuthMiddleware, adminController.getWorkspaces);
-router.get('/workspaces/:id',              adminAuthMiddleware, adminController.getWorkspaceById);
-router.put('/workspaces/:id/subscription', adminAuthMiddleware, adminController.updateWorkspaceSubscription);
-router.post('/workspaces/:id/restore',     adminAuthMiddleware, adminController.restoreWorkspace);
-router.post('/workspaces/:id/archive',     adminAuthMiddleware, adminController.archiveWorkspace);
+router.get('/workspaces',                     adminAuthMiddleware, adminController.getWorkspaces);
+router.get('/workspaces/:id',                 adminAuthMiddleware, adminController.getWorkspaceById);
+router.put('/workspaces/:id/subscription',    adminAuthMiddleware, adminController.updateWorkspaceSubscription);
+router.post('/workspaces/:id/manual-payment', adminAuthMiddleware, adminController.createManualPayment);
+router.post('/workspaces/:id/manual-addon',   adminAuthMiddleware, adminController.createManualAddonPayment);
+router.post('/workspaces/:id/resync-price',   adminAuthMiddleware, adminController.resyncSubscriptionPrice);
+router.post('/workspaces/:id/restore',        adminAuthMiddleware, adminController.restoreWorkspace);
+router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminController.archiveWorkspace);
 
 /**
  * @openapi
@@ -232,6 +307,74 @@ router.put('/billing-discounts/:id',   adminAuthMiddleware, adminController.upda
 
 /**
  * @openapi
+ * /admin/addons:
+ *   get:
+ *     summary: List all add-ons (catalog)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of add-ons
+ *   post:
+ *     summary: Create an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201:
+ *         description: Add-on created
+ *
+ * /admin/addons/{id}:
+ *   put:
+ *     summary: Update an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Add-on updated
+ *   delete:
+ *     summary: Delete an add-on
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       204:
+ *         description: Add-on deleted
+ *
+ * /admin/trial-settings:
+ *   get:
+ *     summary: Get the global trial toggle/duration
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial settings
+ *   put:
+ *     summary: Update the global trial toggle/duration
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial settings updated
+ */
+router.get('/addons',           adminAuthMiddleware, adminController.getAddons);
+router.post('/addons',          adminAuthMiddleware, adminController.createAddon);
+router.put('/addons/:id',       adminAuthMiddleware, adminController.updateAddon);
+router.delete('/addons/:id',    adminAuthMiddleware, adminController.deleteAddon);
+
+router.get('/trial-settings',   adminAuthMiddleware, adminController.getTrialSettings);
+router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrialSettings);
+
+/**
+ * @openapi
  * /admin/payments/stats:
  *   get:
  *     summary: Get payment aggregate stats
@@ -275,11 +418,38 @@ router.put('/billing-discounts/:id',   adminAuthMiddleware, adminController.upda
  *     responses:
  *       200:
  *         description: Status updated
+ *
+ * /admin/payments/{id}:
+ *   put:
+ *     summary: Correct a payment record's fields after the fact
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:             { type: number }
+ *               currency:           { type: string }
+ *               durationDays:       { type: integer }
+ *               notes:              { type: string }
+ *               planId:             { type: string }
+ *               variationId:        { type: string, nullable: true }
+ *               resyncSubscription: { type: boolean, description: "Also push the corrected values onto the workspace's live subscription" }
+ *               startDate:          { type: string, format: date, description: "Backdate/schedule the resynced subscription's effective start; only used when resyncSubscription is true" }
+ *     responses:
+ *       200:
+ *         description: Payment updated
  */
 router.get('/payments/stats',              adminAuthMiddleware, adminController.getPaymentStats);
 router.get('/payments',                    adminAuthMiddleware, adminController.getPayments);
 router.post('/payments/:id/mark-paid',     adminAuthMiddleware, adminController.markPaymentPaid);
 router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.updatePaymentStatus);
+router.put('/payments/:id',                adminAuthMiddleware, adminController.updatePayment);
 
 /**
  * @openapi
@@ -317,6 +487,27 @@ router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.
  *     responses:
  *       200: { description: "imported, skipped and errors summary" }
  *
+ * /admin/libraries/{resource}/seed-workspace:
+ *   post:
+ *     summary: "Clone this resource's master rows into a chosen workspace (dedupes by name_en)"
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [workspace_id]
+ *             properties:
+ *               workspace_id: { type: string }
+ *     responses:
+ *       200: { description: "seeded and skipped counts" }
+ *       404: { description: Workspace not found }
+ *
  * /admin/libraries/{resource}/{id}:
  *   put:
  *     summary: Update a Default Library record
@@ -339,12 +530,13 @@ router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.
  *     responses:
  *       204: { description: Record deleted }
  */
-// Specific (/import) before parameterized (/:id) so it is not shadowed.
-router.get('/libraries/:resource',             adminAuthMiddleware, libraryController.listRecords);
-router.post('/libraries/:resource',            adminAuthMiddleware, libraryController.createRecord);
-router.post('/libraries/:resource/import',     adminAuthMiddleware, libraryController.importRecords);
-router.put('/libraries/:resource/:id',         adminAuthMiddleware, libraryController.updateRecord);
-router.delete('/libraries/:resource/:id',      adminAuthMiddleware, libraryController.deleteRecord);
+// Specific (/import, /seed-workspace) before parameterized (/:id) so they are not shadowed.
+router.get('/libraries/:resource',                  adminAuthMiddleware, libraryController.listRecords);
+router.post('/libraries/:resource',                 adminAuthMiddleware, libraryController.createRecord);
+router.post('/libraries/:resource/import',          adminAuthMiddleware, libraryController.importRecords);
+router.post('/libraries/:resource/seed-workspace',  adminAuthMiddleware, libraryController.seedWorkspace);
+router.put('/libraries/:resource/:id',              adminAuthMiddleware, libraryController.updateRecord);
+router.delete('/libraries/:resource/:id',           adminAuthMiddleware, libraryController.deleteRecord);
 
 /**
  * @openapi
@@ -447,5 +639,6 @@ router.post('/forms-templates/:id/questions',           adminAuthMiddleware, tem
 router.put('/forms-templates/:id/questions/reorder',    adminAuthMiddleware, templateController.reorderTemplateQuestions);
 router.put('/forms-templates/:id/questions/:qid',       adminAuthMiddleware, templateController.updateTemplateQuestion);
 router.delete('/forms-templates/:id/questions/:qid',    adminAuthMiddleware, templateController.deleteTemplateQuestion);
+router.post('/forms-templates/:id/save-draft',          adminAuthMiddleware, templateController.saveTemplateDraft);
 
 export default router;

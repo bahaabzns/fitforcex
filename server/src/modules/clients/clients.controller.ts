@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
-import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
+import { computeStatusesForClients } from '../../lib/clientSubscriptionStatus';
 import { checkClientLimit } from '../../lib/seatLimits';
 import { logSubscriptionAudit } from '../subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, teamRecipients } from '../../lib/events';
@@ -19,6 +19,7 @@ import {
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
+import { serializeDiaryEntry, summarizeFoodDiaryAdherence, FOOD_DIARY_HISTORY_LIMIT } from '../../utils/foodDiaryStats';
 
 type ClientRow = Record<string, unknown>;
 type FreezeRow = Record<string, unknown>;
@@ -37,6 +38,7 @@ function mapClient(row: ClientRow) {
         phone:               row.phone,
         phones,
         current_package:     row.current_package,
+        current_package_variation_id: row.current_package_variation_id ?? null,
         subscription_status: row.subscription_status || 'Pre-start',
         has_password:        !!row.password,
         created_at:          row.created_at,
@@ -92,63 +94,16 @@ export async function getClients(req: Request, res: Response, next: NextFunction
             prisma.clients.count({ where: whereClause }),
         ]);
 
-        const clientIds = clientRows.map(r => r.id);
-        if (clientIds.length === 0) {
+        if (clientRows.length === 0) {
             return res.json({ data: [], total: 0, page, limit, totalPages: 0 });
         }
 
-        const [txRows, freezeRows, planActRows] = await Promise.all([
-            prisma.transactions.findMany({
-                where:  { workspace_id: wsId, client_id: { in: clientIds } },
-                select: { client_id: true, status: true, duration: true, subscription_start_date: true, start_mode: true, created_at: true },
-            }),
-            prisma.subscription_freezes.findMany({
-                where: { client_id: { in: clientIds } },
-            }),
-            prisma.$queryRaw<PlanActRow[]>`
-                SELECT client_id, MIN(activated_at) AS first_activation FROM (
-                    SELECT client_id, activated_at FROM training_plans
-                    WHERE workspace_id = ${wsId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
-                    UNION ALL
-                    SELECT client_id, activated_at FROM nutrition_plans
-                    WHERE workspace_id = ${wsId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
-                ) combined GROUP BY client_id
-            `,
-        ]);
-
-        type TxLike = { status: string; created_at: string | Date; duration?: number | string | null; start_mode?: string | null; subscription_start_date?: string | Date | null };
-        const txByClient: Record<string, TxLike[]> = {};
-        for (const tx of txRows) {
-            if (!tx.client_id) continue;
-            if (!txByClient[tx.client_id]) txByClient[tx.client_id] = [];
-            txByClient[tx.client_id].push(tx as TxLike);
-        }
-
-        type FreezeLike = { freeze_start_date: string | Date; freeze_duration_days: number | string; client_id?: string };
-        const freezesByClient: Record<string, FreezeLike[]> = {};
-        for (const f of freezeRows as FreezeLike[]) {
-            const key = (f as FreezeRow).client_id as string;
-            if (!freezesByClient[key]) freezesByClient[key] = [];
-            freezesByClient[key].push(f);
-        }
-
-        const planActivationByClient: Record<string, string | null> = {};
-        for (const row of planActRows) {
-            planActivationByClient[row.client_id] = row.first_activation ? new Date(row.first_activation).toISOString() : null;
-        }
+        const statuses = await computeStatusesForClients(wsId, clientRows.map(r => ({ id: r.id, archived_at: r.archived_at })));
 
         res.json({
             data: clientRows.map(row => ({
                 ...mapClient(row as unknown as ClientRow),
-                // Archived is a lifecycle state that sits above the computed
-                // subscription status — surface it instead of Active/Frozen/etc.
-                subscription_status: row.archived_at
-                    ? 'Archived'
-                    : computeSubscriptionStatus(
-                        txByClient[row.id] || [],
-                        freezesByClient[row.id] || [],
-                        planActivationByClient[row.id] ?? null
-                    ),
+                subscription_status: statuses[row.id],
             })),
             total, page, limit, totalPages: Math.ceil(total / limit),
         });
@@ -267,9 +222,10 @@ export async function getClient(req: Request, res: Response, next: NextFunction)
         if (!client) return res.status(404).json({ error: 'Client not found' });
 
         const mapped = mapClient(client as unknown as ClientRow);
+        const statuses = await computeStatusesForClients(req.user!.workspaceId, [{ id: client.id, archived_at: client.archived_at }]);
         res.json({
             ...mapped,
-            subscription_status: mapped.is_archived ? 'Archived' : mapped.subscription_status,
+            subscription_status: statuses[client.id],
             firstPlanActivatedAt: planActRows[0]?.first_activation ?? null,
         });
     } catch (err) {
@@ -551,6 +507,16 @@ export async function getFreezes(req: Request, res: Response, next: NextFunction
     }
 }
 
+/** Shape freeze fields into the before/after snapshot stored on an audit row. */
+function freezeSnapshot(row: FreezeRow) {
+    const start = row.freeze_start_date as Date;
+    return {
+        freezeStartDate:    start.toISOString().slice(0, 10),
+        freezeDurationDays: row.freeze_duration_days as number,
+        notes:              (row.notes as string | null) ?? null,
+    };
+}
+
 export async function createFreeze(req: Request, res: Response, next: NextFunction) {
     const { freezeStartDate, freezeDurationDays, notes } = req.body as Record<string, unknown>;
     if (!freezeStartDate) return res.status(400).json({ error: 'freezeStartDate is required' });
@@ -573,7 +539,62 @@ export async function createFreeze(req: Request, res: Response, next: NextFuncti
                 notes:                (notes as string | undefined)?.trim() || null,
             },
         });
+
+        await logSubscriptionAudit({
+            workspaceId: req.user!.workspaceId,
+            clientId:    req.params.id as string,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'freeze.create',
+            metadata:    { freezeId: freeze.id, after: freezeSnapshot(freeze as unknown as FreezeRow) },
+        });
+
         res.status(201).json(mapFreeze(freeze as unknown as FreezeRow));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateFreeze(req: Request, res: Response, next: NextFunction) {
+    const { freezeStartDate, freezeDurationDays } = req.body as Record<string, unknown>;
+    if (!freezeStartDate) return res.status(400).json({ error: 'freezeStartDate is required' });
+    const days = Number(freezeDurationDays);
+    if (!days || days <= 0) return res.status(400).json({ error: 'freezeDurationDays must be a positive number' });
+
+    try {
+        const clientCheck = await prisma.clients.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!clientCheck) return res.status(404).json({ error: 'Client not found' });
+
+        const existing = await prisma.subscription_freezes.findFirst({
+            where: { id: req.params.freezeId as string, client_id: req.params.id as string },
+        });
+        if (!existing) return res.status(404).json({ error: 'Freeze not found' });
+
+        const updated = await prisma.subscription_freezes.update({
+            where: { id: existing.id },
+            data: {
+                freeze_start_date:    new Date(freezeStartDate as string),
+                freeze_duration_days: days,
+            },
+        });
+
+        await logSubscriptionAudit({
+            workspaceId: req.user!.workspaceId,
+            clientId:    req.params.id as string,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'freeze.update',
+            metadata: {
+                freezeId: existing.id,
+                before:   freezeSnapshot(existing as unknown as FreezeRow),
+                after:    freezeSnapshot(updated as unknown as FreezeRow),
+            },
+        });
+
+        res.json(mapFreeze(updated as unknown as FreezeRow));
     } catch (err) {
         next(err);
     }
@@ -587,11 +608,65 @@ export async function deleteFreeze(req: Request, res: Response, next: NextFuncti
         });
         if (!clientCheck) return res.status(404).json({ error: 'Client not found' });
 
-        const deleted = await prisma.subscription_freezes.deleteMany({
+        const existing = await prisma.subscription_freezes.findFirst({
             where: { id: req.params.freezeId as string, client_id: req.params.id as string },
         });
-        if (deleted.count === 0) return res.status(404).json({ error: 'Freeze not found' });
-        res.json({ deleted: req.params.freezeId });
+        if (!existing) return res.status(404).json({ error: 'Freeze not found' });
+
+        await prisma.subscription_freezes.delete({ where: { id: existing.id } });
+
+        await logSubscriptionAudit({
+            workspaceId: req.user!.workspaceId,
+            clientId:    req.params.id as string,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'freeze.remove',
+            metadata:    { freezeId: existing.id, before: freezeSnapshot(existing as unknown as FreezeRow) },
+        });
+
+        res.json({ deleted: existing.id });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const FREEZE_HISTORY_EVENT_TYPES = ['freeze.create', 'freeze.update', 'freeze.remove'];
+
+/** Immutable audit trail of freeze create/edit/remove actions for one client. */
+export async function getFreezeHistory(req: Request, res: Response, next: NextFunction) {
+    const clientId = req.params.id as string;
+    const wsId     = req.user!.workspaceId;
+    try {
+        const clientCheck = await prisma.clients.findFirst({
+            where: { id: clientId, workspace_id: wsId },
+            select: { id: true },
+        });
+        if (!clientCheck) return res.status(404).json({ error: 'Client not found' });
+
+        const rows = await prisma.subscription_status_audit.findMany({
+            where:   { workspace_id: wsId, client_id: clientId, event_type: { in: FREEZE_HISTORY_EVENT_TYPES } },
+            orderBy: { created_at: 'desc' },
+            take:    100,
+        });
+
+        const actorIds = [...new Set(rows.map(r => r.actor_user_id).filter((v): v is string => !!v))];
+        const users = actorIds.length
+            ? await prisma.users.findMany({ where: { id: { in: actorIds } }, select: { id: true, fname: true, lname: true } })
+            : [];
+        const nameById = new Map(users.map(u => [u.id, `${u.fname} ${u.lname}`.trim()]));
+
+        res.json(rows.map(r => {
+            const meta = (r.metadata as Record<string, unknown>) || {};
+            return {
+                id:          r.id,
+                eventType:   r.event_type,
+                actorType:   r.actor_type,
+                actorName:   r.actor_user_id ? (nameById.get(r.actor_user_id) ?? null) : null,
+                before:      meta.before ?? null,
+                after:       meta.after ?? null,
+                createdAt:   r.created_at,
+            };
+        }));
     } catch (err) {
         next(err);
     }
@@ -650,7 +725,7 @@ export async function getClientWorkoutLogs(req: Request, res: Response, next: Ne
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
             take:    WORKOUT_HISTORY_LIMIT,
             include: { training_days: { select: { name: true } } },
@@ -682,7 +757,7 @@ export async function getClientExerciseProgress(req: Request, res: Response, nex
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: { date: 'asc' },
             take:    WORKOUT_PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -710,7 +785,7 @@ export async function getClientExerciseInsights(req: Request, res: Response, nex
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: { date: 'desc' },
             take:    WORKOUT_PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -742,7 +817,7 @@ export async function getClientLoggedExercises(req: Request, res: Response, next
         }
 
         const logs = await prisma.workout_logs.findMany({
-            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             orderBy: { date: 'desc' },
             take:    WORKOUT_PROGRESS_LIMIT,
             select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
@@ -756,7 +831,7 @@ export async function getClientLoggedExercises(req: Request, res: Response, next
 export async function getClientWorkoutLog(req: Request, res: Response, next: NextFunction) {
     try {
         const log = await prisma.workout_logs.findFirst({
-            where:   { id: req.params.logId as string, client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            where:   { id: req.params.logId as string, client_id: req.params.id as string, workspace_id: req.user!.workspaceId, completed: true },
             include: { training_days: { select: { name: true } } },
         });
         if (!log) return res.status(404).json({ error: 'Workout log not found' });
@@ -777,6 +852,60 @@ export async function getClientWorkoutLog(req: Request, res: Response, next: Nex
     }
 }
 
+const LEAST_ADHERENT_ITEMS_LIMIT = 5;
+
+// Coach view — a client's own food diary history, same shape and same
+// unlimited-history behavior as getFoodDiaryHistory (client-portal). Each
+// entry already carries its own `adherence` (see foodDiaryStats.ts), so a
+// day-by-day or trend view is just this array. Cross-day rollups (per-plan
+// average, weakest items) live in getClientFoodDiaryAdherence below.
+export async function getClientFoodDiary(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'desc' },
+            take:    FOOD_DIARY_HISTORY_LIMIT,
+        });
+        res.json(entries.map(serializeDiaryEntry));
+    } catch (err) {
+        next(err);
+    }
+}
+
+// Coach view — adherence rolled up per nutrition plan (not per day), plus
+// the food items this client eats least of what's prescribed. Backs the
+// nutrition builder's plan-level adherence badge (scoped to one plan via a
+// client-side filter of `plans`) and the "Food Diary" overview modal (the
+// full response). No `take` limit here, unlike getClientFoodDiary above --
+// a per-plan average needs every entry for that plan, not just the most
+// recent page of history, and per-client row counts stay small (~1/day).
+export async function getClientFoodDiaryAdherence(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const entries = await prisma.food_diary_entries.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'asc' },
+        });
+
+        const planIds = [...new Set(entries.map((e) => e.plan_id).filter((v): v is string => !!v))];
+        const plans = planIds.length > 0
+            ? await prisma.nutrition_plans.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true } })
+            : [];
+        const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+
+        res.json(summarizeFoodDiaryAdherence(entries, planNameById, LEAST_ADHERENT_ITEMS_LIMIT));
+    } catch (err) {
+        next(err);
+    }
+}
+
 // Shared by getClientTransformation (coach) and re-exported for the portal controller.
 // Uses flat queries + in-memory joins to stay compatible with this Prisma client version.
 export async function buildTransformationPayload(clientId: string, workspaceId: string) {
@@ -787,8 +916,11 @@ export async function buildTransformationPayload(clientId: string, workspaceId: 
     // so it must stay in progress charts/metric history exactly as it did
     // before review. Pre-existing gap, not introduced by Forms Versioning —
     // this function's JOIN target changed in Phase 3, this filter didn't.
+    // Archived requests (archived_at set) are excluded: archiving is meant to
+    // pull a submission's readings/photos out of the charts, same as it pulls
+    // the submission out of the Plans Queue — status alone doesn't capture that.
     const requests = await prisma.form_requests.findMany({
-        where:  { client_id: clientId, workspace_id: workspaceId, status: { in: ['submitted', 'reviewed'] } },
+        where:  { client_id: clientId, workspace_id: workspaceId, status: { in: ['submitted', 'reviewed'] }, archived_at: null },
         select: { id: true, submitted_at: true, form_id: true },
     });
     if (requests.length === 0) return { metrics: [], timeline: [] };

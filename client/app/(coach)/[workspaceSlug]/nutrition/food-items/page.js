@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2, Apple } from "lucide-react";
+import { Pencil, Trash2, Apple, AlertTriangle } from "lucide-react";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
@@ -9,6 +9,8 @@ import FoodForm from "@/app/components/nutrition/FoodForm";
 import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const emptyForm = {
     name_en: '',
@@ -24,6 +26,7 @@ const emptyForm = {
 
 export default function FoodItemsPage() {
     const t = useTranslations("foodItems");
+    usePageTitle(t('pageTitle'));
     const [foodItems, setFoodItems] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -96,7 +99,17 @@ export default function FoodItemsPage() {
     const categoryOptions = categories.map(c => c.name_en);
     const foodItemColumns = [
         { key: "name_en", label: t("columnNameEn"), filterType: "text", sortable: true },
-        { key: "name_ar", label: t("columnNameAr"), render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
+        { key: "name_ar", label: t("columnNameAr"), render: (row) => row.name_ar
+            ? <span dir="rtl">{row.name_ar}</span>
+            : (
+                <Tooltip>
+                    <span className="inline-flex items-center gap-1 text-amber-500">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span className="text-xs">{t("missingArabicName")}</span>
+                    </span>
+                    <Tooltip.Content>{t("missingArabicNameHint")}</Tooltip.Content>
+                </Tooltip>
+            ) },
         { key: "food_category", label: t("columnCategory"), filterType: "multi", options: categoryOptions, sortable: true },
         { key: "serving_size", label: t("columnServingSize"), sortable: true },
         { key: "serving_unit", label: t("columnUnit") },
@@ -128,6 +141,13 @@ export default function FoodItemsPage() {
                 <h1 className="text-3xl font-bold">{t("pageTitle")}</h1>
                 <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
             </div>
+
+            <TriggerInsightBanner
+                triggerEvent="first_custom_food_item_added"
+                checkUrl="/api/insights/prompts/for-trigger/first_custom_food_item_added"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setFormData(emptyForm); }} title={t("addTitle")}>
                 <FoodForm data={formData} onChange={handleChange} onSubmit={handleSubmit} onCancel={() => { setShowForm(false); setFormData(emptyForm); }} submitLabel={t("submitAdd")} categories={categories} />

@@ -1,4 +1,4 @@
-import { S3Client, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multerS3 from 'multer-s3';
 import multer from 'multer';
@@ -67,6 +67,22 @@ export function makeUploader(
     });
 }
 
+// Direct buffer upload, for the rare case a route needs to inspect a file's
+// bytes (e.g. validating image dimensions) before deciding whether to persist
+// it at all — makeUploader's storage engines write straight to S3/disk as
+// part of the multer stream, with no point to intercept and reject first.
+export async function putBuffer(folder: string, filename: string, buffer: Buffer, contentType: string): Promise<string> {
+    const key = `${folder}/${filename}`;
+    if (!s3Configured) {
+        const dest = path.join('uploads', folder);
+        fs.mkdirSync(dest, { recursive: true });
+        fs.writeFileSync(path.join(dest, filename), buffer);
+        return key;
+    }
+    await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: buffer, ContentType: contentType }));
+    return key;
+}
+
 export async function deleteFile(key: string | null | undefined): Promise<void> {
     if (!key) return;
     if (!s3Configured) {
@@ -82,8 +98,12 @@ export async function createSignedUrl(key: string, expiresIn = 3600): Promise<st
 }
 
 // Converts an S3 key to a public URL. In dev (no S3), returns a local /uploads path.
+// Some fields (e.g. exercise thumbnail_path) can also hold an already-absolute URL —
+// imported/seeded data, not something a coach uploaded — so pass those through as-is
+// rather than prefixing them into a broken /uploads/https://... path.
 export function toPublicUrl(key: string | null | undefined): string | null {
     if (!key) return null;
+    if (/^https?:\/\//.test(key)) return key;
     if (!s3Configured) return `/uploads/${key}`;
     const base = (env.S3_PUBLIC_URL || `${env.S3_ENDPOINT}/${env.S3_BUCKET}`).replace(/\/$/, '');
     return `${base}/${key}`;

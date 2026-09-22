@@ -5,6 +5,14 @@ import { useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { Skeleton } from "@heroui/react/skeleton";
+import { usePageTitle } from "@/hooks/usePageTitle";
+
+const STATUS_TITLES = {
+    checking: "Checking Payment",
+    confirmed: "Payment Confirmed",
+    processing: "Payment Processing",
+    failed: "Payment Failed",
+};
 
 export default function BillingSuccessPage() {
     const { workspaceSlug } = useParams();
@@ -14,6 +22,7 @@ export default function BillingSuccessPage() {
     // 'checking' | 'confirmed' | 'processing' | 'failed'
     const [status, setStatus] = useState("checking");
     const [detail, setDetail] = useState(null);
+    usePageTitle(STATUS_TITLES[status]);
 
     useEffect(() => {
         if (!paymentId) { setStatus("processing"); return; }

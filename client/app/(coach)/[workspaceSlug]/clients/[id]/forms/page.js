@@ -7,26 +7,24 @@ import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
+import Typography from "@/app/components/Typography";
 import ObservationModal from "@/app/components/ObservationModal";
 import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
-import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp } from 'lucide-react';
+import AnswerEditHistory from "@/app/components/forms/AnswerEditHistory";
+import AnswerBody from "@/app/components/forms/AnswerBody";
+import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp, Archive, ArchiveRestore } from 'lucide-react';
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Accordion, Separator, Surface } from "@heroui/react";
-import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { ScrollShadow } from "@/app/components/ScrollShadow";
+import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
-function isImageUrl(str) {
-    if (!str || typeof str !== 'string') return false;
-    try {
-        const url = new URL(str.trim());
-        return /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(url.pathname);
-    } catch {
-        return false;
-    }
-}
+// AnswerBody (text/image/attachment answer rendering) now lives in
+// @/app/components/forms/AnswerBody — shared with the Plans Queue answer
+// preview, which renders the same response shape ({ answer, type, metric_type }).
 
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -55,6 +53,7 @@ export default function ClientFormsPage() {
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
     const [sortOrder, setSortOrder] = useState("newest");
+    const [archiveActionPending, setArchiveActionPending] = useState(false);
 
     // Request Form modal state
     const [requestModal, setRequestModal] = useState(false);
@@ -203,6 +202,23 @@ export default function ClientFormsPage() {
         }
     };
 
+    // Archive/restore a submitted or reviewed request — reversible, unlike
+    // handleCancel's hard delete, which is only valid for pending/scheduled
+    // requests. Shares the same queue endpoint the Plans Queue archive uses.
+    const handleArchiveToggle = async (requestId, archive) => {
+        setArchiveActionPending(true);
+        try {
+            await api.patch('/api/forms/queue/archive', { ids: [requestId], action: archive ? 'archive' : 'restore' });
+            const archivedAt = archive ? new Date().toISOString() : null;
+            setRequests(prev => prev.map(r => r.id === requestId ? { ...r, is_archived: archive, archived_at: archivedAt } : r));
+            setSelected(prev => prev && prev.id === requestId ? { ...prev, is_archived: archive, archived_at: archivedAt } : prev);
+        } catch (e) {
+            alert(e.response?.data?.error || `Failed to ${archive ? 'archive' : 'restore'} request`);
+        } finally {
+            setArchiveActionPending(false);
+        }
+    };
+
     const sortedRequests = [...requests].sort((a, b) => {
         if (sortOrder === "oldest") return new Date(a.requested_at) - new Date(b.requested_at);
         if (sortOrder === "lastSubmitted") {
@@ -240,9 +256,18 @@ export default function ClientFormsPage() {
 
     return (
         <>
+        <div className="flex flex-col h-full overflow-hidden">
+        <div className="shrink-0 px-3 pt-3">
+            <TriggerInsightBanner
+                triggerEvent="first_checkin_request_sent"
+                checkUrl="/api/insights/prompts/for-trigger/first_checkin_request_sent"
+                respondUrlPrefix="/api/insights/prompts"
+                dismissUrlPrefix="/api/insights/prompts"
+            />
+        </div>
         <div
             ref={containerRef}
-            className="flex h-full overflow-hidden gap-0"
+            className="flex flex-1 min-h-0 overflow-hidden gap-0"
         >
             {/* ── Left Panel: Form Requests List ─────────────────── */}
             <div
@@ -305,6 +330,8 @@ export default function ClientFormsPage() {
                                             key={req.id}
                                             onClick={() => { setSelected(req); setExpandedKeys(new Set()); }}
                                             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 select-none ${
+                                                req.is_archived ? "opacity-50" : ""
+                                            } ${
                                                 isActive
                                                     ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
                                                     : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
@@ -327,7 +354,13 @@ export default function ClientFormsPage() {
                                                         : `${t('requested')} ${formatRelativeTime(req.requested_at, tCommon)}`}
                                                 </p>
                                             </div>
-                                            <div className="shrink-0">
+                                            <div className="shrink-0 flex items-center gap-1.5">
+                                                {req.is_archived && (
+                                                    <Chip size="sm" color="default" variant="soft">
+                                                        <Archive size={11} />
+                                                        <Chip.Label>{t('archived')}</Chip.Label>
+                                                    </Chip>
+                                                )}
                                                 {req.status === 'submitted' ? (
                                                     <Chip size="sm" color="success" variant="soft">
                                                         <Chip.Label>{t('submitted')}</Chip.Label>
@@ -381,6 +414,12 @@ export default function ClientFormsPage() {
                                     {getLocalizedField(selected, 'form_title', locale)}
                                 </h3>
                                 <div className="flex items-center gap-2 shrink-0">
+                                    {selected.is_archived && (
+                                        <Chip size="sm" color="default" variant="soft">
+                                            <Archive size={11} />
+                                            <Chip.Label>{t('archived')}</Chip.Label>
+                                        </Chip>
+                                    )}
                                     {selected.status === 'submitted' ? (
                                         <Chip size="sm" color="success" variant="soft">
                                             <CheckCircle size={11} />
@@ -397,13 +436,32 @@ export default function ClientFormsPage() {
                                             <Chip.Label>{t('pending')}</Chip.Label>
                                         </Chip>
                                     )}
-                                    {(selected.status === 'pending' || selected.status === 'scheduled') && (
+                                    {(selected.status === 'pending' || selected.status === 'scheduled' || selected.status === 'sent') && (
                                         <button
                                             onClick={() => handleCancel(selected.id)}
                                             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
                                         >
                                             <Trash2 size={12} /> {t('cancelRequest')}
                                         </button>
+                                    )}
+                                    {(selected.status === 'submitted' || selected.status === 'reviewed') && (
+                                        selected.is_archived ? (
+                                            <button
+                                                onClick={() => handleArchiveToggle(selected.id, false)}
+                                                disabled={archiveActionPending}
+                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <ArchiveRestore size={12} /> {t('restoreRequest')}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleArchiveToggle(selected.id, true)}
+                                                disabled={archiveActionPending}
+                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                <Archive size={12} /> {t('archiveRequest')}
+                                            </button>
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -418,7 +476,7 @@ export default function ClientFormsPage() {
 
                             {/* Body */}
                             <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
-                                {selected.status === 'pending' || selected.status === 'scheduled' ? (
+                                {selected.status === 'pending' || selected.status === 'scheduled' || selected.status === 'sent' ? (
                                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
                                         {selected.status === 'scheduled' ? (
                                             <>
@@ -445,9 +503,9 @@ export default function ClientFormsPage() {
                                 ) : (
                                     <div className="flex flex-col gap-2 px-1 py-1">
                                         <div className="flex items-center justify-between mb-1">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                            <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">
                                                 {t('questions')}
-                                            </p>
+                                            </Typography>
                                             <div className="flex gap-1">
                                                 <button
                                                     onClick={() => setExpandedKeys(new Set(selected.responses.map((_, i) => String(i))))}
@@ -470,27 +528,21 @@ export default function ClientFormsPage() {
                                                 <Accordion.Item key={i} id={String(i)}>
                                                     <Accordion.Heading>
                                                         <Accordion.Trigger>
-                                                            <span className="text-sm text-foreground">
+                                                            <span className="text-sm text-foreground flex items-center gap-2">
                                                                 {i + 1}. {getLocalizedField(r, 'label', locale)}
+                                                                {r.edited && (
+                                                                    <Chip size="sm" color="secondary" variant="soft">
+                                                                        <Chip.Label>{t('answerEdited')}</Chip.Label>
+                                                                    </Chip>
+                                                                )}
                                                             </span>
                                                             <Accordion.Indicator />
                                                         </Accordion.Trigger>
                                                     </Accordion.Heading>
                                                     <Accordion.Panel>
                                                         <Accordion.Body>
-                                                            {isImageUrl(r.answer) ? (
-                                                                <a href={r.answer} target="_blank" rel="noopener noreferrer" className="block">
-                                                                    <img
-                                                                        src={r.answer}
-                                                                        alt=""
-                                                                        className="w-full rounded-lg object-contain max-h-96 bg-black/5"
-                                                                    />
-                                                                </a>
-                                                            ) : (
-                                                                <p className="text-sm text-foreground whitespace-pre-wrap">
-                                                                    {r.answer || <span className="text-muted-foreground italic">—</span>}
-                                                                </p>
-                                                            )}
+                                                            <AnswerBody response={r} />
+                                                            {r.edited && <AnswerEditHistory history={r.history} label={t('editHistory')} />}
                                                         </Accordion.Body>
                                                     </Accordion.Panel>
                                                 </Accordion.Item>
@@ -532,6 +584,7 @@ export default function ClientFormsPage() {
                     )}
                 </Surface>
             </div>
+        </div>
         </div>
 
         {/* Request Form Modal */}

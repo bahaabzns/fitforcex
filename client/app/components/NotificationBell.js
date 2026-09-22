@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Bell, Check, MessageSquare, ClipboardList, UserPlus, Wallet, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Bell, Check, MessageSquare, ClipboardList, UserPlus, Wallet, AlertTriangle, CheckCircle2, PartyPopper, MessageCircle } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
@@ -13,6 +13,7 @@ import { Disclosure } from "@heroui/react/disclosure";
 import EmptyState from "@/app/components/EmptyState";
 import { sortByPriority, priorityAccentClass, groupNotifications, FILTER_KEYS, filterItems } from "@/utils/notifications";
 import { getDateLabel } from "@/utils/date";
+import { getInitials } from "@/utils/initials";
 import api from "@/lib/axios";
 
 const UNREAD_POLL_MS = 15000;
@@ -32,14 +33,10 @@ const TYPE_ICON = {
     'subscription.expired':     AlertTriangle,
     'subscription.frozen':      AlertTriangle,
     'subscription.reactivated': CheckCircle2,
+    'insight.roadmap_shipped':  PartyPopper,
+    'insight.roadmap_declined': MessageCircle,
 };
 
-function getInitials(name) {
-    if (!name) return null;
-    const parts = name.trim().split(/\s+/);
-    const initials = `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase();
-    return initials || null;
-}
 
 // Leading visual for a card — the sender's avatar when we know who they are,
 // otherwise a category icon (same fallback for legacy rows recorded before

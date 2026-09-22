@@ -13,6 +13,7 @@ import { Label } from "@heroui/react/label";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 function StatusAlert({ status, children }) {
     if (!children) return null;
@@ -31,6 +32,7 @@ export default function AdvancedPage() {
     const tNav = useTranslations("nav");
     const tDanger = useTranslations("dangerZone");
     const tCommon = useTranslations("common");
+    usePageTitle(tNav("advanced"));
     const router = useRouter();
     const [me, setMe] = useState(null);
     const [workspace, setWorkspace] = useState(null);

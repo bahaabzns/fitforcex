@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
-import { PoolClient } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import {
     toIsoDateOrNull,
-    serializePlanRow,
     serializePlanRows,
     normalizeOrderedList,
     insertOrderedChildren,
@@ -15,11 +14,47 @@ import {
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
-import { toNumberOrNull } from './nutrition.service';
+import { toNumberOrNull, fetchFullNutritionPlan } from './nutrition.service';
 import { recordEvent } from '../../lib/events';
 import { sealVersionForAssignment } from '../forms/forms.service';
+import { normalizePostAction } from '../../utils/postAction';
 
 type Row = Record<string, unknown>;
+type DbHandle = Pool | PoolClient;
+
+// Every plan-content mutation below stamps who touched it and when, via one
+// of these, instead of a bare `updated_at = NOW()` — so the plan card's
+// "edited X ago · by <name>" stays accurate no matter which specific action
+// (reorder, delete an item, duplicate a cycle, ...) a coach used.
+async function touchPlan(db: DbHandle, planId: string, userId: string): Promise<void> {
+    await db.query('UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = $1', [planId, userId]);
+}
+
+async function touchPlanByCycle(db: DbHandle, cycleId: string, userId: string): Promise<void> {
+    await db.query(
+        'UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
+        [cycleId, userId]
+    );
+}
+
+async function touchPlanByMeal(db: DbHandle, mealId: string, userId: string): Promise<void> {
+    await db.query(
+        `UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = (
+            SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1
+        )`, [mealId, userId]
+    );
+}
+
+async function touchPlanByMealItem(db: DbHandle, mealItemId: string, userId: string): Promise<void> {
+    await db.query(
+        `UPDATE nutrition_plans SET updated_at = NOW(), last_edited_by = $2 WHERE id = (
+            SELECT nc.plan_id FROM nutrition_meal_items nmi
+            JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+            JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+            WHERE nmi.id = $1
+        )`, [mealItemId, userId]
+    );
+}
 
 // ── Food Items ────────────────────────────────────────────────────────────────
 
@@ -158,16 +193,49 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
         const result = await pool.query(
             `SELECT
                 np.id, np.name, np.status, np.created_at, np.updated_at, np.created_by,
+                c.client_code,
                 NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
                 NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
-                (SELECT COUNT(*)::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id) AS cycle_count,
-                (SELECT ROUND(AVG(nc.goal_calories))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_calories IS NOT NULL) AS avg_calories,
-                (SELECT ROUND(AVG(nc.goal_protein))::int  FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_protein  IS NOT NULL) AS avg_protein,
-                (SELECT ROUND(AVG(nc.goal_carbs))::int    FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_carbs    IS NOT NULL) AS avg_carbs,
-                (SELECT ROUND(AVG(nc.goal_fats))::int     FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_fats     IS NOT NULL) AS avg_fats
+                cyc_agg.cycle_count, cyc_agg.avg_calories, cyc_agg.avg_protein, cyc_agg.avg_carbs, cyc_agg.avg_fats,
+                cyc_agg.cycles
              FROM nutrition_plans np
              LEFT JOIN clients c ON c.id = np.client_id
              LEFT JOIN users u ON u.id = np.created_by
+             -- goal_calories/protein/carbs/fats on nutrition_cycles are an OPTIONAL
+             -- manual target most coaches never fill in (they just build meals from
+             -- food items) — that's why cards showed no macros at all for plans built
+             -- that way. Computed instead from the actual meal items, mirroring the
+             -- exact formula the builder itself uses client-side (lib/nutritionCalc.js:
+             -- amount / serving_size * per_serving macro), so this always reflects
+             -- what's really in the plan rather than an often-empty aspirational goal.
+             LEFT JOIN LATERAL (
+                 SELECT
+                     COUNT(*)::int AS cycle_count,
+                     ROUND(AVG(cyc.calories))::int AS avg_calories,
+                     ROUND(AVG(cyc.protein))::int  AS avg_protein,
+                     ROUND(AVG(cyc.carbs))::int    AS avg_carbs,
+                     ROUND(AVG(cyc.fats))::int     AS avg_fats,
+                     COALESCE(json_agg(cyc ORDER BY cyc.cycle_order), '[]'::json) AS cycles
+                 FROM (
+                     SELECT nc.id, nc.name, nc.cycle_order,
+                            actual.calories, actual.protein, actual.carbs, actual.fats,
+                            COALESCE(actual.meal_count, 0) AS meal_count
+                     FROM nutrition_cycles nc
+                     LEFT JOIN LATERAL (
+                         SELECT
+                             ROUND(SUM(fi.calories_per_serving * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS calories,
+                             ROUND(SUM(fi.protein_per_serving  * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS protein,
+                             ROUND(SUM(fi.carbs_per_serving    * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS carbs,
+                             ROUND(SUM(fi.fats_per_serving     * nmi.amount / NULLIF(fi.serving_size, 0)))::int AS fats,
+                             COUNT(DISTINCT nm.id)::int AS meal_count
+                         FROM nutrition_meals nm
+                         LEFT JOIN nutrition_meal_items nmi ON nmi.meal_id = nm.id
+                         LEFT JOIN food_items fi ON fi.id = COALESCE(nmi.original_food_item_id, nmi.food_item_id)
+                         WHERE nm.cycle_id = nc.id
+                     ) actual ON true
+                     WHERE nc.plan_id = np.id
+                 ) cyc
+             ) cyc_agg ON true
              WHERE np.workspace_id = $1
              ORDER BY np.updated_at DESC`,
             [req.user!.workspaceId]
@@ -179,8 +247,10 @@ export async function getWorkspaceLibrary(req: Request, res: Response, next: Nex
 export async function getPlans(req: Request, res: Response, next: NextFunction) {
     try {
         const result = await pool.query(
-            `SELECT np.*, (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
+            `SELECT np.*, (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count,
+                    TRIM(CONCAT(u.fname, ' ', u.lname)) AS last_edited_by_name
              FROM nutrition_plans np
+             LEFT JOIN users u ON u.id = np.last_edited_by
              WHERE np.workspace_id = $1 AND np.client_id = $2
              ORDER BY np.created_at DESC`,
             [req.user!.workspaceId, req.query.clientId as string]
@@ -191,68 +261,15 @@ export async function getPlans(req: Request, res: Response, next: NextFunction) 
 
 export async function getPlan(req: Request, res: Response, next: NextFunction) {
     try {
-        const planResult = await pool.query(
-            'SELECT * FROM nutrition_plans WHERE id = $1 AND workspace_id = $2',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!planResult.rows.length) return res.status(404).json({ error: 'Nutrition plan not found' });
+        const plan = await fetchFullNutritionPlan(req.params.id as string, req.user!.workspaceId);
+        if (!plan) return res.status(404).json({ error: 'Nutrition plan not found' });
 
-        const cyclesResult = await pool.query(
-            'SELECT * FROM nutrition_cycles WHERE plan_id = $1 ORDER BY cycle_order ASC',
-            [req.params.id]
-        );
-
-        const mealsResult = await Promise.all(
-            (cyclesResult.rows as Row[]).map((cycle) =>
-                pool.query('SELECT * FROM nutrition_meals WHERE cycle_id = $1 ORDER BY meal_order ASC', [cycle.id])
-            )
-        );
-
-        const cycles = await Promise.all(
-            (cyclesResult.rows as Row[]).map(async (cycle, cycleIndex) => {
-                const meals = mealsResult[cycleIndex].rows as Row[];
-                const mealsWithItems = await Promise.all(
-                    meals.map(async (meal) => {
-                        const itemsResult = await pool.query(
-                            `SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order,
-                                    fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
-                                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
-                                    fi.serving_size, fi.food_category
-                             FROM nutrition_meal_items nmi
-                             JOIN food_items fi ON fi.id = nmi.food_item_id
-                             WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC`,
-                            [meal.id]
-                        );
-                        const itemsWithAlts = await Promise.all(
-                            (itemsResult.rows as Row[]).map(async (item) => {
-                                const altsResult = await pool.query(
-                                    `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                                            fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
-                                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
-                                            fi.serving_size, fi.food_category
-                                     FROM nutrition_meal_item_alternatives nmia
-                                     JOIN food_items fi ON fi.id = nmia.food_item_id
-                                     WHERE nmia.meal_item_id = $1 ORDER BY nmia.alt_order ASC`,
-                                    [item.id]
-                                );
-                                return { ...item, alternatives: altsResult.rows };
-                            })
-                        );
-                        return { ...meal, items: itemsWithAlts };
-                    })
-                );
-                return { ...cycle, meals: mealsWithItems };
-            })
-        );
-
-        const serializedPlan = serializePlanRow(planResult.rows[0] as Row)!;
-
-        // Spread the full row (matches training.controller.ts's getPlan) --
+        // Spreads the full row (matches training.controller.ts's getPlan) --
         // a prior hand-picked field list silently dropped activated_at/
         // cycle_days/cycle_end_at/review_offset_days/review_notified_at on
         // every plan-detail fetch, so a page reload lost the active plan's
         // cycle progress even though the DB had it.
-        res.json({ ...serializedPlan, cycles });
+        res.json(plan);
     } catch (err) { next(err); }
 }
 
@@ -260,8 +277,8 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
     const { name, client_id } = req.body as { name?: string; client_id?: string };
     try {
         const planResult = await pool.query(
-            'INSERT INTO nutrition_plans (name, client_id, workspace_id, id) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, client_id, req.user!.workspaceId, createId()]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, id, created_by, last_edited_by) VALUES ($1, $2, $3, $4, $5, $5) RETURNING *',
+            [name, client_id, req.user!.workspaceId, createId(), req.user!.userId]
         );
         await pool.query(
             'INSERT INTO nutrition_cycles (plan_id, name, id) VALUES ($1, $2, $3) RETURNING *',
@@ -330,8 +347,8 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                     const priorDates = existingPlanDates.get(plan.id as string);
 
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at, last_edited_by)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
                         [
                             (plan.name as string) || `Plan ${pIndex + 1}`,
                             clientId, req.user!.workspaceId,
@@ -343,6 +360,7 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                             priorDates?.cycle_days ?? null,
                             priorDates?.cycle_end_at ?? null,
                             priorDates?.review_notified_at ?? null,
+                            req.user!.userId,
                         ]
                     );
 
@@ -442,6 +460,10 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
         // transaction commits so a restart notification never fires for a
         // save that ultimately rolled back.
         let restartedClientId: string | null = null;
+        // Populated by activateSinglePlan inside activatePlanInTransaction --
+        // form_requests ids auto-reviewed as a side effect of this restart.
+        // See the identical note in activatePlan below.
+        const autoReviewedIds: string[] = [];
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
@@ -481,14 +503,15 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }: { dbClient: PoolClient; plan: Row; clientId: string; coachId: string; createdAt: string; updatedAt: string }) => {
                 const createdBy    = existingCreatedBy ?? req.user!.userId;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at, last_edited_by)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
                     [
                         (incomingPlan.name as string) || 'Untitled Plan',
                         cId, coachId,
                         incomingPlan.status === 'active' ? 'active' : 'inactive',
                         createdAt, updatedAt, createdBy, createId(),
                         existingActivatedAt, existingCycleDays, existingCycleEndAt, existingReviewNotifiedAt,
+                        req.user!.userId,
                     ]
                 );
 
@@ -560,15 +583,17 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 // Activation modal (restartCycleDays !== undefined);
                 // otherwise it's left untouched exactly as before. See
                 // Business Logic §12.5 in the Package Lifecycle plan.
-                const restarted = await activateSinglePlan({
+                const { plan: restarted, autoReviewedRequestIds } = await activateSinglePlan({
                     db: dbClient,
                     tableName:      'nutrition_plans',
                     planId:         planId as string,
                     coachId,
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
+                    submissionPostAction: 'nutrition-plan',
                     ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
+                if (restarted) autoReviewedRequestIds.forEach((id) => autoReviewedIds.push(id));
                 if (restarted && durationChoice === 'restart') {
                     // Matched by client + plan type, not source_plan_id: this
                     // save path deletes-and-reinserts the plan row (a
@@ -625,6 +650,22 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             });
         }
 
+        // See the identical note in activatePlan below: a client's pending
+        // nutrition submission is satisfied the moment the plan goes active,
+        // restart included -- fired here (post-commit) rather than inside
+        // activatePlanInTransaction, same reasoning as restartedClientId above.
+        if (restartedClientId) {
+            await Promise.all(autoReviewedIds.map((id) => recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'checkin.auto_reviewed',
+                importance:  'info',
+                title:       'Your coach reviewed your check-in',
+                recipients:  [{ type: 'client', id: restartedClientId as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'form_request', id },
+            })));
+        }
+
         res.json(result);
     } catch (err) { next(err); }
 }
@@ -633,8 +674,8 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
     const { name, status } = req.body as { name?: string; status?: string };
     try {
         const result = await pool.query(
-            'UPDATE nutrition_plans SET name = $1, status = $2, updated_at = NOW() WHERE id = $3 AND workspace_id = $4 RETURNING *',
-            [name, status, req.params.id, req.user!.workspaceId]
+            'UPDATE nutrition_plans SET name = $1, status = $2, updated_at = NOW(), last_edited_by = $5 WHERE id = $3 AND workspace_id = $4 RETURNING *',
+            [name, status, req.params.id, req.user!.workspaceId, req.user!.userId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Plan not found or you do not have permission to update it' });
         res.json(result.rows[0]);
@@ -669,8 +710,8 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
         const planId  = req.params.id as string;
         const coachId = req.user!.workspaceId;
 
-        const updatedPlan = await withTransaction(pool, async (dbClient) => {
-            const plan = await activateSinglePlan({
+        const activation = await withTransaction(pool, async (dbClient) => {
+            const { plan, autoReviewedRequestIds } = await activateSinglePlan({
                 db: dbClient,
                 tableName:      'nutrition_plans',
                 planId,
@@ -679,6 +720,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 cycleDays:        cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
                 reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
+                submissionPostAction: 'nutrition-plan',
             });
             if (!plan) return null;
 
@@ -716,11 +758,13 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                     // "assignment moment" convention as the manual schedule-a-
                     // form flow) pins the wording the client will see.
                     const { versionId } = await sealVersionForAssignment(f.formId, coachId, req.user!.userId);
+                    const formRow = await dbClient.query(`SELECT post_action FROM forms WHERE id = $1`, [f.formId]);
+                    const postAction = normalizePostAction(formRow.rows[0]?.post_action);
                     const requestId = createId();
                     await dbClient.query(
-                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at)
-                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6)`,
-                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at]
+                        `INSERT INTO form_requests (id, form_id, form_version_id, client_id, workspace_id, status, scheduled_at, post_action)
+                         VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $7)`,
+                        [requestId, f.formId, versionId, plan.client_id, coachId, plan.cycle_end_at, postAction]
                     );
                     await dbClient.query(
                         `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, next_due_at, source_plan_type, source_plan_id, form_request_id)
@@ -730,10 +774,11 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 }
             }
 
-            return plan;
+            return { plan, autoReviewedRequestIds };
         });
 
-        if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
+        if (!activation?.plan) return res.status(404).json({ error: 'Plan not found' });
+        const { plan: updatedPlan, autoReviewedRequestIds } = activation;
 
         // A restart is the same plan renewing its duration clock, not a new
         // assignment -- fire the distinct restart event instead so the
@@ -761,7 +806,24 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             });
         }
 
-        res.json(updatedPlan);
+        // A pending nutrition submission for this client is satisfied the
+        // moment this plan goes active -- see the guarded UPDATE inside
+        // activateSinglePlan (lib/planEngine.ts) for why this fires
+        // regardless of whether the coach arrived here via the Plans Queue
+        // (with a submissionId) or created/activated the plan directly from
+        // the client's own page. Distinct event type from 'checkin.reviewed'
+        // since this wasn't a deliberate queue-review click.
+        await Promise.all(autoReviewedRequestIds.map((id) => recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'checkin.auto_reviewed',
+            importance:  'info',
+            title:       'Your coach reviewed your check-in',
+            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'form_request', id },
+        })));
+
+        res.json({ ...updatedPlan, autoReviewedSubmissionIds: autoReviewedRequestIds });
     } catch (err) { next(err); }
 }
 
@@ -781,8 +843,8 @@ export async function duplicatePlan(req: Request, res: Response, next: NextFunct
         const plan = originalPlan.rows[0] as Row;
 
         const newPlan = await dbClient.query(
-            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [`Copy of ${plan.name}`, plan.client_id, req.user!.workspaceId, plan.status, createId()]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status, id, created_by, last_edited_by) VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING *',
+            [`Copy of ${plan.name}`, plan.client_id, req.user!.workspaceId, plan.status, createId(), req.user!.userId]
         );
         const newPlanId = (newPlan.rows[0] as Row).id as string;
 
@@ -898,7 +960,7 @@ export async function duplicateCycle(req: Request, res: Response, next: NextFunc
             }
         }
 
-        await dbClient.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [cycle.plan_id]);
+        await touchPlan(dbClient, cycle.plan_id as string, req.user!.userId);
         await dbClient.query('COMMIT');
 
         const fullMeals = await pool.query(
@@ -951,7 +1013,7 @@ export async function createCycle(req: Request, res: Response, next: NextFunctio
             'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
             [planId, name, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
-        await pool.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [planId]);
+        await touchPlan(pool, planId as string, req.user!.userId);
         res.status(201).json(cycleResult.rows[0]);
     } catch (err) { next(err); }
 }
@@ -968,6 +1030,7 @@ export async function updateCycle(req: Request, res: Response, next: NextFunctio
             [name, req.params.id, note ?? null, goal_calories ?? null, goal_protein ?? null, goal_carbs ?? null, goal_fats ?? null]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Cycle not found' });
+        await touchPlan(pool, (result.rows[0] as Row).plan_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -976,7 +1039,7 @@ export async function deleteCycle(req: Request, res: Response, next: NextFunctio
     try {
         const result = await pool.query('DELETE FROM nutrition_cycles WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Cycle not found' });
-        await pool.query('UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1', [(result.rows[0] as Row).plan_id]);
+        await touchPlan(pool, (result.rows[0] as Row).plan_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1023,10 +1086,7 @@ export async function duplicateMeal(req: Request, res: Response, next: NextFunct
             }
         }
 
-        await dbClient.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
-            [meal.cycle_id]
-        );
+        await touchPlanByCycle(dbClient, meal.cycle_id as string, req.user!.userId);
         await dbClient.query('COMMIT');
 
         const itemsRes = await pool.query(
@@ -1071,9 +1131,7 @@ export async function createMeal(req: Request, res: Response, next: NextFunction
             'INSERT INTO nutrition_meals (cycle_id, name, meal_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
             [cycleId, name, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)', [cycleId]
-        );
+        await touchPlanByCycle(pool, cycleId as string, req.user!.userId);
         res.status(201).json(mealResult.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1086,10 +1144,7 @@ export async function updateMeal(req: Request, res: Response, next: NextFunction
             [name, req.params.id, note ?? null]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Meal not found' });
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
-            [(result.rows[0] as Row).cycle_id]
-        );
+        await touchPlanByCycle(pool, (result.rows[0] as Row).cycle_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1098,10 +1153,7 @@ export async function deleteMeal(req: Request, res: Response, next: NextFunction
     try {
         const result = await pool.query('DELETE FROM nutrition_meals WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Meal not found' });
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
-            [(result.rows[0] as Row).cycle_id]
-        );
+        await touchPlanByCycle(pool, (result.rows[0] as Row).cycle_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1118,10 +1170,7 @@ export async function createMealItem(req: Request, res: Response, next: NextFunc
             'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
             [mealId, foodItemId, amount, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
-            [mealId]
-        );
+        await touchPlanByMeal(pool, mealId as string, req.user!.userId);
         const itemDetailsResult = await pool.query(
             `SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order,
                     fi.serving_unit, fi.name_en AS name, fi.name_ar, fi.calories_per_serving,
@@ -1143,6 +1192,9 @@ export async function reorderMealItems(req: Request, res: Response, next: NextFu
                 pool.query('UPDATE nutrition_meal_items SET meal_item_order = $1 WHERE id = $2', [item.order, item.id])
             )
         );
+        if (items && items.length > 0) {
+            await touchPlanByMealItem(pool, items[0].id, req.user!.userId);
+        }
         res.json({ success: true });
     } catch (err) { next(err); }
 }
@@ -1150,8 +1202,21 @@ export async function reorderMealItems(req: Request, res: Response, next: NextFu
 export async function updateMealItem(req: Request, res: Response, next: NextFunction) {
     const { amount } = req.body as { amount?: unknown };
     try {
+        // A direct coach edit always reasserts the coach's prescription and ends
+        // any client food swap on this item — falls back to the pre-swap food,
+        // then clears the swap columns. A no-op when the item was never swapped.
         const result = await pool.query(
-            'UPDATE nutrition_meal_items SET amount = $1 WHERE id = $2 RETURNING *', [amount, req.params.id]
+            `UPDATE nutrition_meal_items
+             SET amount = $1,
+                 food_item_id = COALESCE(original_food_item_id, food_item_id),
+                 is_swapped = FALSE,
+                 original_food_item_id = NULL,
+                 original_amount = NULL,
+                 swapped_at = NULL,
+                 swapped_by_client_id = NULL
+             WHERE id = $2
+             RETURNING *`,
+            [amount, req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Meal item not found' });
         const itemDetailsResult = await pool.query(
@@ -1163,10 +1228,7 @@ export async function updateMealItem(req: Request, res: Response, next: NextFunc
              WHERE nmi.id = $1`,
             [(result.rows[0] as Row).id]
         );
-        await pool.query(
-            'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
-            [(result.rows[0] as Row).meal_id]
-        );
+        await touchPlanByMeal(pool, (result.rows[0] as Row).meal_id as string, req.user!.userId);
         res.json(itemDetailsResult.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1175,6 +1237,7 @@ export async function deleteMealItem(req: Request, res: Response, next: NextFunc
     try {
         const result = await pool.query('DELETE FROM nutrition_meal_items WHERE id = $1 RETURNING *', [req.params.id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Meal item not found' });
+        await touchPlanByMeal(pool, (result.rows[0] as Row).meal_id as string, req.user!.userId);
         res.json(result.rows[0]);
     } catch (err) { next(err); }
 }
@@ -1208,6 +1271,8 @@ export async function createMealItemAlternative(req: Request, res: Response, nex
             [mealItemId, foodItemId, amount, (nextOrderResult.rows[0] as Row).next_order, createId()]
         );
 
+        await touchPlanByMealItem(pool, mealItemId, req.user!.userId);
+
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
@@ -1228,6 +1293,7 @@ export async function updateMealItemAlternative(req: Request, res: Response, nex
             'UPDATE nutrition_meal_item_alternatives SET amount = $1 WHERE id = $2 RETURNING *', [amount, req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
+        await touchPlanByMealItem(pool, (result.rows[0] as Row).meal_item_id as string, req.user!.userId);
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
@@ -1247,6 +1313,32 @@ export async function deleteMealItemAlternative(req: Request, res: Response, nex
             'DELETE FROM nutrition_meal_item_alternatives WHERE id = $1 RETURNING *', [req.params.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Alternative not found' });
+        await touchPlanByMealItem(pool, (result.rows[0] as Row).meal_item_id as string, req.user!.userId);
         res.json(result.rows[0]);
+    } catch (err) { next(err); }
+}
+
+// Client food-swap audit trail, for support — read-only, workspace-scoped so
+// a coach can only see swap history for their own workspace's meal items.
+export async function getMealItemSwapHistory(req: Request, res: Response, next: NextFunction) {
+    try {
+        const result = await pool.query(
+            `SELECT h.id, h.from_food_item_id, h.to_food_item_id, h.from_amount, h.to_amount,
+                    h.action, h.created_at,
+                    ff.name_en AS from_food_name, tf.name_en AS to_food_name,
+                    TRIM(CONCAT(c.fname, ' ', c.lname)) AS client_name
+             FROM food_swap_history h
+             JOIN nutrition_meal_items nmi ON nmi.id = h.meal_item_id
+             JOIN nutrition_meals nm ON nm.id = nmi.meal_id
+             JOIN nutrition_cycles nc ON nc.id = nm.cycle_id
+             JOIN nutrition_plans np ON np.id = nc.plan_id
+             LEFT JOIN food_items ff ON ff.id = h.from_food_item_id
+             LEFT JOIN food_items tf ON tf.id = h.to_food_item_id
+             LEFT JOIN clients c ON c.id = h.client_id
+             WHERE h.meal_item_id = $1 AND np.workspace_id = $2
+             ORDER BY h.created_at DESC`,
+            [req.params.id, req.user!.workspaceId]
+        );
+        res.json(result.rows);
     } catch (err) { next(err); }
 }

@@ -33,6 +33,11 @@ export const env = {
     // Dev default is 'localhost' so *.localhost subdomains pass CORS; production sets fitforce.app.
     ROOT_DOMAIN:          process.env.ROOT_DOMAIN ?? 'localhost',
 
+    // Additional root domain(s) still allowed to call the API during a domain migration
+    // (comma-separated, e.g. 'fitforce.io'). Empty by default. Drop once the old domain
+    // is confirmed to have no live traffic.
+    LEGACY_ROOT_DOMAINS:  (process.env.LEGACY_ROOT_DOMAINS ?? '').split(',').filter(Boolean),
+
     // Cookie domain — set to '.fitforce.app' in production so the auth cookie is shared
     // across my., admin., and all slug. subdomains. Empty string = host-only (dev default).
     COOKIE_DOMAIN:        process.env.COOKIE_DOMAIN ?? '',
@@ -53,10 +58,39 @@ export const env = {
     S3_BUCKET:            process.env.S3_BUCKET ?? '',
     S3_PUBLIC_URL:        process.env.S3_PUBLIC_URL ?? '',
 
-    // Payments (Fawaterak)
-    FAWATERAK_API_KEY:    process.env.FAWATERAK_API_KEY ?? '',
-    FAWATERAK_BASE_URL:   process.env.FAWATERAK_BASE_URL ?? '',
-    FAWATERAK_SECRET_KEY: process.env.FAWATERAK_SECRET_KEY ?? '',
+    // Payments (Paymob Accept API) — all optional at startup (no hard requireEnv) since
+    // checkout is the only thing that needs them; an unconfigured deploy should still boot
+    // and serve everything else. Left blank, gateway calls fail with a clean user-facing
+    // error rather than a startup crash.
+    PAYMOB_API_KEY:               process.env.PAYMOB_API_KEY ?? '',
+    PAYMOB_INTEGRATION_ID_CARD:   process.env.PAYMOB_INTEGRATION_ID_CARD ?? '',
+    PAYMOB_INTEGRATION_ID_WALLET: process.env.PAYMOB_INTEGRATION_ID_WALLET ?? '',
+    PAYMOB_INTEGRATION_ID_FAWRY:  process.env.PAYMOB_INTEGRATION_ID_FAWRY ?? '',
+    PAYMOB_IFRAME_ID:             process.env.PAYMOB_IFRAME_ID ?? '',
+    PAYMOB_HMAC_SECRET:           process.env.PAYMOB_HMAC_SECRET ?? '',
+    PAYMOB_BASE_URL:              process.env.PAYMOB_BASE_URL ?? 'https://accept.paymob.com',
+
+    // Manual-transfer payment method — InstaPay/mobile wallet paid outside any gateway,
+    // verified by an admin over WhatsApp within 24h (see billing.controller.ts's 'manual'
+    // branch). All contact/account info a coach needs is shown from these — no admin-panel
+    // settings UI for them yet; change here + redeploy if a number changes.
+    INSTAPAY_HANDLE:                  process.env.INSTAPAY_HANDLE ?? '',
+    WALLET_VODAFONE_CASH:             process.env.WALLET_VODAFONE_CASH ?? '',
+    WALLET_ETISALAT_CASH:             process.env.WALLET_ETISALAT_CASH ?? '',
+    WALLET_ORANGE_CASH:               process.env.WALLET_ORANGE_CASH ?? '',
+    WALLET_WE_PAY:                    process.env.WALLET_WE_PAY ?? '',
+    MANUAL_PAYMENT_BENEFICIARY_NAME:  process.env.MANUAL_PAYMENT_BENEFICIARY_NAME ?? '',
+    // Same number LandingWhatsAppButton.js already hardcodes for general contact — kept as
+    // its own env var (not read by the client) since payment-proof messages are built
+    // server-side with plan/amount/reference details baked into the pre-filled text.
+    WHATSAPP_VERIFICATION_NUMBER:     process.env.WHATSAPP_VERIFICATION_NUMBER ?? '201501233314',
+
+    // Meta / Facebook Conversions API — same pixel ID as the client's
+    // NEXT_PUBLIC_META_PIXEL_ID. Left blank, sendMetaEvent() no-ops everywhere.
+    META_PIXEL_ID:                process.env.META_PIXEL_ID ?? '',
+    META_CONVERSIONS_API_TOKEN:   process.env.META_CONVERSIONS_API_TOKEN ?? '',
+    // Set only while testing in Meta's Events Manager "Test Events" tab.
+    META_TEST_EVENT_CODE:         process.env.META_TEST_EVENT_CODE ?? '',
 
     // Meta / Facebook Conversions API — same pixel ID as the client's
     // NEXT_PUBLIC_META_PIXEL_ID. Left blank, sendMetaEvent() no-ops everywhere.

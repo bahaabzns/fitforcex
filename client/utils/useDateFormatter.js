@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useLocale } from "next-intl";
-import { formatDate as formatDateRaw, formatDateTime as formatDateTimeRaw } from "./date";
+import { formatDate as formatDateRaw, formatDateTime as formatDateTimeRaw, formatFullDateTime as formatFullDateTimeRaw } from "./date";
 
 /**
  * Binds the shared date formatters ([date.js](./date.js)) to the app's current
@@ -10,7 +10,7 @@ import { formatDate as formatDateRaw, formatDateTime as formatDateTimeRaw } from
  * without threading the locale through every call. Output switches between
  * English and Arabic automatically when the active locale changes.
  *
- * @returns {{ formatDate: (value: any) => string, formatDateTime: (value: any) => string }}
+ * @returns {{ formatDate: (value: any) => string, formatDateTime: (value: any) => string, formatFullDateTime: (value: any) => string }}
  */
 export function useDateFormatter() {
     const locale = useLocale();
@@ -18,6 +18,7 @@ export function useDateFormatter() {
         () => ({
             formatDate: (value) => formatDateRaw(value, locale),
             formatDateTime: (value) => formatDateTimeRaw(value, locale),
+            formatFullDateTime: (value) => formatFullDateTimeRaw(value, locale),
         }),
         [locale],
     );
