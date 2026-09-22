@@ -85,6 +85,13 @@ export const env = {
     // server-side with plan/amount/reference details baked into the pre-filled text.
     WHATSAPP_VERIFICATION_NUMBER:     process.env.WHATSAPP_VERIFICATION_NUMBER ?? '201501233314',
 
+    // Meta / Facebook Conversions API — same pixel ID as the client's
+    // NEXT_PUBLIC_META_PIXEL_ID. Left blank, sendMetaEvent() no-ops everywhere.
+    META_PIXEL_ID:                process.env.META_PIXEL_ID ?? '',
+    META_CONVERSIONS_API_TOKEN:   process.env.META_CONVERSIONS_API_TOKEN ?? '',
+    // Set only while testing in Meta's Events Manager "Test Events" tab.
+    META_TEST_EVENT_CODE:         process.env.META_TEST_EVENT_CODE ?? '',
+
     // Observability
     SENTRY_DSN:           process.env.SENTRY_DSN ?? '',
 } as const;

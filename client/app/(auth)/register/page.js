@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
+import { trackPixelEvent } from "@/lib/metaPixel";
 import { redirectToDashboard, redirectToWorkspace } from "@/lib/coachSlug";
 import { useTranslations, useLocale } from "next-intl";
 import { pickLocalized } from "@/lib/utils";
@@ -185,6 +186,9 @@ export default function RegisterPage() {
 
         setLoading(true);
         const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
+        // Shared with the server so it can fire the same CompleteRegistration event
+        // (Meta dedups the browser + server copies on a matching event_id).
+        const metaEventId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
         try {
             const res = await api.post('/api/auth/register', {
                 fname: formData.fname,
@@ -192,9 +196,11 @@ export default function RegisterPage() {
                 email: formData.email,
                 password: formData.password,
                 phone,
+                metaEventId,
             });
             const slug = res.data?.workspace_slug;
             if (!slug) { router.push('/login'); return; }
+            trackPixelEvent('CompleteRegistration', {}, metaEventId);
             redirectToWorkspace(slug, 'dashboard?welcome=1');
         } catch (err) {
             setError(err.response?.data?.message || t('registrationFailed'));
@@ -209,6 +215,9 @@ export default function RegisterPage() {
     async function handleCheckout() {
         setPaying(true);
         setPayError('');
+        // Shared with the server so it can fire the same CompleteRegistration event
+        // (Meta dedups the browser + server copies on a matching event_id).
+        const metaEventId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
         try {
             const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
             const registerRes = await api.post('/api/auth/register', {
@@ -217,6 +226,7 @@ export default function RegisterPage() {
                 email: formData.email,
                 password: formData.password,
                 phone,
+                metaEventId,
             });
             const slug = registerRes.data?.workspace_slug;
             if (!slug) {
@@ -224,6 +234,7 @@ export default function RegisterPage() {
                 return;
             }
             setRegistered({ slug });
+            trackPixelEvent('CompleteRegistration', {}, metaEventId);
 
             const invoiceRes = await api.post('/api/billing/create-invoice', {
                 planId: plan.id,

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { Prisma } from '@prisma/client';
 import * as paymob from '../../lib/paymob';
+import { sendMetaEvent } from '../../lib/metaConversions';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import pool from '../../db';
@@ -557,6 +558,7 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
     // have no startDate concept of their own). Self-serve (webhook/callback/poll) passes neither.
     const actorType: 'admin' | 'coach' = (startDate || actorLabel) ? 'admin' : 'coach';
     const dbClient = await pool.connect();
+    let activatedPayment: { amount: number; currency: string } | null = null;
     try {
         await dbClient.query('BEGIN');
 
@@ -675,11 +677,42 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
         }
 
         await dbClient.query('COMMIT');
+        activatedPayment = { amount: Number(payment.amount), currency: String(payment.currency) };
     } catch (err) {
         await dbClient.query('ROLLBACK');
         throw err;
     } finally {
         dbClient.release();
+    }
+
+    // Purchase fires from this single choke point regardless of which path activated the
+    // payment (Paymob webhook/callback, self-serve poll, or an admin's manual confirmation —
+    // manual transfer is the only method actually live today, see createInvoice above) so it's
+    // never missed just because the gateway integration isn't finished. Guarded above by the
+    // paid_at check, so it fires exactly once. Best-effort — never blocks payment confirmation.
+    if (activatedPayment) {
+        void notifyMetaPurchase(workspaceId, paymentId, activatedPayment.amount, activatedPayment.currency);
+    }
+}
+
+async function notifyMetaPurchase(workspaceId: string, paymentId: string, amount: number, currency: string): Promise<void> {
+    try {
+        const workspace = await prisma.workspaces.findUnique({
+            where:  { id: workspaceId },
+            select: { users_workspaces_owner_idTousers: { select: { email: true, phone: true } } },
+        });
+        const owner = workspace?.users_workspaces_owner_idTousers;
+
+        await sendMetaEvent({
+            eventName:    'Purchase',
+            eventId:      paymentId,
+            actionSource: 'system_generated',
+            email:        owner?.email,
+            phone:        owner?.phone,
+            customData:   { value: amount, currency },
+        });
+    } catch (err) {
+        console.error('[MetaConversions] Failed to look up owner for Purchase event', (err as Error).message);
     }
 }
 
