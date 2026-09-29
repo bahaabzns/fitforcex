@@ -286,7 +286,13 @@ function WorkspaceContent({ children }) {
                         </div>
                     </header>
                 )}
-                <main className="flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
+                {/* relative: without a positioned ancestor, position:absolute descendants
+                    with no explicit top/left (react-aria's visually-hidden a11y spans,
+                    e.g. one per selectable-table row) fall back to their position in the
+                    document's full unclipped flow — inflating documentElement.scrollHeight
+                    and producing a second, outer page scrollbar alongside this one, even
+                    though they're invisible and properly clipped for paint. */}
+                <main className="relative flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
                     {children}
                 </main>
             </div>

@@ -108,7 +108,11 @@ export default function AdminLayout({ children }) {
             </aside>
 
             {/* Main */}
-            <main className="flex-1 overflow-y-auto">
+            {/* relative: see the matching comment in (coach)/layout.js — without a
+                positioned ancestor, react-aria's visually-hidden a11y spans (e.g. one
+                per selectable-table row) leak into documentElement.scrollHeight and
+                produce a second, outer page scrollbar alongside this one. */}
+            <main className="relative flex-1 overflow-y-auto">
                 {children}
             </main>
         </div>
