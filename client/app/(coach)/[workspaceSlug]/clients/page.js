@@ -1146,6 +1146,7 @@ export default function ClientsPage() {
                 dateParser={(str) => new Date(str)}
                 rowClassName={(row) => (row.isArchived ? "opacity-50" : "")}
                 selectable
+                mobileListView
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
                 onFilteredDataChange={setFilteredClients}

@@ -17,6 +17,8 @@ import { Description } from "@heroui/react/description";
 import { parseDate } from "@internationalized/date";
 import { useTranslations, useLocale } from "next-intl";
 import EmptyState from "./EmptyState";
+import Modal, { ModalFooter } from "./Modal";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 // ============================================================
 // DataTable — Reusable filterable/sortable table using HeroUI
@@ -36,6 +38,13 @@ import EmptyState from "./EmptyState";
 //   emptyState — first-time (no data at all) config: { icon, title, description, action }.
 //                action = { label, onPress, icon }. Omit for tables the user can't
 //                populate themselves. Search/filter empties are handled automatically.
+//   mobileListView — opt-in (default false, zero change for existing callers): below
+//                `lg`, renders compact divided list rows instead of cards (no card
+//                borders, no "+N more" — secondary columns show inline), the Filter
+//                button opens a full modal instead of the dropdown, and an extra
+//                mobile-only toolbar row adds a sort control + "select all on this
+//                page" checkbox to replace what the desktop table's column headers
+//                and header checkbox provide.
 
 // Action columns use either key convention across the app. They get no visible
 // header and their buttons sit flush-right, revealed on row hover.
@@ -147,6 +156,23 @@ function renderFilterFields(col, value, onChange) {
     return null;
 }
 
+// One column's filter field, labeled, for the mobileListView filter modal —
+// unlike the desktop dropdown's two-level "pick a column, then see its field"
+// nav (cramped by design, see the dropdown below), the modal has room to show
+// every filterable column's field at once, so this reads straight off
+// filterRules/upsertFilter the same way PinnedFilterButton does.
+function FilterModalField({ col, filterRules, upsertFilter }) {
+    const existingRule = filterRules.find(r => r.colKey === col.key);
+    const defaultValue = col.filterType === "multi" ? [] : col.filterType === "dateRange" ? { from: "", to: "" } : "";
+    const value = existingRule?.value ?? defaultValue;
+    return (
+        <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">{col.label}</span>
+            {renderFilterFields(col, value, (next) => upsertFilter(col.key, next))}
+        </div>
+    );
+}
+
 // A single-column filter, pinned into the toolbar next to "Other Filters" so
 // it's reachable in one click instead of two. Reads/writes straight from the
 // shared filterRules (via upsertFilter) — no local draft state needed since,
@@ -225,12 +251,18 @@ export default function DataTable({
     // all timing/sequencing and is responsible for actually dropping the row
     // from `data` once the exit transition has had time to finish.
     rowTransition,
+    mobileListView,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
     const isRtl = locale === 'ar';
     // RTL mode swaps which corners are rounded; this must match HeroUI's own table radius or the border visually misaligns
     const CORNER_RADIUS = 'var(--radius-2xl)';
+    // Matches the lg breakpoint the table/card(-list) split itself uses below —
+    // decides whether the Filter button opens the desktop dropdown or (mobileListView
+    // only) the mobile modal. Defaults false until mount (see useMediaQuery), which is
+    // fine here since nothing can be clicked before hydration anyway.
+    const isMobile = useMediaQuery("(max-width: 1023px)");
 
     // ── Persisted view state (opt-in via persistKey) ────────────
     // Read once via useState's lazy initializer (not a ref read during
@@ -268,6 +300,11 @@ export default function DataTable({
     const [addFilterOpen, setAddFilterOpen] = useState(false);
     const [pendingColKey, setPendingColKey] = useState(null);
     const [pendingValue, setPendingValue]   = useState(null);
+    // mobileListView only — the mobile equivalent of addFilterOpen's dropdown.
+    const [filterModalOpen, setFilterModalOpen] = useState(false);
+    // mobileListView only — the mobile sort control's dropdown, styled and
+    // behaved the same way as the Filter button's own dropdown below.
+    const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
     useEffect(() => {
         if (!pendingColKey) { setPendingValue(null); return; }
@@ -411,6 +448,23 @@ export default function DataTable({
     const safePage     = Math.min(currentPage, totalPages);
     const paginatedData = sortedData.slice((safePage - 1) * pageSize, safePage * pageSize);
 
+    // mobileListView only — the list's stand-in for the desktop table's header
+    // checkbox, which HeroUI's Table wires to "select all rows on this page" for
+    // free. Scoped to paginatedData (this page), same as that header checkbox —
+    // "select all filtered across every page" is a separate, page-level control
+    // already in this app's bulk ActionBar, not this component's job.
+    const allOnPageSelected  = !!selectable && paginatedData.length > 0 && paginatedData.every(row => selectedKeys?.has(row[rowKey]));
+    const someOnPageSelected = !!selectable && paginatedData.some(row => selectedKeys?.has(row[rowKey]));
+    function toggleSelectAllOnPage() {
+        if (!onSelectionChange) return;
+        const next = new Set(selectedKeys);
+        paginatedData.forEach(row => {
+            if (allOnPageSelected) next.delete(row[rowKey]);
+            else next.add(row[rowKey]);
+        });
+        onSelectionChange(next);
+    }
+
     useEffect(() => {
         if (!persistKey || typeof window === "undefined") return;
         sessionStorage.setItem(`datatable:${persistKey}`, JSON.stringify({
@@ -550,7 +604,10 @@ export default function DataTable({
                             <Button
                                 size="sm"
                                 variant="secondary"
-                                onClick={() => setAddFilterOpen(v => !v)}
+                                onClick={() => {
+                                    if (mobileListView && isMobile) setFilterModalOpen(true);
+                                    else setAddFilterOpen(v => !v);
+                                }}
                             >
                                 <ListFilter size={14} />
                                 {filterButtonLabel ?? t('filterButton')}
@@ -619,6 +676,30 @@ export default function DataTable({
                 </div>
             )}
 
+            {/* mobileListView only — the mobile stand-in for the desktop dropdown above,
+                same columns/values/upsertFilter, just laid out with room to show every
+                field at once instead of one-at-a-time. */}
+            {mobileListView && (
+                <Modal
+                    open={filterModalOpen}
+                    onClose={() => setFilterModalOpen(false)}
+                    title={filterButtonLabel ?? t('filterButton')}
+                    footer={
+                        <ModalFooter>
+                            {hasActiveFilters && (
+                                <Button variant="ghost" onClick={() => setFilterRules([])}>{t('clearAll')}</Button>
+                            )}
+                            <Button variant="primary" onClick={() => setFilterModalOpen(false)}>{t('done')}</Button>
+                        </ModalFooter>
+                    }
+                >
+                    <div className="flex flex-col gap-4">
+                        {columns.filter(c => c.filterType && !c.pinned).map(col => (
+                            <FilterModalField key={col.key} col={col} filterRules={filterRules} upsertFilter={upsertFilter} />
+                        ))}
+                    </div>
+                </Modal>
+            )}
 
             {/* ── Desktop: HeroUI Table ──
                  lg (1024px), not md (768px) — matches the app's one other
@@ -930,84 +1011,199 @@ export default function DataTable({
                 </div>
             </div>
 
-            {/* ── Mobile cards ── (see the lg: note above) */}
-            <div className="lg:hidden mt-4 flex flex-col gap-3">
-                {paginatedData.map(row => {
-                    const key       = row[rowKey];
-                    const isExpanded = expandedCards.has(key);
-                    const isSelected = selectable && selectedKeys?.has(key);
-
-                    return (
-                        <div
-                            key={key}
-                            className={`bg-card border rounded-xl p-4 transition-colors ${
-                                isSelected ? "border-primary/40 bg-primary/5" : "border-border"
-                            } ${rowClassName ? rowClassName(row) : ""}`}
-                        >
-                            <div className="flex items-start gap-3">
-                                {selectable && (
-                                    // The visual control is 16px (HeroUI's .checkbox), well under a
-                                    // usable touch target — this wrapper pads the hit area out to
-                                    // ~44px without changing how the checkbox looks or where it sits.
-                                    <div className="-m-3.5 p-3.5 shrink-0 flex items-start">
+            {/* ── Mobile: list (mobileListView) or cards (default) ── (see the lg: note above) */}
+            <div className="lg:hidden mt-4">
+                {mobileListView ? (
+                    <>
+                        {/* Select-all-on-page + sort — the list row's stand-in for the desktop
+                            table's header checkbox and sortable column headers. */}
+                        {(selectable || visibleColumns.some(c => c.sortable)) && (
+                            <div className="flex items-center justify-between gap-2 pb-3 border-b border-border">
+                                {selectable ? (
+                                    <label className="flex items-center gap-2 text-sm text-muted-foreground select-none cursor-pointer -m-2 p-2">
                                         <Checkbox
-                                            isSelected={isSelected || false}
-                                            onChange={() => {
-                                                if (!onSelectionChange) return;
-                                                const next = new Set(selectedKeys);
-                                                if (next.has(key)) next.delete(key); else next.add(key);
-                                                onSelectionChange(next);
-                                            }}
-                                            aria-label={`Select row ${key}`}
-                                            className="mt-1"
+                                            isSelected={allOnPageSelected}
+                                            isIndeterminate={!allOnPageSelected && someOnPageSelected}
+                                            onChange={toggleSelectAllOnPage}
+                                            aria-label={t('selectAll')}
                                         >
                                             <Checkbox.Control>
                                                 <Checkbox.Indicator />
                                             </Checkbox.Control>
                                         </Checkbox>
+                                        {t('selectAll')}
+                                    </label>
+                                ) : <span />}
+
+                                {visibleColumns.some(c => c.sortable) && (
+                                    <div className="relative">
+                                        {sortMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setSortMenuOpen(false)} />}
+                                        {/* Same Button size/variant as the Filter button above, so the two
+                                            controls in this row read as one matched pair. */}
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => setSortMenuOpen(v => !v)}
+                                        >
+                                            {sortKey
+                                                ? (sortDirection === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />)
+                                                : <ChevronsUpDown size={14} />}
+                                            {sortKey ? visibleColumns.find(c => c.key === sortKey)?.label : t('sortBy')}
+                                        </Button>
+                                        {sortMenuOpen && (
+                                            <div className="absolute z-50 top-full end-0 mt-1 bg-card border border-border rounded-xl shadow-md p-1 flex flex-col gap-0.5 min-w-40">
+                                                {visibleColumns.filter(c => c.sortable).map(col => (
+                                                    <button
+                                                        key={col.key}
+                                                        className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between gap-2 ${sortKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                                        onClick={() => handleSortChange({ column: col.key })}
+                                                    >
+                                                        {col.label}
+                                                        {sortKey === col.key && (sortDirection === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                                <div className="flex-1 min-w-0">
-                                    {primaryCols.map(col => (
-                                        <div key={col.key} className="flex items-baseline gap-2 mb-1.5 last:mb-0">
-                                            <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
-                                            <span className="text-sm text-foreground truncate">
-                                                {col.render ? col.render(row) : row[col.key]}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
+                        )}
 
-                            {isExpanded && secondaryCols.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
-                                    {secondaryCols.map(col => (
-                                        <div key={col.key} className="flex items-baseline gap-2">
-                                            <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
-                                            <span className="text-sm text-foreground">
-                                                {col.render ? col.render(row) : row[col.key]}
-                                            </span>
+                        <div className="flex flex-col divide-y divide-border">
+                            {paginatedData.map(row => {
+                                const key        = row[rowKey];
+                                const isSelected = selectable && selectedKeys?.has(key);
+
+                                return (
+                                    <div
+                                        key={key}
+                                        className={`flex items-start gap-3 py-3 transition-colors ${isSelected ? "bg-primary/5" : ""} ${rowClassName ? rowClassName(row) : ""}`}
+                                    >
+                                        {selectable && (
+                                            <div className="-m-3.5 p-3.5 shrink-0 flex items-start">
+                                                <Checkbox
+                                                    isSelected={isSelected || false}
+                                                    onChange={() => {
+                                                        if (!onSelectionChange) return;
+                                                        const next = new Set(selectedKeys);
+                                                        if (next.has(key)) next.delete(key); else next.add(key);
+                                                        onSelectionChange(next);
+                                                    }}
+                                                    aria-label={`Select row ${key}`}
+                                                    className="mt-1"
+                                                >
+                                                    <Checkbox.Control>
+                                                        <Checkbox.Indicator />
+                                                    </Checkbox.Control>
+                                                </Checkbox>
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            {primaryCols.map(col => (
+                                                <div key={col.key} className="flex items-baseline gap-2 mb-1 last:mb-0">
+                                                    <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
+                                                    <span className="text-sm text-foreground truncate">
+                                                        {col.render ? col.render(row) : row[col.key]}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {secondaryCols.length > 0 && (
+                                                <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                                                    {secondaryCols.map(col => (
+                                                        <span key={col.key} className="text-xs text-muted-foreground">
+                                                            <span className="font-medium">{col.label}:</span>{" "}
+                                                            <span className="text-foreground">{col.render ? col.render(row) : row[col.key]}</span>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {secondaryCols.length > 0 && (
-                                <Button
-                                    onClick={() => toggleCard(key)}
-                                    className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                                >
-                                    <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                    {isExpanded ? t('showLess') : t('showMore', { count: secondaryCols.length })}
-                                </Button>
-                            )}
-
-                            {renderMobileExpanded && renderMobileExpanded(row)}
+                                        {renderMobileExpanded && renderMobileExpanded(row)}
+                                    </div>
+                                );
+                            })}
                         </div>
-                    );
-                })}
+                    </>
+                ) : (
+                    <div className="flex flex-col gap-3">
+                        {paginatedData.map(row => {
+                            const key       = row[rowKey];
+                            const isExpanded = expandedCards.has(key);
+                            const isSelected = selectable && selectedKeys?.has(key);
+
+                            return (
+                                <div
+                                    key={key}
+                                    className={`bg-card border rounded-xl p-4 transition-colors ${
+                                        isSelected ? "border-primary/40 bg-primary/5" : "border-border"
+                                    } ${rowClassName ? rowClassName(row) : ""}`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        {selectable && (
+                                            // The visual control is 16px (HeroUI's .checkbox), well under a
+                                            // usable touch target — this wrapper pads the hit area out to
+                                            // ~44px without changing how the checkbox looks or where it sits.
+                                            <div className="-m-3.5 p-3.5 shrink-0 flex items-start">
+                                                <Checkbox
+                                                    isSelected={isSelected || false}
+                                                    onChange={() => {
+                                                        if (!onSelectionChange) return;
+                                                        const next = new Set(selectedKeys);
+                                                        if (next.has(key)) next.delete(key); else next.add(key);
+                                                        onSelectionChange(next);
+                                                    }}
+                                                    aria-label={`Select row ${key}`}
+                                                    className="mt-1"
+                                                >
+                                                    <Checkbox.Control>
+                                                        <Checkbox.Indicator />
+                                                    </Checkbox.Control>
+                                                </Checkbox>
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            {primaryCols.map(col => (
+                                                <div key={col.key} className="flex items-baseline gap-2 mb-1.5 last:mb-0">
+                                                    <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
+                                                    <span className="text-sm text-foreground truncate">
+                                                        {col.render ? col.render(row) : row[col.key]}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {isExpanded && secondaryCols.length > 0 && (
+                                        <div className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
+                                            {secondaryCols.map(col => (
+                                                <div key={col.key} className="flex items-baseline gap-2">
+                                                    <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
+                                                    <span className="text-sm text-foreground">
+                                                        {col.render ? col.render(row) : row[col.key]}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {secondaryCols.length > 0 && (
+                                        <Button
+                                            onClick={() => toggleCard(key)}
+                                            className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                                        >
+                                            <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                            {isExpanded ? t('showLess') : t('showMore', { count: secondaryCols.length })}
+                                        </Button>
+                                    )}
+
+                                    {renderMobileExpanded && renderMobileExpanded(row)}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             {/* ── Mobile/tablet pagination — the desktop footer above (with the
