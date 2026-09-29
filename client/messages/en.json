@@ -2877,5 +2877,10 @@
       "thanks": "Thanks for the feedback!",
       "optionalNote": "Add a note (optional)"
     }
+  },
+  "tutorials": {
+    "watchTutorial": "Watch tutorial",
+    "modalDefaultTitle": "Tutorial",
+    "watchOnYoutube": "Watch on YouTube"
   }
 }

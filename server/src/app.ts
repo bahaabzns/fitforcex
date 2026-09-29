@@ -53,6 +53,7 @@ import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 import metricsRouter from './modules/metrics/index';
 import insightsRouter from './modules/insights/index';
 import pdfExportRouter from './modules/pdfExport/index';
+import tutorialsRouter from './modules/tutorials/index';
 
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
@@ -145,6 +146,7 @@ app.use('/api/notifications',  apiLimiter, notificationsRouter);
 app.use('/api/metrics',        apiLimiter, metricsRouter);
 app.use('/api/insights',       apiLimiter, insightsRouter);
 app.use('/api/pdf-export',     apiLimiter, pdfExportRouter);
+app.use('/api/tutorials',      apiLimiter, tutorialsRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

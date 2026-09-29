@@ -4,6 +4,7 @@ import { loginLimiter } from '../../middleware/rateLimit';
 import * as adminController from './admin.controller';
 import * as libraryController from './defaultLibraries.controller';
 import * as templateController from './adminFormTemplates.controller';
+import * as tutorialsController from './tutorials.controller';
 import insightsAdminRouter from '../insights/insightsAdmin.routes';
 
 const router = Router();
@@ -640,5 +641,51 @@ router.put('/forms-templates/:id/questions/reorder',    adminAuthMiddleware, tem
 router.put('/forms-templates/:id/questions/:qid',       adminAuthMiddleware, templateController.updateTemplateQuestion);
 router.delete('/forms-templates/:id/questions/:qid',    adminAuthMiddleware, templateController.deleteTemplateQuestion);
 router.post('/forms-templates/:id/save-draft',          adminAuthMiddleware, templateController.saveTemplateDraft);
+
+/**
+ * @openapi
+ * /admin/tutorials:
+ *   get:
+ *     summary: List all coach-portal tutorial video assignments
+ *     tags: [Admin, Tutorials]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: "Array of page_tutorials rows" }
+ *
+ * /admin/tutorials/{pageKey}:
+ *   put:
+ *     summary: Assign or update the tutorial video for a coach-portal page
+ *     tags: [Admin, Tutorials]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: pageKey, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [youtube_url]
+ *             properties:
+ *               youtube_url: { type: string }
+ *               title:       { type: string }
+ *     responses:
+ *       200: { description: Tutorial saved }
+ *       400: { description: Missing or unrecognized YouTube URL }
+ *   delete:
+ *     summary: Remove a page's tutorial video assignment
+ *     tags: [Admin, Tutorials]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: pageKey, required: true, schema: { type: string } }
+ *     responses:
+ *       204: { description: Assignment removed (or already absent) }
+ */
+router.get('/tutorials',              adminAuthMiddleware, tutorialsController.listTutorials);
+router.put('/tutorials/:pageKey',     adminAuthMiddleware, tutorialsController.upsertTutorial);
+router.delete('/tutorials/:pageKey',  adminAuthMiddleware, tutorialsController.deleteTutorial);
 
 export default router;

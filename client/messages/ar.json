@@ -2877,5 +2877,10 @@
       "thanks": "شكرًا على ملاحظتك!",
       "optionalNote": "أضف ملاحظة (اختياري)"
     }
+  },
+  "tutorials": {
+    "watchTutorial": "مشاهدة الشرح",
+    "modalDefaultTitle": "فيديو تعليمي",
+    "watchOnYoutube": "المشاهدة على يوتيوب"
   }
 }

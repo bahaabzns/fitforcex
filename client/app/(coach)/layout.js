@@ -30,7 +30,9 @@ import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import InsightBanner from "@/app/components/insights/InsightBanner";
 import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
+import { TutorialsProvider } from "@/app/contexts/tutorials";
 
 function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
     const p = pathname;
@@ -269,6 +271,7 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
+                            <TutorialButton />
                             <NewFeatureTooltip
                                 featureKey="feedback_entry_hint"
                                 active
@@ -311,7 +314,9 @@ function WorkspaceContent({ children }) {
 export default function WorkspaceLayout({ children }) {
     return (
         <HeaderCollapseProvider>
-            <WorkspaceContent>{children}</WorkspaceContent>
+            <TutorialsProvider>
+                <WorkspaceContent>{children}</WorkspaceContent>
+            </TutorialsProvider>
         </HeaderCollapseProvider>
     );
 }

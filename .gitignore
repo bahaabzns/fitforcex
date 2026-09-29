@@ -7,10 +7,12 @@ dist/
 build/
 .claude/settings.local.json‹
 
-# Local database backups / dumps — never commit (large, sensitive)
-docs/old_db/
+# Local database backups / dumps / one-off scripts — never commit (large, sensitive).
 *.sql
 *.sql.gz
+# ...except Prisma's own migration files — a bare "*.sql" above also matched
+# every migration.sql, silently keeping the whole migration history out of git.
+!server/prisma/migrations/**/*.sql
 
 # Local-only reference project (old landing page kept for comparison) —
 # includes its own node_modules/.next build cache and dev TLS certs, never commit.
