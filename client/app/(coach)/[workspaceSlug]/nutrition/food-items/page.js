@@ -162,6 +162,7 @@ export default function FoodItemsPage() {
                 data={foodItems}
                 rowKey="id"
                 scrollable
+                mobileListView
                 quickSearch={{ fields: ["name_en", "name_ar", "food_category"], placeholder: t("searchPlaceholder") }}
                 emptyState={{
                     icon: Apple,

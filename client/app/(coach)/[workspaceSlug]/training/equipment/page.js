@@ -165,6 +165,7 @@ export default function EquipmentPage() {
                 columns={columns}
                 data={equipments}
                 rowKey="id"
+                mobileListView
                 quickSearch={{ fields: ["name_en", "name_ar"], placeholder: t("searchPlaceholder") }}
                 emptyState={{
                     icon: Wrench,

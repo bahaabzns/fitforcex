@@ -159,6 +159,7 @@ export default function FoodCategoriesPage() {
                 columns={categoryColumns}
                 data={categories}
                 rowKey="id"
+                mobileListView
                 quickSearch={{ fields: ["name_en", "name_ar"], placeholder: t("searchPlaceholder") }}
                 emptyState={{
                     icon: Tags,
