@@ -225,7 +225,7 @@ export default function MessengerPage() {
     useEffect(() => {
         const tick = () => {
             fetchThreads();
-            if (selectedThreadId) fetchMessages(selectedThreadId);
+            if (selectedThread?.id) fetchMessages(selectedThread.id);
         };
 
         const start = () => {
@@ -248,7 +248,7 @@ export default function MessengerPage() {
             clearInterval(pollRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [selectedThreadId, fetchThreads, fetchMessages]);
+    }, [selectedThread?.id, fetchThreads, fetchMessages]);
 
     useEffect(() => {
         if (!selectedThread?.id) { setMessages([]); return; }
