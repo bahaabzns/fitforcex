@@ -7,7 +7,6 @@ import Modal, { ModalFooter } from "@/app/components/Modal";
 import EmptyState from "@/app/components/EmptyState";
 import PackagePolicyOverride from "@/app/components/PackagePolicyOverride";
 import PackageFormsPicker from "@/app/components/PackageFormsPicker";
-import PlanUpdateModeToggle from "@/app/components/PlanUpdateModeToggle";
 import { FieldLabel } from "@/app/components/Field";
 import { isCompatibleCheckInForm } from "@/lib/formCompatibility";
 import api from "@/lib/axios";
@@ -147,7 +146,6 @@ function VariationDefaultsFields({ v, assessmentFormOptions, nutritionCheckinFor
                     <Input type="number" min="1" inputMode="numeric" placeholder={t('reviewOffsetDaysPlaceholder')} />
                 </TextField>
             </div>
-            <PlanUpdateModeToggle value={v.planUpdateMode} onChange={(val) => onFieldChange("planUpdateMode", val)} />
             <PackageFormsPicker
                 assessmentFormOptions={assessmentFormOptions}
                 nutritionCheckinFormOptions={nutritionCheckinFormOptions}
