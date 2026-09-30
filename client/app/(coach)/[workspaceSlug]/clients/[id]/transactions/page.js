@@ -667,6 +667,7 @@ export default function ClientTransactionsPage() {
                 data={transactions}
                 rowKey="id"
                 scrollable
+                mobileListView
                 defaultSort="date"
                 defaultSortDirection="desc"
                 dateParser={(d) => new Date(d)}

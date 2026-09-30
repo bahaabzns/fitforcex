@@ -1616,10 +1616,6 @@
     "cycleDaysPlaceholder": "مثال: 28",
     "reviewOffsetDaysLabel": "تذكير المراجعة (أيام قبل الانتهاء)",
     "reviewOffsetDaysPlaceholder": "مثال: 3",
-    "planUpdateModeLabel": "عند تعديل المدرب لخطة نشطة على هذه النسخة",
-    "planUpdateModeExtend": "متابعة المدة المتبقية",
-    "planUpdateModeRestart": "إعادة بدء مدة الخطة",
-    "planUpdateModeHint": "يمكن للمدرب اختيار أي من الخيارين وقت الحفظ — هذا فقط الخيار الافتراضي الذي تبدأ منه النافذة.",
     "defaultAssessmentFormsLabel": "استمارات التقييم الافتراضية",
     "defaultAssessmentFormsHint": "تُملأ تلقائيًا في خطوة استمارات التقييم عند إضافة المدرب لعميل على هذه النسخة.",
     "defaultNutritionCheckinFormsLabel": "استمارات متابعة التغذية الافتراضية",
@@ -1764,6 +1760,9 @@
     "showLess": "عرض أقل",
     "showMore": "+{count} المزيد",
     "filterButton": "فلتر",
+    "sortBy": "ترتيب حسب",
+    "selectAll": "تحديد الكل",
+    "done": "تم",
     "selectedCount": "{n} من {total} محدد",
     "loading": "جارٍ التحميل...",
     "noResults": "لا توجد نتائج تطابق بحثك",
@@ -2874,5 +2873,10 @@
       "thanks": "شكرًا على ملاحظتك!",
       "optionalNote": "أضف ملاحظة (اختياري)"
     }
+  },
+  "tutorials": {
+    "watchTutorial": "مشاهدة الشرح",
+    "modalDefaultTitle": "فيديو تعليمي",
+    "watchOnYoutube": "المشاهدة على يوتيوب"
   }
 }

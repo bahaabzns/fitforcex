@@ -30,7 +30,9 @@ import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import InsightBanner from "@/app/components/insights/InsightBanner";
 import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
+import { TutorialsProvider } from "@/app/contexts/tutorials";
 
 function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
     const p = pathname;
@@ -269,6 +271,7 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
+                            <TutorialButton />
                             <NewFeatureTooltip
                                 featureKey="feedback_entry_hint"
                                 active
@@ -286,7 +289,13 @@ function WorkspaceContent({ children }) {
                         </div>
                     </header>
                 )}
-                <main className="flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
+                {/* relative: without a positioned ancestor, position:absolute descendants
+                    with no explicit top/left (react-aria's visually-hidden a11y spans,
+                    e.g. one per selectable-table row) fall back to their position in the
+                    document's full unclipped flow — inflating documentElement.scrollHeight
+                    and producing a second, outer page scrollbar alongside this one, even
+                    though they're invisible and properly clipped for paint. */}
+                <main className="relative flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
                     {children}
                 </main>
             </div>
@@ -305,7 +314,9 @@ function WorkspaceContent({ children }) {
 export default function WorkspaceLayout({ children }) {
     return (
         <HeaderCollapseProvider>
-            <WorkspaceContent>{children}</WorkspaceContent>
+            <TutorialsProvider>
+                <WorkspaceContent>{children}</WorkspaceContent>
+            </TutorialsProvider>
         </HeaderCollapseProvider>
     );
 }

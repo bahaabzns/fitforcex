@@ -165,6 +165,7 @@ export default function MuscleGroupsPage() {
                 columns={columns}
                 data={groups}
                 rowKey="id"
+                mobileListView
                 quickSearch={{ fields: ["name_en", "name_ar"], placeholder: t("searchPlaceholder") }}
                 emptyState={{
                     icon: PersonStanding,

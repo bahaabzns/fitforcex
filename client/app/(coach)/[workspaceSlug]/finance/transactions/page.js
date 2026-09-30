@@ -259,6 +259,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                 columns={columns}
                 data={transactions}
                 rowKey="id"
+                mobileListView
                 dateParser={parseTransactionDate}
                 onFilteredDataChange={setFilteredRows}
                 quickSearch={{ fields: ["clientName", "packageVariation"], placeholder: t('searchPlaceholder') }}

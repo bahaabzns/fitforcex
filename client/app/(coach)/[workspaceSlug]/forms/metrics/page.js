@@ -195,6 +195,7 @@ export default function MetricsPage() {
                 columns={columns}
                 data={metrics}
                 rowKey="id"
+                mobileListView
                 defaultSort="name"
                 quickSearch={{ fields: ["name", "description"], placeholder: "Search metrics..." }}
                 emptyState={{

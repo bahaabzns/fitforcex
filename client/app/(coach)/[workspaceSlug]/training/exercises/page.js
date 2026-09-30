@@ -158,6 +158,7 @@ export default function ExerciseLibraryPage() {
                 data={items}
                 rowKey="id"
                 scrollable
+                mobileListView
                 quickSearch={{ fields: ["name_en", "name_ar", "muscle_group", "equipment"], placeholder: t("searchPlaceholder") }}
                 emptyState={{
                     icon: Dumbbell,

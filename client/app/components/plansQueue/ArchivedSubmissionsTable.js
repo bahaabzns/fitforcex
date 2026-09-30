@@ -162,6 +162,7 @@ export default function ArchivedSubmissionsTable({ items, onRestored }) {
                     placeholder: t('searchPlaceholder'),
                 }}
                 selectable
+                mobileListView
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
                 onFilteredDataChange={setFilteredItems}

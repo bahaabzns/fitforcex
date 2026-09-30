@@ -1001,6 +1001,7 @@ export default function PlansQueueTable({
                     placeholder: t('searchPlaceholder'),
                 }}
                 selectable
+                mobileListView
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
                 onFilteredDataChange={setFilteredItems}

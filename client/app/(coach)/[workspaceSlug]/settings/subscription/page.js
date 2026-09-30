@@ -298,6 +298,7 @@ export default function SubscriptionPage() {
                     columns={paymentColumns}
                     data={payments ?? []}
                     rowKey="id"
+                    mobileListView
                     dateParser={(str) => new Date(str)}
                     defaultSort="created_at"
                     defaultSortDirection="desc"

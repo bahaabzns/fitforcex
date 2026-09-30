@@ -573,3 +573,50 @@ Format:
 **Why it matters:** Cosmetic/metadata-only today (playback now relies on `attachment_mime`, not the extension), but a future feature that trusts the filename extension (e.g. a "save as" download, an external integration, an admin export) would mislabel Safari-recorded voice notes.
 **Effort:** Small — derive the extension from `recorder.mimeType` in `useVoiceRecorder.js`'s `stop()` result instead of hardcoding it in the composer.
 **Priority:** Low
+
+---
+
+## 2026-09-22 — server/src/modules/paymentMethods/paymentMethods.routes.ts (same over-scoped GET gate as packages, not fixed)
+**Type:** Shortcut
+**What:** Found while fixing "packages don't show up for Team Member users" (`GET /api/packages` was gated on `finance.read` alone, which only `owner`/`receptionist` have by default — see `packages.routes.ts`, now fixed via `requireAnyPermission([['finance','read'],['clients','read']])`). `paymentMethods.routes.ts` has the identical blanket `requirePermission('finance', action)` gate on GET, and `client/app/(coach)/[workspaceSlug]/clients/page.js` fetches both `/api/packages` and `/api/payment-methods` in the same `Promise.all` (used to populate the package/payment-method pickers when creating or editing a client). For `manager`/`trainer`/`nutritionist`/`viewer` roles, `GET /api/payment-methods` still 403s today, which still rejects that `Promise.all` and blanks the entire Clients page (clients list, packages, payment methods, forms all fail to render) for those roles — a more severe, but differently-shaped, symptom than the packages bug. Left unfixed deliberately: payment methods (unlike packages) sit squarely in Finance and changing who can read them is a real access-control decision, not a mechanical mirror of the packages fix.
+**Why it matters:** Same class of bug (over-restrictive default RBAC blocking a legitimately cross-module read), with a worse blast radius (whole page, not one list) — likely to surface as its own "clients page is empty for X role" report.
+**Effort:** Small — same shape as the packages fix, `requireAnyPermission([['finance','read'],['clients','read']])` on GET only, once someone confirms payment-method names/details aren't meant to be finance-restricted from clients.read roles.
+**Priority:** Medium
+
+---
+
+## 2026-09-22 — server/migrations (043–091 missing from this branch, DB already has them)
+**Type:** Knowledge
+**What:** Found while adding an index migration for the messenger performance fix. This checkout's `server/migrations/` only has files through `042_split_checkin_forms_by_plan_type.js` (matches `git log`, last touched by commit `369fa4d`), but the shared `.env.test` database's `pgmigrations` tracking table already has `043_form_version_questions_lineage` through `091_pdf_branding_profiles` recorded as run — 49 migration files that don't exist anywhere in this branch's git history. `node-pg-migrate up` refuses to run anything new because its `checkOrder` check requires the Nth file on disk to positionally match the Nth migration ever run; it can't, since the files are missing. My new migration is numbered `092_messenger_missing_indexes.js` (validated by applying its SQL directly and rolling it back — see the messenger performance fix report) to avoid colliding with that already-run range, but it cannot actually be executed via `npm run migrate` in this environment until the drift is resolved.
+**Why it matters:** This isn't cosmetic — either this branch is missing 49 commits' worth of real schema history (meaning the Prisma client/types here could already be stale relative to the live DB), or the shared test DB was pointed at a snapshot from a different, more-advanced branch. Either way, nobody can run a clean migration against this DB from `dev` right now, and it's worth confirming before it surprises someone in CI or on a fresh clone.
+**Effort:** Medium — first confirm which branch actually has 043–091 (or whether they were squashed/renamed) and reconcile; then `092_messenger_missing_indexes.js` can be renumbered into its correct place if needed.
+**Priority:** High
+
+---
+
+## 2026-09-22 — server/src/modules/messenger, client messenger page (deferred messenger perf follow-ups)
+**Type:** Shortcut
+**What:** Two structural causes behind "the messenger is slow" were diagnosed but deliberately not built, to keep the bug fix scoped (see the messenger performance fix report for the fixes that *were* shipped — composite indexes + pausing the poll on a hidden tab):
+1. `getMessages` (`messenger.controller.ts`) has no `take`/pagination — it fetches a thread's *entire* message history on every open AND every 5s poll of an open thread. Fine today at low message counts, but unbounded growth is a real time bomb for long-running client relationships. The proper fix is a paginated/"load earlier" contract plus matching infinite-scroll UI in `messenger/page.js` — there's currently no scroll-triggered loading affordance at all, so this is a UI feature, not a one-line change.
+2. The coach messenger page polls every 5s for both the thread list and the open thread's messages, but `socket.io-client` isn't a dependency anywhere in this repo — the server's Socket.IO infra (`lib/socket.ts`, `lib/events.ts`) already authenticates the same cookie, joins `workspace:${workspaceId}` on connect, and already emits `new_message` on every send/broadcast (`messenger.controller.ts`'s `recordEvent(...).realtime`), but nothing on the coach web client listens for it. Wiring the messenger page to that existing event and dropping the poll to an infrequent safety net (instead of the primary sync mechanism) is the real fix for polling load, not just tuning the interval.
+**Why it matters:** (1) bounds a query that will only get slower as real conversations accumulate; (2) is the single biggest lever left for messenger responsiveness — the backend real-time plumbing already exists and is unused.
+**Effort:** Medium-Large each — both are real UI/feature work (pagination UI, socket wiring + reconnect/cleanup handling), not safe to bundle into a "fix the bug" pass.
+**Priority:** High
+
+---
+
+## 2026-09-22 — server/tests (full suite exhausts local Postgres max_connections at 43 suites)
+**Type:** Shortcut (pre-existing, newly exposed)
+**What:** Found while verifying the `main` → `dev` merge. `npx jest --runInBand` against the full suite fails 5-16 tests per run, in a **different** set of suites each time (`pdfExport`, `foodDiary`, `insightsPhase3And4`, `clientPortalWorkoutLogPrevious`, `metaConversions`, `auth` have all shown up in one run or another) — all with the identical root error `PrismaClientInitializationError: Too many database connections opened: FATAL: sorry, too many clients already` against the local test Postgres (`max_connections=100`). Every run also prints "Jest did not exit one second after the test run has completed... asynchronous operations that weren't stopped" — present even pre-merge at the old ~22-suite count, just not severe enough to hit the connection ceiling. Merging `main`'s test suite into `dev` roughly doubled the suite count to 43, which pushed cumulative unreleased connections (each file's own `testPrisma`/`Pool` in `tests/helpers/testDb.ts`, `afterAll`'s `closeTestDb()` apparently not fully releasing before the next file starts under `--runInBand`) past 100.
+**Why it matters:** Not a correctness regression — confirmed by rerunning twice: a different random subset of suites fails each time, and neither of the two bug fixes in this session (nor their new tests) has ever appeared in a failure list. But it means `npm test` is now genuinely flaky (not just slow) locally and probably in CI, which will erode trust in the suite and hide real regressions in the noise.
+**Effort:** Medium — likely fixes: raise local/CI `max_connections`, or (better) share a single `testPrisma`/`Pool` across the whole run instead of one per file, or explicitly close connections in a global `afterAll` with a longer grace period before the next file starts.
+**Priority:** Medium-High — will only get worse as more tests are added; worth fixing before it starts intermittently failing CI on unrelated PRs.
+
+---
+
+## 2026-09-22 — server/migrations (089/090 also missing from main, not just dev)
+**Type:** Knowledge
+**What:** Follow-up to the 043-091 drift entry above. After merging `main` into `dev`, `092_messenger_missing_indexes.js` is still not the true next migration — `089_operations_dashboard.js` and `090_per_form_sla.js` are missing from **both** branches' history, even though the shared test DB's `pgmigrations` table has them recorded as run. Traced `089`'s commit (`f9b2baf feat: operations dashboard — SLA tracking, plans queue, thread assignment`) to the unmerged branch `fix/signup-orphan-user-takeover` — it was never merged into `main` either, but whatever database that branch was tested against picked up the migration.
+**Why it matters:** Smaller-scope version of the same problem (2 files, not 49), but confirms it's an ongoing process gap, not a one-time accident — work is getting applied to a shared database from branches that never land in trunk.
+**Effort:** Small once someone confirms `089`/`090`'s real content (check `fix/signup-orphan-user-takeover` and any other stale branches for matching migration files) and decides whether that branch's other work should also be merged.
+**Priority:** Medium

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileText, LogOut, Inbox, MessageCircleQuestion, Map } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileText, LogOut, Inbox, MessageCircleQuestion, Map, HelpCircle } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { Avatar } from '@heroui/react/avatar';
@@ -18,6 +18,7 @@ const NAV = [
     { href: '/templates',  label: 'Default Templates', icon: FileText },
     { href: '/plans',      label: 'Plans',       icon: Package },
     { href: '/payments',   label: 'Payments',    icon: CreditCard },
+    { href: '/tutorials',  label: 'Tutorials',   icon: HelpCircle },
     { href: '/insights',   label: 'Insights',    icon: Inbox },
     { href: '/prompts',    label: 'Prompts',     icon: MessageCircleQuestion },
     { href: '/roadmap',    label: 'Roadmap',     icon: Map },
@@ -108,7 +109,11 @@ export default function AdminLayout({ children }) {
             </aside>
 
             {/* Main */}
-            <main className="flex-1 overflow-y-auto">
+            {/* relative: see the matching comment in (coach)/layout.js — without a
+                positioned ancestor, react-aria's visually-hidden a11y spans (e.g. one
+                per selectable-table row) leak into documentElement.scrollHeight and
+                produce a second, outer page scrollbar alongside this one. */}
+            <main className="relative flex-1 overflow-y-auto">
                 {children}
             </main>
         </div>
