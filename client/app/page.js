@@ -7,7 +7,7 @@ import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { Chip } from "@heroui/react/chip";
 import api from "@/lib/axios";
 import LandingNav from "./components/LandingNav";
-import LandingHeroCarousel from "./components/LandingHeroCarousel";
+import LandingHeroVideo from "./components/LandingHeroVideo";
 import LandingFeatures from "./components/LandingFeatures";
 import LandingTestimonials from "./components/LandingTestimonials";
 import LandingPricing from "./components/LandingPricing";
@@ -109,8 +109,8 @@ export default function HomePage() {
                     )}
                 </div>
 
-                {/* Modules Slider */}
-                <LandingHeroCarousel />
+                {/* Hero video */}
+                <LandingHeroVideo />
             </section>
 
             {/* ── Trust banner ── */}
