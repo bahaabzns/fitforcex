@@ -271,7 +271,6 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
-                            <TutorialButton />
                             <NewFeatureTooltip
                                 featureKey="feedback_entry_hint"
                                 active
@@ -279,7 +278,7 @@ function WorkspaceContent({ children }) {
                                 dismissLabel={tInsights('hintDismiss')}
                                 badgeLabel={tInsights('newFeature')}
                                 onTriggerClick={() => setFeedbackOpen(true)}
-                                triggerClassName="button button--icon-only button--sm button--ghost"
+                                triggerClassName="button button--icon-only button--sm button--ghost inline-flex!"
                             >
                                 <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
                             </NewFeatureTooltip>
@@ -297,6 +296,7 @@ function WorkspaceContent({ children }) {
                     though they're invisible and properly clipped for paint. */}
                 <main className="relative flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
                     {children}
+                    <TutorialButton />
                 </main>
             </div>
 

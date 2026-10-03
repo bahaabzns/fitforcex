@@ -2875,6 +2875,8 @@
     }
   },
   "tutorials": {
+    "seeTutorial": "شاهد الشرح",
+    "dismiss": "إغلاق",
     "watchTutorial": "مشاهدة الشرح",
     "modalDefaultTitle": "فيديو تعليمي",
     "watchOnYoutube": "المشاهدة على يوتيوب"
