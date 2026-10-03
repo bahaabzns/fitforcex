@@ -2875,6 +2875,8 @@
     }
   },
   "tutorials": {
+    "seeTutorial": "See tutorial",
+    "dismiss": "Close",
     "watchTutorial": "Watch tutorial",
     "modalDefaultTitle": "Tutorial",
     "watchOnYoutube": "Watch on YouTube"
