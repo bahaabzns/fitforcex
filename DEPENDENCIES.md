@@ -114,3 +114,8 @@ Format per package:
 **Why:** The PDF cover-page image must exactly match the page's pixel dimensions (it's rendered full-bleed, not scaled/cropped to fit), so the upload needs to be rejected server-side if it doesn't. Vetted: used internally by Next.js itself, zero runtime dependencies, ships a proper CJS build (`require`-safe, unlike puppeteer) so it works fine under this repo's Jest/ts-jest setup, no known CVEs (`npm audit` showed zero vulnerabilities attributable to it). Reads dimensions from the file's header bytes only — no full image decode, no native binary.
 **Used in:** `server/src/modules/pdfExport/pdfExport.controller.ts` (`uploadCoverImage`)
 **Review date:** 2026-10-28
+
+## qrcode.react (client)
+**What:** Renders a QR code as SVG from a text payload.
+**Why:** Fawaterak's Meeza mobile-wallet checkout returns an EMV-QR text payload that the customer scans in their wallet app (`GatewayPaymentPending.js`). Writing a QR encoder ourselves is not trivial.
+**Vetted 2026-10-02:** last release 4.2.0 (Dec 2024), ISC licence, zero dependencies, ~115 KB unpacked, supports React 19, very widely used; no known CVEs.

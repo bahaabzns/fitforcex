@@ -620,3 +620,32 @@ Format:
 **Why it matters:** Smaller-scope version of the same problem (2 files, not 49), but confirms it's an ongoing process gap, not a one-time accident — work is getting applied to a shared database from branches that never land in trunk.
 **Effort:** Small once someone confirms `089`/`090`'s real content (check `fix/signup-orphan-user-takeover` and any other stale branches for matching migration files) and decides whether that branch's other work should also be merged.
 **Priority:** Medium
+
+---
+
+## 2026-10-02 — Fawaterak gateway (unverified against a live account)
+**Type:** Knowledge
+**What:** `server/src/lib/fawaterak.ts` was written from Fawaterak's public v2 docs and unit-tested with mocked `fetch` only. Not yet exercised against the staging account: the exact `payLoad` echo shape in webhooks, which webhook types carry a `hashKey`, the `getInvoiceData` `paid` field, the production base URL, and wallet (Meeza) response fields. Add-on purchases (`create-addon-invoice`) support all gateway methods server-side, but the subscription UI still sends add-ons as manual-only.
+**Why it matters:** A wrong assumption here fails closed (webhook rejected, payment stays `pending`) rather than granting access, but would block gateway payments until fixed.
+**Effort:** Small — run the staging test checklist, adjust field names.
+**Priority:** High — until verified, keep `PAYMENT_GATEWAY` on staging credentials only.
+
+---
+
+## 2026-10-06 — Trial → same-variation purchase stacks the remaining trial days
+**Type:** Knowledge
+**What:** A coach on the OneForce trial who buys the *same* OneForce variation is treated as a plain renewal (`isRenewal`, billing.controller.ts), so `applyPayment` sets `expires_at = GREATEST(NOW(), expires_at) + duration` — the unused trial days are added on top of the paid month. Switching to a *different* variation starts a fresh cycle instead (no stacking). Separately, the self-serve credit calculation now skips trialing subscriptions (fixed 2026-10-06: it credited unpaid trial "value" against the new price and could produce a 0 EGP invoice, which Fawaterak rejects).
+**Why it matters:** The stacking may or may not be intended (a trial bonus); the inconsistency between same-variation and different-variation purchases is the part worth a deliberate decision.
+**Effort:** Small once the intended behavior is decided.
+**Priority:** Low-Medium
+
+---
+
+## 2026-10-06 — Payments pre-deploy review: known, unfixed items
+**Type:** Risk (all low severity, found during the Fawaterak pre-deploy review)
+**What / why it matters / effort:**
+1. **Client-limit race** (`clients.controller.ts::createClient`): `checkClientLimit` and the insert are separate statements, so two simultaneous creates at limit-1 can both pass and exceed a plan cap by one. Fix: do the count + insert in one transaction with a row lock on the workspace subscription. Effort S–M.
+2. **Zero-amount invoices:** a non-trial tier change where the unused credit ≥ the new price yields `finalAmount = 0` (`createInvoice`). Gateways reject it (clean 400 now) and the manual path creates a 0 EGP pending row. Needs a product decision (activate immediately vs. require a minimum charge). Effort S.
+3. **Fawaterak wallet reason unknown:** two earlier wallet attempts were marked `failed` by Fawaterak with no reason exposed by their API. The webhook handler now confirms outcomes through their API, but the failure *reason* is only visible in their portal. Re-test wallet before enabling it for real coaches. Effort S.
+4. **Success/failure pages are English-only** (`billing/success`, `billing/failure`), unlike the rest of the checkout. Effort S.
+**Priority:** Low–Medium.

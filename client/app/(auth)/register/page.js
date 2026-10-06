@@ -21,6 +21,8 @@ import { ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePageTitle } from "@/hooks/usePageTitle";
 import Stepper from "@/app/components/Stepper";
 import ManualPaymentPanel from "@/app/components/ManualPaymentPanel";
+import PaymentMethodPicker, { isWalletPhoneValid } from "@/app/components/PaymentMethodPicker";
+import GatewayPaymentPending from "@/app/components/GatewayPaymentPending";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const COUNTRY_CODES = [
@@ -110,9 +112,10 @@ export default function RegisterPage() {
 
     const [paying, setPaying] = useState(false);
     const [payError, setPayError] = useState('');
-    // Card/Wallet/Fawry are shown but disabled until real Paymob credentials exist (see
-    // DEBT.md) — manual transfer is the only method that actually calls create-invoice today.
+    const [method, setMethod] = useState('card');
+    const [walletPhone, setWalletPhone] = useState('');
     const [manualPayment, setManualPayment] = useState(null); // create-invoice's manualPayment payload
+    const [gatewayPending, setGatewayPending] = useState(null); // { paymentId, method, referenceCode, qrPayload } — Fawry / wallet
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -213,35 +216,54 @@ export default function RegisterPage() {
     // one combined action — this is the first moment anything is actually written to the
     // database for this coach; abandoning the wizard before this point leaves no trace.
     async function handleCheckout() {
+        if (method === 'wallet' && !isWalletPhoneValid(walletPhone)) {
+            setPayError(tCheckout('walletPhoneInvalid'));
+            return;
+        }
         setPaying(true);
         setPayError('');
-        // Shared with the server so it can fire the same CompleteRegistration event
-        // (Meta dedups the browser + server copies on a matching event_id).
-        const metaEventId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
         try {
-            const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
-            const registerRes = await api.post('/api/auth/register', {
-                fname: formData.fname,
-                lname: formData.lname,
-                email: formData.email,
-                password: formData.password,
-                phone,
-                metaEventId,
-            });
-            const slug = registerRes.data?.workspace_slug;
+            // A gateway failure after registration must not re-register on retry (the email
+            // now exists) — reuse the account that was already created.
+            let slug = registered?.slug;
             if (!slug) {
-                setPayError(t('registrationFailed'));
-                return;
+                // Shared with the server so it can fire the same CompleteRegistration event
+                // (Meta dedups the browser + server copies on a matching event_id).
+                const metaEventId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
+                const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
+                const registerRes = await api.post('/api/auth/register', {
+                    fname: formData.fname,
+                    lname: formData.lname,
+                    email: formData.email,
+                    password: formData.password,
+                    phone,
+                    metaEventId,
+                });
+                slug = registerRes.data?.workspace_slug;
+                if (!slug) {
+                    setPayError(t('registrationFailed'));
+                    return;
+                }
+                setRegistered({ slug });
+                trackPixelEvent('CompleteRegistration', {}, metaEventId);
             }
-            setRegistered({ slug });
-            trackPixelEvent('CompleteRegistration', {}, metaEventId);
 
             const invoiceRes = await api.post('/api/billing/create-invoice', {
                 planId: plan.id,
                 variationId: variation.id,
-                paymentMethod: 'manual',
+                paymentMethod: method,
+                walletPhoneNumber: method === 'wallet' ? walletPhone.trim() : undefined,
             });
-            setManualPayment(invoiceRes.data.manualPayment);
+            if (invoiceRes.data.manualPayment) {
+                setManualPayment(invoiceRes.data.manualPayment);
+            } else if (invoiceRes.data.paymentUrl) {
+                // Hosted gateway page (card / wallet) — it returns the browser to the
+                // workspace's billing/success page, which polls until the webhook lands.
+                window.location.href = invoiceRes.data.paymentUrl;
+                return;
+            } else if (invoiceRes.data.referenceCode || invoiceRes.data.qrPayload) {
+                setGatewayPending({ paymentId: invoiceRes.data.paymentId, method, referenceCode: invoiceRes.data.referenceCode, qrPayload: invoiceRes.data.qrPayload });
+            }
         } catch (err) {
             setPayError(err.response?.data?.message || err.response?.data?.error || tCheckout('payFailed'));
         } finally {
@@ -426,27 +448,14 @@ export default function RegisterPage() {
                                 )}
                             </div>
 
-                            {!manualPayment && (
+                            {!manualPayment && !gatewayPending && (
                                 <div className="flex flex-col gap-2">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{tCheckout('paymentMethod')}</p>
-                                    {['payWithCard', 'payWithWallet', 'payWithFawry'].map((key) => (
-                                        <label key={key} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
-                                            <span className="flex items-center gap-2 text-sm text-foreground">
-                                                <input type="radio" disabled />
-                                                {tCheckout(key)}
-                                            </span>
-                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground whitespace-nowrap">
-                                                {tCheckout('currentlyUnavailable')}
-                                            </span>
-                                        </label>
-                                    ))}
-                                    <label className="flex items-center gap-2 p-2.5 rounded-lg border border-primary bg-primary/5 cursor-default">
-                                        <input type="radio" checked readOnly />
-                                        <span className="flex flex-col items-start gap-0.5">
-                                            <span className="text-sm text-foreground font-medium">{tCheckout('payManually')}</span>
-                                            <span className="text-xs text-muted-foreground">{tCheckout('payManuallyHint')}</span>
-                                        </span>
-                                    </label>
+                                    <PaymentMethodPicker
+                                        method={method} onMethodChange={setMethod}
+                                        walletPhone={walletPhone} onWalletPhoneChange={setWalletPhone}
+                                        t={tCheckout}
+                                    />
 
                                     {payError && <p className="text-sm text-destructive">{payError}</p>}
 
@@ -454,6 +463,15 @@ export default function RegisterPage() {
                                         {paying ? tCheckout('processing') : tCheckout('checkoutButton')}
                                     </Button>
                                 </div>
+                            )}
+
+                            {gatewayPending && (
+                                <>
+                                    <GatewayPaymentPending {...gatewayPending} t={tCheckout} />
+                                    <Button color="primary" fullWidth onClick={goToWorkspace} className="mt-1">
+                                        {t('enterWorkspace')}
+                                    </Button>
+                                </>
                             )}
 
                             {manualPayment && (

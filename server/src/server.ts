@@ -3,7 +3,7 @@ import './instrument';
 import http from 'http';
 import { execSync } from 'child_process';
 import path from 'path';
-import { env } from './config/env';
+import { env, getPaymentConfigWarnings } from './config/env';
 import app from './app';
 import { initSocket } from './lib/socket';
 
@@ -16,6 +16,8 @@ if (env.NODE_ENV !== 'test') {
         process.exit(1);
     }
 }
+
+for (const warning of getPaymentConfigWarnings()) console.warn(`[Config] ${warning}`);
 
 const httpServer = http.createServer(app);
 initSocket(httpServer);

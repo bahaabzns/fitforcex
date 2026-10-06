@@ -253,3 +253,10 @@ Significant choices: the question, what we picked, what we rejected, and why.
   assignment time. The three destructive cascades identified in the investigation
   (`forms→form_requests`, `forms→check_in_schedules`, `forms→package_default_forms`) are now
   `RESTRICT`, backed by an application-layer 409 guard (archive instead of delete).
+
+---
+
+## 2026-10-02 — Fawaterak back as the default gateway, Paymob kept behind a switch
+- **The question:** Card / wallet / Fawry checkout should use Fawaterak's dynamic invoice API (not static payment links) as the main gateway.
+- **What we picked:** `PAYMENT_GATEWAY=fawaterak|paymob` (default `fawaterak`) selects the gateway in `billing.controller.ts::runCheckout`; `workspace_payments.gateway` (migration 093) records which one handled each payment so webhooks/status polling stay correct after a switch. Fawaterak webhooks land on `/api/payments/webhook/fawaterak`, authenticated by HMAC-SHA256 hashKey.
+- **What we rejected:** Replacing Paymob outright (no fallback while Fawaterak is unverified live); static payment links (the design removed in `705d28d` — wrong amount on tier changes, no per-payment tracking).

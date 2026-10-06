@@ -1428,6 +1428,7 @@ model workspace_payments {
   gateway_status        String             @default("pending")
   gateway_raw_webhook   Json?
   payment_method        String             @default("card")
+  gateway               String?
   reference_code        String?            @unique
   notes                 String?
   paid_at               DateTime?          @db.Timestamptz(6)
