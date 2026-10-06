@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { Prisma } from '@prisma/client';
 import * as paymob from '../../lib/paymob';
+import * as fawaterak from '../../lib/fawaterak';
 import { sendMetaEvent } from '../../lib/metaConversions';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
@@ -194,6 +195,12 @@ export async function getAvailableAddons(req: Request, res: Response, next: Next
 
 type PaymentMethod = 'card' | 'wallet' | 'fawry' | 'manual';
 
+const WALLET_PHONE_PATTERN = /^\+?\d{10,15}$/;
+
+function isValidWalletPhone(raw: unknown): boolean {
+    return typeof raw === 'string' && WALLET_PHONE_PATTERN.test(raw.trim());
+}
+
 function resolvePaymentMethod(raw: string | undefined): PaymentMethod {
     if (raw === 'wallet') return 'wallet';
     if (raw === 'fawry')  return 'fawry';
@@ -256,35 +263,74 @@ function buildManualPaymentInfo(referenceCode: string, amount: number, currency:
     };
 }
 
-// Dispatches to the right Paymob checkout and normalizes the three shapes (iframe URL / wallet
-// redirect URL / Fawry cash reference code) into one result the caller can persist + return
-// without needing to know which method produced it. Shared by createInvoice and
-// createAddonInvoice — both branch on the same three methods.
-async function runCheckout(
-    method: PaymentMethod,
-    checkoutBase: { amount: number; currency: string; merchantOrderId: string; coachName: string; coachEmail: string; coachPhone?: string },
-    walletPhoneNumber?: string
-): Promise<{ orderId: string; paymentUrl?: string; referenceCode?: string }> {
+type CheckoutBase = {
+    amount: number; currency: string; merchantOrderId: string; description: string;
+    coachName: string; coachEmail: string; coachPhone?: string; workspaceId: string;
+};
+
+type CheckoutResult = { gateway: 'fawaterak' | 'paymob'; orderId: string; paymentUrl?: string; referenceCode?: string; qrPayload?: string };
+
+// The in-app result pages the gateway sends the browser back to — the success page polls
+// payment-status, so landing there before the webhook arrives is fine.
+async function buildReturnUrls(workspaceId: string, paymentId: string) {
+    const workspace = await prisma.workspaces.findUnique({ where: { id: workspaceId }, select: { slug: true } });
+    const base = `${env.CLIENT_URL}/${workspace?.slug ?? ''}/billing`;
+    return {
+        successUrl: `${base}/success?payment=${paymentId}`,
+        pendingUrl: `${base}/success?payment=${paymentId}`,
+        failUrl:    `${base}/failure?payment=${paymentId}`,
+    };
+}
+
+// Dispatches to the gateway selected by PAYMENT_GATEWAY and normalizes the three shapes
+// (hosted/iframe URL, wallet redirect URL, Fawry cash reference code) into one result the
+// caller can persist + return without knowing which gateway or method produced it. Shared by
+// createInvoice and createAddonInvoice.
+async function runCheckout(method: Exclude<PaymentMethod, 'manual'>, base: CheckoutBase, walletPhoneNumber?: string): Promise<CheckoutResult> {
+    if (env.PAYMENT_GATEWAY === 'fawaterak') {
+        const checkout = await fawaterak.createCheckout({
+            ...base, method, walletPhoneNumber: walletPhoneNumber?.trim(),
+            ...(await buildReturnUrls(base.workspaceId, base.merchantOrderId)),
+        });
+        return { gateway: 'fawaterak', ...checkout };
+    }
+
     if (method === 'wallet') {
-        const { orderId, redirectUrl } = await paymob.createWalletCheckout({ ...checkoutBase, walletPhoneNumber: walletPhoneNumber!.trim() });
-        return { orderId, paymentUrl: redirectUrl };
+        const { orderId, redirectUrl } = await paymob.createWalletCheckout({ ...base, walletPhoneNumber: walletPhoneNumber!.trim() });
+        return { gateway: 'paymob', orderId, paymentUrl: redirectUrl };
     }
     if (method === 'fawry') {
-        const { orderId, referenceCode } = await paymob.createFawryCheckout(checkoutBase);
-        return { orderId, referenceCode };
+        const { orderId, referenceCode } = await paymob.createFawryCheckout(base);
+        return { gateway: 'paymob', orderId, referenceCode };
     }
-    const { orderId, iframeUrl } = await paymob.createCardCheckout(checkoutBase);
-    return { orderId, paymentUrl: iframeUrl };
+    const { orderId, iframeUrl } = await paymob.createCardCheckout(base);
+    return { gateway: 'paymob', orderId, paymentUrl: iframeUrl };
+}
+
+// The payment row is written before the gateway call (the gateway needs its id), so a gateway
+// failure would otherwise leave a `pending` row with no invoice behind it forever — visible in the
+// coach's payment history and counted as "pending" in the admin stats. Close it out as failed.
+async function startCheckoutOrFail(
+    paymentId: string, method: Exclude<PaymentMethod, 'manual'>, base: CheckoutBase, walletPhoneNumber?: string
+): Promise<CheckoutResult> {
+    try {
+        return await runCheckout(method, base, walletPhoneNumber);
+    } catch (err) {
+        await prisma.workspace_payments.update({ where: { id: paymentId }, data: { gateway_status: 'failed' } });
+        throw err;
+    }
 }
 
 export async function createInvoice(req: Request, res: Response, next: NextFunction) {
     const { planId, variationId, paymentMethod, walletPhoneNumber } = req.body as {
         planId?: string; variationId?: string; paymentMethod?: string; walletPhoneNumber?: string;
     };
-    if (!planId || !variationId) return res.status(400).json({ error: 'planId and variationId are required' });
+    if (typeof planId !== 'string' || typeof variationId !== 'string' || !planId || !variationId) {
+        return res.status(400).json({ error: 'planId and variationId are required' });
+    }
     const method = resolvePaymentMethod(paymentMethod);
-    if (method === 'wallet' && !walletPhoneNumber?.trim()) {
-        return res.status(400).json({ error: 'walletPhoneNumber is required for wallet payments' });
+    if (method === 'wallet' && !isValidWalletPhone(walletPhoneNumber)) {
+        return res.status(400).json({ error: 'A valid wallet phone number is required for wallet payments' });
     }
 
     try {
@@ -308,7 +354,7 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
         const currentSub = await prisma.workspace_subscriptions.findUnique({
             where:  { workspace_id: req.user!.workspaceId },
             select: {
-                plan_id: true, variation_id: true, locked_price_monthly: true, locked_currency: true, expires_at: true,
+                plan_id: true, variation_id: true, locked_price_monthly: true, locked_currency: true, expires_at: true, status: true,
                 plans: { select: { duration_days: true } },
             },
         });
@@ -320,11 +366,13 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
         // subscription: credit it against the new price rather than banking it silently at
         // whatever tier ends up active (the bug this feature fixes — see
         // docs/billing-architecture-audit.md finding F-04). No credit for a plain renewal,
-        // a workspace with no prior subscription, or one that's already expired.
+        // a workspace with no prior subscription, one that's already expired, or an unpaid trial
+        // (it has a locked list price but nothing was ever paid, so there is no value to credit —
+        // crediting it let a trial coach's upgrade come out at 0 EGP).
         let creditApplied: number | null = null;
         let finalAmount = amount;
         const now = new Date();
-        if (!isRenewal && currentSub?.locked_price_monthly != null && currentSub.expires_at && new Date(currentSub.expires_at) > now) {
+        if (!isRenewal && currentSub?.status !== 'trialing' && currentSub?.locked_price_monthly != null && currentSub.expires_at && new Date(currentSub.expires_at) > now) {
             if (currentSub.locked_currency && currentSub.locked_currency !== variation.currency) {
                 return res.status(400).json({ error: 'Cannot switch to a plan priced in a different currency' });
             }
@@ -375,21 +423,22 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
         }
 
         const coachName = `${coach.fname ?? ''} ${coach.lname ?? ''}`.trim() || coach.email;
-        const checkoutBase = { amount: finalAmount, currency, merchantOrderId: paymentId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
-        const checkout = await runCheckout(method, checkoutBase, walletPhoneNumber);
+        const checkoutBase = { amount: finalAmount, currency, merchantOrderId: paymentId, description: `FitForce ${plan.display_name}`, workspaceId: req.user!.workspaceId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
+        const checkout = await startCheckoutOrFail(paymentId, method, checkoutBase, walletPhoneNumber);
 
         // Fawry has no URL to store, only a reference code — reuse gateway_payment_url as the
         // generic "however the customer completes this" display value (DEBT.md notes this is
         // a repurposed field name, not a schema change).
         await prisma.workspace_payments.update({
             where: { id: paymentId },
-            data:  { gateway_payment_url: checkout.paymentUrl ?? checkout.referenceCode, gateway_reference_id: checkout.orderId },
+            data:  { gateway: checkout.gateway, gateway_payment_url: checkout.paymentUrl ?? checkout.referenceCode, gateway_reference_id: checkout.orderId },
         });
 
         res.json({
             paymentId, paymentMethod: method,
             paymentUrl:     checkout.paymentUrl ?? null,
             referenceCode:  checkout.referenceCode ?? null,
+            qrPayload:      checkout.qrPayload ?? null,
             manualPayment:  null,
             creditApplied,
             amountCharged:  finalAmount,
@@ -415,10 +464,10 @@ export async function createAddonInvoice(req: Request, res: Response, next: Next
     const { addonId, paymentMethod, walletPhoneNumber } = req.body as {
         addonId?: string; paymentMethod?: string; walletPhoneNumber?: string;
     };
-    if (!addonId) return res.status(400).json({ error: 'addonId is required' });
+    if (typeof addonId !== 'string' || !addonId) return res.status(400).json({ error: 'addonId is required' });
     const method = resolvePaymentMethod(paymentMethod);
-    if (method === 'wallet' && !walletPhoneNumber?.trim()) {
-        return res.status(400).json({ error: 'walletPhoneNumber is required for wallet payments' });
+    if (method === 'wallet' && !isValidWalletPhone(walletPhoneNumber)) {
+        return res.status(400).json({ error: 'A valid wallet phone number is required for wallet payments' });
     }
 
     try {
@@ -478,18 +527,19 @@ export async function createAddonInvoice(req: Request, res: Response, next: Next
         }
 
         const coachName = `${coach.fname ?? ''} ${coach.lname ?? ''}`.trim() || coach.email;
-        const checkoutBase = { amount: Number(addon.price_monthly), currency: addon.currency, merchantOrderId: paymentId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
-        const checkout = await runCheckout(method, checkoutBase, walletPhoneNumber);
+        const checkoutBase = { amount: Number(addon.price_monthly), currency: addon.currency, merchantOrderId: paymentId, description: `FitForce ${addon.label}`, workspaceId: req.user!.workspaceId, coachName, coachEmail: coach.email, coachPhone: coach.phone ?? undefined };
+        const checkout = await startCheckoutOrFail(paymentId, method, checkoutBase, walletPhoneNumber);
 
         await prisma.workspace_payments.update({
             where: { id: paymentId },
-            data:  { gateway_payment_url: checkout.paymentUrl ?? checkout.referenceCode, gateway_reference_id: checkout.orderId },
+            data:  { gateway: checkout.gateway, gateway_payment_url: checkout.paymentUrl ?? checkout.referenceCode, gateway_reference_id: checkout.orderId },
         });
 
         res.json({
             paymentId, paymentMethod: method,
             paymentUrl: checkout.paymentUrl ?? null,
             referenceCode: checkout.referenceCode ?? null,
+            qrPayload:     checkout.qrPayload ?? null,
             manualPayment: null,
         });
     } catch (err) {
@@ -504,7 +554,7 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
         const paymentRow = await prisma.workspace_payments.findFirst({
             where: { id: req.params.paymentId as string, workspace_id: req.user!.workspaceId },
             select: {
-                id: true, gateway_status: true, gateway_reference_id: true,
+                id: true, gateway: true, gateway_status: true, gateway_reference_id: true,
                 amount: true, currency: true, paid_at: true,
                 plans: { select: { display_name: true, display_name_ar: true } },
                 addons: { select: { label: true, label_ar: true } },
@@ -516,13 +566,26 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
         let currentStatus = paymentRow.gateway_status;
         if (currentStatus === 'pending' && paymentRow.gateway_reference_id) {
             try {
-                const txStatus = await paymob.getTransactionStatus(paymentRow.gateway_reference_id);
-                if (txStatus?.success) {
-                    await applyPayment(paymentRow.id, req.user!.workspaceId);
-                    currentStatus = 'paid';
+                if (paymentRow.gateway === 'fawaterak') {
+                    const outcome = await fawaterak.getInvoiceOutcome(paymentRow.gateway_reference_id);
+                    if (outcome === 'paid') {
+                        await applyPayment(paymentRow.id, req.user!.workspaceId);
+                        currentStatus = 'paid';
+                    } else if (outcome === 'failed') {
+                        await prisma.workspace_payments.updateMany({ where: { id: paymentRow.id, gateway_status: 'pending' }, data: { gateway_status: 'failed' } });
+                        currentStatus = 'failed';
+                    }
+                } else {
+                    const txStatus = await paymob.getTransactionStatus(paymentRow.gateway_reference_id);
+                    if (txStatus?.success) {
+                        await applyPayment(paymentRow.id, req.user!.workspaceId);
+                        currentStatus = 'paid';
+                    }
                 }
-            } catch {
-                // Paymob unreachable — webhook will arrive shortly
+            } catch (err) {
+                // Gateway unreachable (webhook will still arrive) — but log it, since the same catch
+                // also hides a failed applyPayment, which would otherwise leave a paid invoice unapplied.
+                console.error('[Billing] payment-status check failed for', paymentRow.id, (err as Error).message);
             }
         }
 
@@ -552,7 +615,7 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
 // workspace's plan changed again in between. A plain renewal (same plan+variation) keeps the
 // original behavior unchanged in both branches: starts_at set once via COALESCE and never
 // updated again, expires_at extends from whichever is later — now or the current expiry.
-export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date, addonQuantity: number = 1, actorLabel?: string): Promise<void> {
+export async function applyPayment(paymentId: string, workspaceId: string, startDate?: Date, addonQuantity: number = 1, actorLabel?: string): Promise<boolean> {
     // Either signal implies an admin-triggered application — startDate (backdating, only
     // admin manual payments pass it) or an explicit actorLabel (admin manual add-ons, which
     // have no startDate concept of their own). Self-serve (webhook/callback/poll) passes neither.
@@ -570,7 +633,7 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
 
         if (!rows.length || (rows[0] as Record<string, unknown>).paid_at !== null) {
             await dbClient.query('COMMIT');
-            return;
+            return false; // unknown payment, or already applied — nothing to do (idempotent)
         }
         const payment = rows[0] as Record<string, unknown>;
 
@@ -693,6 +756,7 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
     if (activatedPayment) {
         void notifyMetaPurchase(workspaceId, paymentId, activatedPayment.amount, activatedPayment.currency);
     }
+    return activatedPayment !== null;
 }
 
 async function notifyMetaPurchase(workspaceId: string, paymentId: string, amount: number, currency: string): Promise<void> {

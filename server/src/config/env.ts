@@ -70,6 +70,22 @@ export const env = {
     PAYMOB_HMAC_SECRET:           process.env.PAYMOB_HMAC_SECRET ?? '',
     PAYMOB_BASE_URL:              process.env.PAYMOB_BASE_URL ?? 'https://accept.paymob.com',
 
+    // Fawaterak v2 API — the default gateway. PAYMENT_GATEWAY switches card/wallet/Fawry
+    // checkout between 'fawaterak' and 'paymob'; manual transfer is gateway-independent.
+    // Optional at startup like Paymob's: unset values fail checkout with a clean error.
+    // Base URL defaults to staging so a fresh checkout can never charge real money; the
+    // METHOD_ID values come from GET /api/v2/getPaymentmethods (see scripts/check-fawaterak.ts).
+    PAYMENT_GATEWAY:              process.env.PAYMENT_GATEWAY === 'paymob' ? 'paymob' as const : 'fawaterak' as const,
+    FAWATERAK_API_TOKEN:          process.env.FAWATERAK_API_TOKEN ?? '',
+    FAWATERAK_VENDOR_KEY:         process.env.FAWATERAK_VENDOR_KEY ?? '',
+    FAWATERAK_BASE_URL:           (process.env.FAWATERAK_BASE_URL ?? 'https://staging.fawaterk.com').replace(/\/+$/, ''),
+    // Optional per-request webhook override (publicly reachable URL of /api/payments/webhook/fawaterak).
+    // Lets a local/tunnelled server receive webhooks without editing the portal's global webhook settings.
+    FAWATERAK_WEBHOOK_URL:        process.env.FAWATERAK_WEBHOOK_URL ?? '',
+    FAWATERAK_METHOD_ID_CARD:     process.env.FAWATERAK_METHOD_ID_CARD ?? '',
+    FAWATERAK_METHOD_ID_WALLET:   process.env.FAWATERAK_METHOD_ID_WALLET ?? '',
+    FAWATERAK_METHOD_ID_FAWRY:    process.env.FAWATERAK_METHOD_ID_FAWRY ?? '',
+
     // Manual-transfer payment method — InstaPay/mobile wallet paid outside any gateway,
     // verified by an admin over WhatsApp within 24h (see billing.controller.ts's 'manual'
     // branch). All contact/account info a coach needs is shown from these — no admin-panel
@@ -95,3 +111,24 @@ export const env = {
     // Observability
     SENTRY_DSN:           process.env.SENTRY_DSN ?? '',
 } as const;
+
+/** Misconfigurations that would break or mis-route real payments. Returned (not thrown) because
+ *  a manual-transfer-only deploy is legitimate and must still boot — server.ts logs each one
+ *  loudly at startup so a staging token or a localhost return URL can't reach production unseen. */
+export function getPaymentConfigWarnings(): string[] {
+    if (env.NODE_ENV !== 'production') return [];
+
+    const warnings: string[] = [];
+    if (env.PAYMENT_GATEWAY === 'fawaterak') {
+        if (!env.FAWATERAK_API_TOKEN) warnings.push('PAYMENT_GATEWAY=fawaterak but FAWATERAK_API_TOKEN is empty — card/wallet/Fawry checkout will fail');
+        if (!env.FAWATERAK_METHOD_ID_CARD || !env.FAWATERAK_METHOD_ID_WALLET || !env.FAWATERAK_METHOD_ID_FAWRY) {
+            warnings.push('One or more FAWATERAK_METHOD_ID_* values are empty — those payment methods will fail');
+        }
+        if (env.FAWATERAK_BASE_URL.includes('staging')) warnings.push('FAWATERAK_BASE_URL points at Fawaterak STAGING in production');
+    }
+    if (env.PAYMENT_GATEWAY === 'paymob' && !env.PAYMOB_API_KEY) warnings.push('PAYMENT_GATEWAY=paymob but PAYMOB_API_KEY is empty');
+    if (/localhost|lvh\.me|127\.0\.0\.1/.test(env.CLIENT_URL)) {
+        warnings.push(`CLIENT_URL is "${env.CLIENT_URL}" — gateway return links would send coaches to a dead address`);
+    }
+    return warnings;
+}

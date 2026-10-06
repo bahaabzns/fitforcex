@@ -44,6 +44,17 @@ export const mutationLimiter = rateLimit({
     skip:           skipInTest,
 });
 
+// Gateway webhooks are unauthenticated by design, and each one costs a DB lookup plus an API call
+// to the gateway — cap them per IP so a flood can't be turned into load on either.
+export const webhookLimiter = rateLimit({
+    windowMs:       1 * 60 * 1000,
+    max:            120,
+    message:        { error: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders:  false,
+    skip:           skipInTest,
+});
+
 export const uploadLimiter = rateLimit({
     windowMs:       1 * 60 * 1000,
     max:            20,
