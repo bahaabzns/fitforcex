@@ -6,6 +6,7 @@ import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
 import OverlayInertFix from './components/OverlayInertFix';
 import MetaPixelTracker from './components/MetaPixelTracker';
+import ClarityTracker from './components/ClarityTracker';
 
 export function Providers({ children, defaultTheme = 'system', locale = 'en', messages = {} }) {
     return (
@@ -24,6 +25,7 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                     <RouterProvider>
                         <OverlayInertFix />
                         <MetaPixelTracker />
+                        <ClarityTracker />
                         {children}
                     </RouterProvider>
                 </ThemeProvider>
