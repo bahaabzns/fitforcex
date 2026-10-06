@@ -12,6 +12,8 @@ import { Download } from "lucide-react";
 import LandingPricing from "@/app/components/LandingPricing";
 import DataTable from "@/app/components/DataTable";
 import ManualPaymentPanel from "@/app/components/ManualPaymentPanel";
+import PaymentMethodPicker, { isWalletPhoneValid } from "@/app/components/PaymentMethodPicker";
+import GatewayPaymentPending from "@/app/components/GatewayPaymentPending";
 import SettingsPageHeader from "../_components/SettingsPageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -46,8 +48,13 @@ export default function SubscriptionPage() {
     const [error, setError] = useState("");
     const [availableAddons, setAvailableAddons] = useState([]);
     const [buyingAddon, setBuyingAddon] = useState(null);
-    // Plan just clicked — shows the Card/Wallet/Fawry (unavailable) + manual-transfer choice.
+    // Plan just clicked — shows the Card/Wallet/Fawry + manual-transfer choice.
     const [methodChoice, setMethodChoice] = useState(null); // { planId, variationId }
+    const [method, setMethod] = useState('card');
+    const [walletPhone, setWalletPhone] = useState('');
+    // Fawry / wallet payments finish outside the browser — create-invoice returns a code (and a
+    // QR for wallets) instead of a URL to open.
+    const [gatewayPending, setGatewayPending] = useState(null); // { paymentId, method, referenceCode, qrPayload }
     // Manual-transfer instructions once create-invoice returns them — also reused directly by
     // handleBuyAddon (add-ons skip the method-choice screen, manual is the only real option).
     const [manualPayment, setManualPayment] = useState(null);
@@ -71,17 +78,34 @@ export default function SubscriptionPage() {
     function closeManualModal() {
         setMethodChoice(null);
         setManualPayment(null);
+        setGatewayPending(null);
     }
 
     async function handlePay(planId, variationId) {
+        if (method === 'wallet' && !isWalletPhoneValid(walletPhone)) {
+            setError(t("walletPhoneInvalid"));
+            return;
+        }
         setPaying(planId);
         setError("");
         try {
-            const res = await api.post("/api/billing/create-invoice", { planId, variationId, paymentMethod: 'manual' });
+            const res = await api.post("/api/billing/create-invoice", {
+                planId, variationId, paymentMethod: method,
+                walletPhoneNumber: method === 'wallet' ? walletPhone.trim() : undefined,
+            });
             // The final amount already reflects any tier-change credit (see
             // billing.controller.ts's createInvoice) — no separate "confirm the discount"
-            // step needed before showing instructions, unlike a gateway redirect.
-            setManualPayment(res.data.manualPayment);
+            // step needed before the coach pays.
+            if (res.data.manualPayment) {
+                setManualPayment(res.data.manualPayment);
+            } else if (res.data.paymentUrl) {
+                // Hosted gateway page (card / wallet) — the gateway returns the browser to
+                // billing/success, which polls payment-status until the webhook lands.
+                window.location.href = res.data.paymentUrl;
+                return;
+            } else if (res.data.referenceCode || res.data.qrPayload) {
+                setGatewayPending({ paymentId: res.data.paymentId, method, referenceCode: res.data.referenceCode, qrPayload: res.data.qrPayload });
+            }
         } catch (err) {
             const message = err.response?.data?.error || "";
             const limitMatch = message.match(/^(client|seat)_limit_exceeded:(\d+)$/);
@@ -308,33 +332,18 @@ export default function SubscriptionPage() {
             {/* Payment method modal — reached either from a plan's CTA (methodChoice set first,
                 shows the Card/Wallet/Fawry-unavailable + manual choice) or straight from an
                 add-on's Buy button (manualPayment set directly, no choice screen needed). */}
-            {(methodChoice || manualPayment) && (
+            {(methodChoice || manualPayment || gatewayPending) && (
                 <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
                     <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-sm p-6 gap-4 max-h-[85vh] overflow-y-auto">
-                        {!manualPayment ? (
+                        {!manualPayment && !gatewayPending ? (
                             <>
                                 <p className="text-base font-semibold text-foreground">{t("chooseMethodTitle")}</p>
 
-                                <div className="flex flex-col gap-2">
-                                    {['payWithCard', 'payWithWallet', 'payWithFawry'].map((key) => (
-                                        <label key={key} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
-                                            <span className="flex items-center gap-2 text-sm text-foreground">
-                                                <input type="radio" disabled />
-                                                {t(key)}
-                                            </span>
-                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground whitespace-nowrap">
-                                                {t("currentlyUnavailable")}
-                                            </span>
-                                        </label>
-                                    ))}
-                                    <label className="flex items-center gap-2 p-2.5 rounded-lg border border-primary bg-primary/5 cursor-default">
-                                        <input type="radio" checked readOnly />
-                                        <span className="flex flex-col items-start gap-0.5">
-                                            <span className="text-sm text-foreground font-medium">{t("payManually")}</span>
-                                            <span className="text-xs text-muted-foreground">{t("payManuallyHint")}</span>
-                                        </span>
-                                    </label>
-                                </div>
+                                <PaymentMethodPicker
+                                    method={method} onMethodChange={setMethod}
+                                    walletPhone={walletPhone} onWalletPhoneChange={setWalletPhone}
+                                    t={t}
+                                />
 
                                 {error && <ErrorMsg msg={error} />}
 
@@ -353,6 +362,16 @@ export default function SubscriptionPage() {
                                         {paying === methodChoice.planId ? t("processing") : t("checkoutButton")}
                                     </button>
                                 </div>
+                            </>
+                        ) : gatewayPending ? (
+                            <>
+                                <GatewayPaymentPending {...gatewayPending} onPaid={loadBilling} t={t} />
+                                <button
+                                    onClick={() => { closeManualModal(); loadBilling(); }}
+                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                                >
+                                    {t("done")}
+                                </button>
                             </>
                         ) : (
                             <>
