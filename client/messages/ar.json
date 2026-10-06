@@ -73,6 +73,10 @@
   },
   "dashboard": {
     "welcomeBack": "مرحباً بعودتك، {name}!",
+    "paymentConfirmedTitle": "تم تأكيد الدفع",
+    "paymentConfirmedBody": "شكرًا لك! تم تفعيل اشتراكك في {plan}.",
+    "paymentConfirmedBodyGeneric": "شكرًا لك! تم استلام دفعتك وتفعيل اشتراكك.",
+    "paymentConfirmedContinue": "المتابعة إلى لوحة التحكم",
     "subtitle": "إليك ما يحدث في مساحة عملك",
     "totalClients": "إجمالي العملاء",
     "activeClients": "العملاء النشطون",

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { Users, ClipboardList, TrendingUp, AlertCircle } from 'lucide-react';
@@ -17,6 +17,7 @@ import { RangeCalendar } from "@heroui/react/range-calendar";
 import { DateField } from "@heroui/react/date-field";
 import AreaChart from "@/app/components/charts/AreaChart";
 import WelcomeOnboarding from "@/app/components/WelcomeOnboarding";
+import PaymentConfirmedModal from "@/app/components/PaymentConfirmedModal";
 import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -40,6 +41,21 @@ export default function DashboardPage() {
     const tNav = useTranslations('nav');
     usePageTitle(tNav('dashboard'));
     const [showWelcome, setShowWelcome] = useState(false);
+    // The billing success page redirects here with ?payment_confirmed=<paymentId> once a gateway
+    // payment is confirmed. Derived from the URL (not copied into state by an effect) so it can't
+    // race the welcome effect below, which rewrites the URL.
+    const searchParams = useSearchParams();
+    const paymentConfirmedParam = searchParams.get('payment_confirmed');
+    const [dismissedPaymentId, setDismissedPaymentId] = useState(null);
+    const confirmedPaymentId = paymentConfirmedParam && paymentConfirmedParam !== dismissedPaymentId ? paymentConfirmedParam : null;
+
+    function dismissPaymentConfirmed() {
+        setDismissedPaymentId(paymentConfirmedParam);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('payment_confirmed');
+        const rest = params.toString();
+        window.history.replaceState(null, '', `/${workspaceSlug}/dashboard${rest ? `?${rest}` : ''}`);
+    }
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");
 
@@ -57,8 +73,11 @@ export default function DashboardPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('welcome') === '1') {
             setShowWelcome(true);
-            // Strip the param so a refresh doesn't re-trigger the popup.
-            window.history.replaceState(null, '', `/${workspaceSlug}/dashboard`);
+            // Strip the param so a refresh doesn't re-trigger the popup (others, e.g.
+            // payment_confirmed, stay for the modal that owns them).
+            params.delete('welcome');
+            const rest = params.toString();
+            window.history.replaceState(null, '', `/${workspaceSlug}/dashboard${rest ? `?${rest}` : ''}`);
             return;
         }
         api.get('/api/auth/clone-status')
@@ -112,6 +131,9 @@ export default function DashboardPage() {
         <div className="p-8 flex flex-col gap-6">
             {showWelcome && (
                 <WelcomeOnboarding workspaceSlug={workspaceSlug} onDone={() => setShowWelcome(false)} />
+            )}
+            {confirmedPaymentId && (
+                <PaymentConfirmedModal paymentId={confirmedPaymentId} onClose={dismissPaymentConfirmed} />
             )}
 
             {/* Greeting */}

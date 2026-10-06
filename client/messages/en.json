@@ -73,6 +73,10 @@
   },
   "dashboard": {
     "welcomeBack": "Welcome back, {name}!",
+    "paymentConfirmedTitle": "Payment confirmed",
+    "paymentConfirmedBody": "Thank you! Your {plan} subscription is now active.",
+    "paymentConfirmedBodyGeneric": "Thank you! Your payment was received and your subscription is now active.",
+    "paymentConfirmedContinue": "Continue to dashboard",
     "subtitle": "Here's what's happening in your workspace",
     "totalClients": "Total Clients",
     "activeClients": "Active Clients",
