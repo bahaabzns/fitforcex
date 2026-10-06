@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useParams } from "next/navigation";
+import { useSearchParams, useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -16,6 +16,7 @@ const STATUS_TITLES = {
 
 export default function BillingSuccessPage() {
     const { workspaceSlug } = useParams();
+    const router            = useRouter();
     const searchParams      = useSearchParams();
     const paymentId         = searchParams.get("payment");
 
@@ -37,6 +38,8 @@ export default function BillingSuccessPage() {
 
                 if (res.data.status === "paid") {
                     setStatus("confirmed");
+                    // The dashboard shows the "payment confirmed" modal for this id.
+                    router.replace(`/${workspaceSlug}/dashboard?payment_confirmed=${encodeURIComponent(paymentId)}`);
                 } else if (res.data.status === "failed") {
                     setStatus("failed");
                 } else if (attempts < maxAttempts) {
@@ -51,7 +54,7 @@ export default function BillingSuccessPage() {
         }
 
         poll();
-    }, [paymentId]);
+    }, [paymentId, router, workspaceSlug]);
 
     return (
         <div className="min-h-[60vh] flex items-center justify-center p-8">
