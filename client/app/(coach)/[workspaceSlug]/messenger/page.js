@@ -6,6 +6,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import api from "@/lib/axios";
+import { getSocket } from "@/lib/socket";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { getDateLabel } from "@/utils/date";
 import { Button } from "@heroui/react/button";
@@ -28,7 +29,11 @@ import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner
 import ObservationModal from "@/app/components/ObservationModal";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
-const POLL_INTERVAL_MS = 5000;
+// Real-time sync now comes from the `new_message` socket event (see the effect
+// below); this is only the safety net for a missed/dropped event, so it can be
+// slow — it used to be the *only* sync mechanism at 5s, which is most of why
+// the messenger felt laggy regardless of query speed.
+const POLL_INTERVAL_MS = 30000;
 
 const STATUS_CHIP = {
     Active:      "success",
@@ -151,6 +156,7 @@ export default function MessengerPage() {
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
     const prevMessageCountRef = useRef(0);
+    const threadsRefreshTimerRef = useRef(null);
 
 
     // Every row in `threads` now represents a client (see getThreads), so lookups
@@ -247,6 +253,52 @@ export default function MessengerPage() {
         return () => {
             clearInterval(pollRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [selectedThread?.id, fetchThreads, fetchMessages]);
+
+    // Real-time delivery: the server already emits `new_message` to this
+    // workspace's socket room on every send/broadcast (messenger.controller.ts) —
+    // nothing was listening for it before, so the 5s poll was carrying the full
+    // load. Refetch through the same fetchThreads/fetchMessages the poll already
+    // uses (rather than appending the pushed payload directly) so there's one
+    // source of truth for shaping/sorting/read-marking, and the sender's own
+    // optimistic append (handleSendText/handleSendAttachment) never double-adds.
+    useEffect(() => {
+        const socket = getSocket();
+
+        // Broadcasting to many threads fires one `new_message` event per thread
+        // (up to 500, see MAX_BROADCAST_THREADS) — debounce so a burst collapses
+        // into one fetchThreads() shortly after it ends, not one per event.
+        const scheduleThreadsRefresh = () => {
+            clearTimeout(threadsRefreshTimerRef.current);
+            threadsRefreshTimerRef.current = setTimeout(fetchThreads, 300);
+        };
+
+        const refreshOpenThread = () => {
+            if (selectedThread?.id) fetchMessages(selectedThread.id);
+        };
+
+        const handleNewMessage = (payload) => {
+            scheduleThreadsRefresh();
+            if (payload?.threadId && payload.threadId === selectedThread?.id) {
+                refreshOpenThread();
+            }
+        };
+
+        // A reconnect (network blip, laptop sleep) may have missed events for
+        // the open thread too, not just the list — catch up immediately rather
+        // than waiting for the next safety-net poll.
+        const handleReconnect = () => {
+            fetchThreads();
+            refreshOpenThread();
+        };
+
+        socket.on('connect', handleReconnect);
+        socket.on('new_message', handleNewMessage);
+        return () => {
+            clearTimeout(threadsRefreshTimerRef.current);
+            socket.off('connect', handleReconnect);
+            socket.off('new_message', handleNewMessage);
         };
     }, [selectedThread?.id, fetchThreads, fetchMessages]);
 
