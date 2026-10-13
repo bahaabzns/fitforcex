@@ -18,6 +18,7 @@ import Typography from "@/app/components/Typography";
 import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
+import { Virtualizer, ListLayout } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
 import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X, ListFilter, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronRight, Megaphone, NotebookText, Plus } from "lucide-react";
 import EmptyState from "@/app/components/EmptyState";
@@ -34,6 +35,14 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 // slow — it used to be the *only* sync mechanism at 5s, which is most of why
 // the messenger felt laggy regardless of query speed.
 const POLL_INTERVAL_MS = 30000;
+
+// The thread-list row's rendered height is fixed (avatar + two lines of
+// truncated text + fixed padding never wraps or grows) — measured via a real
+// browser render, not guessed. Matches gap to the row's own `mb-0.5` so the
+// virtualizer's absolute positioning doesn't double up with CSS margin (the
+// item's own margin is dropped, see ListBox.Item below).
+const THREAD_ROW_HEIGHT = 60;
+const THREAD_ROW_GAP = 2;
 
 const STATUS_CHIP = {
     Active:      "success",
@@ -628,6 +637,18 @@ export default function MessengerPage() {
                             ))
                         ) : (
                             <ScrollShadow hideScrollBar className="flex-1 overflow-y-auto">
+                                {/* filteredThreads can be in the thousands (every client in the
+                                    workspace, not just active conversations — see getThreads) —
+                                    without virtualizing, mounting that many ListBox.Item rows (each
+                                    with its own React Aria hover/focus/press hooks) was blocking the
+                                    first paint for ~20s and making hover visibly laggy. Virtualizer
+                                    renders only the rows actually in view, reusing them on scroll;
+                                    it delegates scrolling to this ScrollShadow (allowsWindowScrolling)
+                                    rather than owning its own scroll container. */}
+                                <Virtualizer
+                                    layout={ListLayout}
+                                    layoutOptions={{ rowSize: THREAD_ROW_HEIGHT, gap: THREAD_ROW_GAP }}
+                                >
                                 <ListBox
                                     selectionMode="single"
                                     disallowEmptySelection
@@ -658,7 +679,7 @@ export default function MessengerPage() {
                                                 key={thread.client_id}
                                                 id={thread.client_id}
                                                 textValue={`${thread.fname} ${thread.lname}`}
-                                                className="items-start gap-3 rounded-xl px-3 py-2.5 mb-0.5 cursor-pointer [&:hover]:bg-surface data-[selected=true]:bg-surface data-[selected=true]:[&:hover]:bg-surface focus:outline-none! focus:ring-0! focus:shadow-none! focus-visible:outline-none! focus-visible:ring-0! focus-visible:shadow-none!"
+                                                className="items-start gap-3 rounded-xl px-3 py-2.5 cursor-pointer [&:hover]:bg-surface data-[selected=true]:bg-surface data-[selected=true]:[&:hover]:bg-surface focus:outline-none! focus:ring-0! focus:shadow-none! focus-visible:outline-none! focus-visible:ring-0! focus-visible:shadow-none!"
                                             >
                                                 <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
                                                     <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
@@ -688,6 +709,7 @@ export default function MessengerPage() {
                                         );
                                     })}
                                 </ListBox>
+                                </Virtualizer>
                             </ScrollShadow>
                         )}
                     </div>

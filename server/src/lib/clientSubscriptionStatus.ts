@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { computeSubscriptionStatus } from '../utils/subscriptionStatus';
 
@@ -33,10 +32,10 @@ export async function computeStatusesForClients(
         prisma.$queryRaw<PlanActRow[]>`
             SELECT client_id, MIN(activated_at) AS first_activation FROM (
                 SELECT client_id, activated_at FROM training_plans
-                WHERE workspace_id = ${workspaceId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
+                WHERE workspace_id = ${workspaceId} AND client_id = ANY(${clientIds}) AND activated_at IS NOT NULL
                 UNION ALL
                 SELECT client_id, activated_at FROM nutrition_plans
-                WHERE workspace_id = ${workspaceId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
+                WHERE workspace_id = ${workspaceId} AND client_id = ANY(${clientIds}) AND activated_at IS NOT NULL
             ) combined GROUP BY client_id
         `,
     ]);
