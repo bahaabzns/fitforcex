@@ -119,3 +119,11 @@ Format per package:
 **What:** Renders a QR code as SVG from a text payload.
 **Why:** Fawaterak's Meeza mobile-wallet checkout returns an EMV-QR text payload that the customer scans in their wallet app (`GatewayPaymentPending.js`). Writing a QR encoder ourselves is not trivial.
 **Vetted 2026-10-02:** last release 4.2.0 (Dec 2024), ISC licence, zero dependencies, ~115 KB unpacked, supports React 19, very widely used; no known CVEs.
+
+---
+
+## socket.io-client v4.8.3 (client + server devDependency)
+**Installed:** 2026-10-13
+**Why:** The coach messenger page had no real-time sync at all — just a 5s poll — even though the server's Socket.IO infra (`server/src/lib/socket.ts`) already authenticated the same cookie, joined the right room, and already emitted `new_message` on every send (`messenger.controller.ts`). Nothing on the web client listened for it, so every message waited up to 5s to appear. Added the client-side counterpart to the server's already-used `socket.io` (same `^4.8.3`), so this isn't a new unknown dependency — it's the matching half of one already in production. Vetted: official Socket.IO package, actively maintained, extremely high adoption, `npm audit` showed zero vulnerabilities attributable to it on either package (pre/post-install counts identical). Also added as a server devDependency to drive a real listening Socket.IO server in `tests/integration/messengerRealtime.test.ts` (verifies actual event delivery + cross-workspace isolation).
+**Used in:** `client/lib/socket.js` (connection singleton), `client/app/(coach)/[workspaceSlug]/messenger/page.js`
+**Review date:** 2027-01-13
