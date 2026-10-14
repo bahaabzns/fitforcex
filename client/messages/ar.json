@@ -551,6 +551,7 @@
     "duplicateSet": "تكرار المجموعة",
     "deleteSet": "حذف المجموعة",
     "deleteExercise": "حذف التمرين",
+    "exerciseOptions": "خيارات التمرين",
     "replaceExercise": "استبدال التمرين",
     "replaceExerciseHint": "تحتاج تمرينًا مختلفًا؟ استبدله دون إعادة بناء الصف.",
     "replaceExerciseHintDismiss": "فهمت",

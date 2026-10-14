@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { NotebookText } from "lucide-react";
+import { NotebookText, ArrowRightLeft, Trash2 } from "lucide-react";
+import ItemActionsMenu from "@/app/components/ItemActionsMenu";
 import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
 import FoodInsightsModal from "./FoodInsightsModal";
@@ -34,6 +35,7 @@ export default function RightPanel({
 }) {
     const [insightsItem, setInsightsItem] = useState(null);
     const t = useTranslations('nutrition');
+    const tNav = useTranslations('nav');
     const isRTL = useLocale() === 'ar';
     const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
     const [expandedItemIds, setExpandedItemIds] = useState(new Set());
@@ -154,7 +156,7 @@ export default function RightPanel({
                                                     <div
                                                         {...attributes}
                                                         {...listeners}
-                                                        className="group flex items-center gap-3 px-3 py-2 cursor-pointer touch-none transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
+                                                        className="group flex items-center gap-2 md:flex-wrap md:gap-x-3 md:gap-y-2 px-3 py-2 cursor-pointer touch-none transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
                                                         onClick={() => {
                                                             if (alternatives.length === 0) return;
                                                             const key = String(item.id);
@@ -172,8 +174,9 @@ export default function RightPanel({
                                                             </svg>
                                                         </span>
 
-                                                        {/* Name + quantity stepper */}
-                                                        <div className="flex-1 min-w-0">
+                                                        {/* Name + quantity stepper. min-w keeps the name readable; when the panel is
+                                                            too narrow the macros wrap to their own line instead of squeezing it. */}
+                                                        <div className="flex-1 min-w-0 md:min-w-[9rem]">
                                                             <p translate="no" className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
                                                                 {localizedFoodName(item.name, item.name_ar, isRTL)}
                                                             </p>
@@ -186,7 +189,7 @@ export default function RightPanel({
                                                                     variant="secondary"
                                                                 >
                                                                     <NumberField.Group className="h-7 !flex items-center !rounded">
-                                                                        <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-semibold" onFocus={(e) => e.target.select()} />
+                                                                        <NumberField.Input className="w-12 md:w-16 py-0 px-1.5 text-center text-sm font-semibold" onFocus={(e) => e.target.select()} />
                                                                         <span className="pr-1.5 text-xs text-muted-foreground pointer-events-none select-none leading-none">{item.serving_unit}</span>
                                                                     </NumberField.Group>
                                                                 </NumberField>
@@ -205,15 +208,15 @@ export default function RightPanel({
                                                         </div>
 
                                                         {/* Macro columns */}
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <MacroStat label={t('carbs')} value={itemMacros.carbs} color="text-primary" />
-                                                            <MacroStat label={t('protein')} value={itemMacros.protein} color="text-orange-500" />
-                                                            <MacroStat label={t('fat')} value={itemMacros.fats} color="text-amber-500" />
-                                                            <MacroStat label={t('calories')} value={itemMacros.calories} strong width="w-14" />
+                                                        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+                                                            <MacroStat label={t('carbs')} value={itemMacros.carbs} color="text-primary" width="w-9 md:w-12" />
+                                                            <MacroStat label={t('protein')} value={itemMacros.protein} color="text-orange-500" width="w-9 md:w-12" />
+                                                            <MacroStat label={t('fat')} value={itemMacros.fats} color="text-amber-500" width="w-9 md:w-12" />
+                                                            <MacroStat label={t('calories')} value={itemMacros.calories} strong width="w-11 md:w-14" />
                                                         </div>
 
                                                         {/* Actions column — fixed width so macro columns never shift */}
-                                                        <div className={`${clientId ? "w-28" : "w-17"} flex items-center justify-end gap-1 shrink-0`}>
+                                                        <div className={`${clientId ? "w-28" : "w-17"} flex items-center justify-end gap-1 shrink-0 max-md:hidden`}>
                                                             <button
                                                                 title={t('addAlternatives')}
                                                                 className={`cursor-pointer flex items-center gap-1 w-10.5 px-1.5 py-1.5 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors ${alternatives.length === 0 ? 'justify-center' : 'justify-start'}`}
@@ -248,6 +251,18 @@ export default function RightPanel({
                                                             >
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                                             </button>
+                                                        </div>
+
+                                                        {/* Phone: the three actions collapse into one menu so the name keeps its room */}
+                                                        <div className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                                            <ItemActionsMenu
+                                                                ariaLabel={t('removeFoodItem')}
+                                                                items={[
+                                                                    { key: "alternatives", label: t('addAlternatives') + (alternatives.length > 0 ? ` (${alternatives.length})` : ""), icon: <ArrowRightLeft size={16} className="shrink-0" />, onSelect: () => setAlternativeModalOpenForItemId(item.id) },
+                                                                    ...(clientId ? [{ key: "observations", label: tNav('observations'), icon: <NotebookText size={16} className="shrink-0" />, onSelect: () => setInsightsItem(item) }] : []),
+                                                                    { key: "remove", label: t('removeFoodItem'), icon: <Trash2 size={16} className="shrink-0" />, danger: true, onSelect: () => handleDeleteMealItem(item.id) },
+                                                                ]}
+                                                            />
                                                         </div>
                                                     </div>
                                                 </Disclosure.Heading>

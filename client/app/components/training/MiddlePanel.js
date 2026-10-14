@@ -7,7 +7,8 @@ import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import InlineEditField from "@/app/components/InlineEditField";
-import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
+import { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
+import ItemActionsMenu from "@/app/components/ItemActionsMenu";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
 
 const StatusDot = () => (
@@ -165,22 +166,24 @@ export default function MiddlePanel({
                                         }`}>
                                             {originalIndex + 1}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={`text-sm font-semibold truncate ${isActive ? "text-primary" : "text-foreground"}`}>
+                                        <div className="flex-1 min-w-0 flex flex-col gap-1">
+                                            <p className={`text-sm font-semibold leading-snug break-words ${isActive ? "text-primary" : "text-foreground"}`}>
                                                 {day.name}
                                             </p>
-                                            <p className="text-xs leading-5 text-muted truncate">
+                                            <p className="text-xs leading-5 text-muted">
                                                 {day.exercises?.length ?? 0} exercises · {setCount} sets
                                             </p>
                                         </div>
-                                        <CardActionsMenu
-                                            isActive={isActive}
-                                            ariaLabel={t('dayOptions')}
-                                            items={[
-                                                { key: "duplicate", label: tCommon('duplicate'), icon: <DuplicateIcon />, onSelect: () => handleDuplicateDay(day.id) },
-                                                { key: "delete", label: tCommon('delete'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeleteDay(day.id) },
-                                            ]}
-                                        />
+                                        {/* Always visible — touch devices have no hover to reveal it */}
+                                        <div className="shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                            <ItemActionsMenu
+                                                ariaLabel={t('dayOptions')}
+                                                items={[
+                                                    { key: "duplicate", label: tCommon('duplicate'), icon: <DuplicateIcon />, onSelect: () => handleDuplicateDay(day.id) },
+                                                    { key: "delete", label: tCommon('delete'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeleteDay(day.id) },
+                                                ]}
+                                            />
+                                        </div>
                                     </div>
                                     )}
                                     </SortableItem>
