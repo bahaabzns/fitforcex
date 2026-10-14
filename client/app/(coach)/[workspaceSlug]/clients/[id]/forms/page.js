@@ -18,6 +18,8 @@ import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Accordion, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useMobilePanels } from "@/hooks/useMobilePanels";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
@@ -104,6 +106,13 @@ export default function ClientFormsPage() {
     // Draggable divider
     const [widths, setWidths] = useState([38, 62]);
     const containerRef = useRef(null);
+
+    // Phone: requests list and response detail become two swipeable screens.
+    const isMobile = useMediaQuery("(max-width: 767px)");
+    const { goToStep: goToMobileStep, swipeHandlers, panelStyle } = useMobilePanels({
+        isMobile,
+        maxStep: selected ? 1 : 0,
+    });
 
     function handleDividerMouseDown(e) {
         e.preventDefault();
@@ -268,11 +277,12 @@ export default function ClientFormsPage() {
         <div
             ref={containerRef}
             className="flex flex-1 min-h-0 overflow-hidden gap-0"
+            {...swipeHandlers}
         >
             {/* ── Left Panel: Form Requests List ─────────────────── */}
             <div
-                className="flex flex-col overflow-hidden"
-                style={{ width: `${widths[0]}%` }}
+                className={`flex flex-col overflow-hidden ${isMobile ? "w-full shrink-0" : ""}`}
+                style={isMobile ? panelStyle : { width: `${widths[0]}%` }}
             >
                 <Surface variant="default" className="flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
                     {/* Header */}
@@ -328,7 +338,7 @@ export default function ClientFormsPage() {
                                     return (
                                         <div
                                             key={req.id}
-                                            onClick={() => { setSelected(req); setExpandedKeys(new Set()); }}
+                                            onClick={() => { setSelected(req); setExpandedKeys(new Set()); goToMobileStep(1); }}
                                             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 select-none ${
                                                 req.is_archived ? "opacity-50" : ""
                                             } ${
@@ -386,7 +396,7 @@ export default function ClientFormsPage() {
 
             {/* ── Divider ─────────────────────────────────────────── */}
             <div
-                className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
+                className="w-1.5 mx-1 shrink-0 hidden md:flex items-center justify-center cursor-col-resize group"
                 onMouseDown={handleDividerMouseDown}
             >
                 <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
@@ -394,8 +404,8 @@ export default function ClientFormsPage() {
 
             {/* ── Right Panel: Response Detail ────────────────────── */}
             <div
-                className="flex flex-col overflow-hidden"
-                style={{ width: `${widths[1]}%` }}
+                className={`flex flex-col overflow-hidden ${isMobile ? "w-full shrink-0" : ""}`}
+                style={isMobile ? panelStyle : { width: `${widths[1]}%` }}
             >
                 <Surface variant="default" className="flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
                     {!selected ? (
@@ -409,11 +419,11 @@ export default function ClientFormsPage() {
                     ) : (
                         <>
                             {/* Header */}
-                            <div className="flex items-start justify-between gap-3 px-1 mb-1 shrink-0">
-                                <h3 className="text-base font-semibold text-foreground flex-1 min-w-0 truncate">
+                            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-1 mb-1 shrink-0">
+                                <h3 className="text-base font-semibold text-foreground flex-1 min-w-0 break-words">
                                     {getLocalizedField(selected, 'form_title', locale)}
                                 </h3>
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex flex-wrap items-center gap-2 md:shrink-0">
                                     {selected.is_archived && (
                                         <Chip size="sm" color="default" variant="soft">
                                             <Archive size={11} />
