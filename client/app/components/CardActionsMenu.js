@@ -32,7 +32,8 @@ export const TrashIcon = () => (
 /**
  * Trailing action slot shared by the plan / meal / day cards. Renders a chevron
  * at rest and swaps it for a kebab "⋯" dropdown on hover (or while the menu is
- * open), within a fixed footprint so the card layout never shifts.
+ * open), within a fixed footprint so the card layout never shifts. On touch
+ * devices (coarse pointer, no hover) the kebab is shown permanently instead.
  *
  * MUST be rendered inside an element carrying the `group` class (the card row) —
  * the hover swap relies on `group-hover`.
@@ -47,13 +48,13 @@ export default function CardActionsMenu({ isActive = false, ariaLabel, items = [
 
     return (
         <div className="relative shrink-0 w-6 h-6" onClick={(e) => e.stopPropagation()}>
-            <span className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-100 ${isOpen ? "opacity-0" : "opacity-100 group-hover:opacity-0"} ${isActive ? "text-primary" : "text-muted-foreground/40"}`}>
+            <span className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-100 ${isOpen ? "opacity-0" : "opacity-100 group-hover:opacity-0 pointer-coarse:opacity-0"} ${isActive ? "text-primary" : "text-muted-foreground/40"}`}>
                 <ChevronRightIcon />
             </span>
             <MenuTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
                 <AriaButton
                     aria-label={ariaLabel}
-                    className={`absolute inset-0 flex items-center justify-center rounded-lg outline-none cursor-pointer text-muted-foreground hover:text-foreground hover:bg-default transition-all duration-100 ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"}`}
+                    className={`absolute inset-0 flex items-center justify-center rounded-lg outline-none cursor-pointer text-muted-foreground hover:text-foreground hover:bg-default transition-all duration-100 ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto pointer-coarse:opacity-100 pointer-coarse:pointer-events-auto"}`}
                 >
                     <MoreIcon />
                 </AriaButton>

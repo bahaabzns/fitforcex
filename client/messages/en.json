@@ -551,6 +551,7 @@
     "duplicateSet": "Duplicate set",
     "deleteSet": "Delete set",
     "deleteExercise": "Delete exercise",
+    "exerciseOptions": "Exercise options",
     "replaceExercise": "Replace exercise",
     "replaceExerciseHint": "Need a different exercise? Swap it without rebuilding the row.",
     "replaceExerciseHintDismiss": "Got it",

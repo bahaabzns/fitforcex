@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { useTrainingPlan } from "@/hooks/useTrainingPlan";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useMobilePanels } from "@/hooks/useMobilePanels";
 import LeftPanel from "@/app/components/training/LeftPanel";
 import MiddlePanel from "@/app/components/training/MiddlePanel";
 import RightPanel from "@/app/components/training/RightPanel";
@@ -50,6 +51,8 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (day detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
+    // Phone: one panel per screen (plans → plan detail → day/meal drawer).
+    const isMobile = useMediaQuery("(max-width: 767px)");
 
     function handleDividerMouseDown(index, e) {
         e.preventDefault();
@@ -121,6 +124,11 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         focusPlanNameSignal,
         newlyCreatedDayId,
     } = useTrainingPlan(id);
+
+    const { goToStep: goToMobileStep, swipeHandlers, panelStyle } = useMobilePanels({
+        isMobile,
+        maxStep: selectedDay ? 2 : selectedPlan ? 1 : 0,
+    });
 
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
@@ -374,12 +382,12 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     </p>
                 )}
             </div>
-            <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
-                <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>
+            <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow && !isMobile ? "gap-2" : ""}`} {...swipeHandlers}>
+                <div style={isMobile ? panelStyle : isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? (isMobile ? "w-full shrink-0" : "w-[34%] shrink-0") : ""}`}>
                     <LeftPanel
                         plans={sortedPlans}
                         selectedPlan={selectedPlan}
-                        handleSelectedPlan={handleSelectedPlan}
+                        handleSelectedPlan={(plan) => { handleSelectedPlan(plan); goToMobileStep(1); }}
                         handleCreatePlan={handleCreatePlan}
                         handleLoadPlan={handleLoadPlan}
                         handleDeletePlan={handleDeletePlan}
@@ -402,12 +410,12 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                 </div>
                 )}
 
-                <div style={isNarrow ? undefined : { width: `${widths[1]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "flex-1" : ""}`}>
+                <div style={isMobile ? panelStyle : isNarrow ? undefined : { width: `${widths[1]}%` }} className={`flex flex-col h-full min-h-0 min-w-0 overflow-hidden ${isNarrow ? (isMobile ? "w-full shrink-0" : "flex-1") : ""}`}>
                     {selectedPlan ? (
                         <MiddlePanel
                             selectedPlan={selectedPlan}
                             selectedDayId={selectedDayId}
-                            handleSelectDay={handleSelectDay}
+                            handleSelectDay={(dayId) => { handleSelectDay(dayId); goToMobileStep(2); }}
                             handleCreateDay={handleCreateDay}
                             handleDeleteDay={handleDeleteDay}
                             handleDuplicateDay={handleDuplicateDay}
@@ -446,8 +454,15 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                 </>
                 )}
 
-                {/* Narrow: day detail as an overlay drawer */}
-                {isNarrow && selectedDay && (
+                {/* Phone: detail panel is its own screen, same as the other panels */}
+        {isMobile && selectedDay && (
+            <div style={panelStyle} className="w-full shrink-0 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
+                {dayPanel}
+            </div>
+        )}
+
+        {/* Narrow: day detail as an overlay drawer */}
+                {isNarrow && !isMobile && selectedDay && (
                     <div className="fixed inset-0 z-50 flex justify-end">
                         <div className="absolute inset-0 bg-black/40" onClick={handleCloseDay} />
                         <div className="relative h-full w-full max-w-md p-2 flex flex-col">

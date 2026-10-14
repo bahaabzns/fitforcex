@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { useNutritionPlan } from "@/hooks/useNutritionPlan";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useMobilePanels } from "@/hooks/useMobilePanels";
 import { calcMeal, calcCycle, calcItem } from "@/lib/nutritionCalc";
 import NameModal from "@/app/components/NameModal";
 import LeftPanel from "@/app/components/nutrition/LeftPanel";
@@ -61,6 +62,8 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (meal detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
+    // Phone: one panel per screen (plans → plan detail → day/meal drawer).
+    const isMobile = useMediaQuery("(max-width: 767px)");
 
     function handleDividerMouseDown(index, e) {
         e.preventDefault();
@@ -138,6 +141,11 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         dirtyPlanIds,
         hasDeletedPlans,
     } = useNutritionPlan(id);
+
+    const { goToStep: goToMobileStep, swipeHandlers, panelStyle } = useMobilePanels({
+        isMobile,
+        maxStep: selectedMeal && selectedPlan ? 2 : selectedPlan ? 1 : 0,
+    });
 
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
@@ -422,16 +430,16 @@ return (
         )}
     </div>
 
-    <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
+    <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow && !isMobile ? "gap-2" : ""}`} {...swipeHandlers}>
 
         {/* Panel 1: Plans List */}
-        <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>
+        <div style={isMobile ? panelStyle : isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? (isMobile ? "w-full shrink-0" : "w-[34%] shrink-0") : ""}`}>
             <LeftPanel
                 plans={sortedPlans}
                 selectedPlan={selectedPlan}
                 handleCreatePlan={handleCreatePlan}
                 handleLoadPlan={handleLoadPlan}
-                handleSelectedPlan={handleSelectedPlan}
+                handleSelectedPlan={(plan) => { handleSelectedPlan(plan); goToMobileStep(1); }}
                 handleDeletePlan={handleDeletePlan}
                 handleDuplicatePlan={handleDuplicatePlan}
                 sortOrder={sortOrder}
@@ -459,7 +467,7 @@ return (
         )}
 
         {/* Panel 2: Plan Detail */}
-        <div style={isNarrow ? undefined : { width: `${widths[1]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "flex-1" : ""}`}>
+        <div style={isMobile ? panelStyle : isNarrow ? undefined : { width: `${widths[1]}%` }} className={`flex flex-col h-full min-h-0 min-w-0 overflow-hidden ${isNarrow ? (isMobile ? "w-full shrink-0" : "flex-1") : ""}`}>
             {selectedPlan ? (
                 <MiddlePanel
                     selectedPlan={selectedPlan}
@@ -468,7 +476,7 @@ return (
                     selectedCycleIndex={selectedCycleIndex}
                     setSelectedCycleIndex={setSelectedCycleIndex}
                     selectedMeal={selectedMeal}
-                    setSelectedMeal={setSelectedMeal}
+                    setSelectedMeal={(meal) => { setSelectedMeal(meal); if (meal) goToMobileStep(2); }}
                     handleDeleteCycle={handleDeleteCycle}
                     handleCreateCycle={handleCreateCycle}
                     handleCreateMeal={handleCreateMeal}
@@ -524,8 +532,15 @@ return (
         </>
         )}
 
+        {/* Phone: detail panel is its own screen, same as the other panels */}
+        {isMobile && selectedMeal && selectedPlan && (
+            <div style={panelStyle} className="w-full shrink-0 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
+                {mealPanel}
+            </div>
+        )}
+
         {/* Narrow: meal detail as an overlay drawer */}
-        {isNarrow && selectedMeal && selectedPlan && (
+        {isNarrow && !isMobile && selectedMeal && selectedPlan && (
             <div className="fixed inset-0 z-50 flex justify-end">
                 <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedMeal(null)} />
                 <div className="relative h-full w-full max-w-md p-2 flex flex-col">

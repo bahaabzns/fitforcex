@@ -15,6 +15,8 @@ import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
 import Typography from "@/app/components/Typography";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
+import ItemActionsMenu from "@/app/components/ItemActionsMenu";
+import { Play, Layers, TrendingUp, ArrowRightLeft, Trash2 } from "lucide-react";
 import { SortableList, SortableItem } from "@/app/components/SortableList";
 import { prescribedFieldsFor } from "@/utils/exerciseTrackingTypes";
 
@@ -299,10 +301,10 @@ export default function RightPanel({
                                                 </div>
                                                 {/* Name + meta */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold truncate text-foreground" title={exerciseName}>
+                                                    <p className="text-sm font-semibold leading-snug break-words text-foreground" title={exerciseName}>
                                                         {exerciseName}
                                                     </p>
-                                                    <p className="text-xs leading-5 text-muted truncate">
+                                                    <p className="text-xs leading-5 text-muted">
                                                         {(() => {
                                                             const muscleGroup = (isRTL && exercise.muscle_group_ar) || exercise.muscle_group;
                                                             const equipment   = (isRTL && exercise.equipment_ar) || exercise.equipment;
@@ -310,8 +312,8 @@ export default function RightPanel({
                                                         })()}
                                                     </p>
                                                 </div>
-                                                {/* Actions */}
-                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                {/* Actions — inline on tablet/desktop; phones get one menu (below) */}
+                                                <div className="hidden md:flex items-center gap-1.5 shrink-0">
                                                     {hasVideo && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setVideoModalId(exercise.id); }}
@@ -366,8 +368,20 @@ export default function RightPanel({
                                                     >
                                                         <TrashIcon size={16} />
                                                     </button>
-                                                    <ChevronIcon className={`text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                                 </div>
+                                                <div className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                                    <ItemActionsMenu
+                                                        ariaLabel={t('exerciseOptions')}
+                                                        items={[
+                                                            ...(hasVideo ? [{ key: "video", label: t('watchVideo'), icon: <Play size={16} className="shrink-0" />, onSelect: () => setVideoModalId(exercise.id) }] : []),
+                                                            ...((exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 ? [{ key: "applyAll", label: "Apply sets to all exercises", icon: <Layers size={16} className="shrink-0" />, onSelect: () => handleApplySetsToAll(selectedDay.id, exercise.id) }] : []),
+                                                            ...(clientId ? [{ key: "insights", label: "Exercise insights", icon: <TrendingUp size={16} className="shrink-0" />, onSelect: () => setInsightsExercise(exercise) }] : []),
+                                                            { key: "replace", label: t('replaceExercise'), icon: <ArrowRightLeft size={16} className="shrink-0" />, onSelect: () => setReplacingExerciseId(exercise.id) },
+                                                            { key: "delete", label: t('deleteExercise'), icon: <Trash2 size={16} className="shrink-0" />, danger: true, onSelect: () => handleDeleteExercise(selectedDay.id, exercise.id) },
+                                                        ]}
+                                                    />
+                                                </div>
+                                                <ChevronIcon className={`shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                             </div>
 
                                             {isExpanded && (

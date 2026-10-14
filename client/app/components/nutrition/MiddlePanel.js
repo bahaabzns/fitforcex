@@ -13,7 +13,8 @@ import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@/app/components/ScrollShadow";
 import MacroStat from "./MacroStat";
-import CardActionsMenu, { DuplicateIcon, TrashIcon } from "../CardActionsMenu";
+import { DuplicateIcon, TrashIcon } from "../CardActionsMenu";
+import ItemActionsMenu from "@/app/components/ItemActionsMenu";
 import { SortableList, SortableItem, rectSortingStrategy } from "@/app/components/SortableList";
 
 export default function MiddlePanel({
@@ -321,26 +322,29 @@ export default function MiddlePanel({
                                                         <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
                                                     </svg>
                                                 </span>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
-                                                        {meal.name}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground mt-1">{meal.items.length} {t('items')}</p>
+                                                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                                                    <div className="flex items-baseline gap-2 min-w-0">
+                                                        <p className={`text-sm font-medium leading-snug break-words min-w-0 ${isSelected ? "text-primary" : "text-foreground"}`}>
+                                                            {meal.name}
+                                                        </p>
+                                                        <span className="text-xs text-muted-foreground shrink-0">{meal.items.length} {t('items')}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <MacroStat label={t('carbs')} value={mealTotals.carbs} color="text-primary" />
+                                                        <MacroStat label={t('protein')} value={mealTotals.protein} color="text-orange-500" />
+                                                        <MacroStat label={t('fat')} value={mealTotals.fats} color="text-amber-500" />
+                                                        <MacroStat label={t('calories')} value={mealTotals.calories} strong width="w-14" />
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <MacroStat label={t('carbs')} value={mealTotals.carbs} color="text-primary" />
-                                                    <MacroStat label={t('protein')} value={mealTotals.protein} color="text-orange-500" />
-                                                    <MacroStat label={t('fat')} value={mealTotals.fats} color="text-amber-500" />
-                                                    <MacroStat label={t('calories')} value={mealTotals.calories} strong width="w-14" />
+                                                <div className="shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                                                    <ItemActionsMenu
+                                                        ariaLabel={t('mealOptions')}
+                                                        items={[
+                                                            { key: "duplicate", label: t('duplicateMeal'), icon: <DuplicateIcon />, onSelect: () => handleDuplicateMeal(meal.id) },
+                                                            { key: "delete", label: t('deleteMeal'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeleteMeal(meal.id) },
+                                                        ]}
+                                                    />
                                                 </div>
-                                                <CardActionsMenu
-                                                    isActive={isSelected}
-                                                    ariaLabel={t('mealOptions')}
-                                                    items={[
-                                                        { key: "duplicate", label: t('duplicateMeal'), icon: <DuplicateIcon />, onSelect: () => handleDuplicateMeal(meal.id) },
-                                                        { key: "delete", label: t('deleteMeal'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeleteMeal(meal.id) },
-                                                    ]}
-                                                />
                                             </div>
                                             )}
                                             </SortableItem>

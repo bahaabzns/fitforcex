@@ -141,8 +141,10 @@ export default function ClientLayout({ children }) {
     usePageTitle(clientCode ? `#${clientCode} · ${activeSectionName}` : activeSectionName);
 
     return (
-        <div className="p-6 flex flex-col h-full">
-            <div className="flex items-center gap-3 mb-6 shrink-0">
+        <div className="p-4 sm:p-6 flex flex-col h-full min-w-0">
+            <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
+                {/* Tabs scroll inside their own box so a narrow viewport never widens the page */}
+                <div className="min-w-0 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -151,7 +153,7 @@ export default function ClientLayout({ children }) {
                         if (tab) router.push(tab.href);
                     }}
                 >
-                    <TabListContainer>
+                    <TabListContainer className="w-max min-w-full">
                         <SlidingIndicator selectedKey={selectedKey} />
                         <TabList>
                             {tabs.map(({ id: tabId, name, icon: Icon }, i) => (
@@ -164,21 +166,23 @@ export default function ClientLayout({ children }) {
                         </TabList>
                     </TabListContainer>
                 </TabsRoot>
-                <div className="ms-auto flex items-center gap-2">
+                </div>
+                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full">
                     {isTraining && trainingHeaderActions}
                     {isNutrition && nutritionHeaderActions}
                     {isOther && pageHeaderActions}
                     <button
                         onClick={() => setHeaderCollapsed(v => !v)}
                         title={headerCollapsed ? 'Show header' : 'Hide header'}
-                        className="p-1.5 rounded-full border border-border text-muted-foreground/50 hover:text-foreground hover:bg-default transition-colors shrink-0"
+                        aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
+                        className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0"
                     >
-                        {headerCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                        {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                     </button>
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 min-w-0">
                 {/* Nutrition — mounted after first visit, hidden when not active */}
                 {(isNutrition || nutriMounted) && (
                     <div className="h-full" style={{ display: isNutrition ? undefined : "none" }}>
