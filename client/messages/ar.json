@@ -2189,6 +2189,7 @@
       "rateSessionNewFeature": "ميزة جديدة"
     },
     "home": {
+      "poweredBy": "مدعوم من",
       "bannersLabel": "الإعلانات",
       "bannerFallbackAlt": "بانر إعلاني",
       "bannerGoTo": "عرض البانر {number}",

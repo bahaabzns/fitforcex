@@ -2189,6 +2189,7 @@
       "rateSessionNewFeature": "New Feature"
     },
     "home": {
+      "poweredBy": "Powered by",
       "bannersLabel": "Announcements",
       "bannerFallbackAlt": "Announcement banner",
       "bannerGoTo": "Show banner {number}",

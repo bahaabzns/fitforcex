@@ -16,6 +16,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import ActionNeeded from "@/app/components/portal/ActionNeeded";
 import PortalBanners from "@/app/components/portal/PortalBanners";
 import { useClientPortal } from "@/app/components/ClientPortalProvider";
+import PortalLogo from "@/app/components/portal/PortalLogo";
 import Typography from "@/app/components/Typography";
 
 // PRESETS' `label` is the stable id used for selection state and lookup
@@ -421,6 +422,12 @@ export default function ClientHomePage() {
                 </Typography>
                 <ProgressSection locale={locale} />
             </section>
+
+            {/* Always the FitForce mark (no `branding` prop), regardless of the coach's logo */}
+            <footer className="flex items-center justify-center gap-2 pt-4 text-muted-foreground">
+                <span className="text-xs">{t('poweredBy')}</span>
+                <PortalLogo width={72} height={20} />
+            </footer>
         </div>
     );
 }
