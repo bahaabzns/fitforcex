@@ -67,6 +67,16 @@ export function makeUploader(
     });
 }
 
+// Holds the upload in memory so a route can process it (e.g. compress) before
+// persisting via putBuffer. Only for routes with a bounded maxSize.
+export function makeMemoryUploader(options: { maxSize: number; fileFilter?: multer.Options['fileFilter'] }) {
+    return multer({
+        storage: multer.memoryStorage(),
+        limits: { fileSize: options.maxSize },
+        ...(options.fileFilter && { fileFilter: options.fileFilter }),
+    });
+}
+
 // Direct buffer upload, for the rare case a route needs to inspect a file's
 // bytes (e.g. validating image dimensions) before deciding whether to persist
 // it at all — makeUploader's storage engines write straight to S3/disk as

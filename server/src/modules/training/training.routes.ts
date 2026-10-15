@@ -3,7 +3,7 @@ import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import { uploadLimiter } from '../../middleware/rateLimit';
-import { upload } from './training.service';
+import { upload, processExerciseMedia } from './training.service';
 import * as trainingController from './training.controller';
 
 const router = Router();
@@ -172,11 +172,13 @@ router.get('/exercise-library', trainingController.getExercises);
 router.post('/exercise-library',
     uploadLimiter,
     upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
+    processExerciseMedia,
     trainingController.createExercise
 );
 router.put('/exercise-library/:id',
     uploadLimiter,
     upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
+    processExerciseMedia,
     trainingController.updateExercise
 );
 router.delete('/exercise-library/:id', trainingController.deleteExercise);
