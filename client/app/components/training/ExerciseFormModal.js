@@ -78,6 +78,7 @@ export default function ExerciseFormModal({
     const [videoFile, setVideoFile] = useState(null);
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     // Reset form whenever the modal opens (the modal instance stays mounted between opens,
     // so this can't rely on a fresh useState initializer picking up exerciseToEdit)
@@ -96,6 +97,7 @@ export default function ExerciseFormModal({
     async function handleSubmit(e) {
         e.preventDefault();
         setSubmitting(true);
+        setUploadProgress(0);
         try {
             const body = new FormData();
             Object.entries(form).forEach(([key, value]) => {
@@ -106,17 +108,22 @@ export default function ExerciseFormModal({
             if (videoFile) body.append("video", videoFile);
             if (thumbnailFile) body.append("thumbnail", thumbnailFile);
 
+            const requestConfig = {
+                headers: { "Content-Type": "multipart/form-data" },
+                onUploadProgress: (event) => {
+                    if (event.total) setUploadProgress(Math.round((event.loaded / event.total) * 100));
+                },
+            };
+
             if (isEditing) {
                 const res = await api.put(
                     `/api/training/exercise-library/${exerciseToEdit.id}`,
                     body,
-                    { headers: { "Content-Type": "multipart/form-data" } },
+                    requestConfig,
                 );
                 onUpdated?.(res.data);
             } else {
-                const res = await api.post("/api/training/exercise-library", body, {
-                    headers: { "Content-Type": "multipart/form-data" },
-                });
+                const res = await api.post("/api/training/exercise-library", body, requestConfig);
                 onCreated?.(res.data);
             }
             onClose();
@@ -336,6 +343,20 @@ export default function ExerciseFormModal({
                     </div>
                 </div>
 
+                {submitting && (videoFile || thumbnailFile) && (
+                    <div className="mb-3" role="status">
+                        <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                            <span>{uploadProgress < 100 ? t("uploadingMedia") : t("processingMedia")}</span>
+                            {uploadProgress < 100 && <span>{uploadProgress}%</span>}
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-default">
+                            <div
+                                className={`h-full rounded-full bg-accent transition-all ${uploadProgress >= 100 ? "animate-pulse" : ""}`}
+                                style={{ width: `${uploadProgress}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
                 <ModalFooter>
                     <Button type="button" variant="ghost" onClick={onClose}>
                         {tCommon("cancel")}
