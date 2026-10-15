@@ -124,5 +124,21 @@ adminRouter.delete('/:id', controller.adminDelete);
  *     responses:
  *       200: { description: Removed }
  */
+/**
+ * @openapi
+ * /admin/announcements/{id}/republish:
+ *   post:
+ *     summary: Show the announcement again to every coach (clears dismissals, activates it, makes it live now)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: "{ ok: true, reset: <number of coaches who will see it again> }" }
+ *       404: { description: Announcement not found }
+ */
+adminRouter.post('/:id/republish', controller.adminRepublish);
+
 adminRouter.post('/:id/image', singleImage, controller.adminUploadImage);
 adminRouter.delete('/:id/image', controller.adminRemoveImage);

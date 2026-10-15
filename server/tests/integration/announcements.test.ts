@@ -143,6 +143,47 @@ describe('Product announcements', () => {
             expect(schedule.status).toBe(400);
         });
 
+        test('republishes: clears dismissals and makes an inactive, expired announcement live again', async () => {
+            const admin = adminCookie();
+            const item = await createAnnouncement({
+                title: 'Old news',
+                is_active: false,
+                starts_at: new Date(Date.now() + 86_400_000),
+                ends_at: new Date(Date.now() - 3_600_000),
+            });
+            const { cookie } = await coachCookie();
+            await request.post(`/api/announcements/${item.id}/dismiss`).set('Cookie', cookie).send({});
+
+            const res = await request.post(`/api/admin/announcements/${item.id}/republish`).set('Cookie', admin);
+            expect(res.status).toBe(200);
+            expect(res.body.reset).toBe(1);
+
+            const row = await testPrisma.product_announcements.findUnique({ where: { id: item.id } });
+            expect(row?.is_active).toBe(true);
+            expect(row?.starts_at).toBeNull();
+            expect(row?.ends_at).toBeNull();
+
+            const active = await request.get('/api/announcements/active').set('Cookie', cookie);
+            expect(active.body.announcement.id).toBe(item.id);
+        });
+
+        test('republish keeps a still-valid schedule and returns 404 for an unknown announcement', async () => {
+            const admin = adminCookie();
+            const endsAt = new Date(Date.now() + 7 * 86_400_000);
+            const item = await createAnnouncement({ ends_at: endsAt });
+
+            const ok = await request.post(`/api/admin/announcements/${item.id}/republish`).set('Cookie', admin);
+            expect(ok.status).toBe(200);
+            const row = await testPrisma.product_announcements.findUnique({ where: { id: item.id } });
+            expect(row?.ends_at?.getTime()).toBe(endsAt.getTime());
+
+            const missing = await request.post('/api/admin/announcements/nope/republish').set('Cookie', admin);
+            expect(missing.status).toBe(404);
+
+            const noAuth = await request.post(`/api/admin/announcements/${item.id}/republish`);
+            expect(noAuth.status).toBe(401);
+        });
+
         test('uploads and removes an image, rejecting SVG and tiny images', async () => {
             const admin = adminCookie();
             const item = await createAnnouncement();

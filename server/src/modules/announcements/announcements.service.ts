@@ -167,3 +167,31 @@ export async function clearAnnouncementImage(id: string): Promise<boolean> {
     await removeStoredImage(row.image_key);
     return true;
 }
+
+/**
+ * Shows an announcement again to every coach, including those who already dismissed it.
+ * Deletes its dismissals and makes it live right now: activates it, drops a start date that is
+ * still in the future and an end date that has already passed. Returns how many coaches will see
+ * it again, or null when the announcement does not exist.
+ */
+export async function republishAnnouncement(id: string): Promise<{ reset: number } | null> {
+    const row = await prisma.product_announcements.findUnique({
+        where: { id }, select: { id: true, starts_at: true, ends_at: true },
+    });
+    if (!row) return null;
+
+    const now = new Date();
+    const [cleared] = await prisma.$transaction([
+        prisma.announcement_dismissals.deleteMany({ where: { announcement_id: id } }),
+        prisma.product_announcements.update({
+            where: { id },
+            data: {
+                is_active:  true,
+                starts_at:  row.starts_at && row.starts_at > now ? null : row.starts_at,
+                ends_at:    row.ends_at && row.ends_at <= now ? null : row.ends_at,
+                updated_at: now,
+            },
+        }),
+    ]);
+    return { reset: cleared.count };
+}
