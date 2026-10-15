@@ -1,3 +1,4 @@
+import { CAPABILITIES, CAPABILITY_KEYS } from '../../lib/planCapabilities';
 import { Router } from 'express';
 import adminAuthMiddleware from '../../middleware/adminAuth';
 import { loginLimiter } from '../../middleware/rateLimit';
@@ -298,6 +299,21 @@ router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminControll
  *       200:
  *         description: Discount updated
  */
+/**
+ * @openapi
+ * /admin/plan-capabilities:
+ *   get:
+ *     summary: Registry of feature capabilities a plan can unlock (drives the plan editor checkboxes)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of { key, label, description }
+ */
+router.get('/plan-capabilities',   adminAuthMiddleware, (_req, res) => {
+    res.json(CAPABILITY_KEYS.map(key => ({ key, ...CAPABILITIES[key] })));
+});
 router.get('/plans',               adminAuthMiddleware, adminController.getPlans);
 router.post('/plans',              adminAuthMiddleware, adminController.createPlan);
 router.put('/plans/:id',           adminAuthMiddleware, adminController.updatePlan);

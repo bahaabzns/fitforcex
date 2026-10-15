@@ -260,3 +260,16 @@ Significant choices: the question, what we picked, what we rejected, and why.
 - **The question:** Card / wallet / Fawry checkout should use Fawaterak's dynamic invoice API (not static payment links) as the main gateway.
 - **What we picked:** `PAYMENT_GATEWAY=fawaterak|paymob` (default `fawaterak`) selects the gateway in `billing.controller.ts::runCheckout`; `workspace_payments.gateway` (migration 093) records which one handled each payment so webhooks/status polling stay correct after a switch. Fawaterak webhooks land on `/api/payments/webhook/fawaterak`, authenticated by HMAC-SHA256 hashKey.
 - **What we rejected:** Replacing Paymob outright (no fallback while Fawaterak is unverified live); static payment links (the design removed in `705d28d` — wrong amount on tier changes, no per-payment tracking).
+
+---
+
+## 2026-10-15 — Custom branding: plan capabilities and trainee-facing identity
+- **The question:** Coaches on specific plans should brand the Client Portal and mobile app (logo, colors, banners). How is "which plans" decided, and what do trainees see of the coach's identity?
+- **What we picked:**
+  - `plans.capabilities` JSONB, keys registered in `server/src/lib/planCapabilities.ts`, edited in Admin → Plans. Branding is gated at read time by capability **and** subscription (`expires_at` — no grace, unlike the 3-day read-only grace used for data writes). Saved branding is hidden, never deleted.
+  - Branding lives in its own tables (`workspace_branding`, `workspace_banners`), separate from the PDF settings tables. Image columns store storage **keys**, not URLs.
+  - The **workspace name** is shown to trainees (identity, all plans). Individual team-member names stay hidden (a trainee talking to coach A today and B tomorrow gets confused) — so there is no separate `brand_name` column.
+  - Trainee branding is resolved from the client JWT's workspace; the only pre-login surface is the public, slug-based `/client-portal/workspace`, which exposes theme fields only.
+  - Write routes require `team.write` (owner or members who manage the team) rather than minting a new permission module, because member permissions are baked into JWTs.
+- **What we rejected:** A hardcoded `['oneforce']` plan list (needs a deploy to change); reusing `plans.features` (display-only marketing strings); a per-workspace `brand_name` (conflicts with the actor-name policy); SVG logos in the MVP (script/XSS vector — raster only, re-encoded to WebP with `sharp`).
+- **Follow-ups (not built):** custom domain, white-label emails, per-workspace admin override, favicon/PWA manifest per workspace, banner scheduling, server-rendered login branding.

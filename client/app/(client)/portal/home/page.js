@@ -14,6 +14,8 @@ import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaIn
 import { formatFullDate } from "@/utils/date";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import ActionNeeded from "@/app/components/portal/ActionNeeded";
+import PortalBanners from "@/app/components/portal/PortalBanners";
+import { useClientPortal } from "@/app/components/ClientPortalProvider";
 import Typography from "@/app/components/Typography";
 
 // PRESETS' `label` is the stable id used for selection state and lookup
@@ -397,12 +399,19 @@ function ProgressSection({ locale }) {
 
 export default function ClientHomePage() {
     const t = useTranslations('portal.home');
+    const { me } = useClientPortal();
     const locale = useLocale();
     usePageTitle(t('title'));
 
     return (
         <div className="max-w-lg mx-auto px-4 pt-5 pb-20 flex flex-col gap-6">
             <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+
+            {me?.branding?.welcomeMessage && (
+                <p className="text-sm text-muted-foreground -mt-3">{me.branding.welcomeMessage}</p>
+            )}
+
+            <PortalBanners />
 
             <ActionNeeded />
 

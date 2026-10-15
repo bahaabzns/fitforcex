@@ -58,13 +58,14 @@ const EMPTY_FORM = {
     features: [], features_ar: [],
     variations: [emptyVariation(true)],
     addon_rules: [],
+    capabilities: {},
 };
 
 const INPUT_CLS = 'w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const INPUT_SM_CLS = 'px-2 py-1.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors';
 const SECTION_LABEL_CLS = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground pt-2';
 
-function PlanModal({ plan, onClose, onSaved, addons }) {
+function PlanModal({ plan, onClose, onSaved, addons, capabilityOptions }) {
     const isEdit = !!plan;
     const [form, setForm] = useState(
         isEdit
@@ -95,6 +96,7 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                 addon_rules:       Array.isArray(plan.addon_rules)
                     ? plan.addon_rules.map(r => ({ addon_id: r.addon_id, max_units: r.max_units ?? '' }))
                     : [],
+                capabilities:      plan.capabilities && typeof plan.capabilities === 'object' ? plan.capabilities : {},
               }
             : EMPTY_FORM
     );
@@ -162,6 +164,8 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                 features_subheader_ar: form.features_subheader_ar.trim() || null,
                 sort_order:         parseOptInt(form.sort_order) ?? 0,
                 show_on_landing:    form.show_on_landing,
+                // Only registered keys are sent; the server drops anything else.
+                capabilities:       Object.fromEntries(capabilityOptions.map(c => [c.key, form.capabilities?.[c.key] === true])),
                 variations: form.variations.map(v => ({
                     id:             v.id || undefined,
                     max_clients:    parseOptInt(v.max_clients),
@@ -462,6 +466,29 @@ function PlanModal({ plan, onClose, onSaved, addons }) {
                     <input type="checkbox" checked={form.show_on_landing} onChange={e => set('show_on_landing', e.target.checked)} className="rounded" />
                     Show on landing page
                 </label>
+
+                {capabilityOptions.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                        <p className={SECTION_LABEL_CLS}>Capabilities</p>
+                        <p className="text-xs text-muted-foreground">
+                            Features this plan unlocks for its workspaces. Changes apply immediately to every workspace on the plan.
+                        </p>
+                        {capabilityOptions.map(cap => (
+                            <label key={cap.key} className="flex items-start gap-2 text-sm text-foreground cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={form.capabilities?.[cap.key] === true}
+                                    onChange={e => set('capabilities', { ...form.capabilities, [cap.key]: e.target.checked })}
+                                    className="rounded mt-0.5"
+                                />
+                                <span>
+                                    {cap.label}
+                                    <span className="block text-xs text-muted-foreground">{cap.description}</span>
+                                </span>
+                            </label>
+                        ))}
+                    </div>
+                )}
 
                 <FieldErrorText msg={error} />
 
@@ -782,6 +809,7 @@ export default function AdminPlansPage() {
 
     const [trialSettings, setTrialSettings] = useState(null);
     const [trialSaving, setTrialSaving] = useState(false);
+    const [capabilityOptions, setCapabilityOptions] = useState([]);
 
     function load() {
         setLoading(true);
@@ -827,7 +855,11 @@ export default function AdminPlansPage() {
         }
     }
 
-    useEffect(() => { load(); loadDiscounts(); loadAddons(); loadTrialSettings(); }, []);
+    function loadCapabilities() {
+        api.get('/api/admin/plan-capabilities').then(res => setCapabilityOptions(res.data)).catch(() => {});
+    }
+
+    useEffect(() => { load(); loadDiscounts(); loadAddons(); loadTrialSettings(); loadCapabilities(); }, []);
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -1079,6 +1111,7 @@ export default function AdminPlansPage() {
                     onClose={() => setModal(null)}
                     onSaved={load}
                     addons={addons}
+                    capabilityOptions={capabilityOptions}
                 />
             )}
 

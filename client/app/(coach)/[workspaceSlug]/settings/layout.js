@@ -9,7 +9,7 @@ import { Tabs } from "@heroui/react/tabs";
 import { Separator } from "@heroui/react/separator";
 import SettingsPageHeader from "./_components/SettingsPageHeader";
 
-const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "pdf", "advanced"];
+const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "branding", "pdf", "advanced"];
 
 // Same "seen once ever, per browser" convention as NewFeatureTooltip
 // (ff_seen_feature_hint_<key> in localStorage) -- a plain badge here instead
@@ -54,6 +54,8 @@ export default function SettingsLayout({ children, params }) {
 
     const isOwner = me?.currentWorkspace?.role === "owner";
     const canManagePdfExport = isOwner || me?.currentWorkspace?.permissions?.pdfExport?.write === true;
+    // Mirrors the server guard on /api/branding (team.write); plan eligibility is handled inside the page.
+    const canManageBranding = isOwner || me?.currentWorkspace?.permissions?.team?.write === true;
 
     const [pdfTabHintSeen, setPdfTabHintSeen] = useState(() => {
         if (typeof window === "undefined") return true;
@@ -128,6 +130,12 @@ export default function SettingsLayout({ children, params }) {
                                     {tNav("clientExperience")}
                                     <Tabs.Indicator />
                                 </Tabs.Tab>
+                                {canManageBranding && (
+                                    <Tabs.Tab id="branding">
+                                        {tNav("branding")}
+                                        <Tabs.Indicator />
+                                    </Tabs.Tab>
+                                )}
                                 {canManagePdfExport && (
                                     <Tabs.Tab id="pdf">
                                         <span className="flex items-center gap-1.5">

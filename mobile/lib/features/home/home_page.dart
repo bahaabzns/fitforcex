@@ -14,6 +14,7 @@ import '../notifications/notifications_repository.dart';
 import '../progress/progress_dashboard.dart';
 import '../progress/progress_repository.dart';
 import 'action_items_repository.dart';
+import 'portal_banner_carousel.dart';
 
 /// Home tab: the client's body-transformation/progress dashboard — matching
 /// the web client portal exactly, where `/portal/home` IS the Progress
@@ -41,6 +42,7 @@ class HomePage extends ConsumerWidget {
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
+          const PortalBannerCarousel(),
           const _ActionNeededSection(),
           Text(
             l10n.progressTitle,

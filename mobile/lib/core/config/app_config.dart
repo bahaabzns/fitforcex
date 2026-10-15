@@ -13,6 +13,7 @@ class AppConfig {
     required this.apiBaseUrl,
     required this.flavor,
     required this.defaultWorkspaceSlug,
+    this.marketingSiteUrl = 'https://fitforce.app',
   });
 
   /// API origin without a trailing slash. The app appends `/api/client-portal/*`.
@@ -21,6 +22,9 @@ class AppConfig {
 
   /// Dev-only convenience: prefill the workspace field on login.
   final String defaultWorkspaceSlug;
+
+  /// FitForce marketing site, opened from the profile page's "Powered by FitForce" link.
+  final String marketingSiteUrl;
 
   bool get isDev => flavor == Flavor.dev;
   bool get isProd => flavor == Flavor.prod;
@@ -35,11 +39,16 @@ class AppConfig {
     );
     const rawFlavor = String.fromEnvironment('FLAVOR', defaultValue: 'dev');
     const slug = String.fromEnvironment('DEFAULT_WORKSPACE_SLUG');
+    const marketingSite = String.fromEnvironment(
+      'MARKETING_SITE_URL',
+      defaultValue: 'https://fitforce.app',
+    );
 
     final config = AppConfig(
       apiBaseUrl: _stripTrailingSlash(rawBase),
       flavor: _parseFlavor(rawFlavor),
       defaultWorkspaceSlug: slug,
+      marketingSiteUrl: _stripTrailingSlash(marketingSite),
     );
 
     // A release build with no --dart-define silently falls back to the

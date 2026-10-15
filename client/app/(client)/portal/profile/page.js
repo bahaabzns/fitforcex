@@ -15,6 +15,8 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Modal } from "@heroui/react/modal";
 import { Chip } from "@heroui/react/chip";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import PortalLogo from "@/app/components/portal/PortalLogo";
+import { buildMarketingUrl } from "@/lib/coachSlug";
 
 function subStatusColor(status) {
     switch (status) {
@@ -159,6 +161,18 @@ export default function ClientProfilePage() {
                     ? <ChevronLeft size={16} className="text-muted-foreground" />
                     : <ChevronRight size={16} className="text-muted-foreground" />}
             </NewFeatureTooltip>
+
+            {/* Always the FitForce mark (no `branding` prop), whatever the coach's logo is */}
+            <a
+                href={buildMarketingUrl() || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${t('poweredBy')} FitForce`}
+                className="flex items-center justify-center gap-2 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+                <span className="text-xs">{t('poweredBy')}</span>
+                <PortalLogo width={72} height={20} />
+            </a>
 
             <FeedbackEntryModal
                 open={feedbackOpen}
