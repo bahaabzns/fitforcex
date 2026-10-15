@@ -55,6 +55,7 @@ import insightsRouter from './modules/insights/index';
 import pdfExportRouter from './modules/pdfExport/index';
 import tutorialsRouter from './modules/tutorials/index';
 import brandingRouter from './modules/branding/index';
+import { coachRouter as announcementsRouter, adminRouter as adminAnnouncementsRouter } from './modules/announcements/announcements.routes';
 
 if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
@@ -138,6 +139,7 @@ app.use('/api/packages',       apiLimiter, packagesRouter);
 app.use('/api/payment-methods',apiLimiter, paymentMethodsRouter);
 app.use('/api/transactions',   apiLimiter, transactionsRouter);
 app.use('/api/plans',          plansRouter);
+app.use('/api/admin/announcements', requireAdminSubdomain, apiLimiter, adminAnnouncementsRouter);
 app.use('/api/admin',          requireAdminSubdomain, apiLimiter, adminRouter);
 app.use('/api/workspaces',     apiLimiter, workspacesRouter);
 app.use('/api/invitations',    apiLimiter, invitationsRouter);
@@ -149,6 +151,7 @@ app.use('/api/insights',       apiLimiter, insightsRouter);
 app.use('/api/pdf-export',     apiLimiter, pdfExportRouter);
 app.use('/api/tutorials',      apiLimiter, tutorialsRouter);
 app.use('/api/branding',       apiLimiter, brandingRouter);
+app.use('/api/announcements',  apiLimiter, announcementsRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

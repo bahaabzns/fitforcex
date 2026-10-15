@@ -21,6 +21,7 @@ import PaymentConfirmedModal from "@/app/components/PaymentConfirmedModal";
 import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
+import AnnouncementCard from "@/app/components/AnnouncementCard";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -143,6 +144,8 @@ export default function DashboardPage() {
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
+
+            <AnnouncementCard />
 
             <TriggerInsightBanner
                 triggerEvent="first_team_invitation_accepted"

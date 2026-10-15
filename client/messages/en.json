@@ -1,4 +1,9 @@
 {
+  "announcements": {
+    "label": "What's new",
+    "badge": "What's new",
+    "dismiss": "Dismiss"
+  },
   "brandingSettings": {
     "previewHome": "Home",
     "previewActionNeeded": "Action needed",

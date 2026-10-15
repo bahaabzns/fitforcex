@@ -1,4 +1,9 @@
 {
+  "announcements": {
+    "label": "الجديد",
+    "badge": "الجديد",
+    "dismiss": "إغلاق"
+  },
   "brandingSettings": {
     "previewHome": "الرئيسية",
     "previewActionNeeded": "إجراءات مطلوبة",
