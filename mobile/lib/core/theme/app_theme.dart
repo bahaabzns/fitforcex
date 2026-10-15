@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../branding/brand_color.dart';
 import 'app_colors.dart';
 
 /// Light/dark Material 3 themes built from the ported design tokens.
@@ -9,8 +10,26 @@ class AppTheme {
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);
 
-  static ThemeData _build(Brightness brightness) {
+  /// Themes tinted with a coach's brand colors. A null [brand] is exactly the default
+  /// FitForce theme; [accent] only feeds [AppSemanticColors.brandAccent].
+  static ThemeData lightFor({Color? brand, Color? accent}) =>
+      _build(Brightness.light, brand: brand, accent: accent);
+  static ThemeData darkFor({Color? brand, Color? accent}) =>
+      _build(Brightness.dark, brand: brand, accent: accent);
+
+  static ThemeData _build(Brightness brightness, {Color? brand, Color? accent}) {
     final isDark = brightness == Brightness.dark;
+
+    // Dark surfaces need a lighter tone of the brand hue to stay readable.
+    final primary = brand == null
+        ? AppColors.primary
+        : (isDark ? BrandColor.liftForDark(brand) : brand);
+    final onPrimary = brand == null
+        ? AppColors.primaryForeground
+        : BrandColor.foregroundFor(primary);
+    final brandAccent = accent == null
+        ? primary
+        : (isDark ? BrandColor.liftForDark(accent) : accent);
 
     final background =
         isDark ? AppColors.darkBackground : AppColors.lightBackground;
@@ -23,11 +42,11 @@ class AppTheme {
         isDark ? AppColors.darkMutedForeground : AppColors.lightMutedForeground;
 
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
+      seedColor: primary,
       brightness: brightness,
     ).copyWith(
-      primary: AppColors.primary,
-      onPrimary: AppColors.primaryForeground,
+      primary: primary,
+      onPrimary: onPrimary,
       surface: background,
       onSurface: foreground,
       outline: border,
@@ -61,29 +80,29 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: background,
-        indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+        indicatorColor: primary.withValues(alpha: 0.12),
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w500,
             color: states.contains(WidgetState.selected)
-                ? AppColors.primary
+                ? primary
                 : muted,
           ),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
-                ? AppColors.primary
+                ? primary
                 : muted,
           ),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.primaryForeground,
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
           minimumSize: const Size.fromHeight(48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -103,7 +122,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: BorderSide(color: primary, width: 1.5),
         ),
       ),
       extensions: [
@@ -113,6 +132,7 @@ class AppTheme {
           border: border,
           warning: AppColors.warning,
           success: AppColors.success,
+          brandAccent: brandAccent,
         ),
       ],
     );
@@ -129,6 +149,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.border,
     required this.warning,
     required this.success,
+    required this.brandAccent,
   });
 
   final Color mutedForeground;
@@ -137,6 +158,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   final Color warning;
   final Color success;
 
+  /// Coach's optional accent color (badges, banner dots); falls back to the primary.
+  final Color brandAccent;
+
   @override
   AppSemanticColors copyWith({
     Color? mutedForeground,
@@ -144,6 +168,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     Color? border,
     Color? warning,
     Color? success,
+    Color? brandAccent,
   }) {
     return AppSemanticColors(
       mutedForeground: mutedForeground ?? this.mutedForeground,
@@ -151,6 +176,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       border: border ?? this.border,
       warning: warning ?? this.warning,
       success: success ?? this.success,
+      brandAccent: brandAccent ?? this.brandAccent,
     );
   }
 
@@ -163,6 +189,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       border: Color.lerp(border, other.border, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
       success: Color.lerp(success, other.success, t)!,
+      brandAccent: Color.lerp(brandAccent, other.brandAccent, t)!,
     );
   }
 }

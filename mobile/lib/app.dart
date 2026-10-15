@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/branding/branding_provider.dart';
 import 'core/deeplink/deep_link_service.dart';
 import 'core/i18n/locale_controller.dart';
 import 'core/router/app_router.dart';
@@ -19,6 +20,8 @@ class FitForceApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeControllerProvider);
     final locale = ref.watch(localeControllerProvider);
+    // Coach branding (null until loaded / when the plan has none → default FitForce theme).
+    final branding = ref.watch(brandingProvider).valueOrNull;
 
     // Keep the deep-link listener alive for the app's lifetime (workspace links).
     ref.watch(deepLinkServiceProvider);
@@ -26,8 +29,14 @@ class FitForceApp extends ConsumerWidget {
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: AppTheme.lightFor(
+        brand: branding?.primaryColor,
+        accent: branding?.accentColor,
+      ),
+      darkTheme: AppTheme.darkFor(
+        brand: branding?.primaryColor,
+        accent: branding?.accentColor,
+      ),
       themeMode: themeMode,
       locale: locale,
       supportedLocales: supportedLocales,

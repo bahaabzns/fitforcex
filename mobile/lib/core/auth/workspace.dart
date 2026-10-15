@@ -2,9 +2,9 @@
 /// before login (`GET /client-portal/workspace?slug=`) or from an email during
 /// workspace discovery (`POST /client-portal/discover-workspace`).
 ///
-/// `logoUrl` / `brandColor` aren't modelled server-side yet (the endpoints
-/// return null); the fields exist so the UI can adopt them without a contract
-/// change when they land.
+/// `logoUrl` / `brandColor` carry the coach's custom branding. They are null
+/// unless the coach's plan includes custom branding and the subscription is
+/// active, so callers fall back to the FitForce defaults per field.
 class Workspace {
   const Workspace({
     required this.slug,
