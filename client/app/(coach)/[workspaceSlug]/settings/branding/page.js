@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { DropZone, FileTrigger } from "react-aria-components";
-import { ArrowDown, ArrowUp, Bell, Lock, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Bell, ChevronRight, ClipboardList, Dumbbell, Home, Lock, MessageSquare, Salad, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
 import { Card } from "@heroui/react/card";
 import { Button } from "@heroui/react/button";
@@ -93,62 +93,136 @@ function ImageDropZone({ label, imageUrl, onFile, onRemove, busy, disabled, hint
 }
 
 /**
- * Mini portal mock-up driven by the unsaved draft, so the coach sees exactly what trainees will
- * get before saving. Variables are scoped to this element (the real portal sets them on <html>).
+ * Mock-up of the real portal home page (header, welcome, banners, action items, progress and
+ * bottom tab bar), driven by the unsaved draft so the coach sees what trainees will get before
+ * saving. Variables are scoped to this element (the real portal sets them on <html>).
  */
-function PortalPreview({ draftPrimary, draftAccent, logoUrl, logoDarkUrl, workspaceName, welcomeMessage, firstBannerUrl, dark }) {
+function PreviewActionItem({ icon: Icon, title, subtitle }) {
+    return (
+        <div className="flex items-center gap-2 rounded-xl bg-secondary px-2.5 py-2">
+            <span className="h-6 w-6 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <Icon size={12} />
+            </span>
+            <span className="min-w-0 grow">
+                <span className="block text-[11px] font-medium truncate">{title}</span>
+                <span className="block text-[10px] text-muted-foreground truncate">{subtitle}</span>
+            </span>
+            <ChevronRight size={12} className="shrink-0 text-muted-foreground rtl:rotate-180" />
+        </div>
+    );
+}
+
+function PortalPreview({ draftPrimary, draftAccent, logoUrl, logoDarkUrl, welcomeMessage, banners, dark }) {
     const t = useTranslations("brandingSettings");
     const primary = isHexColor(draftPrimary) ? draftPrimary : null;
     const accent = primary ? (dark ? liftForDark(primary) : primary) : null;
     const foreground = accent ? pickForeground(accent) : null;
     const secondary = isHexColor(draftAccent) ? (dark ? liftForDark(draftAccent) : draftAccent) : null;
     const shownLogo = dark ? (logoDarkUrl || logoUrl) : logoUrl;
+    const firstBanner = banners[0] ?? null;
 
     const style = accent ? {
         "--accent": accent, "--accent-foreground": foreground,
         "--primary": accent, "--primary-foreground": foreground, "--focus": accent,
+        "--sidebar-accent": `color-mix(in oklch, ${accent} 14%, transparent)`,
         ...(secondary ? { "--brand-secondary": secondary } : {}),
     } : undefined;
 
+    const tabs = [
+        { key: "home", icon: Home, active: true },
+        { key: "nutrition", icon: Salad },
+        { key: "training", icon: Dumbbell },
+        { key: "forms", icon: ClipboardList },
+        { key: "messages", icon: MessageSquare },
+    ];
+
     return (
-        <div className={`${dark ? "dark" : ""} rounded-xl border border-border overflow-hidden bg-background text-foreground`} style={style}>
-            <div className="h-12 border-b border-border grid grid-cols-3 items-center px-3">
+        <div className={`${dark ? "dark" : ""} rounded-xl border border-border overflow-hidden bg-background text-foreground flex flex-col`} style={style}>
+            {/* Header: avatar · logo · notifications (same layout as ClientPortalNav) */}
+            <div className="h-12 shrink-0 border-b border-border grid grid-cols-3 items-center px-3">
                 <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">AB</div>
                 <div className="flex justify-center">
                     {shownLogo ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={shownLogo} alt="" className="h-7 w-auto max-w-28 object-contain" />
+                        <img src={shownLogo} alt="" className="h-7 w-auto max-w-32 object-contain" />
                     ) : (
-                        <span className="text-xs font-semibold truncate">{t("previewDefaultLogo")}</span>
-                    )}
-                </div>
-                <div className="flex justify-end"><Bell size={16} className="text-muted-foreground" /></div>
-            </div>
-            <div className="p-3 flex flex-col gap-3">
-                <p className="text-sm font-bold truncate">{workspaceName}</p>
-                {welcomeMessage && <p className="text-xs text-muted-foreground line-clamp-2">{welcomeMessage}</p>}
-                <div className="relative aspect-3/1 rounded-lg overflow-hidden bg-default">
-                    {firstBannerUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={firstBannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                    ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground">{t("previewBanner")}</div>
+                        <img src={dark ? "/blue_white.png" : "/blue_dark.png"} alt="FitForce" className="h-6 w-auto object-contain" />
                     )}
                 </div>
-                <div className="flex items-center gap-3">
-                    <button type="button" tabIndex={-1} className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold border-0">
-                        {t("previewButton")}
-                    </button>
-                    <span className="text-xs font-medium text-primary underline">{t("previewLink")}</span>
-                    <span className="ms-auto min-w-4 h-4 px-1 rounded-full bg-(--brand-secondary,var(--primary)) text-primary-foreground text-[9px] font-bold flex items-center justify-center">3</span>
+                <div className="flex justify-end">
+                    <span className="relative p-1.5 text-muted-foreground">
+                        <Bell size={16} />
+                        <span className="absolute -top-0.5 -end-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-(--brand-secondary,var(--primary)) text-primary-foreground text-[8px] font-bold flex items-center justify-center">3</span>
+                    </span>
                 </div>
-                <div className="flex gap-1.5 border-t border-border pt-2">
-                    {["home", "plan", "forms"].map((key, i) => (
-                        <div key={key} className={`flex-1 text-center text-[10px] py-1 rounded ${i === 0 ? "bg-sidebar-accent text-primary font-semibold" : "text-muted-foreground"}`}>
-                            {t(`previewTab.${key}`)}
+            </div>
+
+            {/* Page body: Home title, welcome message, banners, action needed, progress */}
+            <div className="px-3 pt-3 pb-4 flex flex-col gap-3">
+                <div>
+                    <p className="text-base font-bold">{t("previewHome")}</p>
+                    {welcomeMessage && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{welcomeMessage}</p>}
+                </div>
+
+                {firstBanner ? (
+                    <div className="flex flex-col gap-1.5">
+                        <div className="relative aspect-3/1 rounded-xl overflow-hidden bg-default">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={firstBanner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                            {firstBanner.title && (
+                                <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2">
+                                    <p className="text-white text-[11px] font-semibold line-clamp-1">{firstBanner.title}</p>
+                                </div>
+                            )}
                         </div>
-                    ))}
+                        {banners.length > 1 && (
+                            <div className="flex justify-center gap-1">
+                                {banners.map((banner, index) => (
+                                    <span
+                                        key={banner.id}
+                                        className={`h-1 rounded-full ${index === 0 ? "w-4 bg-(--brand-secondary,var(--primary))" : "w-1 bg-border"}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="aspect-3/1 rounded-xl bg-default flex items-center justify-center text-[11px] text-muted-foreground">
+                        {t("previewBanner")}
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("previewActionNeeded")}</p>
+                    <PreviewActionItem icon={ClipboardList} title={t("previewCheckin")} subtitle={t("previewCheckinSub")} />
+                    <PreviewActionItem icon={Salad} title={t("previewNutritionPlan")} subtitle={t("previewNutritionPlanSub")} />
                 </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("previewProgress")}</p>
+                    <div className="rounded-xl bg-secondary px-3 py-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-medium">{t("previewWeight")}</span>
+                            <span className="text-[11px] text-primary font-semibold">78.4 kg</span>
+                        </div>
+                        <svg viewBox="0 0 100 24" className="mt-1.5 h-8 w-full text-primary" preserveAspectRatio="none" aria-hidden="true">
+                            <polyline points="0,18 20,15 40,16 60,10 80,8 100,4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom tab bar (same icons as the portal nav; home active) */}
+            <div className="shrink-0 border-t border-border flex items-center justify-around px-1 py-2">
+                {tabs.map(({ key, icon: Icon, active }) => (
+                    <span
+                        key={key}
+                        className={`flex h-8 w-10 items-center justify-center rounded-lg ${active ? "bg-sidebar-accent text-primary" : "text-muted-foreground"}`}
+                    >
+                        <Icon size={16} />
+                    </span>
+                ))}
             </div>
         </div>
     );
@@ -298,7 +372,7 @@ export default function BrandingSettingsPage() {
         );
     }
 
-    const { eligibility, branding, banners, limits, workspaceName } = view;
+    const { eligibility, branding, banners, limits } = view;
     const eligible = eligibility.eligible;
     const hasSavedBranding = !!(branding.logoUrl || branding.logoDarkUrl || branding.primaryColor || branding.accentColor || banners.length > 0);
     const controlsDisabled = !eligible || busy !== "";
@@ -491,9 +565,8 @@ export default function BrandingSettingsPage() {
                         draftAccent={draftAccent}
                         logoUrl={branding.logoUrl}
                         logoDarkUrl={branding.logoDarkUrl}
-                        workspaceName={workspaceName}
                         welcomeMessage={draftWelcome.trim()}
-                        firstBannerUrl={banners.find((b) => b.isActive)?.imageUrl ?? null}
+                        banners={banners.filter((b) => b.isActive)}
                         dark={previewDark}
                     />
                     <p className="text-xs text-muted-foreground">{t("previewNote")}</p>

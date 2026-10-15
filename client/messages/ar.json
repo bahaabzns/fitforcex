@@ -1,5 +1,13 @@
 {
   "brandingSettings": {
+    "previewHome": "الرئيسية",
+    "previewActionNeeded": "إجراءات مطلوبة",
+    "previewCheckin": "متابعة التمرين",
+    "previewCheckinSub": "نموذج المتابعة جاهز للتعبئة",
+    "previewNutritionPlan": "تم تعيين خطة تغذية جديدة لك",
+    "previewNutritionPlanSub": "خطة تغذية جديدة",
+    "previewProgress": "التقدم",
+    "previewWeight": "الوزن",
     "welcomeTitle": "رسالة ترحيب",
     "welcomePlaceholder": "مثال: أهلاً بك! لنحقق أهدافك معًا.",
     "welcomeHint": "تظهر في صفحة تسجيل الدخول والصفحة الرئيسية للمتدربين. {count}/{max}",

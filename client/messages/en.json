@@ -1,5 +1,13 @@
 {
   "brandingSettings": {
+    "previewHome": "Home",
+    "previewActionNeeded": "Action needed",
+    "previewCheckin": "Training Check-in",
+    "previewCheckinSub": "Check-in form ready to fill",
+    "previewNutritionPlan": "A new nutrition plan was assigned to you",
+    "previewNutritionPlanSub": "New nutrition plan",
+    "previewProgress": "Progress",
+    "previewWeight": "Weight",
     "welcomeTitle": "Welcome message",
     "welcomePlaceholder": "e.g. Welcome! Let's reach your goals together.",
     "welcomeHint": "Shown on your trainees' login page and home. {count}/{max}",
