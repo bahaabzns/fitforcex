@@ -219,8 +219,8 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                                     {totalUnread > 0 && (
                                         <span style={{
                                             background: 'var(--primary)', color: 'var(--primary-foreground)',
-                                            borderRadius: '50%', width: 18, height: 18, fontSize: 11,
-                                            fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            borderRadius: 9999, minWidth: 20, height: 20, padding: '0 6px', fontSize: 11,
+                                            lineHeight: 1, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         }}>
                                             {totalUnread > 99 ? '99+' : totalUnread}
                                         </span>
