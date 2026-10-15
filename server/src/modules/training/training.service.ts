@@ -1,4 +1,7 @@
-import { makeUploader, toPublicUrl } from '../../lib/storage';
+import path from 'path';
+import { Request, Response, NextFunction } from 'express';
+import { makeMemoryUploader, putBuffer, toPublicUrl } from '../../lib/storage';
+import { compressImage, compressVideo, MEDIA_TARGET_BYTES } from '../../lib/mediaCompression';
 import { serializePlanRow } from '../../lib/planEngine';
 import pool from '../../db';
 
@@ -75,21 +78,53 @@ export async function fetchFullTrainingPlan(planId: string, workspaceId: string)
     return { ...serializePlanRow(plan), days, day_count: days.length };
 }
 
-export const upload = makeUploader(
-    (file: Express.Multer.File) => file.fieldname === 'video' ? 'exercise-library/videos' : 'exercise-library/thumbnails',
-    null,
-    {
-        maxSize:    5 * 1024 * 1024,
-        fileFilter: (_req: Express.Request, file: Express.Multer.File, cb: import('multer').FileFilterCallback) => {
-            if (file.fieldname === 'video') {
-                if (!file.mimetype.startsWith('video/')) return cb(new Error('Video must be a video file'));
-                return cb(null, true);
+const EXERCISE_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
+
+export const upload = makeMemoryUploader({
+    maxSize:    EXERCISE_UPLOAD_MAX_BYTES,
+    fileFilter: (_req: Express.Request, file: Express.Multer.File, cb: import('multer').FileFilterCallback) => {
+        if (file.fieldname === 'video') {
+            if (!file.mimetype.startsWith('video/')) return cb(new Error('Video must be a video file'));
+            return cb(null, true);
+        }
+        if (file.fieldname === 'thumbnail') {
+            if (!file.mimetype.startsWith('image/')) return cb(new Error('Thumbnail must be an image file'));
+            return cb(null, true);
+        }
+        cb(null, true);
+    },
+});
+
+const EXERCISE_MEDIA_FOLDERS: Record<string, string> = {
+    video:     'exercise-library/videos',
+    thumbnail: 'exercise-library/thumbnails',
+};
+
+// Runs after `upload`: shrinks anything over 5MB (WhatsApp-style), stores the
+// result, and sets `file.key` so controllers read it exactly as before.
+export async function processExerciseMedia(req: Request, _res: Response, next: NextFunction) {
+    try {
+        const files = (req.files ?? {}) as Record<string, Express.Multer.File[]>;
+        for (const [fieldname, folder] of Object.entries(EXERCISE_MEDIA_FOLDERS)) {
+            const file = files[fieldname]?.[0];
+            if (!file) continue;
+
+            let { buffer, mimetype } = file;
+            let ext = path.extname(file.originalname || '').toLowerCase();
+
+            if (buffer.length > MEDIA_TARGET_BYTES) {
+                const compressed = fieldname === 'video'
+                    ? await compressVideo(buffer, ext)
+                    : await compressImage(buffer, mimetype);
+                if (!compressed) {
+                    throw Object.assign(new Error(`Could not reduce the ${fieldname} below 5MB — try a shorter or lower-resolution file`), { status: 413 });
+                }
+                ({ buffer, mimetype, ext } = compressed);
             }
-            if (file.fieldname === 'thumbnail') {
-                if (!file.mimetype.startsWith('image/')) return cb(new Error('Thumbnail must be an image file'));
-                return cb(null, true);
-            }
-            cb(null, true);
-        },
-    }
-);
+
+            const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+            (file as Express.MulterS3.File).key = await putBuffer(folder, filename, buffer, mimetype);
+        }
+        next();
+    } catch (err) { next(err); }
+}
