@@ -268,17 +268,8 @@ export async function getUserById(req: Request, res: Response, next: NextFunctio
 
 // ── Workspaces ────────────────────────────────────────────────────────────────
 
-// Same classification subscriptionAccessGate.ts enforces with, expressed as SQL — "flat" reads
-// ws.* directly (workspace_subscriptions is one-to-one per workspace, safe outside a GROUP BY),
-// "agg" wraps in MAX() so it's usable inside a query that also aggregates member/client counts.
-const ACCESS_STATUS_CASE_FLAT = `
-    CASE
-        WHEN ws.id IS NULL THEN 'no_subscription'
-        WHEN ws.expires_at IS NULL THEN 'active'
-        WHEN ws.expires_at + INTERVAL '${READONLY_GRACE_DAYS} days' > NOW() THEN 'active'
-        ELSE 'read_only'
-    END
-`;
+// Same classification subscriptionAccessGate.ts enforces with, expressed as SQL — wrapped in
+// MAX() so it's usable inside a query that also aggregates member/client counts.
 const ACCESS_STATUS_CASE_AGG = `
     CASE
         WHEN MAX(ws.id) IS NULL THEN 'no_subscription'
@@ -289,7 +280,7 @@ const ACCESS_STATUS_CASE_AGG = `
 `;
 
 export async function getWorkspaces(req: Request, res: Response, next: NextFunction) {
-    const { search = '', plan = '', status = '', archived = 'false', page = 1, limit = 20 } = req.query as Record<string, string>;
+    const { search = '', plan = '', status = '', archived = 'false', page = 1, limit = 20, minClients = '', maxClients = '' } = req.query as Record<string, string>;
     const offset       = (parseInt(page as string) - 1) * parseInt(limit as string);
     const showArchived = archived === 'true';
 
@@ -304,16 +295,28 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
         }
         const where = conditions.join(' AND ');
 
-        let statusParamIndex = -1;
+        // Both status and client-count are aggregates, so they filter in HAVING.
+        const havingConditions: string[] = [];
         if (status) {
             params.push(status);
-            statusParamIndex = params.length;
+            havingConditions.push(`${ACCESS_STATUS_CASE_AGG} = $${params.length}`);
         }
+        const minClientsNum = parseInt(minClients);
+        const maxClientsNum = parseInt(maxClients);
+        if (!Number.isNaN(minClientsNum)) {
+            params.push(minClientsNum);
+            havingConditions.push(`COUNT(DISTINCT c.id) >= $${params.length}`);
+        }
+        if (!Number.isNaN(maxClientsNum)) {
+            params.push(maxClientsNum);
+            havingConditions.push(`COUNT(DISTINCT c.id) <= $${params.length}`);
+        }
+        const having = havingConditions.length ? `HAVING ${havingConditions.join(' AND ')}` : '';
 
         const [rows, countRows] = await Promise.all([
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at,
-                       u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
+                       u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email, u.phone AS owner_phone,
                        COALESCE(p.name, 'none') AS plan, COALESCE(p.display_name, 'No Plan') AS plan_display,
                        COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count,
                        MAX(ws.expires_at) AS expires_at,
@@ -326,17 +329,21 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                 LEFT JOIN clients c ON c.workspace_id = w.id
                 WHERE ${where}
                 GROUP BY w.id, u.id, p.id
-                ${statusParamIndex > 0 ? `HAVING ${ACCESS_STATUS_CASE_AGG} = $${statusParamIndex}` : ''}
+                ${having}
                 ORDER BY w.created_at DESC
                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}
             `, ...params, parseInt(limit as string), offset),
             prisma.$queryRawUnsafe<Row[]>(`
-                SELECT COUNT(DISTINCT w.id)
-                FROM workspaces w
-                LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
-                LEFT JOIN plans p ON p.id = ws.plan_id
-                WHERE ${where}
-                ${statusParamIndex > 0 ? `AND ${ACCESS_STATUS_CASE_FLAT} = $${statusParamIndex}` : ''}
+                SELECT COUNT(*) FROM (
+                    SELECT w.id
+                    FROM workspaces w
+                    LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
+                    LEFT JOIN plans p ON p.id = ws.plan_id
+                    LEFT JOIN clients c ON c.workspace_id = w.id
+                    WHERE ${where}
+                    GROUP BY w.id, p.id
+                    ${having}
+                ) filtered
             `, ...params),
         ]);
 

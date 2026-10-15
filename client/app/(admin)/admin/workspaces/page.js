@@ -715,26 +715,30 @@ export default function AdminWorkspacesPage() {
     const [planFilter, setPlanFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [showArchived, setShowArchived] = useState(false);
+    const [minClients, setMinClients] = useState('');
+    const [maxClients, setMaxClients] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedId, setSelectedId] = useState(null);
 
     const debouncedSearch = useDebounce(search);
+    const debouncedMinClients = useDebounce(minClients);
+    const debouncedMaxClients = useDebounce(maxClients);
     const limit = 20;
     const totalPages = Math.ceil(total / limit);
 
     const fetchWorkspaces = useCallback(() => {
         setLoading(true);
-        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, plan: planFilter, status: statusFilter, archived: showArchived, page, limit } })
+        api.get('/api/admin/workspaces', { params: { search: debouncedSearch, plan: planFilter, status: statusFilter, archived: showArchived, minClients: debouncedMinClients, maxClients: debouncedMaxClients, page, limit } })
             .then(res => { setWorkspaces(res.data.workspaces); setTotal(res.data.total); })
             .catch(() => setError('Failed to load workspaces'))
             .finally(() => setLoading(false));
-    }, [debouncedSearch, planFilter, statusFilter, showArchived, page]);
+    }, [debouncedSearch, planFilter, statusFilter, showArchived, debouncedMinClients, debouncedMaxClients, page]);
 
     useEffect(() => { fetchWorkspaces(); }, [fetchWorkspaces]);
     useEffect(() => { api.get('/api/admin/plans').then(res => setPlans(res.data)); }, []);
     useEffect(() => { api.get('/api/admin/addons').then(res => setAddons(res.data.filter(a => a.is_active))); }, []);
-    useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, statusFilter, showArchived]);
+    useEffect(() => { setPage(1); }, [debouncedSearch, planFilter, statusFilter, showArchived, debouncedMinClients, debouncedMaxClients]);
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -772,6 +776,22 @@ export default function AdminWorkspacesPage() {
                     <option value="read_only">Read-only (expired)</option>
                     <option value="no_subscription">No subscription</option>
                 </select>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Clients</span>
+                    <input
+                        type="number" min="0" placeholder="Min"
+                        value={minClients}
+                        onChange={e => setMinClients(e.target.value)}
+                        className="w-20 px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                    />
+                    <span>–</span>
+                    <input
+                        type="number" min="0" placeholder="Max"
+                        value={maxClients}
+                        onChange={e => setMaxClients(e.target.value)}
+                        className="w-20 px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                    />
+                </div>
                 <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
                     <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded" />
                     Show archived
@@ -782,9 +802,10 @@ export default function AdminWorkspacesPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
+                    <span>Mobile</span>
                     <span>Plan</span>
                     <span>Status</span>
                     <span className="text-center">Members</span>
@@ -806,7 +827,7 @@ export default function AdminWorkspacesPage() {
                         <button
                             key={w.id}
                             onClick={() => setSelectedId(w.id)}
-                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>
@@ -818,6 +839,7 @@ export default function AdminWorkspacesPage() {
                                 <p className="text-sm text-foreground truncate">{w.owner_fname} {w.owner_lname}</p>
                                 <p className="text-xs text-muted-foreground truncate">{w.owner_email}</p>
                             </div>
+                            <span className="text-sm text-foreground whitespace-nowrap">{w.owner_phone || '—'}</span>
                             <Chip size="sm" className="bg-primary/10 text-primary">{w.plan_display}</Chip>
                             <Chip size="sm" className={statusDisplay.className}>{statusDisplay.label}</Chip>
                             <span className="text-sm text-foreground text-center w-16">{w.member_count}</span>
