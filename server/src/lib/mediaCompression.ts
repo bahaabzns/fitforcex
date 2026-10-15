@@ -29,24 +29,40 @@ export interface CompressedMedia {
     ext: string;
 }
 
-// Static images -> JPEG/WebP quality ladder; animated GIF -> animated WebP with
-// shrinking width (a GIF's size is dominated by frame dimensions, not quality).
-export async function compressImage(input: Buffer, mimetype: string): Promise<CompressedMedia | null> {
-    const isGif = mimetype === 'image/gif';
-    const steps = isGif
-        ? IMAGE_WIDTH_STEPS.map((width) => ({ width, quality: 70 }))
-        : IMAGE_WIDTH_STEPS.flatMap((width) => IMAGE_QUALITY_STEPS.map((quality) => ({ width, quality })));
+// Animated GIF -> animated WebP. Frame dimensions dominate size and every
+// attempt re-decodes all frames (slow), so the first width is estimated from the
+// size ratio and only a few shrinking retries are made.
+// Long GIFs decode to a very tall frame strip that trips sharp's default pixel cap.
+const GIF_INPUT_PIXEL_LIMIT = 1_000_000_000;
+const GIF_MIN_WIDTH = 320;
+const GIF_MAX_WIDTH = 720;
+const GIF_MAX_ATTEMPTS = 4;
+const GIF_SHRINK_FACTOR = 0.75;
 
+async function compressGif(input: Buffer): Promise<CompressedMedia | null> {
+    const { width: originalWidth = GIF_MAX_WIDTH } = await sharp(input, { animated: true, limitInputPixels: GIF_INPUT_PIXEL_LIMIT }).metadata();
+    const sizeRatio = MEDIA_TARGET_BYTES / input.length;
+    let width = Math.round(Math.min(GIF_MAX_WIDTH, Math.max(GIF_MIN_WIDTH, originalWidth * Math.sqrt(sizeRatio))));
+
+    for (let attempt = 0; attempt < GIF_MAX_ATTEMPTS; attempt++) {
+        const output = await sharp(input, { animated: true, limitInputPixels: GIF_INPUT_PIXEL_LIMIT })
+            .resize({ width, withoutEnlargement: true })
+            .webp({ quality: 65, effort: 2 })
+            .toBuffer();
+        if (output.length <= MEDIA_TARGET_BYTES) return { buffer: output, mimetype: 'image/webp', ext: '.webp' };
+        width = Math.max(GIF_MIN_WIDTH, Math.round(width * GIF_SHRINK_FACTOR));
+    }
+    return null;
+}
+
+// Static images -> JPEG quality ladder.
+export async function compressImage(input: Buffer, mimetype: string): Promise<CompressedMedia | null> {
+    if (mimetype === 'image/gif') return compressGif(input);
+
+    const steps = IMAGE_WIDTH_STEPS.flatMap((width) => IMAGE_QUALITY_STEPS.map((quality) => ({ width, quality })));
     for (const { width, quality } of steps) {
-        const pipeline = sharp(input, { animated: isGif }).rotate().resize({ width, withoutEnlargement: true });
-        const output = isGif
-            ? await pipeline.webp({ quality, effort: 4 }).toBuffer()
-            : await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
-        if (output.length <= MEDIA_TARGET_BYTES) {
-            return isGif
-                ? { buffer: output, mimetype: 'image/webp', ext: '.webp' }
-                : { buffer: output, mimetype: 'image/jpeg', ext: '.jpg' };
-        }
+        const output = await sharp(input).rotate().resize({ width, withoutEnlargement: true }).jpeg({ quality, mozjpeg: true }).toBuffer();
+        if (output.length <= MEDIA_TARGET_BYTES) return { buffer: output, mimetype: 'image/jpeg', ext: '.jpg' };
     }
     return null;
 }
