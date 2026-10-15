@@ -82,7 +82,10 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
     const categories = [...new Set(allFoodItems.map(fi => fi.food_category).filter(Boolean))];
 
     const filtered = allFoodItems.filter(fi => {
-        const matchesSearch = (fi.name_en || fi.name_ar || '').toLowerCase().includes((foodSearchQuery || '').toLowerCase());
+        const searchTerm = (foodSearchQuery || '').trim().toLowerCase();
+        const matchesSearch = !searchTerm
+            || (fi.name_en || '').toLowerCase().includes(searchTerm)
+            || (fi.name_ar || '').toLowerCase().includes(searchTerm);
         const matchesCategory = lockedCategory
             ? fi.food_category === lockedCategory
             : (!categoryFilter || fi.food_category === categoryFilter);
