@@ -716,6 +716,7 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
                     features_subheader_ar: (features_subheader_ar as string | undefined)?.trim() || null,
                     sort_order:          (sort_order as number | undefined) ?? 0,
                     show_on_landing:     (show_on_landing as boolean | undefined) ?? true,
+                    capabilities:        sanitizeCapabilities(capabilities) as Prisma.InputJsonValue,
                 },
             }) as unknown as Row;
             await upsertPlanVariations(tx, createdPlan!.id as string, variations);
@@ -723,7 +724,6 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
             await upsertPlanAddonRules(tx, createdPlan!.id as string, addon_rules);
         });
         res.status(201).json(createdPlan);
-                    capabilities:        sanitizeCapabilities(capabilities) as Prisma.InputJsonValue,
     } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
             return res.status(409).json({ message: 'A plan with this name already exists' });
@@ -775,6 +775,7 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
                     features_subheader_ar: features_subheader_ar !== undefined ? ((features_subheader_ar as string | undefined)?.trim() || null) : undefined,
                     sort_order:         sort_order        !== undefined ? (sort_order  as number) : undefined,
                     show_on_landing:    show_on_landing   !== undefined ? (show_on_landing as boolean) : undefined,
+                    capabilities:       capabilities      !== undefined ? (sanitizeCapabilities(capabilities) as Prisma.InputJsonValue) : undefined,
                 },
             }) as unknown as Row;
 
@@ -782,7 +783,6 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
             await upsertPeriodLinks(tx, req.params.id as string, period_links);
             if (addon_rules !== undefined) await upsertPlanAddonRules(tx, req.params.id as string, addon_rules);
         });
-                    capabilities:       capabilities      !== undefined ? (sanitizeCapabilities(capabilities) as Prisma.InputJsonValue) : undefined,
 
         res.json(updatedPlan);
     } catch (err) {
