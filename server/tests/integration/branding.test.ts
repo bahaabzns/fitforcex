@@ -79,6 +79,20 @@ describe('Custom branding', () => {
             expect(bad.status).toBe(400);
         });
 
+        test('saves a trimmed welcome message, clears it with null, and rejects one over 160 characters', async () => {
+            const { cookie } = await createWorkspaceOnPlan(brandedPlanId);
+
+            const saved = await request.put('/api/branding').set('Cookie', cookie).send({ welcome_message: '  Welcome to the team  ' });
+            expect(saved.status).toBe(200);
+            expect(saved.body.branding.welcomeMessage).toBe('Welcome to the team');
+
+            const tooLong = await request.put('/api/branding').set('Cookie', cookie).send({ welcome_message: 'x'.repeat(161) });
+            expect(tooLong.status).toBe(400);
+
+            const cleared = await request.put('/api/branding').set('Cookie', cookie).send({ welcome_message: null });
+            expect(cleared.body.branding.welcomeMessage).toBeNull();
+        });
+
         test('denies a team member without team.write permission', async () => {
             const { workspace } = await createWorkspaceOnPlan(brandedPlanId);
             const member = await createTestUser();

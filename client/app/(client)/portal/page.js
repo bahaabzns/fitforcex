@@ -20,6 +20,20 @@ import PortalLogo from "@/app/components/portal/PortalLogo";
 // reads it safely: null during SSR, the real slug after hydration — no hydration mismatch.
 const subscribeNoop = () => () => {};
 
+// Last public branding seen for a slug, so a returning visitor's login page paints in the
+// coach's colors immediately instead of flashing FitForce blue while the request is in flight.
+const BRAND_CACHE_PREFIX = "portal_brand_";
+
+function readCachedBranding(slug) {
+    if (!slug) return null;
+    try {
+        const raw = localStorage.getItem(BRAND_CACHE_PREFIX + slug);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
 export default function PortalLoginPage() {
     const t = useTranslations('auth');
     const tCommon = useTranslations('common');
@@ -31,8 +45,15 @@ export default function PortalLoginPage() {
     const [checkingSession, setCheckingSession] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
     // Public, pre-login branding for this subdomain's workspace (null → FitForce defaults).
-    const [branding, setBranding] = useState(null);
+    const [fetchedBranding, setFetchedBranding] = useState(null);
     const coachSlug = useSyncExternalStore(subscribeNoop, getCoachSlug, () => null);
+    // Fresh response wins; before it arrives, fall back to the cached copy (null on server render).
+    const cachedBranding = useSyncExternalStore(
+        subscribeNoop,
+        () => JSON.stringify(readCachedBranding(coachSlug)),
+        () => "null",
+    );
+    const branding = fetchedBranding ?? JSON.parse(cachedBranding);
     const router = useRouter();
 
     // Remember the slug for any later flow that needs it (external system write).
@@ -44,7 +65,11 @@ export default function PortalLoginPage() {
         if (!coachSlug) return;
         let active = true;
         api.get("/api/client-portal/workspace", { params: { slug: coachSlug } })
-            .then(res => { if (active) setBranding(res.data); })
+            .then(res => {
+                if (!active) return;
+                setFetchedBranding(res.data);
+                try { localStorage.setItem(BRAND_CACHE_PREFIX + coachSlug, JSON.stringify(res.data)); } catch { /* storage unavailable — cache is optional */ }
+            })
             .catch(() => {});
         return () => { active = false; };
     }, [coachSlug]);
@@ -82,6 +107,9 @@ export default function PortalLoginPage() {
                     </div>
                 )}
                 <h1 className="auth-title">{branding?.name || t('clientPortal')}</h1>
+                {branding?.welcomeMessage && (
+                    <p className="text-sm text-foreground mb-2">{branding.welcomeMessage}</p>
+                )}
                 {branding?.name ? (
                     <p className="text-sm text-muted-foreground -mt-2 mb-2">{t('clientPortal')}</p>
                 ) : coachSlug && (

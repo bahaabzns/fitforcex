@@ -96,7 +96,7 @@ function ImageDropZone({ label, imageUrl, onFile, onRemove, busy, disabled, hint
  * Mini portal mock-up driven by the unsaved draft, so the coach sees exactly what trainees will
  * get before saving. Variables are scoped to this element (the real portal sets them on <html>).
  */
-function PortalPreview({ draftPrimary, draftAccent, logoUrl, logoDarkUrl, workspaceName, firstBannerUrl, dark }) {
+function PortalPreview({ draftPrimary, draftAccent, logoUrl, logoDarkUrl, workspaceName, welcomeMessage, firstBannerUrl, dark }) {
     const t = useTranslations("brandingSettings");
     const primary = isHexColor(draftPrimary) ? draftPrimary : null;
     const accent = primary ? (dark ? liftForDark(primary) : primary) : null;
@@ -126,6 +126,7 @@ function PortalPreview({ draftPrimary, draftAccent, logoUrl, logoDarkUrl, worksp
             </div>
             <div className="p-3 flex flex-col gap-3">
                 <p className="text-sm font-bold truncate">{workspaceName}</p>
+                {welcomeMessage && <p className="text-xs text-muted-foreground line-clamp-2">{welcomeMessage}</p>}
                 <div className="relative aspect-3/1 rounded-lg overflow-hidden bg-default">
                     {firstBannerUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -233,6 +234,7 @@ export default function BrandingSettingsPage() {
     const [previewDark, setPreviewDark] = useState(false);
     const [draftPrimary, setDraftPrimary] = useState("");
     const [draftAccent, setDraftAccent] = useState("");
+    const [draftWelcome, setDraftWelcome] = useState("");
     const [newBanner, setNewBanner] = useState({ file: null, title: "", link: "" });
 
     const applyView = useCallback((data, { resetDraft } = { resetDraft: false }) => {
@@ -240,6 +242,7 @@ export default function BrandingSettingsPage() {
         if (resetDraft) {
             setDraftPrimary(data.branding.primaryColor ?? "");
             setDraftAccent(data.branding.accentColor ?? "");
+            setDraftWelcome(data.branding.welcomeMessage ?? "");
         }
     }, []);
 
@@ -409,6 +412,27 @@ export default function BrandingSettingsPage() {
                     </Card>
 
                     <Card>
+                        <Card.Header><Card.Title>{t("welcomeTitle")}</Card.Title></Card.Header>
+                        <Card.Content className="flex flex-col gap-3">
+                            <TextField variant="secondary" fullWidth value={draftWelcome} onChange={setDraftWelcome} isDisabled={controlsDisabled} aria-label={t("welcomeTitle")}>
+                                <Input type="text" maxLength={limits.welcomeMessageMax} placeholder={t("welcomePlaceholder")} />
+                            </TextField>
+                            <p className="text-xs text-muted-foreground">
+                                {t("welcomeHint", { count: draftWelcome.length, max: limits.welcomeMessageMax })}
+                            </p>
+                            <div>
+                                <Button
+                                    variant="primary"
+                                    isDisabled={controlsDisabled || draftWelcome.trim() === (branding.welcomeMessage ?? "")}
+                                    onClick={() => run("welcome", () => api.put("/api/branding", { welcome_message: draftWelcome.trim() || null }), { successNotice: true })}
+                                >
+                                    {busy === "welcome" ? t("saving") : t("saveWelcome")}
+                                </Button>
+                            </div>
+                        </Card.Content>
+                    </Card>
+
+                    <Card>
                         <Card.Header><Card.Title>{t("bannersTitle")}</Card.Title></Card.Header>
                         <Card.Content className="flex flex-col gap-4">
                             <p className="text-xs text-muted-foreground">
@@ -468,6 +492,7 @@ export default function BrandingSettingsPage() {
                         logoUrl={branding.logoUrl}
                         logoDarkUrl={branding.logoDarkUrl}
                         workspaceName={workspaceName}
+                        welcomeMessage={draftWelcome.trim()}
                         firstBannerUrl={banners.find((b) => b.isActive)?.imageUrl ?? null}
                         dark={previewDark}
                     />

@@ -1,5 +1,9 @@
 {
   "brandingSettings": {
+    "welcomeTitle": "رسالة ترحيب",
+    "welcomePlaceholder": "مثال: أهلاً بك! لنحقق أهدافك معًا.",
+    "welcomeHint": "تظهر في صفحة تسجيل الدخول والصفحة الرئيسية للمتدربين. {count}/{max}",
+    "saveWelcome": "حفظ الرسالة",
     "title": "الهوية البصرية",
     "description": "اجعل بوابة العملاء وتطبيق الجوال يعكسان هويتك التجارية.",
     "logoTitle": "الشعار",

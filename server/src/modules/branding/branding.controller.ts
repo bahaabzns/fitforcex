@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
-    BRANDING_LIMITS, getCoachBrandingView, updateColors, setLogo, clearLogo,
+    BRANDING_LIMITS, getCoachBrandingView, updateSettings, setLogo, clearLogo,
     createBanner, updateBanner, deleteBanner, reorderBanners, normalizeBannerLink, LogoVariant,
 } from './branding.service';
 
@@ -12,6 +12,7 @@ const hexOrNull = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color must be a #RRGGBB
 const updateSchema = z.object({
     primary_color: hexOrNull.optional(),
     accent_color:  hexOrNull.optional(),
+    welcome_message: z.string().max(BRANDING_LIMITS.welcomeMessageMax).nullable().optional(),
 }).strict();
 
 const bannerFieldsSchema = z.object({
@@ -35,7 +36,7 @@ export async function putBranding(req: Request, res: Response) {
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid branding values' });
 
-    await updateColors(req.user!.workspaceId, req.user!.userId, parsed.data);
+    await updateSettings(req.user!.workspaceId, req.user!.userId, parsed.data);
     res.json(await getCoachBrandingView(req.user!.workspaceId));
 }
 

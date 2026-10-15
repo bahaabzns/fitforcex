@@ -188,6 +188,7 @@ function toThemePayload(branding: Awaited<ReturnType<typeof resolvePortalBrandin
         brandColor:        branding?.primaryColor ?? null,
         accentColor:       branding?.accentColor ?? null,
         primaryForeground: branding?.primaryColor ? pickForeground(branding.primaryColor) : null,
+        welcomeMessage:    branding?.welcomeMessage ?? null,
         brandingVersion:   branding?.version ?? 0,
     };
 }

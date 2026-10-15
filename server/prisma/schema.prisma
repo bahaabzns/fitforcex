@@ -1598,6 +1598,7 @@ model workspace_branding {
   logo_dark_key String?
   primary_color String?    @db.Char(7)
   accent_color  String?    @db.Char(7)
+  welcome_message String?  @db.VarChar(160)
   version       Int        @default(1)
   created_at    DateTime   @default(now()) @db.Timestamptz(6)
   updated_at    DateTime   @default(now()) @db.Timestamptz(6)

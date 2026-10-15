@@ -1,5 +1,9 @@
 {
   "brandingSettings": {
+    "welcomeTitle": "Welcome message",
+    "welcomePlaceholder": "e.g. Welcome! Let's reach your goals together.",
+    "welcomeHint": "Shown on your trainees' login page and home. {count}/{max}",
+    "saveWelcome": "Save message",
     "title": "Branding",
     "description": "Make the Client Portal and mobile app look like your own business.",
     "logoTitle": "Logo",

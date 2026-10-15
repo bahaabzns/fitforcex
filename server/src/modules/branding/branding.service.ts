@@ -15,6 +15,7 @@ export const BRANDING_LIMITS = {
     bannerMinWidthPx:  600,
     bannerOutputWidth: 1600,
     bannerTitleMax:    80,
+    welcomeMessageMax: 160,
     linkMax:           500,
 } as const;
 
@@ -141,6 +142,7 @@ export interface PortalBranding {
     logoDarkUrl:  string | null;
     primaryColor: string | null;
     accentColor:  string | null;
+    welcomeMessage: string | null;
     version:      number;
     banners:      Array<{ id: string; imageUrl: string; title: string | null; linkUrl: string | null }>;
 }
@@ -161,7 +163,7 @@ export async function resolvePortalBranding(
 
     const base: PortalBranding = {
         active: false, name: workspace.name, logoUrl: null, logoDarkUrl: null,
-        primaryColor: null, accentColor: null, version: 0, banners: [],
+        primaryColor: null, accentColor: null, welcomeMessage: null, version: 0, banners: [],
     };
     if (!state.effective) return base;
 
@@ -182,6 +184,7 @@ export async function resolvePortalBranding(
         logoDarkUrl:  toPublicUrl(row?.logo_dark_key),
         primaryColor: row?.primary_color ?? null,
         accentColor:  row?.accent_color ?? null,
+        welcomeMessage: row?.welcome_message ?? null,
         version:      row?.version ?? 0,
         banners: banners.map(b => ({
             id: b.id, imageUrl: toPublicUrl(b.image_key) as string, title: b.title, linkUrl: b.link_url,
@@ -212,6 +215,7 @@ export async function getCoachBrandingView(workspaceId: string) {
             logoDarkUrl:  toPublicUrl(row?.logo_dark_key),
             primaryColor: primary,
             accentColor:  row?.accent_color ?? null,
+            welcomeMessage: row?.welcome_message ?? null,
             version:      row?.version ?? 0,
             warnings:     colorWarnings(primary),
         },
@@ -226,7 +230,7 @@ export async function getCoachBrandingView(workspaceId: string) {
 // ── Writes ──────────────────────────────────────────────────────────────────────────────
 type BrandingColumns = {
     logo_key?: string | null; logo_dark_key?: string | null;
-    primary_color?: string | null; accent_color?: string | null;
+    primary_color?: string | null; accent_color?: string | null; welcome_message?: string | null;
 };
 
 /** Upserts the row and bumps `version` — every change (including banners) busts client caches. */
@@ -238,13 +242,18 @@ async function touchBranding(workspaceId: string, userId: string | undefined, da
     });
 }
 
-export async function updateColors(
+export async function updateSettings(
     workspaceId: string, userId: string | undefined,
-    colors: { primary_color?: string | null; accent_color?: string | null },
+    settings: { primary_color?: string | null; accent_color?: string | null; welcome_message?: string | null },
 ) {
     const data: BrandingColumns = {};
-    if (colors.primary_color !== undefined) data.primary_color = colors.primary_color;
-    if (colors.accent_color !== undefined)  data.accent_color  = colors.accent_color;
+    if (settings.primary_color !== undefined) data.primary_color = settings.primary_color;
+    if (settings.accent_color !== undefined)  data.accent_color  = settings.accent_color;
+    if (settings.welcome_message !== undefined) {
+        data.welcome_message = settings.welcome_message === null || settings.welcome_message.trim() === ''
+            ? null
+            : settings.welcome_message.trim();
+    }
     return touchBranding(workspaceId, userId, data);
 }
 
