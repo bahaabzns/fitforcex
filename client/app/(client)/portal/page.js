@@ -13,6 +13,8 @@ import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
 import { Eye, EyeOff } from "lucide-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import PortalBrandStyle from "@/app/components/portal/PortalBrandStyle";
+import PortalLogo from "@/app/components/portal/PortalLogo";
 
 // The slug comes from the subdomain, which only exists in the browser. useSyncExternalStore
 // reads it safely: null during SSR, the real slug after hydration — no hydration mismatch.
@@ -28,12 +30,23 @@ export default function PortalLoginPage() {
     const [loading, setLoading] = useState(false);
     const [checkingSession, setCheckingSession] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
+    // Public, pre-login branding for this subdomain's workspace (null → FitForce defaults).
+    const [branding, setBranding] = useState(null);
     const coachSlug = useSyncExternalStore(subscribeNoop, getCoachSlug, () => null);
     const router = useRouter();
 
     // Remember the slug for any later flow that needs it (external system write).
     useEffect(() => {
         if (coachSlug) localStorage.setItem("portal_slug", coachSlug);
+    }, [coachSlug]);
+
+    useEffect(() => {
+        if (!coachSlug) return;
+        let active = true;
+        api.get("/api/client-portal/workspace", { params: { slug: coachSlug } })
+            .then(res => { if (active) setBranding(res.data); })
+            .catch(() => {});
+        return () => { active = false; };
     }, [coachSlug]);
 
     useEffect(() => {
@@ -61,9 +74,17 @@ export default function PortalLoginPage() {
 
     return (
         <div className="auth-wrapper">
+            <PortalBrandStyle branding={branding} />
             <div className="auth-card">
-                <h1 className="auth-title">{t('clientPortal')}</h1>
-                {coachSlug && (
+                {branding?.logoUrl && (
+                    <div className="flex justify-center mb-2">
+                        <PortalLogo branding={branding} width={200} height={56} />
+                    </div>
+                )}
+                <h1 className="auth-title">{branding?.name || t('clientPortal')}</h1>
+                {branding?.name ? (
+                    <p className="text-sm text-muted-foreground -mt-2 mb-2">{t('clientPortal')}</p>
+                ) : coachSlug && (
                     <p className="text-sm text-muted-foreground -mt-2 mb-2">{t('portalSlugLabel', { slug: coachSlug })}</p>
                 )}
                 <form className="auth-form" onSubmit={handleSubmit}>
