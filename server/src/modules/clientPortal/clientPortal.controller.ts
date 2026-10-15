@@ -24,6 +24,7 @@ import {
 import { computeTotals, serializeDiaryEntry, FOOD_DIARY_HISTORY_LIMIT, type FoodDiaryItem } from '../../utils/foodDiaryStats';
 import { buildTransformationPayload } from '../clients/clients.controller';
 import { normalizeEmail } from '../../utils/email';
+import { resolvePortalBranding, pickForeground } from '../branding/branding.service';
 import { attachEditHistory } from '../../utils/formResponseHistory';
 import { mapRow as mapTransactionRow, computePerTxStatuses, type TxDbRow } from '../../utils/transactionStatus';
 
@@ -174,6 +175,23 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
     return { ...plan, days };
 }
 
+/**
+ * Trainee-facing view of a workspace's branding. Every field is null when the coach's plan
+ * doesn't include custom branding (or the subscription expired), so clients fall back to the
+ * FitForce defaults per field. `primaryForeground` is computed server-side so web and mobile
+ * pick the same readable text color.
+ */
+function toThemePayload(branding: Awaited<ReturnType<typeof resolvePortalBranding>>) {
+    return {
+        logoUrl:           branding?.logoUrl ?? null,
+        logoDarkUrl:       branding?.logoDarkUrl ?? null,
+        brandColor:        branding?.primaryColor ?? null,
+        accentColor:       branding?.accentColor ?? null,
+        primaryForeground: branding?.primaryColor ? pickForeground(branding.primaryColor) : null,
+        brandingVersion:   branding?.version ?? 0,
+    };
+}
+
 const discoverWorkspaceSchema = z.object({
     email: z.string().trim().min(1).email(),
 });
@@ -191,8 +209,8 @@ export async function discoverWorkspace(req: Request, res: Response, next: NextF
     if (!parsed.success) return res.status(400).json({ message: 'A valid email is required' });
 
     try {
-        const rows = await prisma.$queryRaw<Array<{ slug: string; name: string; fname: string }>>`
-            SELECT w.slug, w.name, c.fname
+        const rows = await prisma.$queryRaw<Array<{ id: string; slug: string; name: string; fname: string }>>`
+            SELECT w.id, w.slug, w.name, c.fname
             FROM clients c
             JOIN workspaces w ON w.id = c.workspace_id
             WHERE LOWER(c.email) = ${normalizeEmail(parsed.data.email)}
@@ -203,11 +221,13 @@ export async function discoverWorkspace(req: Request, res: Response, next: NextF
             return res.status(404).json({ message: "We couldn't find an account with this email." });
         }
 
+        const brandings = await Promise.all(rows.map(row => resolvePortalBranding(row.id, { includeBanners: false })));
         res.json({
-            workspaces: rows.map(row => ({
+            workspaces: rows.map((row, index) => ({
                 slug:       row.slug,
                 name:       row.name,
-                logoUrl:    null,
+                logoUrl:    brandings[index]?.logoUrl ?? null,
+                brandColor: brandings[index]?.primaryColor ?? null,
                 clientName: row.fname,
             })),
         });
@@ -273,13 +293,13 @@ export async function getWorkspace(req: Request, res: Response, next: NextFuncti
     try {
         const workspace = await prisma.workspaces.findFirst({
             where:  { slug, archived_at: null },
-            select: { slug: true, name: true },
+            select: { id: true, slug: true, name: true },
         });
         if (!workspace) return res.status(404).json({ message: 'Workspace not found' });
 
-        // logoUrl / brandColor are not yet modelled per-workspace; return null so
-        // the client can fall back to app defaults without a contract change later.
-        res.json({ slug: workspace.slug, name: workspace.name, logoUrl: null, brandColor: null });
+        // Public, pre-login: only non-sensitive identity + theme fields (no banners).
+        const branding = await resolvePortalBranding(workspace.id, { includeBanners: false });
+        res.json({ slug: workspace.slug, name: workspace.name, ...toThemePayload(branding) });
     } catch (err) {
         next(err);
     }
@@ -291,10 +311,15 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
             where:  { id: req.client!.clientId },
             select: {
                 id: true, fname: true, lname: true, email: true, phone: true, client_code: true, workspace_id: true,
-                workspaces: { select: { renewal_link: true } },
+                workspaces: { select: { renewal_link: true, name: true } },
             },
         });
         if (!client) return res.status(404).json({ message: 'Client not found' });
+
+        // Resolved from the JWT's workspace (client.workspace_id), never from a host/slug.
+        const branding = client.workspace_id
+            ? await resolvePortalBranding(client.workspace_id, { includeBanners: false })
+            : null;
 
         // Effective subscription access is computed once by loadClientAccess; surface
         // it here so the portal can gate UI without an extra round trip.
@@ -306,6 +331,25 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
             withinGrace: effective?.withinGrace ?? false,
             access:      effective?.access ?? null,
             renewalLink: workspaces?.renewal_link ?? null,
+            branding:    { name: workspaces?.name ?? '', ...toThemePayload(branding) },
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/**
+ * Full portal branding (theme + active banners) for the signed-in client. Workspace comes from
+ * the client JWT only — a request can never ask for another workspace's branding.
+ */
+export async function getBranding(req: Request, res: Response, next: NextFunction) {
+    try {
+        const branding = await resolvePortalBranding(req.client!.workspaceId, { includeBanners: true });
+        if (!branding) return res.status(404).json({ message: 'Workspace not found' });
+        res.json({
+            name:    branding.name,
+            ...toThemePayload(branding),
+            banners: branding.banners,
         });
     } catch (err) {
         next(err);

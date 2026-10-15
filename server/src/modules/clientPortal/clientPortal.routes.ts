@@ -144,6 +144,20 @@ router.get('/me', ...authed, clientPortalController.getMe);
 
 /**
  * @openapi
+ * /client-portal/branding:
+ *   get:
+ *     summary: The signed-in client's coach branding (logo, colors, active banners)
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Branding for the client's own workspace; theme fields are null when not applicable
+ */
+router.get('/branding', ...authed, clientPortalController.getBranding);
+
+/**
+ * @openapi
  * /client-portal/access:
  *   get:
  *     summary: Get the client's effective subscription access (status + flags)

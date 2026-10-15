@@ -1,3 +1,4 @@
+import { sanitizeCapabilities } from '../../lib/planCapabilities';
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcrypt';
@@ -686,7 +687,7 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
         name, display_name, display_name_ar, features, features_ar, trial_days, max_team_seats,
         subtitle, subtitle_ar, is_popular, cta_text, cta_text_ar, cta_variant,
         features_header, features_header_ar, features_subheader, features_subheader_ar,
-        sort_order, show_on_landing, period_links, variations, addon_rules,
+        sort_order, show_on_landing, period_links, variations, addon_rules, capabilities,
     } = req.body as Record<string, unknown>;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
@@ -722,6 +723,7 @@ export async function createPlan(req: Request, res: Response, next: NextFunction
             await upsertPlanAddonRules(tx, createdPlan!.id as string, addon_rules);
         });
         res.status(201).json(createdPlan);
+                    capabilities:        sanitizeCapabilities(capabilities) as Prisma.InputJsonValue,
     } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
             return res.status(409).json({ message: 'A plan with this name already exists' });
@@ -737,7 +739,7 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
         display_name, display_name_ar, features, features_ar, is_active, is_default, trial_days, max_team_seats,
         subtitle, subtitle_ar, is_popular, cta_text, cta_text_ar, cta_variant,
         features_header, features_header_ar, features_subheader, features_subheader_ar,
-        sort_order, show_on_landing, period_links, variations, addon_rules,
+        sort_order, show_on_landing, period_links, variations, addon_rules, capabilities,
     } = req.body as Record<string, unknown>;
 
     try {
@@ -780,6 +782,7 @@ export async function updatePlan(req: Request, res: Response, next: NextFunction
             await upsertPeriodLinks(tx, req.params.id as string, period_links);
             if (addon_rules !== undefined) await upsertPlanAddonRules(tx, req.params.id as string, addon_rules);
         });
+                    capabilities:       capabilities      !== undefined ? (sanitizeCapabilities(capabilities) as Prisma.InputJsonValue) : undefined,
 
         res.json(updatedPlan);
     } catch (err) {
