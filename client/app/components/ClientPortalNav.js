@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import NextImage from "next/image";
+import PortalLogo from "@/app/components/portal/PortalLogo";
 import { usePathname } from "next/navigation";
 import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare } from 'lucide-react';
 import { useTranslations } from "next-intl";
@@ -88,22 +88,7 @@ export default function ClientPortalNav() {
 
                 {/* Center: logo — icon constant, wordmark flips with theme (see globals.css) */}
                 <div className="flex justify-center">
-                    <NextImage
-                        src="/blue_dark.png"
-                        alt="FitForce X"
-                        width={120}
-                        height={32}
-                        className="brand-logo-light shrink-0"
-                        style={{ height: "auto" }}
-                    />
-                    <NextImage
-                        src="/blue_white.png"
-                        alt="FitForce X"
-                        width={120}
-                        height={32}
-                        className="brand-logo-dark shrink-0"
-                        style={{ height: "auto" }}
-                    />
+                    <PortalLogo branding={client?.branding} />
                 </div>
 
                 {/* Right: notifications */}
@@ -118,7 +103,7 @@ export default function ClientPortalNav() {
                     >
                         <Bell size={20} />
                         {unread > 0 && (
-                            <span className="absolute top-1 inset-e-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                            <span className="absolute top-1 inset-e-1 min-w-4 h-4 px-1 rounded-full bg-(--brand-secondary,var(--primary)) text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
                                 {unread > 99 ? '99+' : unread}
                             </span>
                         )}

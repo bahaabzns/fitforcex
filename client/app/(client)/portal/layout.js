@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import ClientPortalNav from "@/app/components/ClientPortalNav";
 import ClientPortalProvider, { useClientPortal } from "@/app/components/ClientPortalProvider";
 import ClientPortalStatusCard from "@/app/components/ClientPortalStatusCard";
+import PortalBrandStyle from "@/app/components/portal/PortalBrandStyle";
 import InsightBanner from "@/app/components/insights/InsightBanner";
 import { Skeleton } from "@heroui/react/skeleton";
 
@@ -25,6 +26,7 @@ function PortalShell({ children }) {
     if (access && access.keep_portal_access === false) {
         return (
             <div className="min-h-screen bg-background text-foreground">
+                <PortalBrandStyle branding={me?.branding} />
                 <ClientPortalStatusCard
                     variant={status === "Frozen" ? "frozen" : "expired"}
                     renewalLink={me?.renewalLink ?? null}
@@ -35,6 +37,7 @@ function PortalShell({ children }) {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
+            <PortalBrandStyle branding={me?.branding} />
             <ClientPortalNav />
             <main className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
                 {children}

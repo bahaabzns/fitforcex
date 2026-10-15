@@ -122,6 +122,11 @@ function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
             { label: tNav('settings'), href: `${base}/settings` },
             { label: tNav('clientExperience'), href: `${base}/settings/client-experience` },
         ] };
+    if (p.includes('/settings/branding'))
+        return { icon: <Settings size={15} />, crumbs: [
+            { label: tNav('settings'), href: `${base}/settings` },
+            { label: tNav('branding'), href: `${base}/settings/branding` },
+        ] };
     if (p.includes('/settings/advanced'))
         return { icon: <Settings size={15} />, crumbs: [
             { label: tNav('settings'), href: `${base}/settings` },

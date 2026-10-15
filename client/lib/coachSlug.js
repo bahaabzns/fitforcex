@@ -74,6 +74,17 @@ export function buildPortalUrl(slug) {
 }
 
 /**
+ * URL of the FitForce marketing site (the bare root domain), keeping the current protocol and
+ * port so it also works in local dev. Returns '' on the server.
+ */
+export function buildMarketingUrl() {
+    if (typeof window === 'undefined') return '';
+    const { protocol, port } = window.location;
+    const root = ROOT_DOMAIN.split(':')[0].toLowerCase();
+    return `${protocol}//${port ? `${root}:${port}` : root}`;
+}
+
+/**
  * Navigates to a path inside a workspace on my.{ROOT_DOMAIN}/{slug}/{subpath}.
  * Uses window.location.href so it works cross-subdomain (e.g. fitforce.app → my.fitforce.app).
  * In dev (localhost) stays on the same host to avoid subdomain complexity.
