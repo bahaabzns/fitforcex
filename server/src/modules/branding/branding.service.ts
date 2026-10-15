@@ -97,12 +97,8 @@ type ImageResult = { key: string } | { error: string };
 async function processAndStoreImage(
     buffer: Buffer, workspaceId: string, kind: 'logo' | 'banner',
 ): Promise<ImageResult> {
-    let meta: sharp.Metadata;
-    try {
-        meta = await sharp(buffer, { limitInputPixels: MAX_INPUT_PIXELS }).metadata();
-    } catch {
-        return { error: 'Could not read the image — upload a valid PNG, JPG or WebP file' };
-    }
+    const meta = await sharp(buffer, { limitInputPixels: MAX_INPUT_PIXELS }).metadata().catch(() => null);
+    if (!meta) return { error: 'Could not read the image — upload a valid PNG, JPG or WebP file' };
     if (!meta.format || !ALLOWED_IMAGE_FORMATS.includes(meta.format) || !meta.width || !meta.height) {
         return { error: 'Unsupported image type — use PNG, JPG or WebP' };
     }
