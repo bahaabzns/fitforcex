@@ -2189,7 +2189,6 @@
       "rateSessionNewFeature": "ميزة جديدة"
     },
     "home": {
-      "poweredBy": "مدعوم من",
       "bannersLabel": "الإعلانات",
       "bannerFallbackAlt": "بانر إعلاني",
       "bannerGoTo": "عرض البانر {number}",
@@ -2225,6 +2224,7 @@
       "selectDateRange": "اختر نطاقاً زمنياً"
     },
     "profile": {
+      "poweredBy": "مدعوم من",
       "title": "الملف الشخصي",
       "preferences": "التفضيلات",
       "appearance": "المظهر",

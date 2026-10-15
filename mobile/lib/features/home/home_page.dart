@@ -53,48 +53,7 @@ class HomePage extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           const ProgressDashboardBody(),
-          const SizedBox(height: 28),
-          const _PoweredByFitForce(),
         ],
-      ),
-    );
-  }
-}
-
-/// Small "Powered by FitForce" footer with the FitForce lockup, shown for every workspace.
-/// Uses the FitForce assets directly (not [BrandLogo], which shows the coach's logo).
-class _PoweredByFitForce extends StatelessWidget {
-  const _PoweredByFitForce();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Semantics(
-      label: '${l10n.poweredBy} FitForce',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              l10n.poweredBy,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: context.appColors.mutedForeground,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Image.asset(
-              isDark
-                  ? 'assets/images/logo_dark_theme.png'
-                  : 'assets/images/logo_light_theme.png',
-              height: 16,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
-          ],
-        ),
       ),
     );
   }

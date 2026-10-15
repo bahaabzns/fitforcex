@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/auth_controller.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/config/providers.dart';
 import '../../core/i18n/locale_controller.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
@@ -178,6 +180,8 @@ class ProfilePage extends ConsumerWidget {
             icon: const Icon(Icons.logout, size: 18),
             label: Text(l10n.profileLogout),
           ),
+          const SizedBox(height: 20),
+          const _PoweredByFitForce(),
         ],
       ),
     );
@@ -209,6 +213,59 @@ class ProfilePage extends ConsumerWidget {
       await ref.read(authControllerProvider.notifier).logout();
       // Router redirect sends us to login on the unauthenticated state.
     }
+  }
+}
+
+/// "Powered by FitForce" footer with the FitForce lockup; taps through to the FitForce site.
+/// Uses the FitForce assets directly (not [BrandLogo], which shows the coach's logo).
+class _PoweredByFitForce extends ConsumerWidget {
+  const _PoweredByFitForce();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final siteUrl = ref.watch(appConfigProvider).marketingSiteUrl;
+
+    return Semantics(
+      button: true,
+      label: '${l10n.poweredBy} FitForce',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          final uri = Uri.tryParse(siteUrl);
+          if (uri != null) {
+            unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: ExcludeSemantics(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  l10n.poweredBy,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: context.appColors.mutedForeground,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Image.asset(
+                  isDark
+                      ? 'assets/images/logo_dark_theme.png'
+                      : 'assets/images/logo_light_theme.png',
+                  height: 16,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

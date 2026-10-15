@@ -2189,7 +2189,6 @@
       "rateSessionNewFeature": "New Feature"
     },
     "home": {
-      "poweredBy": "Powered by",
       "bannersLabel": "Announcements",
       "bannerFallbackAlt": "Announcement banner",
       "bannerGoTo": "Show banner {number}",
@@ -2225,6 +2224,7 @@
       "selectDateRange": "Select a date range"
     },
     "profile": {
+      "poweredBy": "Powered by",
       "title": "Profile",
       "preferences": "Preferences",
       "appearance": "Appearance",
