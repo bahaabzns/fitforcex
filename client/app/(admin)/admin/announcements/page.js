@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
-import { Megaphone, Pencil, Plus, Trash2, ImagePlus } from 'lucide-react';
+import { Megaphone, Pencil, Plus, Trash2, ImagePlus, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { AlertDialog } from '@heroui/react/alert-dialog';
@@ -227,6 +227,53 @@ function AnnouncementModal({ existing, onClose, onSaved }) {
     );
 }
 
+function RepublishConfirmModal({ announcement, onClose, onRepublished }) {
+    const [working, setWorking] = useState(false);
+    const [error, setError] = useState('');
+    const seenBy = announcement.dismissed_count + announcement.clicked_count;
+
+    async function handleRepublish() {
+        setWorking(true);
+        setError('');
+        try {
+            await api.post(`/api/admin/announcements/${announcement.id}/republish`);
+            onRepublished();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to republish');
+            setWorking(false);
+        }
+    }
+
+    return (
+        <AlertDialog isOpen onOpenChange={(open) => !open && onClose()}>
+            <AlertDialog.Backdrop>
+                <AlertDialog.Container>
+                    <AlertDialog.Dialog>
+                        <AlertDialog.Header>
+                            <AlertDialog.Heading>Republish announcement</AlertDialog.Heading>
+                        </AlertDialog.Header>
+                        <AlertDialog.Body>
+                            <p className="text-sm text-muted-foreground">
+                                Show <span className="font-semibold text-foreground">{announcement.title}</span> again to every coach
+                                {seenBy > 0 ? <>, including the <span className="font-semibold text-foreground">{seenBy}</span> who already dismissed or clicked it</> : null}.
+                                It becomes active and live immediately: a future start date is cleared and an expired end date is removed.
+                            </p>
+                            {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+                        </AlertDialog.Body>
+                        <AlertDialog.Footer>
+                            <Button variant="ghost" isDisabled={working} onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={working} onClick={handleRepublish}>
+                                {working ? 'Republishing…' : 'Republish'}
+                            </Button>
+                        </AlertDialog.Footer>
+                    </AlertDialog.Dialog>
+                </AlertDialog.Container>
+            </AlertDialog.Backdrop>
+        </AlertDialog>
+    );
+}
+
 function DeleteConfirmModal({ announcement, onClose, onDeleted }) {
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState('');
@@ -282,6 +329,7 @@ export default function AdminAnnouncementsPage() {
     const [error, setError] = useState('');
     const [editTarget, setEditTarget] = useState(null); // 'new' | row
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [republishTarget, setRepublishTarget] = useState(null);
 
     function load() {
         api.get('/api/admin/announcements')
@@ -345,6 +393,13 @@ export default function AdminAnnouncementsPage() {
                                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.cls}`}>{status.label}</span>
                                 <div className="flex items-center gap-1">
                                     <button
+                                        onClick={() => setRepublishTarget(row)}
+                                        className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors"
+                                        title="Republish — show again to every coach"
+                                    >
+                                        <RefreshCw size={14} />
+                                    </button>
+                                    <button
                                         onClick={() => setEditTarget(row)}
                                         className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors"
                                         title="Edit"
@@ -370,6 +425,14 @@ export default function AdminAnnouncementsPage() {
                     existing={editTarget === 'new' ? null : editTarget}
                     onClose={() => setEditTarget(null)}
                     onSaved={load}
+                />
+            )}
+
+            {republishTarget && (
+                <RepublishConfirmModal
+                    announcement={republishTarget}
+                    onClose={() => setRepublishTarget(null)}
+                    onRepublished={load}
                 />
             )}
 

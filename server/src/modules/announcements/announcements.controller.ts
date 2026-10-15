@@ -3,7 +3,7 @@ import { z } from 'zod';
 import {
     ANNOUNCEMENT_LIMITS, AnnouncementInput, normalizeCtaHref, getActiveAnnouncementForUser, dismissAnnouncement,
     listAnnouncementsForAdmin, createAnnouncement, updateAnnouncement, deleteAnnouncement,
-    setAnnouncementImage, clearAnnouncementImage,
+    setAnnouncementImage, clearAnnouncementImage, republishAnnouncement,
 } from './announcements.service';
 
 const HREF_ERROR = 'CTA link must be an in-app path like /{slug}/settings/branding or an https:// URL';
@@ -114,4 +114,10 @@ export async function adminRemoveImage(req: Request, res: Response) {
     const cleared = await clearAnnouncementImage(req.params.id as string);
     if (!cleared) return res.status(404).json({ message: 'Announcement not found' });
     res.json({ ok: true });
+}
+
+export async function adminRepublish(req: Request, res: Response) {
+    const result = await republishAnnouncement(req.params.id as string);
+    if (!result) return res.status(404).json({ message: 'Announcement not found' });
+    res.json({ ok: true, reset: result.reset });
 }
