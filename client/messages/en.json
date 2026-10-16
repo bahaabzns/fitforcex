@@ -2854,12 +2854,16 @@
       "goToDashboard": "Go to Dashboard"
     },
     "hero": {
-      "badge": "The new generation of \"Super Sheets\"",
-      "titleLine1": "One System to Run Your",
-      "titleHighlight": "Coaching Business",
-      "subtitle": "Manage unlimited clients, deliver custom workout and nutrition plans, and grow your coaching business—all in one place.",
+
+      "titleLine1": "The Easiest System",
+      "titleHighlight": "for Managing Your Online Coaching",
+      "subtitle": "If you're a coach or a nutritionist, you can design nutrition and training plans and follow up with your clients in one complete system — without the headache.",
       "cta": "Get Started – It's FREE!",
-      "noCreditCard": "No credit card needed, cancel any time"
+      "noCreditCard": "No credit card needed, cancel any time",
+      "playVideo": "Play the video: How to use FitForce",
+      "goToDashboard": "Go to Dashboard",
+      "trustLine": "Build plans, manage clients, and track progress —",
+      "trustHighlight": "everything in one place."
     },
     "modulesSlider": {
       "ariaLabel": "Platform workflows",
@@ -2944,7 +2948,10 @@
       "coach2": {
         "name": "Abdallah Gamal",
         "description": "Medical doctor and WNBF natural athlete with 2000+ clients worldwide. Former IGCSE teacher and cardiology assistant bringing simple, flexible plans."
-      }
+      },
+      "followers": "followers",
+      "previous": "Previous",
+      "next": "Next"
     },
     "pricing": {
       "title": "Choose Your Plan",
@@ -2977,11 +2984,12 @@
       "stillHaveQuestions": "Still have questions? Chat with our team →",
       "q1": { "question": "How does the free plan work?", "answer": "Start free with up to 3 clients — no credit card required. Need to manage more? Upgrade to a paid plan anytime." },
       "q2": { "question": "Can I cancel anytime?", "answer": "Yes, you can cancel your subscription at any time. No long-term contracts or cancellation fees." },
-      "q3": { "question": "How many clients can I add?", "answer": "The free plan supports up to 3 clients. Upgrade to a paid plan for unlimited clients and scale your business without worrying about caps." },
-      "q4": { "question": "Is the client portal branded?", "answer": "Yes, Team Force and Enterprise plans include custom branding options for the client portal and mobile app." },
+      "q3": { "question": "How many clients can I add?", "answer": "The free plan supports up to 3 clients. Each paid plan has its own client limit, shown on the plan in the pricing section. Upgrade whenever you need more room." },
+      "q4": { "question": "Is the client portal branded?", "answer": "Custom branding (your logo and colors) for the client portal and mobile app is available on selected plans only, not on all of them. Check each plan's details in the pricing section to see which ones include it." },
       "q6": { "question": "What are your support hours?", "answer": "We offer WhatsApp support all days of the week except Fridays from 10 AM to 7 PM. Enterprise clients get 24/7 phone support." },
       "q7": { "question": "Can I import my existing clients?", "answer": "Yes, we provide easy import tools to bring in your existing client data from spreadsheets or other platforms." },
-      "q8": { "question": "Is there a mobile app?", "answer": "Yes, your clients get access to our mobile app (iOS & Android) where they can view plans, track progress, and communicate with you." }
+      "q8": { "question": "Is there a mobile app?", "answer": "Yes, your clients get access to our mobile app (iOS & Android) where they can view plans, track progress, and communicate with you." },
+      "badge": "FAQ"
     },
     "footer": {
       "tagline": "The all-in-one coaching platform for serious fitness professionals.",
@@ -3048,6 +3056,7 @@
     "dismiss": "Close",
     "watchTutorial": "Watch tutorial",
     "modalDefaultTitle": "Tutorial",
-    "watchOnYoutube": "Watch on YouTube"
+    "watchOnYoutube": "Watch on YouTube",
+    "collapseToEdge": "Tuck to the screen edge"
   }
 }

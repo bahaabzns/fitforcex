@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 
 const WHATSAPP_URL = "https://wa.me/201501233314?text=Hello!%20I'm%20interested%20in%20FitForce.";
 
@@ -67,7 +66,7 @@ export default function LandingFooter({ dashboardUrl }) {
             <div className="border-b border-white/8 px-8 py-12 md:py-16 text-center flex flex-col items-center gap-5">
                 <h2 className="text-2xl md:text-3xl font-black text-white">{t("ctaTitle")}</h2>
                 <p className="text-white/50 max-w-lg">{t("ctaSubtitle")}</p>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                     <Link href="/register" className="button button--primary button--lg">
                         {t("startTrial")}
                     </Link>
@@ -94,7 +93,6 @@ export default function LandingFooter({ dashboardUrl }) {
                     <p className="text-sm text-white/40 leading-relaxed max-w-xs">
                         {t("tagline")}
                     </p>
-                    <LanguageSwitcher />
                 </div>
 
                 {/* Product links */}

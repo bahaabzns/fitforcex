@@ -89,6 +89,44 @@
                           0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
+/* ── Forced-dark sections inside a light-mode page (e.g. the landing page's `dark` wrapper) ──
+   HeroUI declares its `--color-*` aliases (e.g. --color-foreground: var(--foreground)) on
+   :root only, so they resolve to the LIGHT values there and are inherited as-is. A nested
+   `.dark` re-defines --foreground & co, but those aliases stay light — which is what broke
+   the landing nav in light mode (dark-on-dark login text, white language button).
+   Re-declaring the aliases under `.dark` makes them resolve against the dark tokens.
+   Harmless on <html class="dark"> (same values). */
+.dark {
+  --color-foreground:            var(--foreground);
+  --color-background:            var(--background);
+  --color-muted:                 var(--muted);
+  --color-focus:                 var(--focus);
+  --color-surface-secondary:    var(--surface-secondary);
+  --color-surface-tertiary:      var(--surface-tertiary);
+  --color-default:               var(--default);
+  --color-default-foreground:    var(--default-foreground);
+  --color-default-hover:         color-mix(in oklab, var(--default) 96%, var(--default-foreground) 4%);
+  --color-accent:                var(--accent);
+  --color-accent-foreground:     var(--accent-foreground);
+  --color-accent-hover:          color-mix(in oklab, var(--accent) 90%, var(--accent-foreground) 10%);
+  --color-accent-soft:           var(--accent-soft, color-mix(in oklab, var(--accent) 15%, transparent));
+  --color-accent-soft-hover:     var(--accent-soft-hover, color-mix(in oklab, var(--accent) 20%, transparent));
+  --color-accent-soft-foreground: var(--accent-soft-foreground, var(--accent));
+  --color-danger:                var(--danger);
+  --color-danger-foreground:     var(--danger-foreground);
+  --color-danger-hover:          color-mix(in oklab, var(--danger) 90%, var(--danger-foreground) 10%);
+  --color-success:               var(--success);
+  --color-success-foreground:    var(--success-foreground);
+  --color-success-hover:         color-mix(in oklab, var(--success) 90%, var(--success-foreground) 10%);
+  --color-warning:               var(--warning);
+  --color-warning-foreground:    var(--warning-foreground);
+  --color-warning-hover:         color-mix(in oklab, var(--warning) 90%, var(--warning-foreground) 10%);
+  --color-field-focus:           var(--field-background, var(--default));
+  --color-field-border:          var(--field-border, var(--border));
+  --color-field-border-hover:    color-mix(in oklab, var(--field-border, var(--border)) 88%, var(--field-foreground, var(--foreground)) 10%);
+  --color-field-border-focus:    color-mix(in oklab, var(--field-border, var(--border)) 74%, var(--field-foreground, var(--foreground)) 22%);
+}
+
 /* ── Brand wordmark swap ──
    The icon stays blue in both themes (theme-independent: white fist on blue fill).
    Only the expanded wordmark flips: dark text on light, white text on dark.
@@ -154,12 +192,15 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Landing page only — IBM Plex Sans / IBM Plex Sans Arabic, see app/page.js */
+  /* Landing page only (see app/page.js): body text uses the dashboard's default font
+     (--font-sans); only titles — headings, plus anything marked .font-landing-title
+     (e.g. the FAQ questions, which are buttons) — use Alexandria (--font-landing). */
   .font-landing {
-    font-family: var(--font-landing-sans), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-sans);
   }
-  html[dir="rtl"] .font-landing {
-    font-family: var(--font-landing-arabic), ui-sans-serif, system-ui, sans-serif;
+  .font-landing :is(h1, h2, h3, h4, h5, h6),
+  .font-landing-title {
+    font-family: var(--font-landing), var(--font-sans);
   }
 }
 
@@ -471,6 +512,18 @@
 }
 .animate-wiggle {
   animation: wiggle 1s ease-in-out infinite;
+}
+
+/* ── Tutorial window: slides/fades up when it opens (see TutorialButton.js) ── */
+@keyframes tutorial-window-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-tutorial-window-in {
+  animation: tutorial-window-in 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-tutorial-window-in { animation: none; }
 }
 
 /* ── RTL overrides ── */

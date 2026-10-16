@@ -8,6 +8,8 @@ import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
 import { CheckCircle2 } from 'lucide-react';
 import { pickLocalized } from "@/lib/utils";
 
@@ -53,21 +55,34 @@ function BillingPeriodToggle({ discounts, selected, onSelect, locale, t }) {
     );
 }
 
-function VariationDropdown({ variations, selectedId, onSelect, locale, t }) {
+function VariationDropdown({ variations, selectedId, onSelect, locale, t, isInline }) {
     if (variations.length <= 1) return null;
+    const optionLabel = (v) => `${pickLocalized(locale, v.label_en, v.label_ar)} — ${v.price_monthly != null ? `${Number(v.price_monthly).toLocaleString('en-EG')} ${v.currency}` : t('customPricing')}`;
     return (
-        <select
+        <Select
+            variant="secondary"
+            fullWidth
             aria-label="Plan variation"
-            value={selectedId ?? ''}
-            onChange={e => onSelect(e.target.value)}
-            className="w-full px-3 py-2 text-sm font-medium text-foreground bg-white/5 border border-white/10 rounded-lg outline-none hover:border-primary/40 transition-colors cursor-pointer [&>option]:bg-neutral-900 [&>option]:text-white"
+            value={selectedId ?? null}
+            onChange={(key) => onSelect(key)}
         >
-            {variations.map(v => (
-                <option key={v.id} value={v.id}>
-                    {pickLocalized(locale, v.label_en, v.label_ar)} — {v.price_monthly != null ? `${Number(v.price_monthly).toLocaleString('en-EG')} ${v.currency}` : t('customPricing')}
-                </option>
-            ))}
-        </select>
+            <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+            </Select.Trigger>
+            {/* The popover is portaled to <body>, outside the landing page's forced-dark wrapper, so on the
+                landing page it must be marked dark itself; inline (coach app) it follows the app theme. */}
+            <Select.Popover className={isInline ? undefined : "dark text-foreground"}>
+                <ListBox>
+                    {variations.map(v => (
+                        <ListBox.Item key={v.id} id={v.id} textValue={optionLabel(v)}>
+                            {optionLabel(v)}
+                            <ListBox.ItemIndicator />
+                        </ListBox.Item>
+                    ))}
+                </ListBox>
+            </Select.Popover>
+        </Select>
     );
 }
 
@@ -226,6 +241,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                 <VariationDropdown
                                                     variations={variations}
                                                     selectedId={variation?.id}
+                                                    isInline={isInline}
                                                     onSelect={id => setSelectedVariations(s => ({ ...s, [plan.id]: id }))}
                                                     locale={locale}
                                                     t={t}

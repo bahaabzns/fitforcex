@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useScrollReveal } from "@/lib/useScrollReveal";
 
@@ -35,6 +35,7 @@ const TRANSITION_MS = 800;
 
 export default function LandingTestimonials() {
     const t = useTranslations("landing.trustedBy");
+    const isRTL = useLocale() === "ar";
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
@@ -80,7 +81,8 @@ export default function LandingTestimonials() {
         const blur = isCenter ? 0 : abs === 1 ? 2 : 4;
         const brightness = isCenter ? 1 : abs === 1 ? 0.7 : 0.5;
         const translateY = isCenter ? 0 : abs === 1 ? 20 : 40;
-        const translateX = position * 340;
+        // Mirrored in RTL: the next card comes in from the left, matching the Arabic reading direction.
+        const translateX = (isRTL ? -1 : 1) * position * 340;
 
         return {
             transform: `translateX(${translateX}px) translateY(${translateY}px) scale(${scale})`,
@@ -112,26 +114,26 @@ export default function LandingTestimonials() {
             <button
                 type="button"
                 onClick={prev}
-                aria-label="Previous"
+                aria-label={t("previous")}
                 className="hidden md:flex absolute inset-s-8 top-1/2 -translate-y-1/2 z-40 items-center justify-center w-12 h-12 rounded-full border backdrop-blur-md transition-transform hover:scale-110"
                 style={{
                     background: "color-mix(in oklch, var(--color-primary) 15%, transparent)",
                     borderColor: "color-mix(in oklch, var(--color-primary) 30%, transparent)",
                 }}
             >
-                <ChevronLeft className="w-5 h-5 text-white" />
+                <ChevronLeft className="w-5 h-5 text-white rtl:rotate-180" />
             </button>
             <button
                 type="button"
                 onClick={next}
-                aria-label="Next"
+                aria-label={t("next")}
                 className="hidden md:flex absolute inset-e-8 top-1/2 -translate-y-1/2 z-40 items-center justify-center w-12 h-12 rounded-full border backdrop-blur-md transition-transform hover:scale-110"
                 style={{
                     background: "color-mix(in oklch, var(--color-primary) 15%, transparent)",
                     borderColor: "color-mix(in oklch, var(--color-primary) 30%, transparent)",
                 }}
             >
-                <ChevronRight className="w-5 h-5 text-white" />
+                <ChevronRight className="w-5 h-5 text-white rtl:rotate-180" />
             </button>
 
             {/* Coverflow */}
@@ -186,7 +188,7 @@ export default function LandingTestimonials() {
                                     }}
                                 >
                                     <InstagramIcon className="w-3.5 h-3.5" />
-                                    {coach.instagram.username} · {coach.instagram.followers} followers
+                                    {coach.instagram.username} · {coach.instagram.followers} {t("followers")}
                                 </a>
                             </div>
                         </div>
@@ -199,26 +201,26 @@ export default function LandingTestimonials() {
                 <button
                     type="button"
                     onClick={prev}
-                    aria-label="Previous"
+                    aria-label={t("previous")}
                     className="flex items-center justify-center w-11 h-11 rounded-full border"
                     style={{
                         background: "color-mix(in oklch, var(--color-primary) 15%, transparent)",
                         borderColor: "color-mix(in oklch, var(--color-primary) 30%, transparent)",
                     }}
                 >
-                    <ChevronLeft className="w-5 h-5 text-white" />
+                    <ChevronLeft className="w-5 h-5 text-white rtl:rotate-180" />
                 </button>
                 <button
                     type="button"
                     onClick={next}
-                    aria-label="Next"
+                    aria-label={t("next")}
                     className="flex items-center justify-center w-11 h-11 rounded-full border"
                     style={{
                         background: "color-mix(in oklch, var(--color-primary) 15%, transparent)",
                         borderColor: "color-mix(in oklch, var(--color-primary) 30%, transparent)",
                     }}
                 >
-                    <ChevronRight className="w-5 h-5 text-white" />
+                    <ChevronRight className="w-5 h-5 text-white rtl:rotate-180" />
                 </button>
             </div>
         </section>
