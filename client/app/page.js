@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
-import { Chip } from "@heroui/react/chip";
+import { Alexandria } from "next/font/google";
 import api from "@/lib/axios";
 import LandingNav from "./components/LandingNav";
 import LandingHeroVideo from "./components/LandingHeroVideo";
@@ -17,15 +16,11 @@ import LandingFooter from "./components/LandingFooter";
 import LandingScrollToTop from "./components/LandingScrollToTop";
 import LandingWhatsAppButton from "./components/LandingWhatsAppButton";
 
-const ibmPlexSans = IBM_Plex_Sans({
-    subsets: ["latin"],
+// One family for both scripts: Alexandria ships Latin + Arabic glyphs (variable weight).
+const alexandria = Alexandria({
+    subsets: ["latin", "arabic"],
     weight: ["400", "500", "600", "700"],
-    variable: "--font-landing-sans",
-});
-const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
-    subsets: ["arabic"],
-    weight: ["400", "500", "600", "700"],
-    variable: "--font-landing-arabic",
+    variable: "--font-landing",
 });
 
 export default function HomePage() {
@@ -48,7 +43,7 @@ export default function HomePage() {
 
     if (checking) {
         return (
-            <div className={`dark min-h-screen bg-[#080d1a] flex items-center justify-center font-landing ${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}>
+            <div className={`dark min-h-screen bg-[#080d1a] flex items-center justify-center font-landing ${alexandria.variable}`}>
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                     <p className="text-muted-foreground">Loading...</p>
@@ -60,7 +55,7 @@ export default function HomePage() {
     const dashboardUrl = user?.currentWorkspace?.slug ? `/${user.currentWorkspace.slug}/dashboard` : null;
 
     return (
-        <main className={`dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#080d1a] text-white flex flex-col font-landing ${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}>
+        <main className={`dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#080d1a] text-white flex flex-col font-landing ${alexandria.variable}`}>
 
             {/* ── Nav ── */}
             <LandingNav user={user} dashboardUrl={dashboardUrl} />
@@ -77,15 +72,10 @@ export default function HomePage() {
                     }}
                 />
 
-                {/* Badge */}
-                <Chip color="accent" size="md">
-                    {t("badge")}
-                </Chip>
-
                 {/* Heading */}
-                <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] max-w-4xl text-white">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.2] rtl:leading-[1.55] max-w-5xl text-balance text-white">
                     {t("titleLine1")}{" "}
-                    <span className="text-primary">{t("titleHighlight")}</span>
+                    <span className="text-primary xl:whitespace-nowrap">{t("titleHighlight")}</span>
                 </h1>
 
                 {/* Subtitle */}
@@ -97,7 +87,7 @@ export default function HomePage() {
                 <div className="flex flex-col items-center gap-2">
                     {dashboardUrl ? (
                         <Link href={dashboardUrl} className="button button--primary button--lg">
-                            Go to Dashboard
+                            {t("goToDashboard")}
                         </Link>
                     ) : (
                         <>
@@ -116,8 +106,8 @@ export default function HomePage() {
             {/* ── Trust banner ── */}
             <section className="mt-8 sm:mt-16 py-5 border-y border-white/8 bg-white/2">
                 <p className="text-center text-white/55 text-sm sm:text-base font-medium px-4">
-                    Build plans, manage clients, and track progress —{" "}
-                    <span className="text-white/85">everything in one place.</span>
+                    {t("trustLine")}{" "}
+                    <span className="text-white/85">{t("trustHighlight")}</span>
                 </p>
             </section>
 

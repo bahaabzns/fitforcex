@@ -18,7 +18,7 @@ export default function LandingFaq() {
                 {/* ── Heading ── */}
                 <div className="text-center flex flex-col gap-4">
                     <Chip color="accent" size="sm" className="mx-auto">
-                        FAQ
+                        {t("badge")}
                     </Chip>
                     <h2 className="text-4xl sm:text-5xl font-bold text-white">
                         {t("title")}
@@ -38,7 +38,7 @@ export default function LandingFaq() {
                         <Accordion.Item key={id} id={id}>
                             <Accordion.Heading>
                                 <Accordion.Trigger>
-                                    <span className="text-left font-medium text-foreground">
+                                    <span className="font-landing-title flex-1 text-start font-medium text-foreground">
                                         {question}
                                     </span>
                                     <Accordion.Indicator />

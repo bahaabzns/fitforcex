@@ -101,7 +101,7 @@ export default function LandingNav({ user, dashboardUrl }) {
 
                                     <Drawer.Header className="flex items-center justify-between border-b border-border px-6 py-4">
                                         <img src="/blue_white.png" alt="FitForce" className="h-7 w-auto" />
-                                        <Drawer.CloseTrigger className="inline-flex items-center justify-center rounded-lg p-1.5 text-foreground/60 transition-colors hover:bg-surface hover:text-foreground">
+                                        <Drawer.CloseTrigger className="inline-flex items-center justify-center rounded-lg p-1.5 text-foreground/60 transition-colors hover:bg-surface hover:text-foreground rtl:right-auto rtl:left-4">
                                             <X className="h-5 w-5" />
                                         </Drawer.CloseTrigger>
                                     </Drawer.Header>
