@@ -8,6 +8,13 @@ import { Input } from "@heroui/react/input";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 
+const NUTRITION_FIELDS = [
+    { name: "calories_per_serving", labelKey: "labelCalories", unitKey: "unitKcal" },
+    { name: "carbs_per_serving",    labelKey: "labelCarbs",    unitKey: "unitGrams" },
+    { name: "protein_per_serving",  labelKey: "labelProtein",  unitKey: "unitGrams" },
+    { name: "fats_per_serving",     labelKey: "labelFats",     unitKey: "unitGrams" },
+];
+
 // Shared food item form used in the Food Items management page and the inline
 // "Create food" flow inside FoodItemsModal. Manages its own translations from
 // the "foodItems" namespace so callers don't need to thread them through.
@@ -85,18 +92,15 @@ export default function FoodForm({ data, onChange, onSubmit, onCancel, submitLab
             <div className="flex flex-col gap-1.5">
                 <FieldLabel>{t("labelNutritionFacts")}</FieldLabel>
                 <div className="grid grid-cols-4 gap-3">
-                    <TextField variant="secondary" fullWidth aria-label={t("labelCalories")} {...field("calories_per_serving")}>
-                        <Input type="number" step="any" inputMode="decimal" placeholder={t("labelCalories")} />
-                    </TextField>
-                    <TextField variant="secondary" fullWidth aria-label={t("labelCarbs")} {...field("carbs_per_serving")}>
-                        <Input type="number" step="any" inputMode="decimal" placeholder={t("labelCarbs")} />
-                    </TextField>
-                    <TextField variant="secondary" fullWidth aria-label={t("labelProtein")} {...field("protein_per_serving")}>
-                        <Input type="number" step="any" inputMode="decimal" placeholder={t("labelProtein")} />
-                    </TextField>
-                    <TextField variant="secondary" fullWidth aria-label={t("labelFats")} {...field("fats_per_serving")}>
-                        <Input type="number" step="any" inputMode="decimal" placeholder={t("labelFats")} />
-                    </TextField>
+                    {NUTRITION_FIELDS.map(({ name, labelKey, unitKey }) => (
+                        <div key={name} className="flex flex-col gap-1">
+                            {/* Visible label: the placeholder alone disappears once a value is entered. */}
+                            <span className="text-xs text-muted-foreground">{t(labelKey)} ({t(unitKey)})</span>
+                            <TextField variant="secondary" fullWidth aria-label={t(labelKey)} {...field(name)}>
+                                <Input type="number" step="any" inputMode="decimal" placeholder={t(labelKey)} />
+                            </TextField>
+                        </div>
+                    ))}
                 </div>
             </div>
             <ModalFooter>

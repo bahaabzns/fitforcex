@@ -3,6 +3,8 @@ import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import * as nutritionController from './nutrition.controller';
+import * as mergeController from './foodCategoryMerge.controller';
+import * as bulkController from './foodItemsBulk.controller';
 
 const router = Router();
 
@@ -54,6 +56,46 @@ router.use((req: Request, res: Response, next: NextFunction) => {
  *       200:
  *         description: Food item deleted
  */
+/**
+ * @openapi
+ * /nutrition/food-items/bulk-category:
+ *   put:
+ *     summary: Change the category of several food items at once
+ *     description: Body is { ids, food_category } — food_category must be one of the workspace's categories, or empty to clear it. All ids must belong to the workspace (404 otherwise; nothing is written).
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Number of food items updated
+ *
+ * /nutrition/food-items/bulk-usage:
+ *   post:
+ *     summary: How many diet plan entries use the given food items
+ *     description: Used to warn before a bulk delete. Requires nutrition.write and nutrition.delete.
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Counts of plan entries (meal_items), distinct plans, and alternatives that use the foods
+ *
+ * /nutrition/food-items:
+ *   delete:
+ *     summary: Delete several food items at once
+ *     description: Body is { ids }. Also removes the diet plan entries that use them (database cascade). Requires nutrition.delete.
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Number of food items deleted
+ */
+// Bulk routes are declared before the /:id routes so '/:id' can't shadow them.
+router.put('/food-items/bulk-category',  bulkController.bulkChangeFoodItemCategory);
+router.post('/food-items/bulk-usage',    requirePermission('nutrition', 'delete'), bulkController.getFoodItemsUsage);
+router.delete('/food-items',             bulkController.bulkDeleteFoodItems);
+
 router.get('/food-items',        nutritionController.getFoodItems);
 router.post('/food-items',       nutritionController.createFoodItem);
 router.put('/food-items/:id',    nutritionController.updateFoodItem);
@@ -101,6 +143,60 @@ router.delete('/food-items/:id', nutritionController.deleteFoodItem);
  *       200:
  *         description: Category deleted
  */
+/**
+ * @openapi
+ * /nutrition/food-categories/merge/preview:
+ *   post:
+ *     summary: Preview merging several food categories into one (writes nothing)
+ *     description: Requires nutrition.write and nutrition.delete. Body is { sourceIds, target }, where target is { id } (keep a selected category) or { name_en, name_ar } (new or existing name).
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Target, number of food items that would move, and the categories that would be removed
+ *
+ * /nutrition/food-categories/merge:
+ *   post:
+ *     summary: Merge several food categories into one (undoable)
+ *     description: Moves the workspace's food items from the source categories to the target, deletes the source categories and logs the merge. Requires nutrition.write and nutrition.delete.
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201:
+ *         description: Merge performed
+ *
+ * /nutrition/food-categories/merges:
+ *   get:
+ *     summary: List the most recent category merges (newest first, with can_undo)
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of merges
+ *
+ * /nutrition/food-categories/merges/{mergeId}/undo:
+ *   post:
+ *     summary: Undo the most recent category merge
+ *     description: Restores the source categories and the items that are still in the target; items edited or deleted since are skipped and reported. Requires nutrition.write and nutrition.delete.
+ *     tags: [Nutrition]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: mergeId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Undo report
+ */
+// A merge removes categories, so on top of the router-wide POST => nutrition.write it also needs nutrition.delete.
+const requireDelete = requirePermission('nutrition', 'delete');
+router.post('/food-categories/merge/preview',        requireDelete, mergeController.previewFoodCategoryMerge);
+router.post('/food-categories/merge',                requireDelete, mergeController.mergeFoodCategories);
+router.get('/food-categories/merges',                mergeController.getFoodCategoryMerges);
+router.post('/food-categories/merges/:mergeId/undo', requireDelete, mergeController.undoFoodCategoryMerge);
+
 router.get('/food-categories',        nutritionController.getFoodCategories);
 router.post('/food-categories',       nutritionController.createFoodCategory);
 router.put('/food-categories/:id',    nutritionController.updateFoodCategory);

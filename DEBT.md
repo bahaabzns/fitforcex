@@ -659,3 +659,21 @@ Format:
 **Not fixed, left as a follow-up:** `getThreads`'s 1.58MB payload at 3,000 rows (acceptable on localhost, could matter on a slow/mobile connection) and the fact that every client — including archived ones — is fetched on every load/poll/socket event, not just ones with a real conversation. Real pagination needs care: the whole point of `eb38e63` was "every client must count toward the filter/status options," so a page-limited fetch would need a separate lightweight count/filter-options endpoint rather than depending on the full row fetch, to avoid reintroducing that bug. Excluding archived clients from the default view is a product decision, not made here.
 **Effort:** Done (virtualization + query-binding fix). Pagination follow-up: Medium.
 **Priority:** Resolved / Medium (follow-up)
+
+---
+
+## 2026-10-16 — server/src/lib/libraryClone.ts (admin re-seed resurrects merged categories)
+**Type:** Shortcut
+**What:** `seedWorkspaceLibrary` (super-admin "re-seed" of the food categories/items library into one workspace) adds every master row whose `name_en` isn't already in that workspace. After a coach has merged categories, re-seeding brings the merged-away default categories back, and re-adds master foods that were moved under their old category names.
+**Why it matters:** Silently undoes a coach's tidy-up in that workspace. It is a manual, rare admin action, and the coach's own foods are never touched — but the swap pools they built by merging get split again.
+**Effort:** Medium (make the re-seed skip categories/items listed as sources in `food_category_merges`, or ask before re-adding)
+**Priority:** Low
+
+---
+
+## 2026-10-16 — server/src/modules/nutrition/foodCategoryMerge.service.ts (merge log retention)
+**Type:** Shortcut
+**What:** `food_category_merges` is never pruned, and each row stores the id + previous category string of every moved food item as JSONB (~60 bytes per item). Only the latest merge can be undone, so older rows are history only.
+**Why it matters:** Slow table growth — a merge of a category with thousands of foods writes a row of a few hundred KB. No correctness impact.
+**Effort:** Small (delete `moved_items` — or the whole row — for merges that are undone or older than N days, e.g. a scheduled job that nulls `moved_items` after 90 days)
+**Priority:** Low
