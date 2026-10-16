@@ -565,8 +565,12 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
         {isMobile ? (
             <Drawer isOpen={mobileOpen} onOpenChange={onMobileOpenChange}>
                 <Drawer.Backdrop isDismissable>
-                    <Drawer.Content placement={isRTL ? 'right' : 'left'}>
-                        <Drawer.Dialog className="h-full w-64 max-w-[85vw] rounded-none p-0 flex flex-col overflow-hidden bg-sidebar">
+                    {/* HeroUI positions the drawer with flex-start/flex-end, which FOLLOW the page direction —
+                        so in RTL, placement="right" lands on the physical left. Pinning the container to LTR
+                        makes left/right physical (and matches the physical slide-in translate); the dialog
+                        puts the real direction back for its contents. */}
+                    <Drawer.Content dir="ltr" placement={isRTL ? 'right' : 'left'}>
+                        <Drawer.Dialog dir={isRTL ? 'rtl' : 'ltr'} className="h-full w-64 max-w-[85vw] rounded-none p-0 flex flex-col overflow-hidden bg-sidebar">
                             {sidebarPanel}
                         </Drawer.Dialog>
                     </Drawer.Content>
