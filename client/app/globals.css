@@ -745,3 +745,18 @@
 .modal__container {
   max-height: 100svh;
 }
+
+/* iOS Safari auto-zooms the page when a focused field's font-size is under
+   16px (HeroUI inputs default to text-sm = 14px), and doesn't zoom back out.
+   Raise form controls to 16px on touch devices only — desktop keeps the
+   compact size. Deliberately NOT using `maximum-scale=1` in the viewport meta:
+   that blocks pinch-zoom for everyone and is an accessibility failure.
+   Unlayered so it outranks HeroUI/Tailwind's layered `text-sm`. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select,
+  [contenteditable="true"] {
+    font-size: 16px;
+  }
+}
