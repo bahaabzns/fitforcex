@@ -86,7 +86,7 @@ export default function ImportGoogleFormDialog({ open, onClose, handleImportGoog
     }
 
     return (
-        <Modal open={open} onClose={handleClose} title={tForms("importDialogTitle")}>
+        <Modal open={open} onClose={handleClose} title={tForms("importDialogTitle")} sheetOnMobile>
             <form className="flex flex-col gap-4 px-1 py-1" onSubmit={handleSubmit}>
                 {mode === "url" ? (
                     <>

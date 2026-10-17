@@ -89,27 +89,27 @@ export default function FormsPanel({
 
     return (
         <>
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 min-h-0 p-3 rounded-2xl shadow-surface">
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
                 {/* Forms Section */}
-                <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("forms") ? "1 1 0" : "0 0 auto" }}>
+                <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("forms") ? "1 1 0" : "0 0 auto" }}>
                     <Disclosure id="forms">
                         <Disclosure.Heading>
-                            <div className="flex items-center gap-2 w-full mb-4">
+                            <div className="flex flex-wrap items-center gap-2 w-full mb-4">
                                 <Button
                                     slot="trigger"
                                     variant="ghost"
-                                    className="flex-1 justify-start gap-2 px-0 data-hover:bg-transparent min-w-0"
+                                    className="flex-1 justify-start gap-2 px-3 min-w-20 data-hover:bg-transparent"
                                 >
+                                    <Disclosure.Indicator />
                                     <h2 className="text-base font-semibold text-foreground">
                                         Forms
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{forms.length}</span>
                                     </h2>
-                                    <Disclosure.Indicator />
                                 </Button>
                                 {expandedKeys.has("forms") && (
-                                    <div className="flex items-center gap-2 shrink-0">
+                                    <div className="flex flex-wrap items-center gap-2 ms-auto max-md:w-full max-md:flex-col max-md:items-stretch">
                                         {/* Only the coach workspace builder wires this up — the Super
                                             Admin "Master Form Templates" builder (which reuses this same
                                             panel against a separate /admin/forms-templates backend) has
@@ -118,23 +118,27 @@ export default function FormsPanel({
                                             <Button
                                                 variant="outline"
                                                 onClick={() => setIsImportOpen(true)}
-                                                className="gap-2"
+                                                className="gap-2 max-md:w-full"
                                             >
                                                 <GoogleFormsIcon />
                                                 {tForms('importFromGoogleForms')}
                                             </Button>
                                         )}
-                                        <Button variant="primary" onClick={handleCreateForm}>
+                                        <Button variant="primary" onClick={handleCreateForm} className="max-md:w-full">
                                             {tNutrition('newForm')}
                                         </Button>
                                     </div>
                                 )}
                             </div>
                         </Disclosure.Heading>
-                        <Disclosure.Content>
-                            <Disclosure.Body className="flex flex-col flex-1 min-h-0 px-0 pt-0">
+                    </Disclosure>
+                    {/* The list lives outside Disclosure.Content: that wrapper is not a
+                        flex container, so a scroll area inside it never gets a bounded
+                        height (same structure as the training LeftPanel). */}
+                    {expandedKeys.has("forms") && (
+                        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                 {/* Sort Pills */}
-                                <div className="flex gap-2 mb-4 shrink-0">
+                                <div className="flex flex-wrap max-md:flex-nowrap gap-2 mb-4 shrink-0">
                                     {[
                                         { value: "created_desc", label: tNutrition('newest') },
                                         { value: "created_asc",  label: tNutrition('oldest') },
@@ -143,7 +147,7 @@ export default function FormsPanel({
                                         <button
                                             key={value}
                                             onClick={() => setSortOrder(value)}
-                                            className={`cursor-pointer text-xs px-3 py-1 rounded-full border transition-colors ${
+                                            className={`cursor-pointer text-xs px-3 py-1 max-md:flex-1 max-md:py-2 rounded-full border transition-colors ${
                                                 sortOrder === value
                                                     ? "bg-primary border-primary text-white"
                                                     : "border-border text-muted-foreground hover:border-border hover:bg-default"
@@ -186,9 +190,8 @@ export default function FormsPanel({
                                         </div>
                                     )}
                                 </ScrollShadow>
-                            </Disclosure.Body>
-                        </Disclosure.Content>
-                    </Disclosure>
+                        </div>
+                    )}
                 </div>
 
             </DisclosureGroup>
@@ -253,6 +256,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
 
             {/* Actions menu */}
             <CardActionsMenu
+                sheetOnMobile
                 isActive={isActive}
                 ariaLabel={form.title_en}
                 items={[
