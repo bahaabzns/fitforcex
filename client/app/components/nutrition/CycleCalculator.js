@@ -66,14 +66,15 @@ function SectionLabel({ children }) {
 
 function InputWithUnit({ label, unit, value, onChange, placeholder, step, min, max, required }) {
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 min-w-0">
             {label && (
                 <label className="text-xs font-medium text-muted-foreground">
                     {label}{required && <span className="text-destructive ml-0.5">*</span>}
                 </label>
             )}
-            <InputGroup variant="secondary">
+            <InputGroup variant="secondary" className="min-w-0">
                 <InputGroup.Input
+                    className="min-w-0"
                     type="number"
                     value={value}
                     onChange={onChange}
@@ -203,17 +204,17 @@ export default function CycleCalculator({ cycle, onApply }) {
     const bfCategories = gender === "male" ? BF_CATEGORIES_MALE : BF_CATEGORIES_FEMALE;
 
     return (
-        <div ref={scrollContainerRef} className="flex flex-col gap-5 overflow-y-auto flex-1 min-h-0 pr-0.5">
+        <div ref={scrollContainerRef} className="flex flex-col gap-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0 pr-0.5">
 
             {/* ── Formula ── */}
             <div>
                 <SectionLabel>{t("calcBmrFormula")}</SectionLabel>
-                <div className="flex flex-row gap-1.5">
+                <div className="flex flex-row flex-wrap gap-1.5">
                     {formulaOptions.map(opt => (
                         <button
                             key={opt.value}
                             onClick={() => setFormula(opt.value)}
-                            className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
+                            className={`flex-1 min-w-[7rem] text-start px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
                                 formula === opt.value
                                     ? "border-primary bg-primary/10"
                                     : "border-border hover:border-border bg-secondary"
@@ -256,7 +257,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                         <button
                             key={opt.value}
                             onClick={() => setActivity(opt.value)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+                            className={`w-full flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-start px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                                 activity === opt.value
                                     ? "border-primary bg-primary/10"
                                     : "border-transparent hover:border-border hover:bg-default"
