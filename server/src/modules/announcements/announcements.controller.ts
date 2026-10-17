@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import {
-    ANNOUNCEMENT_LIMITS, AnnouncementInput, normalizeCtaHref, getActiveAnnouncementForUser, dismissAnnouncement,
+    ANNOUNCEMENT_LIMITS, AnnouncementInput, normalizeCtaHref, getActiveAnnouncementsForUser, dismissAnnouncement,
     listAnnouncementsForAdmin, createAnnouncement, updateAnnouncement, deleteAnnouncement,
-    setAnnouncementImage, clearAnnouncementImage, republishAnnouncement,
+    setAnnouncementImage, clearAnnouncementImage, republishAnnouncement, findUnknownPlanIds,
 } from './announcements.service';
 
 const HREF_ERROR = 'CTA link must be an in-app path like /{slug}/settings/branding or an https:// URL';
@@ -22,6 +22,8 @@ const announcementSchema = z.object({
     starts_at:    z.string().datetime().nullable().optional(),
     ends_at:      z.string().datetime().nullable().optional(),
     sort_order:   z.number().int().min(0).max(10_000).optional(),
+    // Plan ids to show this to; empty or absent means everyone.
+    target_plan_ids: z.array(z.string().min(1)).max(50).optional(),
 }).strict();
 
 const blankToNull = (value: string | null | undefined) => (value && value.trim() !== '' ? value.trim() : null);
@@ -50,13 +52,15 @@ function toInput(body: z.infer<typeof announcementSchema>): AnnouncementInput | 
         starts_at:    startsAt,
         ends_at:      endsAt,
         sort_order:   body.sort_order ?? 0,
+        target_plan_ids: [...new Set(body.target_plan_ids ?? [])],
     };
 }
 
 // ── Coach ───────────────────────────────────────────────────────────────────────────────
 export async function getActive(req: Request, res: Response) {
-    const announcement = await getActiveAnnouncementForUser(req.user!.userId);
-    res.json({ announcement });
+    const announcements = await getActiveAnnouncementsForUser(req.user!.userId, req.user!.workspaceId);
+    // `announcement` is the top one, kept so single-card callers keep working; `announcements` is the list for the row.
+    res.json({ announcement: announcements[0] ?? null, announcements });
 }
 
 const dismissSchema = z.object({ action: z.enum(['dismissed', 'clicked']).optional() }).strict();
@@ -81,6 +85,8 @@ export async function adminCreate(req: Request, res: Response) {
 
     const input = toInput(parsed.data);
     if ('error' in input) return res.status(400).json({ message: input.error });
+    const unknownPlans = await findUnknownPlanIds(input.target_plan_ids);
+    if (unknownPlans.length > 0) return res.status(400).json({ message: 'Unknown plan selected for targeting' });
 
     res.status(201).json(await createAnnouncement(input));
 }
@@ -91,6 +97,8 @@ export async function adminUpdate(req: Request, res: Response) {
 
     const input = toInput(parsed.data);
     if ('error' in input) return res.status(400).json({ message: input.error });
+    const unknownPlans = await findUnknownPlanIds(input.target_plan_ids);
+    if (unknownPlans.length > 0) return res.status(400).json({ message: 'Unknown plan selected for targeting' });
 
     const updated = await updateAnnouncement(req.params.id as string, input);
     if (!updated) return res.status(404).json({ message: 'Announcement not found' });

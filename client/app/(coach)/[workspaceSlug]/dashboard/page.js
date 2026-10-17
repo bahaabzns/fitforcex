@@ -22,6 +22,7 @@ import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaIn
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import AnnouncementCard from "@/app/components/AnnouncementCard";
+import OperationsTab from "@/app/components/operations/OperationsTab";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -31,6 +32,8 @@ const STATUS_CHIP = {
     Cancelled:   "bg-secondary text-muted-foreground",
     Refunded:    "bg-purple-500/15 text-purple-600",
 };
+
+const OPERATIONS_ROLES = ['owner', 'manager', 'trainer', 'nutritionist'];
 
 export default function DashboardPage() {
     const { formatDate } = useDateFormatter();
@@ -57,6 +60,15 @@ export default function DashboardPage() {
         const rest = params.toString();
         window.history.replaceState(null, '', `/${workspaceSlug}/dashboard${rest ? `?${rest}` : ''}`);
     }
+    // Roles that produce or manage plans get Team Workload as their dashboard; the server enforces the
+    // same rule (owner/manager see the team, trainer/nutritionist their own row). Everyone else keeps
+    // the client overview. null = role not known yet, so neither view flashes before the other.
+    const [canSeeOperations, setCanSeeOperations] = useState(null);
+    useEffect(() => {
+        api.get('/api/auth/me')
+            .then(res => setCanSeeOperations(OPERATIONS_ROLES.includes(res.data.currentWorkspace?.role)))
+            .catch(() => setCanSeeOperations(false));
+    }, []);
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");
 
@@ -129,7 +141,7 @@ export default function DashboardPage() {
     const { fname, stats, recentClients } = data;
 
     return (
-        <div className="p-8 flex flex-col gap-6">
+        <div className="p-4 sm:p-8 flex flex-col gap-6">
             {showWelcome && (
                 <WelcomeOnboarding workspaceSlug={workspaceSlug} onDone={() => setShowWelcome(false)} />
             )}
@@ -153,6 +165,12 @@ export default function DashboardPage() {
                 respondUrlPrefix="/api/insights/prompts"
                 dismissUrlPrefix="/api/insights/prompts"
             />
+
+            {canSeeOperations === null && <Skeleton className="h-64 rounded-xl" />}
+
+            {canSeeOperations === true && <OperationsTab />}
+
+            {canSeeOperations === false && (<>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4">
@@ -317,6 +335,7 @@ export default function DashboardPage() {
                     </div>
                 )}
             </div>
+            </>)}
         </div>
     );
 }

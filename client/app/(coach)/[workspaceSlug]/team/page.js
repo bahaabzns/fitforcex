@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
 import { normalizeEmail } from "@/lib/normalizeEmail";
@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
+import CapacityEditModal from "@/app/components/operations/CapacityEditModal";
+import { formatDaysOff } from "@/app/components/operations/weekdays";
 
 const ROLES = ["manager", "trainer", "assistant"];
 
@@ -226,8 +228,34 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
 
 // ── Members Tab ───────────────────────────────────────────────────────────────
 
+// Roles whose daily plan capacity counts toward the Operations dashboard
+// (mirrors the server's CAPACITY_ROLES; the owner is handled separately).
+const CAPACITY_ROLES = ["trainer", "nutritionist", "manager"];
+
+function CapacityButton({ value, daysOff, onClick }) {
+    const tOps = useTranslations("operations");
+    const locale = useLocale();
+    const daysOffText = formatDaysOff(locale, daysOff);
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title={tOps("editCapacity")}
+            className={`text-xs px-2 py-1 rounded-md border whitespace-nowrap transition-colors cursor-pointer hover:bg-default/40 ${
+                value === null || value === undefined
+                    ? "border-dashed border-border text-muted-foreground"
+                    : "border-border text-foreground"
+            }`}
+        >
+            {value === null || value === undefined ? tOps("setCapacity") : tOps("capacityPerDay", { count: value })}
+            {daysOffText && <span className="block text-[10px] text-muted-foreground">{tOps("daysOffShort", { days: daysOffText })}</span>}
+        </button>
+    );
+}
+
 function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
     const t = useTranslations("team");
+    const tOps = useTranslations("operations");
     const isOwner = me?.currentWorkspace?.role === "owner";
     const canManage = isOwner || me?.currentWorkspace?.permissions?.team?.write;
     const canDelete = isOwner || me?.currentWorkspace?.permissions?.team?.delete;
@@ -255,6 +283,19 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
     const [removingId, setRemovingId] = useState(null);
     const [confirmRemove, setConfirmRemove] = useState(null);
     const [editingPerms, setEditingPerms] = useState(null);
+
+    // Capacity (plans/day) feeds the Operations dashboard; owner and managers edit it.
+    const canEditCapacity = isOwner || me?.currentWorkspace?.role === "manager";
+    const [ownerCapacity, setOwnerCapacity] = useState(null);
+    const [ownerDaysOff, setOwnerDaysOff] = useState([]);
+    const [editingCapacity, setEditingCapacity] = useState(null); // { kind: "owner" } | { kind: "member", member }
+
+    useEffect(() => {
+        if (!canEditCapacity) return;
+        api.get("/api/operations/capacity")
+            .then(res => { setOwnerCapacity(res.data.ownerDailyCapacity); setOwnerDaysOff(res.data.ownerDaysOff ?? []); })
+            .catch(() => {});
+    }, [canEditCapacity]);
 
     const wsId = workspace?.id;
 
@@ -463,6 +504,9 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
                         </div>
+                        {canEditCapacity && (
+                            <CapacityButton value={ownerCapacity} daysOff={ownerDaysOff} onClick={() => setEditingCapacity({ kind: "owner" })} />
+                        )}
                         <RoleBadge role="owner" />
                     </div>
                 )}
@@ -486,6 +530,14 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                 </p>
                                 <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                             </div>
+
+                            {canEditCapacity && CAPACITY_ROLES.includes(member.role) && (
+                                <CapacityButton
+                                    value={member.daily_plan_capacity}
+                                    daysOff={member.days_off}
+                                    onClick={() => setEditingCapacity({ kind: "member", member })}
+                                />
+                            )}
 
                             {roleChangeAllowed ? (
                                 <select
@@ -553,6 +605,33 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     </div>
                 </div>
             </Modal>
+
+            {/* Capacity editor modal */}
+            {editingCapacity?.kind === "owner" && (
+                <CapacityEditModal
+                    name={`${workspace?.owner_fname ?? ""} ${workspace?.owner_lname ?? ""}`.trim()}
+                    userId={workspace?.owner_id}
+                    currentValue={ownerCapacity}
+                    currentDaysOff={ownerDaysOff}
+                    endpoint="/api/operations/capacity/owner"
+                    hint={tOps("ownerCapacityHint")}
+                    onClose={() => setEditingCapacity(null)}
+                    onSaved={(dailyCapacity, daysOff) => { setOwnerCapacity(dailyCapacity); setOwnerDaysOff(daysOff); }}
+                />
+            )}
+            {editingCapacity?.kind === "member" && (
+                <CapacityEditModal
+                    name={`${editingCapacity.member.fname} ${editingCapacity.member.lname}`.trim()}
+                    userId={editingCapacity.member.user_id}
+                    currentValue={editingCapacity.member.daily_plan_capacity}
+                    currentDaysOff={editingCapacity.member.days_off ?? []}
+                    endpoint={`/api/operations/capacity/members/${editingCapacity.member.id}`}
+                    onClose={() => setEditingCapacity(null)}
+                    onSaved={(dailyCapacity, daysOff) => setMembers(prev => prev.map(m =>
+                        m.id === editingCapacity.member.id ? { ...m, daily_plan_capacity: dailyCapacity, days_off: daysOff } : m
+                    ))}
+                />
+            )}
 
             {/* Permissions editor modal */}
             {editingPerms && (

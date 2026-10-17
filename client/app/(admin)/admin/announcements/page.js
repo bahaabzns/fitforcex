@@ -33,6 +33,7 @@ function emptyForm() {
         title: '', title_ar: '', body: '', body_ar: '',
         cta_label: '', cta_label_ar: '', cta_href: '',
         is_active: true, starts_at: '', ends_at: '', sort_order: 0,
+        audience: 'all', target_plan_ids: [],
     };
 }
 
@@ -44,7 +45,17 @@ function formFromRow(row) {
         cta_href: row.cta_href ?? '',
         is_active: row.is_active, starts_at: toLocalInput(row.starts_at), ends_at: toLocalInput(row.ends_at),
         sort_order: row.sort_order ?? 0,
+        // An empty target list means everyone.
+        audience: row.target_plan_ids?.length ? 'plans' : 'all',
+        target_plan_ids: row.target_plan_ids ?? [],
     };
+}
+
+/** "All plans", or the names of the targeted plans (a deleted plan shows as such rather than vanishing). */
+function audienceLabel(row, plans) {
+    if (!row.target_plan_ids?.length) return 'All plans';
+    const names = row.target_plan_ids.map((id) => plans.find((plan) => plan.id === id)?.display_name ?? 'Deleted plan');
+    return `Plans: ${names.join(', ')}`;
 }
 
 function statusOf(row) {
@@ -55,7 +66,7 @@ function statusOf(row) {
     return { label: 'Live', cls: 'bg-green-500/10 text-green-600' };
 }
 
-function AnnouncementModal({ existing, onClose, onSaved }) {
+function AnnouncementModal({ existing, plans, onClose, onSaved }) {
     const [form, setForm] = useState(existing ? formFromRow(existing) : emptyForm());
     const [imageFile, setImageFile] = useState(null);
     const [removeImage, setRemoveImage] = useState(false);
@@ -69,9 +80,24 @@ function AnnouncementModal({ existing, onClose, onSaved }) {
 
     function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
 
+    function togglePlan(id) {
+        setForm((f) => ({
+            ...f,
+            target_plan_ids: f.target_plan_ids.includes(id) ? f.target_plan_ids.filter((planId) => planId !== id) : [...f.target_plan_ids, id],
+        }));
+    }
+
     async function handleSave() {
         if (!form.title.trim()) { setError('Title is required'); return; }
         if (!form.body.trim()) { setError('Benefit line is required'); return; }
+
+        // Only plans that still exist can be targeted; a plan deleted since this was saved is dropped.
+        const livePlanIds = new Set(plans.map((plan) => plan.id));
+        const targetPlanIds = form.audience === 'plans' ? form.target_plan_ids.filter((id) => livePlanIds.has(id)) : [];
+        if (form.audience === 'plans' && targetPlanIds.length === 0) {
+            setError('Pick at least one plan, or choose Everyone');
+            return;
+        }
 
         const payload = {
             title: form.title.trim(),
@@ -85,6 +111,7 @@ function AnnouncementModal({ existing, onClose, onSaved }) {
             starts_at: fromLocalInput(form.starts_at),
             ends_at: fromLocalInput(form.ends_at),
             sort_order: parseInt(form.sort_order, 10) || 0,
+            target_plan_ids: targetPlanIds,
         };
 
         setSaving(true);
@@ -191,6 +218,38 @@ function AnnouncementModal({ existing, onClose, onSaved }) {
                     </div>
                 </div>
 
+                <div className="flex flex-col gap-2">
+                    <FieldLabel hint="Choose who sees it, by the subscription plan their workspace is on.">Show to</FieldLabel>
+                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                        <input type="radio" name="announcement-audience" checked={form.audience === 'all'} onChange={() => set('audience', 'all')} />
+                        Everyone (all plans)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                        <input type="radio" name="announcement-audience" checked={form.audience === 'plans'} onChange={() => set('audience', 'plans')} />
+                        Only workspaces on selected plans
+                    </label>
+                    {form.audience === 'plans' && (
+                        <div className="ms-6 flex flex-wrap gap-2">
+                            {plans.length === 0 && <span className="text-xs text-muted-foreground">No plans found</span>}
+                            {plans.map((plan) => {
+                                const checked = form.target_plan_ids.includes(plan.id);
+                                return (
+                                    <label
+                                        key={plan.id}
+                                        className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
+                                            checked ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-foreground hover:bg-default/40'
+                                        }`}
+                                    >
+                                        <input type="checkbox" checked={checked} onChange={() => togglePlan(plan.id)} />
+                                        {plan.display_name}
+                                        <span className="text-xs text-muted-foreground">{plan.workspace_count} workspaces</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel hint="Leave empty to show immediately">Starts</FieldLabel>
@@ -203,7 +262,7 @@ function AnnouncementModal({ existing, onClose, onSaved }) {
                             className="px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none" />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <FieldLabel hint="Lower numbers are shown first. Only one announcement is shown at a time.">Order</FieldLabel>
+                        <FieldLabel hint="Lower numbers are shown first. Up to three are shown side by side.">Order</FieldLabel>
                         <input type="number" min="0" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value)}
                             className="px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none" />
                     </div>
@@ -325,6 +384,7 @@ function DeleteConfirmModal({ announcement, onClose, onDeleted }) {
 
 export default function AdminAnnouncementsPage() {
     const [rows, setRows] = useState([]);
+    const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [editTarget, setEditTarget] = useState(null); // 'new' | row
@@ -340,6 +400,11 @@ export default function AdminAnnouncementsPage() {
 
     useEffect(() => { load(); }, []);
 
+    // The plan list is only for targeting and for naming plans on each row; a failure just hides plan names.
+    useEffect(() => {
+        api.get('/api/admin/plans').then((res) => setPlans(res.data ?? [])).catch(() => {});
+    }, []);
+
     return (
         <div className="p-8 flex flex-col gap-6">
             <div className="flex items-start justify-between gap-4">
@@ -349,8 +414,8 @@ export default function AdminAnnouncementsPage() {
                         Announcements
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        &quot;What&apos;s new&quot; cards shown at the top of the coach dashboard. Each coach sees one at a time, in order, and
-                        dismissing it reveals the next.
+                        &quot;What&apos;s new&quot; cards shown at the top of the coach dashboard. Each coach sees up to three side by side, in
+                        order, and dismissing one reveals the next. Aim an announcement at specific subscription plans, or leave it for everyone.
                     </p>
                 </div>
                 <Button variant="primary" onClick={() => setEditTarget('new')}>
@@ -389,6 +454,7 @@ export default function AdminAnnouncementsPage() {
                                         Order {row.sort_order} · {row.dismissed_count} dismissed · {row.clicked_count} clicked
                                         {row.cta_href ? ` · ${row.cta_href}` : ''}
                                     </p>
+                                    <p className="text-[11px] text-muted-foreground">{audienceLabel(row, plans)}</p>
                                 </div>
                                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.cls}`}>{status.label}</span>
                                 <div className="flex items-center gap-1">
@@ -423,6 +489,7 @@ export default function AdminAnnouncementsPage() {
             {editTarget && (
                 <AnnouncementModal
                     existing={editTarget === 'new' ? null : editTarget}
+                    plans={plans}
                     onClose={() => setEditTarget(null)}
                     onSaved={load}
                 />

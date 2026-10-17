@@ -13,13 +13,13 @@ export const coachRouter = Router();
  * @openapi
  * /announcements/active:
  *   get:
- *     summary: The single "what's new" announcement to show this coach (or null)
+ *     summary: The "what's new" announcements to show this coach (up to 3, top one also as `announcement`)
  *     tags: [Announcements]
  *     security:
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: "{ announcement: {...} | null }"
+ *         description: "{ announcement: {...} | null, announcements: [{...}] }"
  */
 coachRouter.get('/active', authMiddleware, controller.getActive);
 

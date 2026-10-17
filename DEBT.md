@@ -677,3 +677,93 @@ Format:
 **Why it matters:** Slow table growth — a merge of a category with thousands of foods writes a row of a few hundred KB. No correctness impact.
 **Effort:** Small (delete `moved_items` — or the whole row — for merges that are undone or older than N days, e.g. a scheduled job that nulls `moved_items` after 90 days)
 **Priority:** Low
+
+---
+
+## 2026-10-16 — Operations dashboard: capacity unit is calendar days, not working days
+**Type:** Shortcut
+**What:** Demand vs capacity uses a 1/3/7 calendar-day horizon (capacity x days). Weekends, days off, holidays and leave are not modelled, so a 7-day window assumes every counted trainer works all 7 days.
+**Why it matters:** Utilization is understated over weekends or when a trainer is on leave. Coaches must pick capacity numbers that already average in days off.
+**Effort:** Medium (per-member working-days mask or leave table, then count working days in the horizon)
+**Priority:** Medium
+
+---
+
+## 2026-10-16 — Operations dashboard: free-text package names (`clients.current_package`)
+**Type:** Knowledge
+**What:** The "By package" breakdown groups by `clients.current_package`, a free-text copy of the package name, not by `package_variations`/`packages` ids. A renamed package splits into two buckets (old name vs new); clients with no package fall into a "No package" bucket.
+**Why it matters:** Counts can look fragmented after renames. The Plans Queue package column has the same limitation, so the two stay consistent with each other.
+**Effort:** Medium (group via `current_package_variation_id` -> `packages.id`, backfill clients where it is null)
+**Priority:** Low
+
+---
+
+## 2026-10-16 — Stray branch holds an earlier operations dashboard; migrations 089/090 drift
+**Type:** Knowledge
+**What:** Commit `f9b2baf` ("operations dashboard - SLA tracking, plans queue, thread assignment") lives only on `fix/signup-orphan-user-takeover`, never merged to `dev` or `main`. It added `workspace_members.daily_plan_capacity` (migration `089`, already applied to some databases incl. the dev DB). The new Operations dashboard deliberately reuses only that column name/semantics; none of the SLA work was brought over. Migration `100_ops_capacity.js` uses `IF NOT EXISTS`, so it applies whether or not `089` ran. Its `down` does not drop `daily_plan_capacity` (it may be owned by `089`). Also: the local test DB needed `node-pg-migrate up --no-check-order` because `pgmigrations` records files absent from this branch.
+**Why it matters:** Someone could later merge that branch and get a second, conflicting dashboard and a duplicate-column migration. Migration order checks fail on any DB that ran `089`/`090`.
+**Effort:** Small to decide (merge, port what is wanted, or delete the branch); see also the 2026-09-22 drift entries above.
+**Priority:** Medium
+
+---
+
+## 2026-10-16 — Operations dashboard: queue drill-down seeds DataTable sessionStorage
+**Type:** Shortcut
+**What:** Clicking a number on the Operations tab opens the Plans Queue pre-filtered by writing `datatable:plans-queue-main-<slug>` to sessionStorage (`components/operations/queueDrilldown.js`). It is coupled to PlansQueueTable's `persistKey` and DataTable's stored shape, and is lost if sessionStorage is blocked.
+**Why it matters:** Renaming the persistKey silently breaks drill-down (the queue just opens unfiltered).
+**Effort:** Small (read filters from URL query params in plans-queue/page.js and pass an initial-filters prop)
+**Priority:** Low
+
+---
+
+## 2026-10-16 — Operations dashboard: counts match the Plans Queue, including archived/deleted clients
+**Type:** Knowledge
+**What:** "Needs action" = `form_requests.status = 'submitted'` and `archived_at IS NULL`, exactly the queue's need-action bucket. Like the queue, it does not exclude requests of archived or soft-deleted clients. Aggregates run live (no caching) and the owner's capacity is a workspace-level setting (`owner_daily_plan_capacity`).
+**Why it matters:** Dashboard and queue numbers agree, but a deleted client's open request still counts as demand until archived.
+**Effort:** Small (filter in both queue and dashboard together)
+**Priority:** Low
+
+---
+
+## 2026-10-17 — Team Workload: days off are weekly only (no holidays or leave)
+**Type:** Shortcut
+**What:** Each team member now has weekly days off (`workspace_members.days_off`, `workspaces.owner_days_off`), and capacity, the look-ahead windows, "days to clear" and the capacity chart all honour them. Public holidays, one-off days off and leave are still not modelled. This resolves the earlier "calendar days, not working days" entry for the weekly pattern only.
+**Why it matters:** Over a holiday week the team looks more available than it is.
+**Effort:** Medium (a per-person list of dated absences, counted alongside the weekly days off)
+**Priority:** Medium
+
+---
+
+## 2026-10-17 — Team Workload: past capacity is replayed with today's role and active status
+**Type:** Shortcut
+**What:** The capacity line and the KPI mini charts replay each person's past limit and days off from `capacity_history`, but a person's role and active flag are today's: past role changes and deactivations are not recorded, and people who have since left the team are not counted in past capacity.
+**Why it matters:** Past capacity can read slightly different from what the team really had, mainly around someone being deactivated or removed.
+**Effort:** Medium (record role/active changes in the same history table)
+**Priority:** Low
+
+---
+
+## 2026-10-17 — Team Workload: waiting-plans history is estimated
+**Type:** Shortcut
+**What:** The "plans waiting" mini chart and the "vs last week" change rebuild the backlog of past days from each request's submitted, finished and archived dates (`operations.kpi.ts`). A review that was later undone loses its finish date, so a few past days can read slightly high. No daily snapshots are stored.
+**Why it matters:** Small inaccuracies in the history shape and the weekly change; today's number is always live and exact.
+**Effort:** Medium (a nightly snapshot table of the headline numbers)
+**Priority:** Low
+
+---
+
+## 2026-10-17 — Team Workload: finished plans are credited via `action_taken_by`, older rows fall back to the assignee
+**Type:** Knowledge
+**What:** `form_requests.action_taken_by` (migration 103) is set when a request is marked done in the Plans Queue or closed out by activating a plan, and cleared if the review is undone. Rows finished before that migration have no finisher, so they are credited to the assignee, or shown as "finished, but nobody recorded" when there is none. Review-only check-ins are not counted as finished plans.
+**Why it matters:** Daily finished counts for dates before the migration reflect assignment, not necessarily who did the work.
+**Effort:** None needed; it corrects itself going forward.
+**Priority:** Low
+
+---
+
+## 2026-10-17 — Team Workload service level: one goal for the whole workspace, measured in elapsed days
+**Type:** Shortcut
+**What:** The Service level panel judges every finished plan against a single workspace goal (`workspaces.service_target_days`, default 2, set by an owner/manager). Turnaround is elapsed time from the client submitting to the plan being finished, so weekends and a person's days off count as waiting. There is no goal per package, per plan type or per form. (An earlier unmerged branch had per-form targets, `forms.sla_target_days`; none of that was brought over.)
+**Why it matters:** A plan submitted on Thursday evening can miss a 2-day goal purely because of a weekend, and a premium package cannot be held to a tighter goal than a basic one.
+**Effort:** Medium (per-package or per-form goals, and counting only working days)
+**Priority:** Low

@@ -49,6 +49,38 @@ describe('Product announcements', () => {
             expect(res.body.announcement.title).toBe('First');
         });
 
+        test('returns up to three announcements for the dashboard row, in order, never more', async () => {
+            for (const [title, sort_order] of [['Fourth', 4], ['First', 1], ['Third', 3], ['Second', 2]] as const) {
+                await createAnnouncement({ title, sort_order });
+            }
+            const { cookie } = await coachCookie();
+
+            const res = await request.get('/api/announcements/active').set('Cookie', cookie);
+            expect(res.body.announcements.map((a: { title: string }) => a.title)).toEqual(['First', 'Second', 'Third']);
+            expect(res.body.announcement.title).toBe('First');   // the single-card field is the top one
+        });
+
+        test('returns an empty list when nothing is live, and fewer than three when fewer exist', async () => {
+            const { cookie } = await coachCookie();
+            expect((await request.get('/api/announcements/active').set('Cookie', cookie)).body.announcements).toEqual([]);
+
+            await createAnnouncement({ title: 'Only' });
+            const res = await request.get('/api/announcements/active').set('Cookie', cookie);
+            expect(res.body.announcements).toHaveLength(1);
+        });
+
+        test('a dismissed announcement leaves the list and the next one fills its place on the next visit', async () => {
+            for (const [title, sort_order] of [['A', 1], ['B', 2], ['C', 3], ['D', 4]] as const) {
+                await createAnnouncement({ title, sort_order });
+            }
+            const { cookie } = await coachCookie();
+            const first = await request.get('/api/announcements/active').set('Cookie', cookie);
+            await request.post(`/api/announcements/${first.body.announcements[1].id}/dismiss`).set('Cookie', cookie).send({});
+
+            const again = await request.get('/api/announcements/active').set('Cookie', cookie);
+            expect(again.body.announcements.map((a: { title: string }) => a.title)).toEqual(['A', 'C', 'D']);
+        });
+
         test('skips inactive, not-yet-started and expired announcements', async () => {
             await createAnnouncement({ title: 'Inactive', is_active: false });
             await createAnnouncement({ title: 'Future', starts_at: new Date(Date.now() + 86_400_000) });
@@ -86,6 +118,100 @@ describe('Product announcements', () => {
 
             const missing = await request.post('/api/announcements/nope/dismiss').set('Cookie', cookie).send({});
             expect(missing.status).toBe(404);
+        });
+    });
+
+    describe('targeting by subscription plan', () => {
+        async function createPlan(label: string) {
+            return testPrisma.plans.create({ data: { id: createId(), name: `${label}-${createId()}`, display_name: label } });
+        }
+        async function coachOnPlan(planId: string | null) {
+            const user = await createTestUser();
+            const workspace = await createTestWorkspace(user.id);
+            if (planId) {
+                await testPrisma.workspace_subscriptions.create({ data: { id: createId(), workspace_id: workspace.id, plan_id: planId } });
+            }
+            return makeAuthCookie(user.id, workspace.id, 'owner');
+        }
+        const titles = async (cookie: string) =>
+            (await request.get('/api/announcements/active').set('Cookie', cookie)).body.announcements.map((a: { title: string }) => a.title);
+
+        test('an announcement with no target plans is shown to every workspace, on any plan or none', async () => {
+            const pro = await createPlan('Pro');
+            await createAnnouncement({ title: 'For everyone' });
+            expect(await titles(await coachOnPlan(pro.id))).toEqual(['For everyone']);
+            expect(await titles(await coachOnPlan(null))).toEqual(['For everyone']);
+        });
+
+        test('a targeted announcement is shown only to workspaces on one of its plans', async () => {
+            const free = await createPlan('Free');
+            const pro = await createPlan('Pro');
+            const team = await createPlan('Team');
+            await createAnnouncement({ title: 'Upgrade to Team', target_plan_ids: [free.id, pro.id] });
+
+            expect(await titles(await coachOnPlan(free.id))).toEqual(['Upgrade to Team']);
+            expect(await titles(await coachOnPlan(pro.id))).toEqual(['Upgrade to Team']);
+            expect(await titles(await coachOnPlan(team.id))).toEqual([]);
+        });
+
+        test('a workspace with no subscription never sees a targeted announcement, only untargeted ones', async () => {
+            const pro = await createPlan('Pro');
+            await createAnnouncement({ title: 'Pro only', target_plan_ids: [pro.id] });
+            await createAnnouncement({ title: 'Everyone', sort_order: 5 });
+            expect(await titles(await coachOnPlan(null))).toEqual(['Everyone']);
+        });
+
+        test('targeting is applied before the three-announcement limit', async () => {
+            const pro = await createPlan('Pro');
+            const free = await createPlan('Free');
+            for (const sort_order of [1, 2, 3]) await createAnnouncement({ title: `Pro ${sort_order}`, sort_order, target_plan_ids: [pro.id] });
+            await createAnnouncement({ title: 'Free one', sort_order: 4, target_plan_ids: [free.id] });
+
+            // The free workspace must still get its announcement, not an empty row after three pro-only ones.
+            expect(await titles(await coachOnPlan(free.id))).toEqual(['Free one']);
+            expect(await titles(await coachOnPlan(pro.id))).toEqual(['Pro 1', 'Pro 2', 'Pro 3']);
+        });
+
+        test('the plan comes from the coach current workspace, not their other workspaces', async () => {
+            const pro = await createPlan('Pro');
+            const free = await createPlan('Free');
+            await createAnnouncement({ title: 'Pro only', target_plan_ids: [pro.id] });
+            const user = await createTestUser();
+            const proWorkspace = await createTestWorkspace(user.id);
+            const freeWorkspace = await createTestWorkspace(user.id);
+            await testPrisma.workspace_subscriptions.create({ data: { id: createId(), workspace_id: proWorkspace.id, plan_id: pro.id } });
+            await testPrisma.workspace_subscriptions.create({ data: { id: createId(), workspace_id: freeWorkspace.id, plan_id: free.id } });
+
+            expect(await titles(await makeAuthCookie(user.id, proWorkspace.id, 'owner'))).toEqual(['Pro only']);
+            expect(await titles(await makeAuthCookie(user.id, freeWorkspace.id, 'owner'))).toEqual([]);
+        });
+
+        test('admin can create and update an announcement with target plans, and it is listed', async () => {
+            const pro = await createPlan('Pro');
+            const free = await createPlan('Free');
+            const created = await request.post('/api/admin/announcements').set('Cookie', adminCookie())
+                .send({ title: 'Targeted', body: 'Only some.', target_plan_ids: [pro.id, pro.id] });   // duplicates are collapsed
+            expect(created.status).toBe(201);
+            expect(created.body.target_plan_ids).toEqual([pro.id]);
+
+            const updated = await request.put(`/api/admin/announcements/${created.body.id}`).set('Cookie', adminCookie())
+                .send({ title: 'Targeted', body: 'Only some.', target_plan_ids: [free.id] });
+            expect(updated.status).toBe(200);
+
+            const list = await request.get('/api/admin/announcements').set('Cookie', adminCookie());
+            expect(list.body[0].target_plan_ids).toEqual([free.id]);
+
+            const cleared = await request.put(`/api/admin/announcements/${created.body.id}`).set('Cookie', adminCookie())
+                .send({ title: 'Targeted', body: 'Only some.', target_plan_ids: [] });
+            expect(cleared.status).toBe(200);
+            expect((await request.get('/api/admin/announcements').set('Cookie', adminCookie())).body[0].target_plan_ids).toEqual([]);
+        });
+
+        test('admin cannot target a plan that does not exist', async () => {
+            const res = await request.post('/api/admin/announcements').set('Cookie', adminCookie())
+                .send({ title: 'Bad', body: 'Nope.', target_plan_ids: ['no-such-plan'] });
+            expect(res.status).toBe(400);
+            expect(await testPrisma.product_announcements.count()).toBe(0);
         });
     });
 

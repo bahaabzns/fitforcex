@@ -48,6 +48,8 @@ export default function NewFeatureTooltip({
     // this to make the whole trigger disappear on dismissal instead of
     // sitting there forever with nothing left to say.
     hideTriggerWhenSeen = false,
+    // Called once when the hint is dismissed (button or trigger click), e.g. to start the next step of a tour.
+    onDismiss,
     children,
 }) {
     const storageKey = `ff_seen_feature_hint_${featureKey}`;
@@ -58,6 +60,7 @@ export default function NewFeatureTooltip({
 
     function dismiss() {
         setSeen(true);
+        onDismiss?.();
         try { localStorage.setItem(storageKey, "1"); } catch { /* storage unavailable — hint just won't persist dismissal this session */ }
     }
 

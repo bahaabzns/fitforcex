@@ -33,6 +33,7 @@ process.on('SIGTERM', async () => { await prisma.$disconnect(); process.exit(0);
 
 import authRouter        from './modules/auth/index';
 import dashboardRouter   from './modules/dashboard/index';
+import operationsRouter  from './modules/operations/index';
 import messengerRouter   from './modules/messenger/index';
 import clientsRouter     from './modules/clients/index';
 import nutritionRouter   from './modules/nutrition/index';
@@ -129,6 +130,7 @@ const apiLimiter = (req: Request, res: Response, next: NextFunction) => {
 
 app.use('/api/auth',           authRouter);
 app.use('/api/dashboard',      dashboardRouter);
+app.use('/api/operations',     apiLimiter, operationsRouter);
 app.use('/api/messenger',      mutationLimiter, messengerRouter);
 app.use('/api/clients',        apiLimiter, clientsRouter);
 app.use('/api/nutrition',      apiLimiter, nutritionRouter);

@@ -591,6 +591,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                     clientIdColumn: 'client_id',
                     updateMode:     durationChoice,
                     submissionPostAction: 'nutrition-plan',
+                actorUserId: req.user!.userId,
                     ...(durationChoice === 'restart' && restartCycleDays !== undefined ? { cycleDays: restartCycleDays } : {}),
                 });
                 if (restarted) autoReviewedRequestIds.forEach((id) => autoReviewedIds.push(id));
@@ -721,6 +722,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
                 submissionPostAction: 'nutrition-plan',
+                actorUserId: req.user!.userId,
             });
             if (!plan) return null;
 
