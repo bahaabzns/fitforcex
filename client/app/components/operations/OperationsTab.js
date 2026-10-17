@@ -365,6 +365,16 @@ export default function OperationsTab() {
                 </div>
             </div>
 
+            {/* First-time setup gets its own full-width row right under the period bar, so it is the first thing a new
+                coach sees; it disappears once at least one person has a daily limit. */}
+            {capacity.countedTrainers === 0 && (
+                <SetupGuide
+                    hasUnsetMembers={data.notConfigured.length > 0}
+                    onDone={reloadAll}
+                    onSetOwnLimit={() => setEditingRow({ isOwner: true, name: data.owner.name, userId: data.owner.userId, capacity: { total: null }, daysOff: [] })}
+                />
+            )}
+
             {/* The summary (1/3) beside the requests chart (2/3); they stack on narrower screens. */}
             <div className="grid grid-cols-1 *:min-w-0 gap-6 xl:grid-cols-3 items-stretch">
                 <div className="flex flex-col gap-5">
@@ -376,14 +386,6 @@ export default function OperationsTab() {
                             wrapStatus={(node) => tourAnchor(0, node)}
                         />
                     </div>
-
-                    {capacity.countedTrainers === 0 && (
-                        <SetupGuide
-                            hasUnsetMembers={data.notConfigured.length > 0}
-                            onDone={reloadAll}
-                            onSetOwnLimit={() => setEditingRow({ isOwner: true, name: data.owner.name, userId: data.owner.userId, capacity: { total: null }, daysOff: [] })}
-                        />
-                    )}
                 </div>
                 <div className="xl:col-span-2">
                     <DemandTrendChart range={range} refreshToken={refreshToken} />
