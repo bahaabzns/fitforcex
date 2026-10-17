@@ -41,8 +41,9 @@ export const TrashIcon = () => (
  * @param {boolean} isActive   - card is selected (tints chevron/kebab primary)
  * @param {string}  ariaLabel  - accessible name for the trigger and the menu
  * @param {Array}   items      - [{ key, label, icon?, danger?, onSelect }]
+ * @param {boolean} sheetOnMobile - open as a bottom sheet at phone width (see .sheet-popover in globals.css)
  */
-export default function CardActionsMenu({ isActive = false, ariaLabel, items = [] }) {
+export default function CardActionsMenu({ isActive = false, ariaLabel, items = [], sheetOnMobile = false }) {
     const { resolvedTheme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
 
@@ -58,7 +59,7 @@ export default function CardActionsMenu({ isActive = false, ariaLabel, items = [
                 >
                     <MoreIcon />
                 </AriaButton>
-                <AriaPopover className={`${resolvedTheme === "dark" ? "dark" : ""} popover min-w-44 rounded-2xl! outline-none`} placement="bottom end" offset={6}>
+                <AriaPopover className={`${resolvedTheme === "dark" ? "dark" : ""} popover sheet-menu min-w-44 rounded-2xl! outline-none${sheetOnMobile ? " sheet-popover" : ""}`} placement="bottom end" offset={6}>
                     <Menu
                         className="p-2! gap-0.5! outline-none focus:outline-none focus-visible:outline-none"
                         aria-label={ariaLabel}

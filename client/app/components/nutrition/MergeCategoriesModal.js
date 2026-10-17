@@ -153,7 +153,7 @@ function MergeForm({ selected, initialTarget, onClose, onMerged }) {
                     <span className="flex flex-1 flex-col gap-1.5">
                         <span className="font-medium">{t("mergeNewOption")}</span>
                         {mode === "new" && (
-                            <span className="flex gap-2">
+                            <span className="flex flex-col md:flex-row gap-2">
                                 <span className="flex flex-1 flex-col gap-1.5">
                                     <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                                     <TextField variant="secondary" fullWidth aria-label={t("labelNameEn")} value={nameEn} onChange={setNameEn}>

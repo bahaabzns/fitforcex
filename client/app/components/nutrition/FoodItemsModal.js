@@ -2,22 +2,24 @@
 import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import api from "@/lib/axios";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
 import FoodForm from "@/app/components/nutrition/FoodForm";
 import { SearchField } from "@heroui/react/search-field";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
-import { Separator } from "@heroui/react/separator";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Pagination } from "@heroui/react/pagination";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { getPageNumbers } from "@/utils/pagination";
 
 const PAGE_SIZE = 10;
 
 export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
+    // Phone: the 8-column table is wider than the sheet, so rows collapse to name + a macro line.
+    const isMobile = useMediaQuery("(max-width: 767px)");
     const t = useTranslations("nutrition");
     const isRTL = useLocale() === 'ar';
     const localizedFoodName = (food) => (isRTL && food?.name_ar) || food?.name_en || food?.name_ar || '';
@@ -123,12 +125,12 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
             <div className="flex flex-col gap-3 p-2">
 
                 {/* Search row: field + category dropdown + result count */}
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                     <SearchField
                         value={foodSearchQuery}
                         onChange={onSearchChange}
                         variant="secondary"
-                        className="flex-1"
+                        className="flex-1 max-md:basis-full"
                         aria-label={t("foodSearchPlaceholder")}
                     >
                         <SearchField.Group>
@@ -145,8 +147,9 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             value={categoryFilter}
                             onChange={setCategoryFilter}
                             aria-label="Category filter"
+                            className="max-md:flex-1 max-md:min-w-0"
                         >
-                            <Select.Trigger className="min-w-36">
+                            <Select.Trigger className="min-w-36 max-md:min-w-0">
                                 <Select.Value placeholder={t("foodCategoryAll")} />
                                 <Select.Indicator />
                             </Select.Trigger>
@@ -173,7 +176,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                         </Chip>
                     )}
 
-                    <span className="text-sm text-muted-foreground shrink-0">
+                    <span className="text-sm text-muted-foreground shrink-0 max-md:basis-full">
                         {t("foodResultsCount", { count: filtered.length })}
                     </span>
                 </div>
@@ -211,20 +214,20 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                         </Checkbox>
                                     </Table.Column>
                                     <Table.Column id="name" isRowHeader>{t("foodColName")}</Table.Column>
-                                    <Table.Column id="category">{t("foodColCategory")}</Table.Column>
-                                    <Table.Column id="serving">{t("foodColServing")}</Table.Column>
-                                    <Table.Column id="kcal" className="text-center">
+                                    {!isMobile && <Table.Column id="category">{t("foodColCategory")}</Table.Column>}
+                                    {!isMobile && <Table.Column id="serving">{t("foodColServing")}</Table.Column>}
+                                    {!isMobile && <Table.Column id="kcal" className="text-center">
                                         <span className="text-muted-foreground font-medium">{t("foodColKcal")}</span>
-                                    </Table.Column>
-                                    <Table.Column id="carbs" className="text-center">
+                                    </Table.Column>}
+                                    {!isMobile && <Table.Column id="carbs" className="text-center">
                                         <span className="text-primary font-medium">{t("foodColCarbs")}</span>
-                                    </Table.Column>
-                                    <Table.Column id="protein" className="text-center">
+                                    </Table.Column>}
+                                    {!isMobile && <Table.Column id="protein" className="text-center">
                                         <span className="text-orange-500 font-medium">{t("foodColProtein")}</span>
-                                    </Table.Column>
-                                    <Table.Column id="fat" className="text-center">
+                                    </Table.Column>}
+                                    {!isMobile && <Table.Column id="fat" className="text-center">
                                         <span className="text-amber-500 font-medium">{t("foodColFat")}</span>
-                                    </Table.Column>
+                                    </Table.Column>}
                                 </Table.Header>
                                 <Table.Body>
                                     {pageItems.map(fi => (
@@ -245,7 +248,26 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                             </Table.Cell>
                                             <Table.Cell className="p-2 font-medium">
                                                 {localizedFoodName(fi)}
+                                                {isMobile && (
+                                                    <div className="mt-1 flex flex-col gap-1 font-normal">
+                                                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                                                            {fi.food_category && (
+                                                                <Chip size="sm" variant="soft" color="default">
+                                                                    <Chip.Label>{localizedCategory(fi.food_category)}</Chip.Label>
+                                                                </Chip>
+                                                            )}
+                                                            <span>{fi.serving_size} {fi.serving_unit}</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs">
+                                                            <span className="text-muted-foreground">{fi.calories_per_serving} {t("foodColKcal")}</span>
+                                                            <span className="text-primary">{t("foodColCarbs")} {fi.carbs_per_serving}g</span>
+                                                            <span className="text-orange-500">{t("foodColProtein")} {fi.protein_per_serving}g</span>
+                                                            <span className="text-amber-500">{t("foodColFat")} {fi.fats_per_serving}g</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </Table.Cell>
+                                            {!isMobile && <>
                                             <Table.Cell className="p-2">
                                                 {fi.food_category ? (
                                                     <Chip size="sm" variant="soft" color="default">
@@ -270,6 +292,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                             <Table.Cell className="p-2 text-center text-sm">
                                                 {fi.fats_per_serving}g
                                             </Table.Cell>
+                                            </>}
                                         </Table.Row>
                                     ))}
                                 </Table.Body>
@@ -285,7 +308,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             <Pagination.Item>
                                 <Pagination.Previous isDisabled={safePage === 1} onPress={() => setPage(p => p - 1)}>
                                     <Pagination.PreviousIcon />
-                                    <span>Previous</span>
+                                    <span className="max-md:hidden">Previous</span>
                                 </Pagination.Previous>
                             </Pagination.Item>
                             {getPageNumbers(safePage, totalPages).map((p, i) =>
@@ -303,7 +326,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             )}
                             <Pagination.Item>
                                 <Pagination.Next isDisabled={safePage === totalPages} onPress={() => setPage(p => p + 1)}>
-                                    <span>Next</span>
+                                    <span className="max-md:hidden">Next</span>
                                     <Pagination.NextIcon />
                                 </Pagination.Next>
                             </Pagination.Item>
@@ -311,13 +334,12 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                     </Pagination>
                 )}
 
-                {/* Footer */}
-                <Separator />
-                <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
+                {/* Footer — pinned to the bottom of the sheet on phones (see .modal-sticky-footer) */}
+                <ModalFooter className="justify-between! border-t border-border pt-3">
+                    <span className="text-sm text-muted-foreground max-md:basis-full">
                         {t("foodSelectedCount", { count: selectedIds.size })}
                     </span>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 max-md:w-full max-md:[&>button]:flex-1">
                         <Button
                             variant="secondary"
                             onPress={() => setSelectedIds(new Set())}
@@ -333,7 +355,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             {t("foodAddSelected")}
                         </Button>
                     </div>
-                </div>
+                </ModalFooter>
             </div>
 
             {/* Create food item modal — opened from the empty-state "Create X" button */}

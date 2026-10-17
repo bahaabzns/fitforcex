@@ -29,7 +29,7 @@ export default function FoodForm({ data, onChange, onSubmit, onCancel, submitLab
 
     return (
         <form onSubmit={onSubmit} className="flex flex-col gap-5 px-1 py-1">
-            <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row gap-2">
                 <div className="flex flex-1 flex-col gap-1.5">
                     <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                     <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} {...field("name_en")}>
@@ -75,7 +75,7 @@ export default function FoodForm({ data, onChange, onSubmit, onCancel, submitLab
                     </Select.Popover>
                 </Select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row gap-2">
                 <div className="flex-1 flex flex-col gap-1.5">
                     <FieldLabel>{t("labelServingSize")}</FieldLabel>
                     <TextField variant="secondary" fullWidth aria-label={t("labelServingSize")} {...field("serving_size")}>
@@ -91,7 +91,7 @@ export default function FoodForm({ data, onChange, onSubmit, onCancel, submitLab
             </div>
             <div className="flex flex-col gap-1.5">
                 <FieldLabel>{t("labelNutritionFacts")}</FieldLabel>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {NUTRITION_FIELDS.map(({ name, labelKey, unitKey }) => (
                         <div key={name} className="flex flex-col gap-1">
                             {/* Visible label: the placeholder alone disappears once a value is entered. */}

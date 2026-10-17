@@ -21,7 +21,7 @@ export default function ItemActionsMenu({ ariaLabel, items = [] }) {
             >
                 <MoreVertical size={18} />
             </AriaButton>
-            <AriaPopover className={`${resolvedTheme === "dark" ? "dark" : ""} popover min-w-44 rounded-2xl! outline-none`} placement="bottom end" offset={6}>
+            <AriaPopover className={`${resolvedTheme === "dark" ? "dark" : ""} popover sheet-menu min-w-44 rounded-2xl! outline-none`} placement="bottom end" offset={6}>
                 <Menu
                     className="p-2! gap-0.5! outline-none focus:outline-none focus-visible:outline-none"
                     aria-label={ariaLabel}

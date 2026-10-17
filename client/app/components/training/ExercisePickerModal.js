@@ -2,22 +2,24 @@
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
 import ExerciseFormModal from "@/app/components/training/ExerciseFormModal";
 import { SearchField } from "@heroui/react/search-field";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
-import { Separator } from "@heroui/react/separator";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Pagination } from "@heroui/react/pagination";
 import { getPageNumbers } from "@/utils/pagination";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const PAGE_SIZE = 10;
 
 export default function ExercisePickerModal({ open, onClose, onAddExercises, single = false, title, confirmLabel }) {
+    // Phone: the 4-column table is wider than the sheet, so rows collapse to name + chips.
+    const isMobile = useMediaQuery("(max-width: 767px)");
     const t = useTranslations('training');
     const tFilter = useTranslations('filter');
     const isRTL = useLocale() === 'ar';
@@ -119,12 +121,12 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
             <div className="flex flex-col gap-3 p-2">
 
                 {/* Search row: field + muscle group dropdown + equipment dropdown + result count */}
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                     <SearchField
                         value={search}
                         onChange={setSearch}
                         variant="secondary"
-                        className="flex-1"
+                        className="flex-1 max-md:basis-full"
                         aria-label={tFilter('searchExercises')}
                     >
                         <SearchField.Group>
@@ -140,8 +142,9 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                         value={filterGroup}
                         onChange={setFilterGroup}
                         aria-label="Muscle group filter"
+                        className="max-md:flex-1 max-md:min-w-0"
                     >
-                        <Select.Trigger className="min-w-36">
+                        <Select.Trigger className="min-w-36 max-md:min-w-0">
                             <Select.Value placeholder={tFilter('allMuscles')} />
                             <Select.Indicator />
                         </Select.Trigger>
@@ -167,8 +170,9 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                         value={filterEquipment}
                         onChange={setFilterEquipment}
                         aria-label="Equipment filter"
+                        className="max-md:flex-1 max-md:min-w-0"
                     >
-                        <Select.Trigger className="min-w-36">
+                        <Select.Trigger className="min-w-36 max-md:min-w-0">
                             <Select.Value placeholder={tFilter('allEquipment')} />
                             <Select.Indicator />
                         </Select.Trigger>
@@ -188,7 +192,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                         </Select.Popover>
                     </Select>
 
-                    <span className="text-sm text-muted-foreground shrink-0">
+                    <span className="text-sm text-muted-foreground shrink-0 max-md:basis-full">
                         {filtered.length} {tFilter('results')}
                     </span>
                 </div>
@@ -230,8 +234,8 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                         )}
                                     </Table.Column>
                                     <Table.Column id="exercise" isRowHeader>{t('exerciseCol')}</Table.Column>
-                                    <Table.Column id="muscleGroup">{t('muscleGroupCol')}</Table.Column>
-                                    <Table.Column id="equipment">{t('equipmentCol')}</Table.Column>
+                                    {!isMobile && <Table.Column id="muscleGroup">{t('muscleGroupCol')}</Table.Column>}
+                                    {!isMobile && <Table.Column id="equipment">{t('equipmentCol')}</Table.Column>}
                                 </Table.Header>
                                 <Table.Body>
                                     {pageItems.map(item => (
@@ -265,10 +269,26 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                                             />
                                                         )}
                                                     </div>
-                                                    {localizedExerciseName(item)}
+                                                    <div className="min-w-0">
+                                                        <div>{localizedExerciseName(item)}</div>
+                                                        {isMobile && (item.muscle_group || item.equipment) && (
+                                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                                {item.muscle_group && (
+                                                                    <Chip size="sm" variant="soft" color="default">
+                                                                        <Chip.Label>{localizedMuscleGroup(item.muscle_group)}</Chip.Label>
+                                                                    </Chip>
+                                                                )}
+                                                                {item.equipment && (
+                                                                    <Chip size="sm" variant="soft" color="secondary">
+                                                                        <Chip.Label>{localizedEquipment(item.equipment)}</Chip.Label>
+                                                                    </Chip>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </Table.Cell>
-                                            <Table.Cell className="p-2">
+                                            {!isMobile && <Table.Cell className="p-2">
                                                 {item.muscle_group ? (
                                                     <Chip size="sm" variant="soft" color="default">
                                                         <Chip.Label>{localizedMuscleGroup(item.muscle_group)}</Chip.Label>
@@ -276,8 +296,8 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>
                                                 )}
-                                            </Table.Cell>
-                                            <Table.Cell className="p-2">
+                                            </Table.Cell>}
+                                            {!isMobile && <Table.Cell className="p-2">
                                                 {item.equipment ? (
                                                     <Chip size="sm" variant="soft" color="secondary">
                                                         <Chip.Label>{localizedEquipment(item.equipment)}</Chip.Label>
@@ -285,7 +305,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                                                 ) : (
                                                     <span className="text-muted-foreground/40">—</span>
                                                 )}
-                                            </Table.Cell>
+                                            </Table.Cell>}
                                         </Table.Row>
                                     ))}
                                 </Table.Body>
@@ -301,7 +321,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                             <Pagination.Item>
                                 <Pagination.Previous isDisabled={safePage === 1} onPress={() => setPage(p => p - 1)}>
                                     <Pagination.PreviousIcon />
-                                    <span>Previous</span>
+                                    <span className="max-md:hidden">Previous</span>
                                 </Pagination.Previous>
                             </Pagination.Item>
                             {getPageNumbers(safePage, totalPages).map((p, i) =>
@@ -319,7 +339,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                             )}
                             <Pagination.Item>
                                 <Pagination.Next isDisabled={safePage === totalPages} onPress={() => setPage(p => p + 1)}>
-                                    <span>Next</span>
+                                    <span className="max-md:hidden">Next</span>
                                     <Pagination.NextIcon />
                                 </Pagination.Next>
                             </Pagination.Item>
@@ -327,13 +347,12 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                     </Pagination>
                 )}
 
-                {/* Footer */}
-                <Separator />
-                <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
+                {/* Footer — pinned to the bottom of the sheet on phones (see .modal-sticky-footer) */}
+                <ModalFooter className="justify-between! border-t border-border pt-3">
+                    <span className="text-sm text-muted-foreground max-md:basis-full">
                         {selectedIds.size} {tFilter('selected')}
                     </span>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 max-md:w-full max-md:[&>button]:flex-1">
                         <Button
                             variant="secondary"
                             onPress={() => setSelectedIds(new Set())}
@@ -349,7 +368,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises, sin
                             {confirmLabel ?? tFilter('addSelected')}
                         </Button>
                     </div>
-                </div>
+                </ModalFooter>
             </div>
 
         <ExerciseFormModal

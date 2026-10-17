@@ -749,6 +749,120 @@
   z-index: 60;
 }
 
+/* One background for every bottom sheet (modals, selects, menus). Dark mode uses
+   the app background, the darkest tone, so cards and inputs inside a sheet sit
+   visibly above it; light mode keeps the usual overlay white. */
+:root { --sheet-bg: var(--overlay); }
+.dark { --sheet-bg: var(--background); }
+
+/* Mobile bottom sheets (phone width, below 768px) — page opt-in via useSheetUi().
+   Popovers: `.sheet-popover` opts a single popover in; pages that call
+   useSheetUi() (hooks/useSheetUi.js) set `data-sheet-ui` on <html>, which
+   turns every select popover and every `.sheet-menu` action menu into a sheet
+   too. Hint popovers (NewFeatureTooltip) and tooltips are deliberately not
+   matched. A sheet docks to the bottom edge, full width, with a grab handle.
+   React Aria positions popovers with inline top/left, hence !important. The
+   100vmax box-shadow dims the page behind the sheet (React Aria's own
+   transparent underlay still catches outside taps to close it). */
+@media (max-width: 767px) {
+  .sheet-popover,
+  html[data-sheet-ui] .select__popover,
+  html[data-sheet-ui] .sheet-menu {
+    position: fixed !important;
+    top: auto !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: 70svh !important;
+    margin: 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45) !important;
+    overflow-y: auto !important;
+    background: var(--sheet-bg) !important;
+    border-top: 1px solid var(--border);
+  }
+  :is(.sheet-popover, html[data-sheet-ui] .select__popover, html[data-sheet-ui] .sheet-menu)[data-entering="true"] {
+    animation: sheet-slide-up 240ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+  .sheet-popover::before,
+  html[data-sheet-ui] .select__popover::before,
+  html[data-sheet-ui] .sheet-menu::before {
+    content: "";
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    width: 36px;
+    height: 4px;
+    margin: 8px auto 4px;
+    border-radius: 9999px;
+    background: var(--color-border);
+  }
+
+  /* Modals: HeroUI already bottom-anchors the dialog below `sm` (640px) but as
+     an inset rounded card; make it a true sheet — flush to the screen edges,
+     top corners only, capped to the visible height — and extend that up to the
+     768px phone breakpoint so modals and popovers switch together. */
+  html[data-sheet-ui] .modal__container {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  html[data-sheet-ui] .modal__dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90svh;
+    margin: auto 0 0 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  html[data-sheet-ui] .modal__dialog {
+    background: var(--sheet-bg) !important;
+    border-top: 1px solid var(--border);
+  }
+  /* A wide child (table, long row) must scroll or wrap inside the sheet, never widen it. */
+  html[data-sheet-ui] .modal__body {
+    min-width: 0;
+  }
+  /* Action bar: pinned to the bottom of the scrolling body so the buttons are always
+     visible, wraps instead of overflowing, and buttons share the row. */
+  html[data-sheet-ui] .modal-sticky-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex-wrap: wrap;
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+    background: var(--sheet-bg);
+    border-top: 1px solid var(--border);
+  }
+  html[data-sheet-ui] .modal-sticky-footer > button {
+    flex: 1 1 8rem;
+  }
+  html[data-sheet-ui] .modal__dialog--cover {
+    height: 92svh !important;
+    max-height: 92svh;
+  }
+  html[data-sheet-ui] .modal__dialog::before {
+    content: "";
+    flex-shrink: 0;
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    margin: -0.5rem 0 0.75rem;
+    border-radius: 9999px;
+    background: var(--color-border);
+  }
+}
+
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* Bug 11 — Modal dialog pushed off-screen on mobile: HeroUI sizes
    `.modal__container` to `height: var(--visual-viewport-height)` and, below the
    `sm` breakpoint, bottom-anchors the dialog with `margin-top: auto`
