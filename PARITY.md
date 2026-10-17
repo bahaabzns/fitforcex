@@ -23,6 +23,9 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
+- [ ] 2026-10-16 — 8617626 — TODO(area) — "feat: add food category merge, bulk food item actions and form labels" touched: client/app/components/nutrition/FoodForm.js client/app/components/nutrition/MergeCategoriesModal.js — fill in what changed and why it matters for mobile
+- [ ] 2026-10-15 — ca82d48 — TODO(area) — "feat: search food items by English or Arabic name" touched: client/app/components/nutrition/FoodItemsModal.js — fill in what changed and why it matters for mobile
+- [ ] 2026-10-14 — 735cf99 — TODO(area) — "feat: make client details and plan builders mobile responsive" touched: client/app/components/nutrition/MiddlePanel.js client/app/components/nutrition/RightPanel.js — fill in what changed and why it matters for mobile
 Nothing outstanding. The two stub lines the post-commit hook added for `feb9e68` (subscription page) and `76da43d`
 (food diary/adherence) were re-logs of features already tracked below under their prior "(uncommitted)" placeholder —
 pruned here, real SHAs filled in on the existing **Ported** rows instead. The 2026-08-23 audit backlog (17 items) and
@@ -30,10 +33,10 @@ both web features that triggered it are all ported.
 
 ## Ported
 
+- [x] 2026-10-15 — 6acfad1 — branding — Custom branding (plan-gated): coach logo, primary/accent colors, home banners and welcome message in the Client Portal; branding is hidden immediately when the plan lacks the `custom_branding` capability or the subscription expired. Mobile ported on the same branch (`feature/custom-branding`): `core/branding/*` (provider + `PortalBranding`), `AppTheme.lightFor/darkFor`, `BrandLogo`, `PortalBannerCarousel` on Home. Not yet ported: coach logo/colors on the pre-login screens (workspace picker already shows `logoUrl`).
 - [x] 2026-09-17 — b5eac78 — notifications — Grouped message.received notifications (2+ from the same client thread) labeled the whole group with `metadata.actorName` from `group.items[0]` — wrong when the group spans more than one team member's messages, and a name leak either way per b575bc3's policy below. Now a generic "N new messages" label and icon, never a name. Mobile's notification list already never parsed `metadata`/actor fields (title is server-generated and generic), so it was already compliant — no mobile change needed.
 - [x] 2026-09-05 — b575bc3 — messenger — Client-facing messenger header showed the coach/workspace's real name (sourced from workspace.name), leaking it to clients; now always the generic "Your Coach" fallback. Mobile fixed in the same commit (messages_page.dart) — no separate mobile sha.
 - [x] 2026-09-05 — 1a55d96 — forms — Check-in stayed 'pending' after the check-in dispatcher tick, then went invisible/unfillable once the unrelated scheduleFormDispatcher cron stamped it 'sent' (every client surface only recognized 'pending'), fixed. Mobile fixed in the same commit (forms_page.dart, form_fill_page.dart, form.dart) — no separate mobile sha.
-- [x] 2026-10-15 — 6acfad1 — branding — Custom branding (plan-gated): coach logo, primary/accent colors, home banners and welcome message in the Client Portal; branding is hidden immediately when the plan lacks the `custom_branding` capability or the subscription expired. Mobile ported on the same branch (`feature/custom-branding`): `core/branding/*` (provider + `PortalBranding`), `AppTheme.lightFor/darkFor`, `BrandLogo`, `PortalBannerCarousel` on Home. Not yet ported: coach logo/colors on the pre-login screens (workspace picker already shows `logoUrl`).
 - [x] 2026-08-23 — fbf2f9e — training — Stale/invalid resumed session redirect loop, fixed. mobile `62991d3`.
 - [x] 2026-08-23 — 55801f1 — training — YouTube Shorts embed regex, fixed. mobile `216fa6a`.
 - [x] 2026-08-23 — 5a00416 — messenger/access — Logout on the expired/frozen trap screen, added. mobile `c866912`.

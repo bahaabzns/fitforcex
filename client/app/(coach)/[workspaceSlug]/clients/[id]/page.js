@@ -254,6 +254,7 @@ export default function ClientOverviewPage() {
   const [audit, setAudit] = useState([]);
   const [actionMsg, setActionMsg] = useState("");
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiveError, setArchiveError] = useState("");
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -449,13 +450,15 @@ export default function ClientOverviewPage() {
   }
 
   async function handleArchive() {
-    setArchiving(true);
+    setArchiving(true); setArchiveError("");
     try {
       await api.delete(`/api/clients/${id}`);
       setShowArchiveModal(false);
       router.push(`/${workspaceSlug}/clients`);
     } catch (error) {
       console.error("Error archiving client:", error);
+      const body = error.response?.data;
+      setArchiveError(body?.error || body?.message || error.message || "Failed to archive client");
       setArchiving(false);
     }
   }
@@ -775,6 +778,7 @@ export default function ClientOverviewPage() {
           <Modal open={showArchiveModal} onClose={() => setShowArchiveModal(false)} title={t('archiveClientTitle')}>
             <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground leading-relaxed">{t('archiveClientDesc')}</p>
+              {archiveError && <p className="text-sm text-destructive">{archiveError}</p>}
               <ModalFooter>
                 <Button variant="ghost" onClick={() => setShowArchiveModal(false)} isDisabled={archiving}>{tCommon('cancel')}</Button>
                 <Button onClick={handleArchive} isDisabled={archiving} className="bg-destructive hover:bg-destructive/90 text-white">

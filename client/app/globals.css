@@ -289,6 +289,31 @@
     background-color: color-mix(in oklab, var(--surface) 10%, transparent);
   }
 
+  /* Pinned first column of the Team Workload tables (OpsTable): opaque at rest and on hover, with a hairline on
+     its end edge so scrolled content visibly slides underneath. */
+  .table__cell[data-sticky-start],
+  .table__row:hover .table__cell[data-sticky-start] {
+    background-color: var(--surface);
+    border-inline-end: 1px solid var(--border);
+  }
+  .table__column[data-sticky-start] {
+    border-inline-end: 1px solid var(--border);
+  }
+
+  /* Team Workload's clicked row (OpsTable sets data-ops-active). The cells paint their own background, so the
+     tint has to be on the cells, and it sits last so hover cannot replace it. */
+  .table__row[data-ops-active="true"] .table__cell,
+  .table__row[data-ops-active="true"] .table__cell[data-sticky-end],
+  .table__row[data-ops-active="true"] .table__cell[data-sticky-start] {
+    background-color: color-mix(in oklab, var(--color-primary) 16%, var(--surface));
+  }
+  .table__row[data-ops-active="true"] .table__cell:first-child {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+  }
+  [dir="rtl"] .table__row[data-ops-active="true"] .table__cell:first-child {
+    box-shadow: inset -3px 0 0 var(--color-primary);
+  }
+
   /* Select popover items lose their checkmark clearance to a same-specificity
      rule inside HeroUI's own select.css. list-box-item.css declares
      `.list-box-item:has(.list-box-item__indicator) { pr-7 }` to keep option

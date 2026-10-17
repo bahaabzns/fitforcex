@@ -633,6 +633,18 @@ export default function PlansQueueTable({
             icon: FileText,
             hidden: true,
         },
+        // Filter-only, like formType above — the action is already a chip in the
+        // Form column. Exists so Operations drill-downs can pre-filter by nutrition/workout.
+        {
+            key: "postAction",
+            label: t('actionFilter'),
+            filterType: "multi",
+            options: ["nutrition-plan", "workout-plan", "nothing"],
+            optionLabel: (v) => actionTypeLabel(v),
+            pinned: true,
+            icon: Target,
+            hidden: true,
+        },
         {
             key: "requestedAt",
             label: t('requestedScheduled'),
