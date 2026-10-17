@@ -17,6 +17,8 @@ import { DuplicateIcon, TrashIcon } from "../CardActionsMenu";
 import ItemActionsMenu from "@/app/components/ItemActionsMenu";
 import { SortableList, SortableItem, rectSortingStrategy } from "@/app/components/SortableList";
 
+const MACROS_COLLAPSED_KEY = "nutrition-builder-macros-collapsed";
+
 export default function MiddlePanel({
     selectedPlan,
     setSelectedPlan,
@@ -47,8 +49,19 @@ export default function MiddlePanel({
     foodAdherence,
 }) {
     const t = useTranslations('nutrition');
-    const [expandedKeys, setExpandedKeys] = useState(new Set(["meals", "notes"]));
+    const [expandedKeys, setExpandedKeys] = useState(new Set(["meals"]));
     const [adherenceModalOpen, setAdherenceModalOpen] = useState(false);
+    // Coach preference, kept across plans/cycles/reloads: the donut + macro summary takes a lot of
+    // vertical room, so it can be folded away. Read lazily — this panel only renders client-side.
+    const [macrosCollapsed, setMacrosCollapsed] = useState(() => {
+        try { return window.localStorage.getItem(MACROS_COLLAPSED_KEY) === "1"; } catch { return false; }
+    });
+    function toggleMacrosCollapsed() {
+        setMacrosCollapsed((collapsed) => {
+            try { window.localStorage.setItem(MACROS_COLLAPSED_KEY, collapsed ? "0" : "1"); } catch { /* storage blocked — keep the in-memory choice */ }
+            return !collapsed;
+        });
+    }
     const planAdherence = (foodAdherence?.plans ?? []).find((p) => p.planId === selectedPlan?.id) ?? null;
 
     const planTitleRef = useRef(null);
@@ -68,7 +81,7 @@ export default function MiddlePanel({
     const prevPlanIdRef = useRef(selectedPlan?.id);
     if (prevPlanIdRef.current !== selectedPlan?.id) {
         prevPlanIdRef.current = selectedPlan?.id;
-        setExpandedKeys(new Set(["meals", "notes"]));
+        setExpandedKeys(new Set(["meals"]));
     }
 
     useEffect(() => {
@@ -146,7 +159,27 @@ export default function MiddlePanel({
                                 className="flex-1 min-w-0"
                                 inputClassName="font-semibold shadow-none"
                             />
+                            {/* Folded: keep the headline number visible so nothing is lost by collapsing */}
+                            {macrosCollapsed && (
+                                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                                    <span className="font-semibold text-foreground">{Math.round(cycleTotals.calories)}</span>
+                                    {cycle.goal_calories ? ` / ${Math.round(cycle.goal_calories)}` : ""} {t('calories')}
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                className="cursor-pointer shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
+                                aria-expanded={!macrosCollapsed}
+                                aria-label={t('toggleMacroSummary')}
+                                title={t('toggleMacroSummary')}
+                                onClick={toggleMacrosCollapsed}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <polyline points={macrosCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"} />
+                                </svg>
+                            </button>
                         </div>
+                        {!macrosCollapsed && (
                         <Surface variant="secondary" className="rounded-lg p-3 mb-2 shrink-0">
                             <MacrosDonut
                                 totals={cycleTotals}
@@ -159,6 +192,7 @@ export default function MiddlePanel({
                                 }}
                             />
                         </Surface>
+                        )}
                     </>
                 );
             })()}
@@ -206,7 +240,7 @@ export default function MiddlePanel({
                                             style={style}
                                             {...attributes}
                                             {...listeners}
-                                            className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all cursor-grab select-none touch-none ${
+                                            className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all cursor-grab select-none touch-manipulation ${
                                                 isDragging ? "opacity-30 scale-95 z-10" : ""
                                             } ${
                                                 isActive
@@ -303,7 +337,7 @@ export default function MiddlePanel({
                                                 style={style}
                                                 {...attributes}
                                                 {...listeners}
-                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none touch-none shadow-surface transition-all duration-150 ${
+                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none touch-manipulation shadow-surface transition-all duration-150 ${
                                                     isDragging ? "opacity-30 scale-95 z-10" : ""
                                                 } ${
                                                     isSelected
