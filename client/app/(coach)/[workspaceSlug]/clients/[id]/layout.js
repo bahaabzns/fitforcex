@@ -167,7 +167,7 @@ export default function ClientLayout({ children }) {
                     </TabListContainer>
                 </TabsRoot>
                 </div>
-                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full">
+                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full max-md:w-full max-md:ms-0 max-md:flex-nowrap">
                     {isTraining && trainingHeaderActions}
                     {isNutrition && nutritionHeaderActions}
                     {isOther && pageHeaderActions}

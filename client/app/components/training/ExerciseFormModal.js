@@ -142,7 +142,7 @@ export default function ExerciseFormModal({
             wide
         >
             <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
-                <div className="flex gap-2">
+                <div className="flex flex-col md:flex-row gap-2">
                     <div className="flex flex-1 flex-col gap-1.5">
                         <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                         <TextField
@@ -239,7 +239,7 @@ export default function ExerciseFormModal({
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col md:flex-row gap-2">
                     <div className="flex-1">
                         <Select
                             variant="secondary"
@@ -302,7 +302,7 @@ export default function ExerciseFormModal({
                     <Input type="text" placeholder={t("placeholderYoutube")} />
                 </TextField>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col md:flex-row gap-2">
                     <div className="flex flex-1 flex-col gap-1.5">
                         <FieldLabel>{t("labelVideo")}</FieldLabel>
                         <ProofDropZone
@@ -328,7 +328,7 @@ export default function ExerciseFormModal({
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col md:flex-row gap-2">
                     <div className="flex flex-1 flex-col gap-1.5">
                         <FieldLabel>{t("labelInstructionsEn")}</FieldLabel>
                         <TextField variant="secondary" fullWidth value={form.instructions_en} onChange={setField("instructions_en")}>

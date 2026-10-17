@@ -17,6 +17,9 @@ import InlineEditField from "@/app/components/InlineEditField";
 import api from "@/lib/axios";
 import { QUESTION_TYPE_VALUES, METRIC_CONVERTIBLE_TYPES, ATTACHMENT_CATEGORIES } from "./questionTypes";
 import AppModal, { ModalFooter } from "@/app/components/Modal";
+import ContentLangToggle from "./ContentLangToggle";
+import { ARABIC_PLACEHOLDERS } from "./arabicPlaceholders";
+import { useContentLang } from "./useContentLang";
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -40,10 +43,15 @@ export default function QuestionEditorPanel({
     const [newOption, setNewOption] = useState("");
     const [metrics, setMetrics] = useState([]);
     const [trackModalOpen, setTrackModalOpen] = useState(false);
+    const [contentLang] = useContentLang();
+    const isAr = contentLang === 'ar';
+    const placeholderField = isAr ? 'placeholder_ar' : 'placeholder_en';
 
     useEffect(() => {
         if (pendingFocusQuestionId && selectedQuestion?.id === pendingFocusQuestionId) {
-            labelRef.current?.focus();
+            // preventScroll: on phones this panel is off-screen while it slides in, and a
+            // scrolling focus() would shove the overflow-hidden panel track sideways.
+            labelRef.current?.focus({ preventScroll: true });
             labelRef.current?.select();
             setPendingFocusQuestionId(null);
         }
@@ -125,20 +133,36 @@ export default function QuestionEditorPanel({
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
 
-            {/* Header: inline label input (EN + Arabic) + close */}
+            {/* Header: inline label input (active language only) + language switch + close */}
             <div className="mb-3 shrink-0">
-                <div className="flex justify-between items-center gap-4">
-                    <InlineEditField
-                        ref={labelRef}
-                        key={q.id}
-                        value={q.label_en}
-                        fallback="Question"
-                        onCommit={(name) => save({ label_en: name })}
-                        ariaLabel="Question label"
-                        variant="primary"
-                        className="flex-1 min-w-0"
-                        inputClassName="text-base font-semibold truncate"
-                    />
+                <div className="flex justify-between items-center gap-2">
+                    {isAr ? (
+                        <InlineEditField
+                            key={`label-ar-${q.id}`}
+                            value={q.label_ar || ""}
+                            onCommit={(name) => save({ label_ar: name || null })}
+                            ariaLabel={t('labelArLabel')}
+                            variant="primary"
+                            dir="rtl"
+                            placeholder={ARABIC_PLACEHOLDERS.questionLabel}
+                            className="flex-1 min-w-0"
+                            inputClassName="text-base font-semibold truncate"
+                        />
+                    ) : (
+                        <InlineEditField
+                            ref={labelRef}
+                            key={q.id}
+                            value={q.label_en}
+                            fallback="Question"
+                            onCommit={(name) => save({ label_en: name })}
+                            ariaLabel="Question label"
+                            variant="primary"
+                            className="flex-1 min-w-0"
+                            inputClassName="text-base font-semibold truncate"
+                        />
+                    )}
+                    {/* Wide layout: the middle panel's switch is on screen and shared, so skip this copy */}
+                    <ContentLangToggle className="min-[1280px]:hidden" />
                     <button
                         title={tCommon('close')}
                         className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
@@ -147,17 +171,6 @@ export default function QuestionEditorPanel({
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
-                <InlineEditField
-                    key={`label-ar-${q.id}`}
-                    value={q.label_ar || ""}
-                    onCommit={(name) => save({ label_ar: name || null })}
-                    ariaLabel={t('labelArLabel')}
-                    variant="primary"
-                    dir="rtl"
-                    placeholder={t('labelArHint')}
-                    className="w-full mt-1.5"
-                    inputClassName="text-sm text-muted-foreground"
-                />
             </div>
 
             <Separator className="my-2 shrink-0" />
@@ -179,7 +192,7 @@ export default function QuestionEditorPanel({
                             <Select.Value>{({ selectedText }) => selectedText}</Select.Value>
                             <Select.Indicator />
                         </Select.Trigger>
-                        <Select.Popover>
+                        <Select.Popover className="sheet-popover">
                             <ListBox>
                                 {QUESTION_TYPES.map(({ value, label, icon: Icon }) => (
                                     <ListBox.Item key={value} id={value} textValue={label}>
@@ -218,7 +231,7 @@ export default function QuestionEditorPanel({
                                         <Select.Value>{({ selectedText }) => selectedText}</Select.Value>
                                         <Select.Indicator />
                                     </Select.Trigger>
-                                    <Select.Popover>
+                                    <Select.Popover className="sheet-popover">
                                         <ListBox>
                                             {numberMetrics.length > 0 && (
                                                 <ListBox.Section>
@@ -273,7 +286,7 @@ export default function QuestionEditorPanel({
                                 <Select.Value />
                                 <Select.Indicator />
                             </Select.Trigger>
-                            <Select.Popover>
+                            <Select.Popover className="sheet-popover">
                                 <ListBox>
                                     {ATTACHMENT_CATEGORIES.map(({ value, label }) => (
                                         <ListBox.Item key={value} id={value} textValue={label}>
@@ -319,45 +332,23 @@ export default function QuestionEditorPanel({
                     </div>
                 )}
 
-                {/* Placeholder */}
+                {/* Placeholder (active language only) */}
                 {hasPlaceholder && (
-                    <Field label={t('placeholderText')}>
-                        <TextField key={`ph-${q.id}`} variant="secondary" fullWidth>
+                    <Field label={isAr ? t('placeholderArLabel') : t('placeholderText')}>
+                        <TextField key={`ph-${isAr ? 'ar' : 'en'}-${q.id}`} variant="secondary" fullWidth>
                             <Input
                                 type="text"
-                                defaultValue={q.placeholder_en || ''}
+                                dir={isAr ? "rtl" : undefined}
+                                defaultValue={q[placeholderField] || ''}
                                 onBlur={(e) => {
                                     const val = e.target.value.trim() || null;
-                                    if (val !== (q.placeholder_en || null)) save({ placeholder_en: val });
+                                    if (val !== (q[placeholderField] || null)) save({ [placeholderField]: val });
                                 }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') e.target.blur();
-                                    if (e.key === 'Escape') { e.target.value = q.placeholder_en || ''; e.target.blur(); }
+                                    if (e.key === 'Escape') { e.target.value = q[placeholderField] || ''; e.target.blur(); }
                                 }}
-                                placeholder={t('placeholderHint')}
-                                className="text-sm"
-                            />
-                        </TextField>
-                    </Field>
-                )}
-
-                {/* Placeholder (Arabic) */}
-                {hasPlaceholder && (
-                    <Field label={t('placeholderArLabel')}>
-                        <TextField key={`ph-ar-${q.id}`} variant="secondary" fullWidth>
-                            <Input
-                                type="text"
-                                dir="rtl"
-                                defaultValue={q.placeholder_ar || ''}
-                                onBlur={(e) => {
-                                    const val = e.target.value.trim() || null;
-                                    if (val !== (q.placeholder_ar || null)) save({ placeholder_ar: val });
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') e.target.blur();
-                                    if (e.key === 'Escape') { e.target.value = q.placeholder_ar || ''; e.target.blur(); }
-                                }}
-                                placeholder={t('placeholderArHint')}
+                                placeholder={isAr ? ARABIC_PLACEHOLDERS.answerPlaceholder : t('placeholderHint')}
                                 className="text-sm"
                             />
                         </TextField>
@@ -420,30 +411,33 @@ export default function QuestionEditorPanel({
                                     <div key={idx} className="flex items-start gap-2 group">
                                         <span className={`shrink-0 w-4 h-4 mt-2 border-2 border-border ${q.type === 'multiselect' ? 'rounded' : 'rounded-full'}`} />
                                         <div className="flex-1 min-w-0 flex flex-col gap-1 py-0.5">
-                                            <InlineEditField
-                                                key={`opt-${idx}`}
-                                                value={opt}
-                                                fallback={opt}
-                                                onCommit={(text) => updateOption(idx, text)}
-                                                ariaLabel={`${t('options')} ${idx + 1}`}
-                                                variant="secondary"
-                                                className="w-full"
-                                                inputClassName="text-sm"
-                                            />
-                                            <InlineEditField
-                                                key={`opt-ar-${idx}`}
-                                                value={q.options_ar?.[idx] || ""}
-                                                onCommit={(text) => updateOptionAr(idx, text)}
-                                                ariaLabel={`${t('optionArHint')} ${idx + 1}`}
-                                                variant="secondary"
-                                                dir="rtl"
-                                                placeholder={t('optionArHint')}
-                                                className="w-full"
-                                                inputClassName="text-xs"
-                                            />
+                                            {isAr ? (
+                                                <InlineEditField
+                                                    key={`opt-ar-${idx}`}
+                                                    value={q.options_ar?.[idx] || ""}
+                                                    onCommit={(text) => updateOptionAr(idx, text)}
+                                                    ariaLabel={`${t('optionArHint')} ${idx + 1}`}
+                                                    variant="secondary"
+                                                    dir="rtl"
+                                                    placeholder={ARABIC_PLACEHOLDERS.option}
+                                                    className="w-full"
+                                                    inputClassName="text-sm"
+                                                />
+                                            ) : (
+                                                <InlineEditField
+                                                    key={`opt-${idx}`}
+                                                    value={opt}
+                                                    fallback={opt}
+                                                    onCommit={(text) => updateOption(idx, text)}
+                                                    ariaLabel={`${t('options')} ${idx + 1}`}
+                                                    variant="secondary"
+                                                    className="w-full"
+                                                    inputClassName="text-sm"
+                                                />
+                                            )}
                                         </div>
                                         <button
-                                            className="cursor-pointer shrink-0 p-1 mt-2 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                                            className="cursor-pointer shrink-0 p-1 mt-2 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all"
                                             onClick={() => removeOption(idx)}
                                         >
                                             <TrashIcon />
@@ -517,7 +511,7 @@ function TrackAsMetricModal({ question, numberMetrics, onClose, handleGetMetricP
     const selectedMetric = numberMetrics.find(m => m.id === selectedMetricId);
 
     return (
-        <AppModal open onClose={onClose} title="Track as Metric">
+        <AppModal open onClose={onClose} title="Track as Metric" sheetOnMobile>
             {result ? (
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-foreground">
@@ -553,7 +547,7 @@ function TrackAsMetricModal({ question, numberMetrics, onClose, handleGetMetricP
                                     <Select.Value>{({ selectedText }) => selectedText}</Select.Value>
                                     <Select.Indicator />
                                 </Select.Trigger>
-                                <Select.Popover>
+                                <Select.Popover className="sheet-popover">
                                     <ListBox>
                                         {numberMetrics.map(m => (
                                             <ListBox.Item key={m.id} id={m.id} textValue={`${m.name}${m.unit ? ` (${m.unit})` : ''}`}>

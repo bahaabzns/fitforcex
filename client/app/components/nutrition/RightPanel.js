@@ -37,7 +37,7 @@ export default function RightPanel({
     const t = useTranslations('nutrition');
     const tNav = useTranslations('nav');
     const isRTL = useLocale() === 'ar';
-    const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
+    const [expandedKeys, setExpandedKeys] = useState(new Set(["items"]));
     const [expandedItemIds, setExpandedItemIds] = useState(new Set());
 
     const mealTitleRef = useRef(null);
@@ -156,7 +156,7 @@ export default function RightPanel({
                                                     <div
                                                         {...attributes}
                                                         {...listeners}
-                                                        className="group flex items-center gap-2 md:flex-wrap md:gap-x-3 md:gap-y-2 px-3 py-2 cursor-pointer touch-none transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
+                                                        className="group flex items-center gap-2 md:flex-wrap md:gap-x-3 md:gap-y-2 px-3 py-2 cursor-pointer touch-manipulation transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
                                                         onClick={() => {
                                                             if (alternatives.length === 0) return;
                                                             const key = String(item.id);

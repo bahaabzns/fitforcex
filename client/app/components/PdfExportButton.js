@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { FileDown } from "lucide-react";
 import { Menu } from "@heroui/react/menu";
 import { Button } from "@heroui/react/button";
 import { MenuTrigger, Popover as AriaPopover } from "react-aria-components";
@@ -9,6 +10,9 @@ import { MenuTrigger, Popover as AriaPopover } from "react-aria-components";
 // exports straight away on click; with several, clicking opens a dropdown to
 // pick which profile to export with (the default one is marked). Menu markup
 // mirrors CardActionsMenu / QuestionsPanel.
+// Phone: icon only (the label moves to aria-label) so the header action row fits one line.
+const COMPACT_BUTTON_CLASS = "max-md:min-w-0 max-md:px-2.5";
+
 export default function PdfExportButton({
     profiles = [],
     disabled = false,
@@ -25,19 +29,21 @@ export default function PdfExportButton({
 
     if (named.length < 2) {
         return (
-            <Button variant="outline" isDisabled={disabled} title={dirtyTitle} onClick={() => onExport?.()}>
-                {text}
+            <Button variant="outline" isDisabled={disabled} title={dirtyTitle} aria-label={text} className={COMPACT_BUTTON_CLASS} onClick={() => onExport?.()}>
+                <FileDown size={16} className="md:hidden" aria-hidden="true" />
+                <span className="max-md:hidden">{text}</span>
             </Button>
         );
     }
 
     return (
         <MenuTrigger>
-            <Button variant="outline" isDisabled={disabled} title={dirtyTitle}>
-                {text}
+            <Button variant="outline" isDisabled={disabled} title={dirtyTitle} aria-label={text} className={COMPACT_BUTTON_CLASS}>
+                <FileDown size={16} className="md:hidden" aria-hidden="true" />
+                <span className="max-md:hidden">{text}</span>
             </Button>
             <AriaPopover
-                className={`${resolvedTheme === "dark" ? "dark" : ""} popover min-w-52 rounded-2xl! outline-none`}
+                className={`${resolvedTheme === "dark" ? "dark" : ""} popover sheet-menu min-w-52 rounded-2xl! outline-none`}
                 placement="bottom end"
                 offset={6}
             >

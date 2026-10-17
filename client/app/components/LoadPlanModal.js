@@ -265,7 +265,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                                 <Pagination.Item>
                                     <Pagination.Previous isDisabled={safePage === 1} onPress={() => setPage((p) => p - 1)}>
                                         <Pagination.PreviousIcon />
-                                        <span>{tFilter('previous')}</span>
+                                        <span className="max-md:hidden">{tFilter('previous')}</span>
                                     </Pagination.Previous>
                                 </Pagination.Item>
                                 {getPageNumbers(safePage, totalPages).map((p, i) =>
@@ -283,7 +283,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                                 )}
                                 <Pagination.Item>
                                     <Pagination.Next isDisabled={safePage === totalPages} onPress={() => setPage((p) => p + 1)}>
-                                        <span>{tFilter('next')}</span>
+                                        <span className="max-md:hidden">{tFilter('next')}</span>
                                         <Pagination.NextIcon />
                                     </Pagination.Next>
                                 </Pagination.Item>

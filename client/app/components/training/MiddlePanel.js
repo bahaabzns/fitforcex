@@ -43,7 +43,7 @@ export default function MiddlePanel({
 }) {
     const t = useTranslations('training');
     const tCommon = useTranslations('common');
-    const [expandedKeys, setExpandedKeys] = useState(new Set(["days", "notes"]));
+    const [expandedKeys, setExpandedKeys] = useState(new Set(["days"]));
     const planNameRef = useRef(null);
     const dayInputRefs = useRef({});
 
@@ -145,7 +145,7 @@ export default function MiddlePanel({
                                         {...attributes}
                                         {...listeners}
                                         onClick={() => handleSelectDay(day.id)}
-                                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none touch-none shadow-surface transition-all duration-150 ${
+                                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none touch-manipulation shadow-surface transition-all duration-150 ${
                                             isDragging ? "opacity-30 scale-95 z-10" : ""
                                         } ${
                                             isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"

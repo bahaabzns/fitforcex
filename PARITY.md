@@ -23,6 +23,9 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
+- [ ] 2026-10-18 — 8c112fd — nutrition builder (coach web) — sortable rows no longer block touch scrolling, notes start collapsed, cycle macro summary can be folded; coach web layout only, no mobile app equivalent — prune at triage
+- [ ] 2026-10-18 — adf871a — calorie calculator (coach web) — unit inputs shrink to their column so the grid no longer overflows horizontally; CSS-only fix, no mobile app equivalent — prune at triage
+- [ ] 2026-10-18 — c3dae66 — food picker / food form / merge categories (coach web) — phone bottom-sheet layout: compact rows instead of wide tables, stacked EN/AR fields, pinned action footer; coach web only, no mobile app equivalent — prune at triage
 - [ ] 2026-10-16 — 8617626 — TODO(area) — "feat: add food category merge, bulk food item actions and form labels" touched: client/app/components/nutrition/FoodForm.js client/app/components/nutrition/MergeCategoriesModal.js — fill in what changed and why it matters for mobile
 - [ ] 2026-10-15 — ca82d48 — TODO(area) — "feat: search food items by English or Arabic name" touched: client/app/components/nutrition/FoodItemsModal.js — fill in what changed and why it matters for mobile
 - [ ] 2026-10-14 — 735cf99 — TODO(area) — "feat: make client details and plan builders mobile responsive" touched: client/app/components/nutrition/MiddlePanel.js client/app/components/nutrition/RightPanel.js — fill in what changed and why it matters for mobile

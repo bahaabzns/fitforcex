@@ -8,6 +8,7 @@ import api from "@/lib/axios";
 import { useTrainingPlan } from "@/hooks/useTrainingPlan";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMobilePanels } from "@/hooks/useMobilePanels";
+import { useSheetUi } from "@/hooks/useSheetUi";
 import LeftPanel from "@/app/components/training/LeftPanel";
 import MiddlePanel from "@/app/components/training/MiddlePanel";
 import RightPanel from "@/app/components/training/RightPanel";
@@ -53,6 +54,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const isNarrow = useMediaQuery("(max-width: 1279px)");
     // Phone: one panel per screen (plans → plan detail → day/meal drawer).
     const isMobile = useMediaQuery("(max-width: 767px)");
+    useSheetUi();
 
     function handleDividerMouseDown(index, e) {
         e.preventDefault();
@@ -250,7 +252,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
             return;
         }
         onHeaderActionsChange(
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 max-md:flex-1 max-md:min-w-0">
                 {selectedPlan?.id && (
                     // Default popover__trigger styling (inline-block) is required here --
                     // it's what gives the trigger a real box for the popover to anchor
@@ -294,13 +296,13 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
-                    <Button variant="outline" isDisabled={!isDirty || isSaving}
+                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:flex-1 max-md:min-w-0"
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
                         {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}
                     </Button>
                 )}
                 {savePlanVisible && (
-                    <Button variant="primary" isDisabled={isSaving}
+                    <Button variant="primary" isDisabled={isSaving} className="max-md:flex-1 max-md:min-w-0"
                         onClick={() => {
                             if (actionsRef.current.selectedPlanStatus === "active") {
                                 actionsRef.current.setDurationChoicePrompt(true);
@@ -315,7 +317,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     <Button
                         isDisabled={isSaving || activating}
                         onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:flex-1 max-md:min-w-0"
                     >
                         {activating ? t('activating') : t('activate')}
                     </Button>

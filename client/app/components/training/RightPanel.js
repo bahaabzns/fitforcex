@@ -137,7 +137,7 @@ export default function RightPanel({
     const locale = useLocale();
     const isRTL = locale === 'ar';
     const [showPicker, setShowPicker] = useState(false);
-    const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises", "notes"]));
+    const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises"]));
     const [videoModalId, setVideoModalId] = useState(null);
     const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
     const [insightsExercise, setInsightsExercise] = useState(null);
@@ -275,7 +275,7 @@ export default function RightPanel({
                                             style={style}
                                             {...attributes}
                                             {...listeners}
-                                            className={`group select-none touch-none transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}
+                                            className={`group select-none touch-manipulation transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}
                                         >
                                             {/* Exercise row */}
                                             <div onClick={() => toggleExercise(exercise)} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${isExpanded ? "bg-app-surface-selected hover:bg-app-surface-selected/80" : "hover:bg-app-surface-hover"}`}>
