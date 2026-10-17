@@ -21,6 +21,8 @@
  * Usage (from server/):
  *   npx dotenv -e .env -- npx ts-node --transpile-only -r tsconfig-paths/register src/scripts/seed-operations-demo.ts [slug]
  *   (default slug: test1; seeded users can log in with password "password123")
+ *   Add --no-limits to seed the same requests and team but with NO daily limits, days off or capacity history,
+ *   which is what a brand-new workspace looks like (shows the first-time setup card on the dashboard).
  */
 
 import bcrypt from 'bcrypt';
@@ -29,7 +31,9 @@ import { createId } from '@paralleldrive/cuid2';
 import { DEFAULT_PERMISSIONS } from '../lib/defaultPermissions';
 
 const prisma = new PrismaClient();
-const SLUG = process.argv[2] || 'test1';
+const ARGS = process.argv.slice(2);
+const NO_LIMITS = ARGS.includes('--no-limits');
+const SLUG = ARGS.find((arg) => !arg.startsWith('--')) || 'test1';
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
 
@@ -155,11 +159,11 @@ async function seedTeam(workspaceId: string, ownerId: string): Promise<Record<st
             data: {
                 id: createId(), workspace_id: workspaceId, user_id: user.id, role: spec.role,
                 permissions: DEFAULT_PERMISSIONS[spec.role] as unknown as Prisma.InputJsonValue,
-                is_active: spec.isActive, daily_plan_capacity: spec.capacity, days_off: spec.daysOff ?? [],
+                is_active: spec.isActive, daily_plan_capacity: NO_LIMITS ? null : spec.capacity, days_off: NO_LIMITS ? [] : (spec.daysOff ?? []),
                 joined_at: ago(120),   // long-standing members, so the capacity chart has history to replay
             },
         });
-        const history = spec.history ?? [];
+        const history = NO_LIMITS ? [] : (spec.history ?? []);
         for (const [index, change] of history.entries()) {
             // The latest entry is when the current days off took effect; earlier ones predate days off.
             const isLast = index === history.length - 1;
@@ -173,6 +177,14 @@ async function seedTeam(workspaceId: string, ownerId: string): Promise<Record<st
             });
         }
     }
+    if (NO_LIMITS) {
+        // A fresh workspace: clear every limit, days off and capacity change in it, including the owner's and any real members'.
+        await prisma.workspace_members.updateMany({ where: { workspace_id: workspaceId }, data: { daily_plan_capacity: null, days_off: [] } });
+        await prisma.workspaces.update({ where: { id: workspaceId }, data: { owner_daily_plan_capacity: null, owner_days_off: [] } });
+        await prisma.capacity_history.deleteMany({ where: { workspace_id: workspaceId } });
+        return userIds;
+    }
+
     // Owner capacity (optional setting) with its own history, plus history for someone who has since left.
     await prisma.workspaces.update({ where: { id: workspaceId }, data: { owner_daily_plan_capacity: 3 } });
     await prisma.capacity_history.create({ data: { id: createId(), workspace_id: workspaceId, user_id: ownerId, previous_capacity: null, new_capacity: 3, changed_by: ownerId, changed_at: ago(12) } });
@@ -310,7 +322,7 @@ async function main() {
     const workspace = await prisma.workspaces.findUnique({ where: { slug: SLUG }, select: { id: true, name: true, owner_id: true } });
     if (!workspace) throw new Error(`Workspace "${SLUG}" not found`);
 
-    console.log(`Seeding operations demo data into "${workspace.name}" (${SLUG})...`);
+    console.log(`Seeding operations demo data into "${workspace.name}" (${SLUG})${NO_LIMITS ? ' without daily limits' : ''}...`);
     await cleanup(workspace.id);
     const forms = await seedForms(workspace.id);
     const userIds = await seedTeam(workspace.id, workspace.owner_id);
