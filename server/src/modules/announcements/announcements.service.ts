@@ -58,24 +58,48 @@ export function serializeAnnouncement(row: AnnouncementRow) {
     };
 }
 
+// The dashboard shows up to this many announcements side by side.
+export const MAX_ACTIVE_ANNOUNCEMENTS = 3;
+
 /**
- * The single announcement to show this coach: active, inside its schedule window, not yet
- * dismissed by them — lowest sort_order first, newest first as the tiebreaker.
+ * The announcements to show this coach, up to MAX_ACTIVE_ANNOUNCEMENTS: active, inside their schedule
+ * window, not yet dismissed by them, and aimed at everyone or at the subscription plan their current
+ * workspace is on — lowest sort_order first, newest first as the tiebreaker. A workspace with no
+ * subscription row only sees announcements aimed at everyone.
  */
-export async function getActiveAnnouncementForUser(userId: string) {
+export async function getActiveAnnouncementsForUser(userId: string, workspaceId: string, limit = MAX_ACTIVE_ANNOUNCEMENTS) {
     const now = new Date();
-    const row = await prisma.product_announcements.findFirst({
+    const subscription = await prisma.workspace_subscriptions.findUnique({
+        where: { workspace_id: workspaceId }, select: { plan_id: true },
+    });
+    const rows = await prisma.product_announcements.findMany({
         where: {
             is_active: true,
             AND: [
                 { OR: [{ starts_at: null }, { starts_at: { lte: now } }] },
                 { OR: [{ ends_at: null }, { ends_at: { gt: now } }] },
+                { OR: [{ target_plan_ids: { isEmpty: true } }, ...(subscription ? [{ target_plan_ids: { has: subscription.plan_id } }] : [])] },
             ],
             announcement_dismissals: { none: { user_id: userId } },
         },
         orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+        take: limit,
     });
-    return row ? serializeAnnouncement(row) : null;
+    return rows.map(serializeAnnouncement);
+}
+
+/** The single top announcement (kept for callers that only show one). */
+export async function getActiveAnnouncementForUser(userId: string, workspaceId: string) {
+    const [first] = await getActiveAnnouncementsForUser(userId, workspaceId, 1);
+    return first ?? null;
+}
+
+/** Ids from `planIds` that are not real plans, so a typo or a deleted plan cannot be targeted. */
+export async function findUnknownPlanIds(planIds: string[]): Promise<string[]> {
+    if (planIds.length === 0) return [];
+    const known = await prisma.plans.findMany({ where: { id: { in: planIds } }, select: { id: true } });
+    const knownIds = new Set(known.map((plan) => plan.id));
+    return planIds.filter((id) => !knownIds.has(id));
 }
 
 export async function dismissAnnouncement(userId: string, announcementId: string, action: 'dismissed' | 'clicked') {
@@ -102,6 +126,7 @@ export interface AnnouncementInput {
     starts_at:    Date | null;
     ends_at:      Date | null;
     sort_order:   number;
+    target_plan_ids: string[];   // empty = everyone
 }
 
 export async function listAnnouncementsForAdmin() {

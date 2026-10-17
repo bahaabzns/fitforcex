@@ -52,11 +52,13 @@ describe('Plan activation auto-reviews matching submissions — Plans Queue fix'
 
     let workspaceId: string;
     let ownerCookie: string;
+    let ownerId: string;
 
     beforeEach(async () => {
         const user = await createTestUser();
         const ws = await createTestWorkspace(user.id);
         workspaceId = ws.id;
+        ownerId = user.id;
         ownerCookie = await makeAuthCookie(user.id, workspaceId, 'owner');
     });
 
@@ -88,6 +90,8 @@ describe('Plan activation auto-reviews matching submissions — Plans Queue fix'
         ]);
         expect(rowA!.status).toBe('reviewed');
         expect(rowA!.action_taken_at).not.toBeNull();
+        expect(rowA!.action_taken_by).toBe(ownerId);   // the activating coach is credited as the finisher
+        expect(rowB!.action_taken_by).toBe(ownerId);
         expect(rowB!.status).toBe('reviewed');
         expect(rowWorkout!.status).toBe('submitted'); // mismatched post_action — untouched
         expect(rowAlready!.action_taken_at).toEqual(alreadyReviewedRow!.action_taken_at); // untouched, not re-stamped
@@ -110,6 +114,7 @@ describe('Plan activation auto-reviews matching submissions — Plans Queue fix'
             testPrisma.form_requests.findUnique({ where: { id: nutritionReq.id } }),
         ]);
         expect(rowA!.status).toBe('reviewed');
+        expect(rowA!.action_taken_by).toBe(ownerId);
         expect(rowNutrition!.status).toBe('submitted');
     });
 

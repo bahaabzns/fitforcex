@@ -201,7 +201,7 @@ type MemberRow = Record<string, unknown>;
 export async function getMembers(req: Request, res: Response, next: NextFunction) {
     try {
         const rows = await prisma.$queryRaw<MemberRow[]>`
-            SELECT wm.id, wm.user_id, wm.role, wm.permissions, wm.is_active, wm.joined_at,
+            SELECT wm.id, wm.user_id, wm.role, wm.permissions, wm.is_active, wm.joined_at, wm.daily_plan_capacity, wm.days_off,
                    u.fname, u.lname, u.email
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id

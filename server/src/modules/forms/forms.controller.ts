@@ -1063,7 +1063,7 @@ export async function reviewQueue(req: Request, res: Response, next: NextFunctio
         if (actionType === 'undo') {
             await prisma.form_requests.updateMany({
                 where: { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) }, status: 'reviewed' },
-                data:  { status: 'submitted', action_taken_at: null },
+                data:  { status: 'submitted', action_taken_at: null, action_taken_by: null },
             });
         } else {
             const toReview = await prisma.form_requests.findMany({
@@ -1073,7 +1073,7 @@ export async function reviewQueue(req: Request, res: Response, next: NextFunctio
 
             await prisma.form_requests.updateMany({
                 where: { workspace_id: req.user!.workspaceId, id: { in: toReview.map(request => request.id) }, status: 'submitted' },
-                data:  { status: 'reviewed', action_taken_at: new Date() },
+                data:  { status: 'reviewed', action_taken_at: new Date(), action_taken_by: req.user!.userId },
             });
 
             // Notify each client their check-in was reviewed.

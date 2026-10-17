@@ -390,6 +390,7 @@ model form_requests {
   post_action           String                  @default("nothing")
   scheduled_at          DateTime?               @db.Timestamptz(6)
   action_taken_at       DateTime?               @db.Timestamptz(6)
+  action_taken_by       String?
   assigned_to           String?
   form_version_id       String?
   archived_at           DateTime?               @db.Timestamptz(6)
@@ -1409,6 +1410,8 @@ model workspace_members {
   permissions  Json       @default("{}")
   is_active    Boolean    @default(true)
   joined_at    DateTime   @default(now()) @db.Timestamptz(6)
+  daily_plan_capacity Int?
+  days_off            Int[]      @default([])
   users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -1505,6 +1508,9 @@ model workspaces {
   clone_error                                  String?
   client_deletion_strategy                     String                         @default("anonymize")
   renewal_link                                 String?
+  owner_daily_plan_capacity                    Int?
+  owner_days_off                               Int[]                          @default([])
+  service_target_days                          Int                            @default(2)
   check_in_schedules                           check_in_schedules[]
   client_observations                          client_observations[]
   clients                                      clients[]
@@ -1658,6 +1664,7 @@ model product_announcements {
   starts_at               DateTime?                 @db.Timestamptz(6)
   ends_at                 DateTime?                 @db.Timestamptz(6)
   sort_order              Int                       @default(0)
+  target_plan_ids         String[]                  @default([])
   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
   announcement_dismissals announcement_dismissals[]
@@ -1674,4 +1681,18 @@ model announcement_dismissals {
   product_announcements product_announcements @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([user_id, announcement_id])
+}
+
+model capacity_history {
+  id                String   @id
+  workspace_id      String
+  user_id           String
+  previous_capacity Int?
+  new_capacity      Int?
+  previous_days_off Int[]
+  new_days_off      Int[]
+  changed_by        String?
+  changed_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([workspace_id, user_id, changed_at(sort: Desc)], map: "capacity_history_ws_user_changed_idx")
 }

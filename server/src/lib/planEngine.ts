@@ -110,6 +110,9 @@ interface ActivateSinglePlanParams {
      *  gets auto-marked 'reviewed' -- see the doc comment above
      *  activateSinglePlan for why. Omit/null to skip entirely. */
     submissionPostAction?: 'nutrition-plan' | 'workout-plan' | null;
+    /** Who is activating the plan; recorded as form_requests.action_taken_by on every
+     *  submission this closes out, so the Team Workload dashboard can credit the finisher. */
+    actorUserId?: string | null;
 }
 
 export interface ActivateSinglePlanResult {
@@ -140,6 +143,7 @@ export async function activateSinglePlan({
     reviewOffsetDays,
     updateMode,
     submissionPostAction,
+    actorUserId,
 }: ActivateSinglePlanParams): Promise<ActivateSinglePlanResult> {
     assertSafeIdentifier(tableName, 'table');
     assertSafeIdentifier(clientIdColumn, 'client id column');
@@ -202,10 +206,10 @@ export async function activateSinglePlan({
     if (submissionPostAction && planClientId != null) {
         const reviewed = await db.query(
             `UPDATE form_requests
-             SET status = 'reviewed', action_taken_at = NOW()
+             SET status = 'reviewed', action_taken_at = NOW(), action_taken_by = $4
              WHERE workspace_id = $1 AND client_id = $2 AND post_action = $3 AND status = 'submitted'
              RETURNING id`,
-            [coachId, planClientId, submissionPostAction]
+            [coachId, planClientId, submissionPostAction, actorUserId ?? null]
         );
         autoReviewedRequestIds = reviewed.rows.map((row) => (row as PlainRecord).id as string);
     }
