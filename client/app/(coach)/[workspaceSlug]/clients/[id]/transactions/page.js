@@ -130,8 +130,12 @@ function computeTimeline(transactions, freezes, firstPlanActivatedAt) {
     return periods;
 }
 
-export default function ClientTransactionsPage() {
-    const { id, workspaceSlug } = useParams();
+// `clientId` / `readOnly` are for the Messenger's client quick view, which renders this
+// page outside its route: no URL param to read, and no add / edit / refund / freeze actions.
+export default function ClientTransactionsPage({ clientId, readOnly = false }) {
+    const params = useParams();
+    const id = clientId ?? params.id;
+    const { workspaceSlug } = params;
     const t = useTranslations('clientTransactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
@@ -346,6 +350,8 @@ export default function ClientTransactionsPage() {
             ),
         },
     ];
+
+    const visibleColumns = readOnly ? transactionColumns.filter(column => column.key !== "actions") : transactionColumns;
 
     function openEdit(tx) {
         setEditingTx(tx);
@@ -615,12 +621,14 @@ export default function ClientTransactionsPage() {
                                 </div>
                             )}
                         </div>
+                        {!readOnly && (
                         <button
                             onClick={openAddFreeze}
                             className="text-xs px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors cursor-pointer whitespace-nowrap"
                         >
                             {t('freezeButton')}
                         </button>
+                        )}
                     </div>
 
                     {/* Active freezes list */}
@@ -642,6 +650,8 @@ export default function ClientTransactionsPage() {
                                         {fmtDate(f.freezeStartDate)} · {t('durationDays', { count: f.freezeDurationDays })}
                                         {f.notes && <span className="text-muted-foreground"> — {f.notes}</span>}
                                     </span>
+                                    {!readOnly && (
+                                    <>
                                     <button
                                         onClick={() => openEditFreeze(f)}
                                         className="text-primary hover:text-primary/80 transition-colors cursor-pointer"
@@ -654,6 +664,8 @@ export default function ClientTransactionsPage() {
                                     >
                                         {t('removeFreeze')}
                                     </button>
+                                    </>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -663,7 +675,7 @@ export default function ClientTransactionsPage() {
 
             {/* Transactions Table */}
             <DataTable
-                columns={transactionColumns}
+                columns={visibleColumns}
                 data={transactions}
                 rowKey="id"
                 scrollable
@@ -676,9 +688,9 @@ export default function ClientTransactionsPage() {
                     icon: Receipt,
                     title: t('emptyTitle'),
                     description: t('emptyHint'),
-                    action: { label: t('addTransactionButton'), onPress: () => setShowAddModal(true) },
+                    action: readOnly ? undefined : { label: t('addTransactionButton'), onPress: () => setShowAddModal(true) },
                 }}
-                toolbarEnd={<Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>{t('addTransactionButton')}</Button>}
+                toolbarEnd={readOnly ? undefined : <Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>{t('addTransactionButton')}</Button>}
             />
 
             {/* Add / Edit Transaction — shared modal */}

@@ -40,6 +40,7 @@ export default function MiddlePanel({
     setActivateModal,
     activating,
     handleActivateAndMark,
+    readOnly = false,
 }) {
     const t = useTranslations('training');
     const tCommon = useTranslations('common');
@@ -79,6 +80,7 @@ export default function MiddlePanel({
                         variant="primary"
                         className="flex-1 min-w-0"
                         inputClassName="font-semibold shadow-none"
+                        readOnly={readOnly}
                     />
                     {isSelectedPlanDirty && (
                         <Chip size="sm" color="warning" variant="soft" className="shrink-0">
@@ -122,7 +124,7 @@ export default function MiddlePanel({
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.days?.length ?? 0}</span>
                                 </h3>
                             </Button>
-                            {expandedKeys.has("days") && (
+                            {expandedKeys.has("days") && !readOnly && (
                                 <Button variant="outline" onClick={handleCreateDay} className="shrink-0">
                                     {t('addDay')}
                                 </Button>
@@ -137,7 +139,7 @@ export default function MiddlePanel({
                                 const isActive = String(day.id) === String(selectedDay?.id);
                                 const setCount = (day.exercises ?? []).reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0);
                                 return (
-                                    <SortableItem key={day.id} id={day.id}>
+                                    <SortableItem key={day.id} id={day.id} disabled={readOnly}>
                                     {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                     <div
                                         ref={setNodeRef}
@@ -151,7 +153,7 @@ export default function MiddlePanel({
                                             isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                         }`}
                                     >
-                                        <span
+                                        {!readOnly && <span
                                             className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none"
                                             onClick={(e) => e.stopPropagation()}
                                         >
@@ -160,7 +162,7 @@ export default function MiddlePanel({
                                                 <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
                                                 <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
                                             </svg>
-                                        </span>
+                                        </span>}
                                         <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold transition-colors ${
                                             isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted group-hover:text-foreground"
                                         }`}>
@@ -175,6 +177,7 @@ export default function MiddlePanel({
                                             </p>
                                         </div>
                                         {/* Always visible — touch devices have no hover to reveal it */}
+                                        {!readOnly && (
                                         <div className="shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                                             <ItemActionsMenu
                                                 ariaLabel={t('dayOptions')}
@@ -184,6 +187,7 @@ export default function MiddlePanel({
                                                 ]}
                                             />
                                         </div>
+                                        )}
                                     </div>
                                     )}
                                     </SortableItem>
@@ -215,6 +219,9 @@ export default function MiddlePanel({
                     </Disclosure.Heading>
                     <Disclosure.Content>
                         <Disclosure.Body className="px-0 pt-0">
+                            {readOnly ? (
+                                <p className="px-3 mb-2 text-sm text-foreground whitespace-pre-wrap">{selectedPlan.notes || "—"}</p>
+                            ) : (
                             <TextArea
                                 key={selectedPlan.id + "-note"}
                                 defaultValue={selectedPlan.notes ?? ""}
@@ -228,12 +235,14 @@ export default function MiddlePanel({
                                 }}
                                 className="mb-2 resize-none"
                             />
+                            )}
                         </Disclosure.Body>
                     </Disclosure.Content>
                 </Disclosure>
                 </DisclosureGroup>
             </Surface>
 
+            {!readOnly && (
             <Modal isOpen={activateModal} onOpenChange={(o) => !o && setActivateModal(false)}>
                 <Modal.Backdrop>
                     <Modal.Container className="max-w-lg">
@@ -259,6 +268,7 @@ export default function MiddlePanel({
                     </Modal.Container>
                 </Modal.Backdrop>
             </Modal>
+            )}
         </>
     );
 }

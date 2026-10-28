@@ -32,6 +32,7 @@ export default function RightPanel({
     clientId,
     observationCounts,
     onObservationsChanged,
+    readOnly = false,
 }) {
     const [insightsItem, setInsightsItem] = useState(null);
     const t = useTranslations('nutrition');
@@ -97,7 +98,9 @@ export default function RightPanel({
                     variant="primary"
                     className="flex-1 min-w-0"
                     inputClassName="font-semibold shadow-none"
+                    readOnly={readOnly}
                 />
+                {!readOnly && (
                 <button
                     title={t('closePanel')}
                     className="cursor-pointer p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
@@ -105,6 +108,7 @@ export default function RightPanel({
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
+                )}
             </div>
 
             {/* Totals */}
@@ -133,7 +137,7 @@ export default function RightPanel({
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedMeal.items.length}</span>
                                     </h3>
                                 </Button>
-                                {expandedKeys.has("items") && (
+                                {expandedKeys.has("items") && !readOnly && (
                                     <Button variant="outline" onClick={() => setFoodItemModalOpen(true)}>
                                         {t('addFood')}
                                     </Button>
@@ -149,7 +153,7 @@ export default function RightPanel({
                                         const alternatives = item.alternatives ?? [];
                                         const itemMacros = calcItem(item);
                                         return (
-                                            <SortableItem key={item.id} id={item.id}>
+                                            <SortableItem key={item.id} id={item.id} disabled={readOnly}>
                                             {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                             <Disclosure ref={setNodeRef} style={style} id={String(item.id)} className={`group/disc rounded-xl overflow-hidden bg-app-surface-card shadow-surface transition-all duration-150 select-none ${isDragging ? "opacity-30 scale-95 z-10" : ""}`}>
                                                 <Disclosure.Heading>
@@ -166,13 +170,13 @@ export default function RightPanel({
                                                         }}
                                                     >
                                                         {/* Drag grip */}
-                                                        <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
+                                                        {!readOnly && <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
                                                             <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
                                                                 <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
                                                                 <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
                                                                 <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
                                                             </svg>
-                                                        </span>
+                                                        </span>}
 
                                                         {/* Name + quantity stepper. min-w keeps the name readable; when the panel is
                                                             too narrow the macros wrap to their own line instead of squeezing it. */}
@@ -181,6 +185,11 @@ export default function RightPanel({
                                                                 {localizedFoodName(item.name, item.name_ar, isRTL)}
                                                             </p>
                                                             <div className="flex items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                                                                {readOnly ? (
+                                                                    <span className="text-sm text-muted-foreground">
+                                                                        <span className="font-semibold text-foreground">{Number(item.amount) || 0}</span> {item.serving_unit}
+                                                                    </span>
+                                                                ) : (
                                                                 <NumberField
                                                                     value={Number(item.amount) || 0}
                                                                     minValue={0}
@@ -193,6 +202,7 @@ export default function RightPanel({
                                                                         <span className="pr-1.5 text-xs text-muted-foreground pointer-events-none select-none leading-none">{item.serving_unit}</span>
                                                                     </NumberField.Group>
                                                                 </NumberField>
+                                                                )}
                                                             </div>
                                                             {alternatives.length > 0 && (
                                                                 <div
@@ -216,6 +226,7 @@ export default function RightPanel({
                                                         </div>
 
                                                         {/* Actions column — fixed width so macro columns never shift */}
+                                                        {!readOnly && (
                                                         <div className={`${clientId ? "w-28" : "w-17"} flex items-center justify-end gap-1 shrink-0 max-md:hidden`}>
                                                             <button
                                                                 title={t('addAlternatives')}
@@ -252,8 +263,10 @@ export default function RightPanel({
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                                             </button>
                                                         </div>
+                                                        )}
 
                                                         {/* Phone: the three actions collapse into one menu so the name keeps its room */}
+                                                        {!readOnly && (
                                                         <div className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                                                             <ItemActionsMenu
                                                                 ariaLabel={t('removeFoodItem')}
@@ -264,6 +277,7 @@ export default function RightPanel({
                                                                 ]}
                                                             />
                                                         </div>
+                                                        )}
                                                     </div>
                                                 </Disclosure.Heading>
                                                 {alternatives.length > 0 && expandedItemIds.has(String(item.id)) && (
@@ -277,6 +291,11 @@ export default function RightPanel({
                                                                     <div className="flex-1 min-w-0">
                                                                         <p translate="no" className="text-sm text-foreground/75 truncate">{localizedFoodName(alt.name, alt.name_ar, isRTL)}</p>
                                                                         <div className="flex items-center gap-1.5 mt-0.5">
+                                                                            {readOnly ? (
+                                                                                <span className="text-sm text-muted-foreground">
+                                                                                    <span className="font-medium text-foreground/80">{Number(alt.amount) || 0}</span> {alt.serving_unit}
+                                                                                </span>
+                                                                            ) : (
                                                                             <NumberField
                                                                                 value={Number(alt.amount) || 0}
                                                                                 minValue={0}
@@ -289,7 +308,8 @@ export default function RightPanel({
                                                                                     <span className="pr-1.5 text-xs text-muted-foreground/60 pointer-events-none select-none leading-none">{alt.serving_unit}</span>
                                                                                 </NumberField.Group>
                                                                             </NumberField>
-                                                                            {alt.calculated_amount != null && Number(alt.amount) !== Number(alt.calculated_amount) && (
+                                                                            )}
+                                                                            {!readOnly && alt.calculated_amount != null && Number(alt.amount) !== Number(alt.calculated_amount) && (
                                                                                 <button
                                                                                     title={t('resetToCalculated')}
                                                                                     className="cursor-pointer p-1.5 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
@@ -308,13 +328,13 @@ export default function RightPanel({
                                                                         <MacroStat label={t('fat')} value={altMacros.fats} color="text-amber-500" />
                                                                         <MacroStat label={t('calories')} value={altMacros.calories} strong width="w-14" />
                                                                     </div>
-                                                                    <button
+                                                                    {!readOnly && <button
                                                                         title={t('removeAlternative')}
                                                                         className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
                                                                         onClick={() => handleDeleteAlternative(item.id, alt.id)}
                                                                     >
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                                                    </button>
+                                                                    </button>}
                                                                 </div>
                                                                 );
                                                             })}
@@ -350,6 +370,9 @@ export default function RightPanel({
                         </Disclosure.Heading>
                         <Disclosure.Content>
                             <Disclosure.Body className="px-0 pt-0">
+                                {readOnly ? (
+                                    <p className="px-3 mb-2 text-sm text-foreground whitespace-pre-wrap">{selectedMeal.note || "—"}</p>
+                                ) : (
                                 <TextArea
                                     key={selectedMeal.id + '-note'}
                                     defaultValue={selectedMeal.note ?? ""}
@@ -365,6 +388,7 @@ export default function RightPanel({
                                     }}
                                     className="mb-2 resize-none"
                                 />
+                                )}
                             </Disclosure.Body>
                         </Disclosure.Content>
                     </Disclosure>
@@ -372,6 +396,7 @@ export default function RightPanel({
 
             </DisclosureGroup>
         </Surface>
+        {!readOnly && (
         <FoodInsightsModal
             open={!!insightsItem}
             onClose={() => setInsightsItem(null)}
@@ -379,6 +404,7 @@ export default function RightPanel({
             clientId={clientId}
             onObservationsChanged={onObservationsChanged}
         />
+        )}
         </>
     );
 }

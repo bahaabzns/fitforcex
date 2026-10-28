@@ -71,10 +71,11 @@ export function SortableList({
 /**
  * Renders one sortable row. `children` is a render function receiving the
  * props to spread on the draggable element: `setNodeRef`, `style`,
- * `attributes`, `listeners`, and `isDragging`.
+ * `attributes`, `listeners`, and `isDragging`. `disabled` turns dragging off
+ * (view-only lists).
  */
-export function SortableItem({ id, children }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+export function SortableItem({ id, disabled = false, children }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,

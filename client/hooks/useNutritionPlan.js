@@ -25,7 +25,7 @@ function normalizeServerDate(dateValue) {
     return String(dateValue);
 }
 
-function hydratePlan(plan) {
+export function hydratePlan(plan) {
     const cycles = (plan.cycles ?? []).map((cycle, cycleIndex) => {
         const meals = (cycle.meals ?? []).map((meal, mealIndex) => {
             const mealItems = (meal.items ?? []).map((item, itemIndex) => {

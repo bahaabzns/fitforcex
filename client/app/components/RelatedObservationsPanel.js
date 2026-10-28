@@ -27,9 +27,11 @@ export default function RelatedObservationsPanel({
         <div>
             <div className="flex items-center justify-between mb-2">
                 <Typography type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">{title}</Typography>
-                <Button variant="ghost" size="sm" onPress={onAddClick}>
-                    <Plus size={13} /> {addLabel}
-                </Button>
+                {onAddClick && (
+                    <Button variant="ghost" size="sm" onPress={onAddClick}>
+                        <Plus size={13} /> {addLabel}
+                    </Button>
+                )}
             </div>
             {observations.length === 0 ? (
                 <p className="text-xs text-muted-foreground">{emptyLabel}</p>
