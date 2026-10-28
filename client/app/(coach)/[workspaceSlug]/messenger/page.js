@@ -20,15 +20,19 @@ import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
 import { Virtualizer, ListLayout } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
-import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X, ListFilter, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronRight, Megaphone, NotebookText, Plus } from "lucide-react";
+import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X, ListFilter, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronRight, ChevronLeft, Info, UserRound, Megaphone, NotebookText, Plus } from "lucide-react";
 import EmptyState from "@/app/components/EmptyState";
 import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
 import MessageComposer from "@/app/components/MessageComposer";
+import ClientQuickViewModal from "@/app/components/clientQuickView/ClientQuickViewModal";
 import MessageRow from "@/app/components/MessageRow";
 import ObservationCard from "@/app/components/ObservationCard";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import ObservationModal from "@/app/components/ObservationModal";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useMobilePanels } from "@/hooks/useMobilePanels";
+import { useSheetUi } from "@/hooks/useSheetUi";
 
 // Real-time sync now comes from the `new_message` socket event (see the effect
 // below); this is only the safety net for a missed/dropped event, so it can be
@@ -167,6 +171,18 @@ export default function MessengerPage() {
     const prevMessageCountRef = useRef(0);
     const threadsRefreshTimerRef = useRef(null);
 
+    // Same breakpoints as the builders: below 1280px three columns get cramped,
+    // so the client profile becomes a slide-over drawer; on phones the list and
+    // the chat are one full-width panel each, swipeable like the builder panels.
+    const isNarrow = useMediaQuery("(max-width: 1279px)");
+    const isMobile = useMediaQuery("(max-width: 767px)");
+    const [profileOpen, setProfileOpen] = useState(false);
+    const [quickViewOpen, setQuickViewOpen] = useState(false);
+    useSheetUi();
+    const { goToStep: goToMobileStep, swipeHandlers, panelStyle } = useMobilePanels({
+        isMobile,
+        maxStep: selectedClientId ? 1 : 0,
+    });
 
     // Every row in `threads` now represents a client (see getThreads), so lookups
     // by client id work even before a conversation exists (thread.id === null).
@@ -322,7 +338,10 @@ export default function MessengerPage() {
         // array even when nothing changed — only scroll when a message was actually
         // added, so reading old history isn't interrupted by a forced scroll-to-bottom.
         if (messages.length > prevMessageCountRef.current) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            // Scroll only the message list. scrollIntoView also scrolls every ancestor, and on phones
+            // that includes the overflow-hidden panel track — it would shift sideways and leave a blank screen.
+            const messageList = messagesEndRef.current?.parentElement;
+            messageList?.scrollTo({ top: messageList.scrollHeight, behavior: 'smooth' });
         }
         prevMessageCountRef.current = messages.length;
     }, [messages]);
@@ -496,10 +515,15 @@ export default function MessengerPage() {
                     dismissUrlPrefix="/api/insights/prompts"
                 />
             </div>
-            <div className="flex flex-row flex-1 min-h-0 overflow-hidden gap-2">
+            {/* overflow-clip, not hidden: a clipped box can't be scrolled by code (focus, scrollIntoView),
+                which would push the phone panel track out of view. */}
+            <div className="flex flex-row flex-1 min-h-0 overflow-clip gap-2" {...swipeHandlers}>
 
                 {/* ── Panel 1: Conversations ─────────────────────────────── */}
-                <div className="w-[26%] flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
+                <div
+                    style={isMobile ? panelStyle : undefined}
+                    className={`flex flex-col h-full min-h-0 overflow-hidden pt-0.5 ${isMobile ? "w-full shrink-0" : isNarrow ? "w-[38%] shrink-0" : "w-[26%]"}`}
+                >
 
                     <div className="pb-3 px-1.5 shrink-0">
                         <div className="flex items-center gap-1.5">
@@ -543,7 +567,7 @@ export default function MessengerPage() {
                                         <div className="fixed inset-0 z-40" onClick={() => { setFilterOpen(false); setPendingFilterKey(null); }} />
                                         <div
                                             style={{ position: 'fixed', top: filterMenuPos.top, left: filterMenuPos.left, right: filterMenuPos.right, zIndex: 50 }}
-                                            className="bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48"
+                                            className="sheet-menu bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48"
                                         >
                                         {filterFields.map(field => (
                                             <div key={field.key} className="relative">
@@ -556,7 +580,10 @@ export default function MessengerPage() {
                                                 </button>
 
                                                 {pendingFilterKey === field.key && (
-                                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                                                    // Inside a bottom sheet there's no room beside the row, so options expand inline.
+                                                    <div className={isMobile
+                                                        ? "mt-1 p-1 flex flex-col"
+                                                        : "absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56"}>
                                                         <div className={`flex flex-col gap-0.5 max-h-48 overflow-y-auto ${scrollbarCls}`}>
                                                             {field.options.map(option => (
                                                                 <label
@@ -657,7 +684,7 @@ export default function MessengerPage() {
                                         const id = [...keys][0];
                                         if (!id) return;
                                         const thread = filteredThreads.find(t => t.client_id === id);
-                                        if (thread) handleSelectThread(thread);
+                                        if (thread) { handleSelectThread(thread); goToMobileStep(1); }
                                     }}
                                     aria-label={t('title')}
                                     renderEmptyState={() => (
@@ -718,7 +745,10 @@ export default function MessengerPage() {
 
 
                 {/* ── Panel 2: Open Chat ─────────────────────────────────── */}
-                <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
+                <div
+                    style={isMobile ? panelStyle : undefined}
+                    className={`flex flex-col h-full min-h-0 min-w-0 overflow-hidden pt-0.5 ${isMobile ? "w-full shrink-0" : "flex-1"}`}
+                >
                     <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                         {!selectedClientId ? (
@@ -734,6 +764,18 @@ export default function MessengerPage() {
                             <>
                                 {/* Chat header */}
                                 <Card.Header className="flex-row items-center gap-2 px-4 py-3 shrink-0">
+                                    {isMobile && (
+                                        <Button
+                                            isIconOnly
+                                            variant="ghost"
+                                            size="sm"
+                                            className="shrink-0 -ms-2 text-muted-foreground"
+                                            aria-label={t('backToConversations')}
+                                            onClick={() => goToMobileStep(0)}
+                                        >
+                                            <ChevronLeft size={18} className="rtl:rotate-180" />
+                                        </Button>
+                                    )}
                                     <Avatar size="sm" color="primary" className="shrink-0">
                                         <Avatar.Fallback>{getInitials(selectedThread?.fname, selectedThread?.lname)}</Avatar.Fallback>
                                     </Avatar>
@@ -745,6 +787,18 @@ export default function MessengerPage() {
                                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-default text-[11px] font-medium text-foreground/70 shrink-0">#{selectedThread.client_code}</span>
                                         )}
                                     </div>
+                                    {isNarrow && (
+                                        <Button
+                                            isIconOnly
+                                            variant="ghost"
+                                            size="sm"
+                                            className="shrink-0 text-muted-foreground"
+                                            aria-label={t('clientDetails')}
+                                            onClick={() => setProfileOpen(true)}
+                                        >
+                                            <Info size={15} />
+                                        </Button>
+                                    )}
                                     <Button
                                         isIconOnly
                                         variant="ghost"
@@ -837,9 +891,34 @@ export default function MessengerPage() {
 
 
                 {/* ── Panel 3: Client Profile ────────────────────────────── */}
-                <div className="w-[28%] flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
-                    <Card className="w-full flex-1 min-h-0 p-0 gap-0">
+                {/* Narrow: one wrapper doubles as a slide-over drawer (hidden until the
+                    header's info button opens it) so the profile JSX isn't duplicated. */}
+                {isNarrow && profileOpen && (
+                    <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setProfileOpen(false)} />
+                )}
+                <div className={isMobile
+                    ? `${profileOpen ? "fixed inset-x-0 bottom-0 z-50 flex" : "hidden"} h-[85svh] flex-col pb-[env(safe-area-inset-bottom)] bg-(--sheet-bg) rounded-t-3xl border-t border-border`
+                    : isNarrow
+                        ? `${profileOpen ? "fixed inset-y-0 inset-e-0 z-50 flex" : "hidden"} w-full max-w-sm p-2 flex-col`
+                        : "w-[28%] flex flex-col h-full min-h-0 overflow-hidden pt-0.5"}
+                >
+                    {isMobile && <div className="mx-auto mt-2 mb-1 h-1 w-9 shrink-0 rounded-full bg-border" />}
+                    <Card className={`w-full flex-1 min-h-0 p-0 gap-0 ${isMobile ? "bg-transparent shadow-none" : ""}`}>
 
+                        {isNarrow && (
+                            <div className="flex justify-end px-2 pt-2 shrink-0">
+                                <Button
+                                    isIconOnly
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-muted-foreground"
+                                    aria-label={t('closeDetails')}
+                                    onClick={() => setProfileOpen(false)}
+                                >
+                                    <X size={15} />
+                                </Button>
+                            </div>
+                        )}
                         <Card.Content className="flex flex-col flex-1 min-h-0 p-5">
                             {!selectedClientId ? (
                                 <div className="flex-1 flex items-center justify-center">
@@ -976,7 +1055,11 @@ export default function MessengerPage() {
 
                                     {/* Open Profile pinned to bottom */}
                                     <Separator className="mt-4 mb-4 shrink-0" />
-                                    <div className="shrink-0">
+                                    <div className="shrink-0 flex flex-col gap-2">
+                                        <Button variant="primary" size="sm" className="w-full gap-1.5" onPress={() => setQuickViewOpen(true)}>
+                                            <UserRound size={13} />
+                                            {t('viewFullProfile')}
+                                        </Button>
                                         <Link href={`/${workspaceSlug}/clients/${clientProfile.id}`}>
                                             <Button variant="outline" size="sm" className="w-full gap-1.5">
                                                 <ExternalLink size={13} />
@@ -1000,6 +1083,16 @@ export default function MessengerPage() {
                 onCreated={(obs) => setRecentObservations(prev => [obs, ...prev].slice(0, 2))}
                 onUpdated={(updated) => setRecentObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
             />
+
+            {/* Stays mounted while closed so the sheet's slide-down exit can play. */}
+            {clientProfile && (
+                <ClientQuickViewModal
+                    open={quickViewOpen}
+                    onClose={() => setQuickViewOpen(false)}
+                    clientId={clientProfile.id}
+                    clientName={`${clientProfile.fname} ${clientProfile.lname}`.trim()}
+                />
+            )}
 
             <BroadcastMessageModal
                 open={broadcastOpen}
