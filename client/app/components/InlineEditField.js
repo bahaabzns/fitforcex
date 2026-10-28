@@ -25,8 +25,9 @@ import { Input } from "@heroui/react/input";
 //  selectOnFocus  — select-all on focus (amount fields)
 //  placeholder    — shown when empty and no fallback (optional secondary-language titles)
 //  dir            — text direction, e.g. "rtl" for Arabic fields
+//  readOnly       — view-only (quick view): renders the value as a plain label instead of an input
 const InlineEditField = forwardRef(function InlineEditField(
-    { value, onCommit, fallback, type = "text", selectOnFocus, ariaLabel, className = "", inputClassName = "", variant = "primary", placeholder, dir },
+    { value, onCommit, fallback, type = "text", selectOnFocus, ariaLabel, className = "", inputClassName = "", variant = "primary", placeholder, dir, readOnly = false },
     ref
 ) {
     const [draft, setDraft] = useState(value ?? "");
@@ -35,6 +36,15 @@ const InlineEditField = forwardRef(function InlineEditField(
     useEffect(() => {
         if (!isFocusedRef.current) setDraft(value ?? "");
     }, [value]);
+
+    // View-only: a plain label, not a disabled-looking input box.
+    if (readOnly) {
+        return (
+            <span className={`block truncate text-base font-semibold text-foreground ${className}`} dir={dir}>
+                {value || fallback || placeholder}
+            </span>
+        );
+    }
 
     function commit() {
         const trimmed = String(draft).trim();

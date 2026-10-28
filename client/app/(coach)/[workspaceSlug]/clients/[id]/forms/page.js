@@ -43,12 +43,15 @@ function formatRelativeTime(dateStr, t) {
     return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
 
-export default function ClientFormsPage() {
+// `clientId` / `readOnly` are for the Messenger's client quick view, which renders this
+// page outside its route: no URL param to read, and no request / cancel / archive actions.
+export default function ClientFormsPage({ clientId, readOnly = false }) {
     const t = useTranslations('forms');
     const tCommon = useTranslations('common');
     const locale = useLocale();
     const { formatDate, formatDateTime } = useDateFormatter();
-    const { id } = useParams();
+    const params = useParams();
+    const id = clientId ?? params.id;
     const searchParams = useSearchParams();
     const requestIdParam = searchParams.get('requestId');
     const [requests, setRequests] = useState([]);
@@ -266,6 +269,7 @@ export default function ClientFormsPage() {
     return (
         <>
         <div className="flex flex-col h-full overflow-hidden">
+        {!readOnly && (
         <div className="shrink-0 px-3 pt-3">
             <TriggerInsightBanner
                 triggerEvent="first_checkin_request_sent"
@@ -274,6 +278,7 @@ export default function ClientFormsPage() {
                 dismissUrlPrefix="/api/insights/prompts"
             />
         </div>
+        )}
         <div
             ref={containerRef}
             className="flex flex-1 min-h-0 overflow-hidden gap-0"
@@ -291,10 +296,12 @@ export default function ClientFormsPage() {
                             {t('formRequests')}
                             <span className="ml-2 text-xs font-normal text-muted-foreground">{requests.length}</span>
                         </h2>
+                        {!readOnly && (
                         <Button variant="primary" onClick={openRequestModal} className="shrink-0 gap-1.5">
                             <Send size={14} />
                             {t('requestForm')}
                         </Button>
+                        )}
                     </div>
 
                     {/* Sort Pills */}
@@ -325,11 +332,13 @@ export default function ClientFormsPage() {
                                 <ClipboardList size={36} className="text-border" />
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground">{t('noFormRequests')}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{t('noFormRequestsHint')}</p>
+                                    {!readOnly && <p className="text-xs text-muted-foreground mt-1">{t('noFormRequestsHint')}</p>}
                                 </div>
+                                {!readOnly && (
                                 <Button variant="primary" onClick={openRequestModal}>
                                     {t('requestForm')}
                                 </Button>
+                                )}
                             </Surface>
                         ) : (
                             <div className="flex flex-col gap-2 px-1 py-1">
@@ -446,7 +455,7 @@ export default function ClientFormsPage() {
                                             <Chip.Label>{t('pending')}</Chip.Label>
                                         </Chip>
                                     )}
-                                    {(selected.status === 'pending' || selected.status === 'scheduled' || selected.status === 'sent') && (
+                                    {!readOnly && (selected.status === 'pending' || selected.status === 'scheduled' || selected.status === 'sent') && (
                                         <button
                                             onClick={() => handleCancel(selected.id)}
                                             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
@@ -454,7 +463,7 @@ export default function ClientFormsPage() {
                                             <Trash2 size={12} /> {t('cancelRequest')}
                                         </button>
                                     )}
-                                    {(selected.status === 'submitted' || selected.status === 'reviewed') && (
+                                    {!readOnly && (selected.status === 'submitted' || selected.status === 'reviewed') && (
                                         selected.is_archived ? (
                                             <button
                                                 onClick={() => handleArchiveToggle(selected.id, false)}
@@ -569,10 +578,10 @@ export default function ClientFormsPage() {
                                         emptyLabel={t('noRelatedObservations')}
                                         observations={relatedObservations}
                                         clientId={id}
-                                        currentUserId={me?.userId}
-                                        isOwner={me?.currentWorkspace?.role === 'owner'}
-                                        onAddClick={() => { setEditingObservation(null); setObservationModalOpen(true); }}
-                                        onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                                        currentUserId={readOnly ? undefined : me?.userId}
+                                        isOwner={!readOnly && me?.currentWorkspace?.role === 'owner'}
+                                        onAddClick={readOnly ? undefined : () => { setEditingObservation(null); setObservationModalOpen(true); }}
+                                        onEdit={readOnly ? undefined : (obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
                                         onDeleted={(deletedId) => setRelatedObservations(prev => prev.filter(x => x.id !== deletedId))}
                                     />
                                 </div>

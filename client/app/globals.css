@@ -863,6 +863,44 @@
   to { transform: translateY(0); }
 }
 
+@keyframes sheet-slide-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+/* Client quick-view sheet: slides straight up from the bottom edge on open and straight back
+   down on close. The slide sits on the container (the element React Aria waits on before
+   unmounting) so the exit actually plays. The backdrop fades only its dim colour — HeroUI's
+   default fades its opacity, which would also fade the sheet inside it and hide the slide.
+   Deliberately not gated on prefers-reduced-motion: Windows reports "reduce" whenever its
+   "Animation effects" setting is off, which would silently disable this on those machines. */
+@keyframes quick-view-dim-in {
+  from { background-color: transparent; }
+}
+@keyframes quick-view-dim-out {
+  to { background-color: transparent; }
+}
+
+/* Dark mode: pure black behind the builder panels so their surface-coloured cards read as
+   distinct panels instead of blending into the sheet. The extra class keeps this above the
+   phone sheet rule (`html[data-sheet-ui] .modal__dialog`), which is also !important. */
+.dark .modal__dialog.quick-view-sheet {
+  background-color: #000 !important;
+}
+
+.quick-view-container[data-entering="true"] {
+  animation: sheet-slide-up 360ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+.quick-view-container[data-exiting="true"] {
+  animation: sheet-slide-down 280ms cubic-bezier(0.4, 0, 1, 1) both !important;
+}
+.quick-view-backdrop[data-entering="true"] {
+  animation: quick-view-dim-in 360ms ease-out both !important;
+}
+.quick-view-backdrop[data-exiting="true"] {
+  animation: quick-view-dim-out 280ms ease-in both !important;
+}
+
 /* Bug 11 — Modal dialog pushed off-screen on mobile: HeroUI sizes
    `.modal__container` to `height: var(--visual-viewport-height)` and, below the
    `sm` breakpoint, bottom-anchors the dialog with `margin-top: auto`

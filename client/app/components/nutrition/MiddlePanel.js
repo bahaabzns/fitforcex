@@ -47,6 +47,7 @@ export default function MiddlePanel({
     activating,
     handleActivateAndMark,
     foodAdherence,
+    readOnly = false,
 }) {
     const t = useTranslations('nutrition');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["meals"]));
@@ -110,6 +111,7 @@ export default function MiddlePanel({
                     variant="primary"
                     className="flex-1 min-w-0"
                     inputClassName="font-semibold shadow-none"
+                    readOnly={readOnly}
                 />
                 {isSelectedPlanDirty && (
                     <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
@@ -132,6 +134,7 @@ export default function MiddlePanel({
                         {planAdherence.avgAdherence !== null ? `${planAdherence.avgAdherence}%` : t('noGoalSet')}
                     </button>
                 )}
+                {!readOnly && (
                 <button
                     title={t('closePanel')}
                     className="cursor-pointer p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
@@ -139,6 +142,7 @@ export default function MiddlePanel({
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
+                )}
             </div>
 
             {/* Current Cycle Name + Daily Goal */}
@@ -158,6 +162,7 @@ export default function MiddlePanel({
                                 variant="primary"
                                 className="flex-1 min-w-0"
                                 inputClassName="font-semibold shadow-none"
+                                readOnly={readOnly}
                             />
                             {/* Folded: keep the headline number visible so nothing is lost by collapsing */}
                             {macrosCollapsed && (
@@ -217,7 +222,7 @@ export default function MiddlePanel({
                                 )}
                             </h3>
                         </Button>
-                        {expandedKeys.has("cycles") && (
+                        {expandedKeys.has("cycles") && !readOnly && (
                             <Button variant="outline" onClick={handleCreateCycle} className="shrink-0">
                                 {t('addCycle')}
                             </Button>
@@ -233,14 +238,14 @@ export default function MiddlePanel({
                                     const isActive = planCycle.id === selectedPlan.cycles[selectedCycleIndex]?.id;
                                     const canDelete = selectedPlan.cycles.length > 1;
                                     return (
-                                        <SortableItem key={planCycle.id} id={planCycle.id}>
+                                        <SortableItem key={planCycle.id} id={planCycle.id} disabled={readOnly}>
                                         {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                         <div
                                             ref={setNodeRef}
                                             style={style}
                                             {...attributes}
                                             {...listeners}
-                                            className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all cursor-grab select-none touch-manipulation ${
+                                            className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all ${readOnly ? "cursor-pointer" : "cursor-grab"} select-none touch-manipulation ${
                                                 isDragging ? "opacity-30 scale-95 z-10" : ""
                                             } ${
                                                 isActive
@@ -248,18 +253,18 @@ export default function MiddlePanel({
                                                     : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-default"
                                             }`}
                                         >
-                                            <svg width="8" height="13" viewBox="0 0 8 13" fill="currentColor" className={`shrink-0 transition-opacity ${isActive ? "opacity-50" : "opacity-25 group-hover:opacity-50"}`}>
+                                            {!readOnly && <svg width="8" height="13" viewBox="0 0 8 13" fill="currentColor" className={`shrink-0 transition-opacity ${isActive ? "opacity-50" : "opacity-25 group-hover:opacity-50"}`}>
                                                 <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
                                                 <circle cx="2" cy="6.5" r="1.2"/><circle cx="6" cy="6.5" r="1.2"/>
                                                 <circle cx="2" cy="11" r="1.2"/><circle cx="6" cy="11" r="1.2"/>
-                                            </svg>
+                                            </svg>}
                                             <span
                                                 className="truncate max-w-24 cursor-pointer"
                                                 onClick={() => { setSelectedCycleIndex(originalIndex); setSelectedMeal(null); }}
                                             >
                                                 {planCycle.name}
                                             </span>
-                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
+                                            {!readOnly && <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
                                                 <button
                                                     title={t('duplicateCycle')}
                                                     className={`cursor-pointer p-1 rounded-full transition-colors ${isActive ? "hover:bg-primary/70" : "hover:bg-secondary"}`}
@@ -275,7 +280,7 @@ export default function MiddlePanel({
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                                 </button>
-                                            </div>
+                                            </div>}
                                         </div>
                                         )}
                                         </SortableItem>
@@ -309,7 +314,7 @@ export default function MiddlePanel({
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.cycles[selectedCycleIndex].meals.length}</span>
                                     </h3>
                                 </Button>
-                                {expandedKeys.has("meals") && (
+                                {expandedKeys.has("meals") && !readOnly && (
                                     <Button variant="outline" onClick={handleCreateMeal} className="shrink-0">
                                         {t('addMeal')}
                                     </Button>
@@ -330,7 +335,7 @@ export default function MiddlePanel({
                                         const mealTotals = calcMeal(meal);
                                         const isSelected = selectedMeal && selectedMeal.id === meal.id;
                                         return (
-                                            <SortableItem key={meal.id} id={meal.id}>
+                                            <SortableItem key={meal.id} id={meal.id} disabled={readOnly}>
                                             {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                             <div
                                                 ref={setNodeRef}
@@ -346,7 +351,7 @@ export default function MiddlePanel({
                                                 }`}
                                                 onClick={() => setSelectedMeal(meal)}
                                             >
-                                                <span
+                                                {!readOnly && <span
                                                     className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none"
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
@@ -355,7 +360,7 @@ export default function MiddlePanel({
                                                         <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
                                                         <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
                                                     </svg>
-                                                </span>
+                                                </span>}
                                                 <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                                                     <div className="flex items-baseline gap-2 min-w-0">
                                                         <p className={`text-sm font-medium leading-snug break-words min-w-0 ${isSelected ? "text-primary" : "text-foreground"}`}>
@@ -370,6 +375,7 @@ export default function MiddlePanel({
                                                         <MacroStat label={t('calories')} value={mealTotals.calories} strong width="w-14" />
                                                     </div>
                                                 </div>
+                                                {!readOnly && (
                                                 <div className="shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                                                     <ItemActionsMenu
                                                         ariaLabel={t('mealOptions')}
@@ -379,6 +385,7 @@ export default function MiddlePanel({
                                                         ]}
                                                     />
                                                 </div>
+                                                )}
                                             </div>
                                             )}
                                             </SortableItem>
@@ -409,6 +416,9 @@ export default function MiddlePanel({
                         <Disclosure.Body className="px-0 pt-0">
                             {selectedPlan.cycles.length > 0 && (() => {
                                 const cycle = selectedPlan.cycles[selectedCycleIndex];
+                                if (readOnly) {
+                                    return <p className="px-3 mb-2 text-sm text-foreground whitespace-pre-wrap">{cycle.note || "—"}</p>;
+                                }
                                 return (
                                     <TextArea
                                         key={cycle.id + '-note'}
@@ -431,6 +441,8 @@ export default function MiddlePanel({
             </div>
             </DisclosureGroup>
         </Surface>
+        {!readOnly && (
+        <>
         <Modal isOpen={activateModal} onOpenChange={(o) => !o && setActivateModal(false)}>
             <Modal.Backdrop>
                 <Modal.Container className="max-w-lg">
@@ -466,6 +478,8 @@ export default function MiddlePanel({
             data={foodAdherence}
             planId={selectedPlan.id}
         />
+        </>
+        )}
         </>
     );
 }

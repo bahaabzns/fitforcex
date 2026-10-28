@@ -62,7 +62,7 @@ export default function EmojiPickerButton({ onSelect, className = "" }) {
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                     <div
                         style={{ position: "fixed", bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 50 }}
-                        className="w-72 max-h-64 overflow-y-auto bg-card border border-border rounded-xl shadow-md p-2 grid grid-cols-8 gap-0.5"
+                        className="sheet-menu w-72 max-h-64 overflow-y-auto bg-card border border-border rounded-xl shadow-md p-2 grid grid-cols-8 gap-0.5"
                     >
                         {EMOJIS.map((emoji, i) => (
                             <button

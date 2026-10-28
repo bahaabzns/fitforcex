@@ -30,7 +30,7 @@ function defaultSetFor(exercise) {
     return set;
 }
 
-function normalizePlan(plan) {
+export function normalizePlan(plan) {
     const days = (plan.days ?? []).map((day, dayIdx) => ({
         ...day,
         day_order: dayIdx + 1,

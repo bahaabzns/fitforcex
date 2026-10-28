@@ -230,7 +230,9 @@ const BLANK_PHONE = { countryCode: "+20", number: "" };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ClientOverviewPage() {
+// `clientId` / `readOnly` are for the Messenger's client quick view, which renders this
+// page outside its route: no URL param to read, and no edit / archive / add actions.
+export default function ClientOverviewPage({ clientId, readOnly = false }) {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -276,7 +278,9 @@ export default function ClientOverviewPage() {
   const [observationModalOpen, setObservationModalOpen] = useState(false);
   const [editingObservation, setEditingObservation] = useState(null);
 
-  const { id, workspaceSlug } = useParams();
+  const params = useParams();
+  const id = clientId ?? params.id;
+  const { workspaceSlug } = params;
   const router = useRouter();
 
   const isOwner = me?.currentWorkspace?.role === "owner";
@@ -341,10 +345,9 @@ export default function ClientOverviewPage() {
   const imageMetrics       = useMemo(() => (txData?.metrics ?? []).filter(m => m.type === "image"),  [txData]);
   const hasTransformation  = numericMetrics.length > 0 || imageMetrics.length > 0;
 
-  // Inject the date-range toolbar into the layout header slot when there's data.
-  useEffect(() => {
-    if (!setPageHeaderActions || !hasTransformation) return;
-    setPageHeaderActions(
+  // The date-range toolbar: pushed into the layout header slot on the full page, rendered inline
+  // above the Transformation section in the quick view (which has no header slot).
+  const dateRangeToolbar = useMemo(() => !hasTransformation ? null : (
       <div className="flex items-center gap-2">
         <DateRangePicker value={dateRange} onChange={handlePickerChange}>
           <DateField.Group fullWidth>
@@ -406,9 +409,13 @@ export default function ClientOverviewPage() {
           </Tabs.ListContainer>
         </Tabs>
       </div>
-    );
+  ), [activePreset, dateRange, applyPreset, handlePickerChange, hasTransformation]);
+
+  useEffect(() => {
+    if (readOnly || !setPageHeaderActions || !dateRangeToolbar) return;
+    setPageHeaderActions(dateRangeToolbar);
     return () => setPageHeaderActions(null);
-  }, [activePreset, dateRange, applyPreset, handlePickerChange, setPageHeaderActions, hasTransformation]);
+  }, [readOnly, dateRangeToolbar, setPageHeaderActions]);
 
   // ── Edit helpers ──────────────────────────────────────────────────────────
 
@@ -537,7 +544,7 @@ export default function ClientOverviewPage() {
               <span>#{client.code ?? client.client_code} — {client.fname} {client.lname}</span>
               {client.is_archived && <Chip size="sm" variant="soft" color="default">{t('statusArchived')}</Chip>}
             </h1>
-            {client.is_archived ? (
+            {readOnly ? null : client.is_archived ? (
               <Button onClick={handleRestore} variant="primary" size="sm" isDisabled={restoring}>
                 <RotateCcw size={15} />
                 {restoring ? t('restoring') : t('restoreClient')}
@@ -552,10 +559,12 @@ export default function ClientOverviewPage() {
             )}
           </div>
 
+          {!readOnly && (
           <TriggerInsightBannerGroup
             basePath="/api/insights"
             events={["first_subscription_freeze_created", "first_package_variation_assigned_to_client"]}
           />
+          )}
 
           {actionMsg && (
             <p className="flex items-center gap-2 text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
@@ -644,9 +653,11 @@ export default function ClientOverviewPage() {
                     {t('recentObservations')}
                   </h2>
                   <div className="flex items-center gap-3">
+                    {!readOnly && (
                     <Button variant="ghost" size="sm" onPress={() => { setEditingObservation(null); setObservationModalOpen(true); }}>
                       <Plus size={13} /> {t('addObservation')}
                     </Button>
+                    )}
                     <Link
                       href={`/${workspaceSlug}/clients/${id}/observations`}
                       className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -666,9 +677,9 @@ export default function ClientOverviewPage() {
                         key={o.id}
                         observation={o}
                         clientId={id}
-                        currentUserId={me?.userId}
-                        isOwner={isOwner}
-                        onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                        currentUserId={readOnly ? undefined : me?.userId}
+                        isOwner={!readOnly && isOwner}
+                        onEdit={readOnly ? undefined : (obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
                         onDeleted={(deletedId) => setRecentObservations(prev => prev.filter(x => x.id !== deletedId))}
                       />
                     ))}
@@ -713,10 +724,13 @@ export default function ClientOverviewPage() {
 
           {/* Transformation */}
           <section>
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-4">
-              <TrendingUp size={16} className="text-muted-foreground" />
-              Transformation
-            </h2>
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <TrendingUp size={16} className="text-muted-foreground" />
+                Transformation
+              </h2>
+              {readOnly && dateRangeToolbar}
+            </div>
             {txLoading ? (
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 {[1,2,3].map(i => <Skeleton key={i} className="h-48 rounded-xl" />)}

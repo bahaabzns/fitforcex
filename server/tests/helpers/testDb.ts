@@ -44,3 +44,24 @@ export async function closeTestDb(): Promise<void> {
         testPool = null;
     }
 }
+
+/**
+ * Closes the *app's* own database clients (src/lib/prisma and the pg pool in src/db). Each test file
+ * gets a fresh module registry, so each one creates its own pair — and unlike testPrisma/testPool
+ * above, nothing closed them. Across ~58 files the idle connections piled up past Postgres's
+ * max_connections, and from then on every request failed ("too many clients") — which the auth
+ * middleware reports as a 401, so late suites failed with misleading auth errors.
+ */
+export async function closeAppConnections(): Promise<void> {
+    const appPrisma = (globalThis as { prisma?: { $disconnect?: () => Promise<void> } }).prisma;
+    await appPrisma?.$disconnect?.();
+
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const appPool = require('../../src/db').default;
+        // A suite that mocks src/db has no real pool to end.
+        if (typeof appPool?.end === 'function') await appPool.end();
+    } catch {
+        // Already ended by the suite itself, or the module couldn't load — nothing left to close.
+    }
+}

@@ -72,7 +72,7 @@ router.get('/kpi-trend', requirePermission('forms', 'read'), operationsControlle
  * @openapi
  * /operations/finished-trend:
  *   get:
- *     summary: Plans each team member finished per day (owner/manager: everyone; trainers: own row only)
+ *     summary: "Plans each team member finished per day (owner/manager: everyone; trainers: own row only)"
  *     tags: [Operations]
  *     security:
  *       - cookieAuth: []

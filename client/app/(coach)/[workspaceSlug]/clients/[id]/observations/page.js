@@ -10,8 +10,11 @@ import ObservationModal from "@/app/components/ObservationModal";
 import ObservationsFeed from "@/app/components/ObservationsFeed";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
-export default function ClientObservationsPage() {
-    const { id } = useParams();
+// `clientId` / `readOnly` are for the Messenger's client quick view, which renders this
+// page outside its route: no URL param to read, and no add / edit / delete actions.
+export default function ClientObservationsPage({ clientId, readOnly = false }) {
+    const params = useParams();
+    const id = clientId ?? params.id;
     const t = useTranslations("clientObservations");
 
     const [observations, setObservations] = useState([]);
@@ -62,10 +65,13 @@ export default function ClientObservationsPage() {
         <div className="h-full flex flex-col gap-4">
             <div className="flex items-center justify-between shrink-0">
                 <h2 className="text-base font-semibold text-foreground">{t("title")}</h2>
+                {!readOnly && (
                 <Button variant="primary" size="sm" onPress={openCreate}>
                     <Plus size={15} /> {t("addObservationButton")}
                 </Button>
+                )}
             </div>
+            {!readOnly && (
             <div className="shrink-0">
                 <TriggerInsightBanner
                     triggerEvent="first_client_observation_logged"
@@ -74,17 +80,18 @@ export default function ClientObservationsPage() {
                     dismissUrlPrefix="/api/insights/prompts"
                 />
             </div>
+            )}
             <div className="flex-1 min-h-0">
                 <ObservationsFeed
                     observations={observations}
                     loading={loading}
                     error={error}
                     onRetry={fetchObservations}
-                    onAddClick={openCreate}
+                    onAddClick={readOnly ? undefined : openCreate}
                     clientId={id}
-                    currentUserId={me?.userId}
-                    isOwner={me?.currentWorkspace?.role === "owner"}
-                    onEdit={openEdit}
+                    currentUserId={readOnly ? undefined : me?.userId}
+                    isOwner={!readOnly && me?.currentWorkspace?.role === "owner"}
+                    onEdit={readOnly ? undefined : openEdit}
                     onDeleted={handleDeleted}
                 />
             </div>

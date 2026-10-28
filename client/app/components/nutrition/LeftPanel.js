@@ -49,6 +49,7 @@ export default function LeftPanel({
     isSaving,
     saveStatus,
     clientId,
+    readOnly = false,
 }) {
     const locale = useLocale();
     const t = useTranslations('nutrition');
@@ -121,7 +122,7 @@ export default function LeftPanel({
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{plans.length}</span>
                                 </h2>
                             </Button>
-                            {expandedKeys.has("plans") && (
+                            {expandedKeys.has("plans") && !readOnly && (
                                 <div className="flex items-center gap-2 shrink-0">
                                     <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
                                         {t('loadPlan')}
@@ -166,8 +167,9 @@ export default function LeftPanel({
                                         </svg>
                                         <div>
                                             <p className="text-sm font-medium text-muted-foreground">{t('noPlanYet')}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">{t('createFirstPlan')}</p>
+                                            {!readOnly && <p className="text-xs text-muted-foreground mt-1">{t('createFirstPlan')}</p>}
                                         </div>
+                                        {!readOnly && (
                                         <div className="flex gap-2">
                                             <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
                                                 {t('loadPlan')}
@@ -176,6 +178,7 @@ export default function LeftPanel({
                                                 {t('newPlan')}
                                             </Button>
                                         </div>
+                                        )}
                                     </Surface>
                                 ) : (
                                     <div className="flex flex-col gap-2 px-1 py-1">
@@ -231,6 +234,7 @@ export default function LeftPanel({
                                                                     <Chip.Label>{t('active')}</Chip.Label>
                                                                 </Chip>
                                                             )}
+                                                            {!readOnly && (
                                                             <CardActionsMenu
                                                                 isActive={isActive}
                                                                 ariaLabel={t('planOptions')}
@@ -239,6 +243,7 @@ export default function LeftPanel({
                                                                     { key: "delete", label: t('deletePlan'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeletePlan(plan.id) },
                                                                 ]}
                                                             />
+                                                            )}
                                                         </div>
                                                     </div>
                                                     {hasCycleProgress && (
@@ -351,10 +356,10 @@ export default function LeftPanel({
                                                             emptyLabel={t('noRelatedObservations')}
                                                             observations={observationsByRequestId[req.id] ?? []}
                                                             clientId={clientId}
-                                                            currentUserId={me?.userId}
-                                                            isOwner={me?.currentWorkspace?.role === 'owner'}
-                                                            onAddClick={() => { setEditingObservation(null); setModalTargetRequest(req); setObservationModalOpen(true); }}
-                                                            onEdit={(obs) => { setEditingObservation(obs); setModalTargetRequest(req); setObservationModalOpen(true); }}
+                                                            currentUserId={readOnly ? undefined : me?.userId}
+                                                            isOwner={!readOnly && me?.currentWorkspace?.role === 'owner'}
+                                                            onAddClick={readOnly ? undefined : () => { setEditingObservation(null); setModalTargetRequest(req); setObservationModalOpen(true); }}
+                                                            onEdit={readOnly ? undefined : (obs) => { setEditingObservation(obs); setModalTargetRequest(req); setObservationModalOpen(true); }}
                                                             onDeleted={(deletedId) => setAllFormObservations(prev => prev.filter(x => x.id !== deletedId))}
                                                         />
                                                     </div>
@@ -368,9 +373,10 @@ export default function LeftPanel({
                 )}
             </div>
 
-            <Separator className="my-2" />
+            {!readOnly && <Separator className="my-2" />}
 
-            {/* ── Calorie Calculator Section ── */}
+            {/* ── Calorie Calculator Section (it edits cycle goals, so hidden when view-only) ── */}
+            {!readOnly && (
             <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("calc") ? "1 1 0" : "0 0 auto" }}>
                 <Disclosure id="calc">
                     <Disclosure.Heading>
@@ -399,9 +405,12 @@ export default function LeftPanel({
                 </ScrollShadow>
                 )}
             </div>
+            )}
 
             </DisclosureGroup>
 
+            {!readOnly && (
+            <>
             <LoadPlanModal
                 open={loadModalOpen}
                 onClose={() => setLoadModalOpen(false)}
@@ -422,6 +431,8 @@ export default function LeftPanel({
                 onCreated={(obs) => setAllFormObservations(prev => [obs, ...prev])}
                 onUpdated={(updated) => setAllFormObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
             />
+            </>
+            )}
         </Surface>
         </>
     );

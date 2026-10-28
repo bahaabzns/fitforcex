@@ -1,4 +1,4 @@
-import { resetTestDb, closeTestDb } from './testDb';
+import { resetTestDb, closeTestDb, closeAppConnections } from './testDb';
 
 // Jest's default per-hook timeout (5000ms) is tighter than resetTestDb's own
 // transaction timeout (20000ms) — under load, the TRUNCATE ... CASCADE can
@@ -7,4 +7,4 @@ import { resetTestDb, closeTestDb } from './testDb';
 // to resetTestDb's own budget so a slow-but-successful reset doesn't read as
 // a false failure.
 beforeEach(async () => { await resetTestDb(); }, 25000);
-afterAll(async ()  => { await closeTestDb(); });
+afterAll(async ()  => { await closeTestDb(); await closeAppConnections(); });

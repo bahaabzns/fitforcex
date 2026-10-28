@@ -132,6 +132,7 @@ export default function RightPanel({
     planName,
     observationCounts,
     onObservationsChanged,
+    readOnly = false,
 }) {
     const t = useTranslations('training');
     const locale = useLocale();
@@ -176,6 +177,7 @@ export default function RightPanel({
                     variant="primary"
                     className="flex-1 min-w-0"
                     inputClassName="font-semibold shadow-none"
+                    readOnly={readOnly}
                 />
                 {onClose && (
                     <button
@@ -188,6 +190,8 @@ export default function RightPanel({
                 )}
             </div>
 
+            {!readOnly && (
+            <>
             <ExercisePickerModal
                 open={showPicker}
                 onClose={() => setShowPicker(false)}
@@ -205,6 +209,8 @@ export default function RightPanel({
                     setReplacingExerciseId(null);
                 }}
             />
+            </>
+            )}
 
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
@@ -246,9 +252,11 @@ export default function RightPanel({
                                                 <polyline points="17 11 12 6 7 11"/>
                                             </svg>
                                         </button>
+                                        {!readOnly && (
                                         <Button variant="outline" onClick={() => setShowPicker(true)} className="shrink-0">
                                             {t('addExercise')}
                                         </Button>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -268,7 +276,7 @@ export default function RightPanel({
                                         const isExpanded = expandedExerciseIds.has(expandKey);
                                         const hasVideo = exercise.youtube_url || exercise.video_path;
                                         return (
-                                        <SortableItem key={exercise.id} id={exercise.id}>
+                                        <SortableItem key={exercise.id} id={exercise.id} disabled={readOnly}>
                                         {({ setNodeRef, style, attributes, listeners, isDragging }) => (
                                         <div
                                             ref={setNodeRef}
@@ -280,13 +288,13 @@ export default function RightPanel({
                                             {/* Exercise row */}
                                             <div onClick={() => toggleExercise(exercise)} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${isExpanded ? "bg-app-surface-selected hover:bg-app-surface-selected/80" : "hover:bg-app-surface-hover"}`}>
                                                 {/* Drag grip */}
-                                                <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
+                                                {!readOnly && <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
                                                     <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true">
                                                         <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
                                                         <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
                                                         <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
                                                     </svg>
-                                                </span>
+                                                </span>}
                                                 {/* Thumbnail */}
                                                 <div className="relative shrink-0 w-9 h-9 rounded-lg bg-foreground/10 flex items-center justify-center text-muted group-hover:text-foreground transition-colors overflow-hidden">
                                                     <DumbbellIcon />
@@ -323,7 +331,7 @@ export default function RightPanel({
                                                             <PlayIcon />
                                                         </button>
                                                     )}
-                                                    {(exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (
+                                                    {!readOnly && (exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleApplySetsToAll(selectedDay.id, exercise.id); }}
                                                             className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-foreground hover:bg-default transition-colors cursor-pointer"
@@ -332,7 +340,7 @@ export default function RightPanel({
                                                             <LayersIcon />
                                                         </button>
                                                     )}
-                                                    {clientId && (
+                                                    {!readOnly && clientId && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setInsightsExercise(exercise); }}
                                                             className="flex items-center gap-1 p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
@@ -348,7 +356,7 @@ export default function RightPanel({
                                                         receive the event, so stopPropagation is applied on
                                                         this wrapping span instead — it still runs before the
                                                         click bubbles up to the row's onClick (toggle expand). */}
-                                                    <span title={t('replaceExercise')} onClick={(e) => e.stopPropagation()}>
+                                                    {!readOnly && <span title={t('replaceExercise')} onClick={(e) => e.stopPropagation()}>
                                                         <NewFeatureTooltip
                                                             featureKey="replace_exercise_hint"
                                                             active={originalIndex === 0}
@@ -360,7 +368,8 @@ export default function RightPanel({
                                                         >
                                                             <SwapIcon size={16} />
                                                         </NewFeatureTooltip>
-                                                    </span>
+                                                    </span>}
+                                                    {!readOnly && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
                                                         className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
@@ -368,7 +377,9 @@ export default function RightPanel({
                                                     >
                                                         <TrashIcon size={16} />
                                                     </button>
+                                                    )}
                                                 </div>
+                                                {!readOnly && (
                                                 <div className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                                                     <ItemActionsMenu
                                                         ariaLabel={t('exerciseOptions')}
@@ -381,6 +392,7 @@ export default function RightPanel({
                                                         ]}
                                                     />
                                                 </div>
+                                                )}
                                                 <ChevronIcon className={`shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                             </div>
 
@@ -389,6 +401,7 @@ export default function RightPanel({
                                                 {/* Sets header */}
                                                 <div className="flex items-center justify-between py-2 mt-2 mb-3 border-b border-border/20">
                                                     <Typography as="span" type="body-sm" weight="semibold" color="muted" className="uppercase tracking-wider">{t('sets')}</Typography>
+                                                    {!readOnly && (
                                                     <button
                                                         title={t('addSet')}
                                                         onClick={() => handleAddSet(selectedDay.id, exercise.id)}
@@ -396,6 +409,7 @@ export default function RightPanel({
                                                     >
                                                         <PlusIcon /> {t('addSet')}
                                                     </button>
+                                                    )}
                                                 </div>
 
                                             {/* Sets table — columns are driven by the exercise's tracking
@@ -415,7 +429,7 @@ export default function RightPanel({
                                                                     {SET_FIELD_UNIT[field] ? ` (${SET_FIELD_UNIT[field]})` : ""}
                                                                 </Table.Column>
                                                             ))}
-                                                            <Table.Column className="p-1.5 text-end"><span className="sr-only">Actions</span></Table.Column>
+                                                            {!readOnly && <Table.Column className="p-1.5 text-end"><span className="sr-only">Actions</span></Table.Column>}
                                                         </Table.Header>
                                                         <Table.Body>
                                                             {(exercise.sets ?? []).map((set, sIdx) => (
@@ -423,6 +437,9 @@ export default function RightPanel({
                                                                     <Table.Cell className="p-1.5 text-xs text-muted">{sIdx + 1}</Table.Cell>
                                                                     {prescribedFields.map((field) => (
                                                                         <Table.Cell key={field} className="p-1.5">
+                                                                            {readOnly ? (
+                                                                                <span className="block text-center text-sm text-foreground">{set[field] ?? "—"}</span>
+                                                                            ) : (
                                                                             <TextField
                                                                                 className="min-w-0"
                                                                                 value={String(set[field] ?? "")}
@@ -431,9 +448,10 @@ export default function RightPanel({
                                                                             >
                                                                                 <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
                                                                             </TextField>
+                                                                            )}
                                                                         </Table.Cell>
                                                                     ))}
-                                                                    <Table.Cell className="p-1.5">
+                                                                    {!readOnly && <Table.Cell className="p-1.5">
                                                                         <div className="flex justify-end gap-0.5">
                                                                             <button
                                                                                 onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
@@ -452,7 +470,7 @@ export default function RightPanel({
                                                                                 <TrashIcon size={12} />
                                                                             </button>
                                                                         </div>
-                                                                    </Table.Cell>
+                                                                    </Table.Cell>}
                                                                 </Table.Row>
                                                             ))}
                                                         </Table.Body>
@@ -463,6 +481,15 @@ export default function RightPanel({
                                             })()}
 
                                             {/* Exercise notes — secondary section */}
+                                            {readOnly ? (
+                                                exercise.notes ? (
+                                                    <>
+                                                        <div className="mt-5 border-t border-border/50" />
+                                                        <p className="mt-3 text-xs text-muted-foreground whitespace-pre-wrap">{exercise.notes}</p>
+                                                    </>
+                                                ) : null
+                                            ) : (
+                                            <>
                                             <div className="mt-5 border-t border-border/50" />
                                             <TextField
                                                 value={exercise.notes ?? ""}
@@ -472,6 +499,8 @@ export default function RightPanel({
                                             >
                                                 <Input variant="secondary" placeholder={t('exerciseNotes')} className="h-8 px-2 py-0 text-xs shadow-none bg-app-surface-input!" />
                                             </TextField>
+                                            </>
+                                            )}
                                             </div>
                                             )}
                                         </div>
@@ -511,6 +540,9 @@ export default function RightPanel({
                         </Disclosure.Heading>
                         <Disclosure.Content>
                             <Disclosure.Body className="px-0 pt-0">
+                                {readOnly ? (
+                                    <p className="px-3 mb-2 text-sm text-foreground whitespace-pre-wrap">{selectedDay.notes || "—"}</p>
+                                ) : (
                                 <TextArea
                                     key={selectedDay.id + "-note"}
                                     defaultValue={selectedDay.notes ?? ""}
@@ -524,6 +556,7 @@ export default function RightPanel({
                                     }}
                                     className="mb-2 resize-none"
                                 />
+                                )}
                             </Disclosure.Body>
                         </Disclosure.Content>
                     </Disclosure>
@@ -531,6 +564,7 @@ export default function RightPanel({
 
             </DisclosureGroup>
 
+            {!readOnly && (
             <ExerciseInsightsModal
                 open={!!insightsExercise}
                 onClose={() => { setInsightsExercise(null); onObservationsChanged?.(); }}
@@ -538,6 +572,7 @@ export default function RightPanel({
                 clientId={clientId}
                 planName={planName}
             />
+            )}
 
             {/* Video Modal */}
             <Modal isOpen={!!videoModalId} onOpenChange={(o) => !o && setVideoModalId(null)}>
