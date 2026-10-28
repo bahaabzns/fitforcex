@@ -43,13 +43,13 @@ describe('getCoachSlugFromHost', () => {
 describe('buildPortalUrlFromParts', () => {
     test('builds the production URL (https, no port)', () => {
         expect(buildPortalUrlFromParts('pola', 'fitforce.io', 'https:', '')).toBe(
-            'https://pola.fitforce.io/portal'
+            'https://pola.fitforce.io'
         );
     });
 
     test('builds the dev URL (http, with port)', () => {
         expect(buildPortalUrlFromParts('pola', 'lvh.me', 'http:', '3000')).toBe(
-            'http://pola.lvh.me:3000/portal'
+            'http://pola.lvh.me:3000'
         );
     });
 

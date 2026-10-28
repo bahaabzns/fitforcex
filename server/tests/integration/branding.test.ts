@@ -38,6 +38,9 @@ async function createClientCookie(workspaceId: string) {
 }
 
 describe('Custom branding', () => {
+    // Image processing + several uploads per test comfortably exceed Jest's 5s default under load.
+    jest.setTimeout(30000);
+
     let brandedPlanId: string;
     let plainPlanId: string;
 
