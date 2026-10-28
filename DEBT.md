@@ -767,3 +767,21 @@ Format:
 **Why it matters:** A plan submitted on Thursday evening can miss a 2-day goal purely because of a weekend, and a premium package cannot be held to a tighter goal than a basic one.
 **Effort:** Medium (per-package or per-form goals, and counting only working days)
 **Priority:** Low
+
+---
+
+## 2026-10-28 — Auth middleware reports any database error as "Invalid token"
+**Type:** Risk
+**What:** `authMiddleware` (`server/src/middleware/auth.ts`) wraps the JWT check and the session lookup in one `try/catch` and answers every failure with `401 Invalid token`. A database error, such as "too many clients already", is therefore indistinguishable from a bad login.
+**Why it matters:** During a real database outage or connection spike, coaches would be bounced to the login page instead of seeing a server error. It also hid a test-suite connection leak behind misleading 401s (fixed in the test setup the same day).
+**Effort:** Small (verify the JWT in its own `try/catch`, let session-lookup errors reach the error handler as a 500)
+**Priority:** Medium
+
+---
+
+## 2026-10-28 — Type errors in server tests and scripts are hidden by ts-jest
+**Type:** Shortcut
+**What:** `tsc --noEmit -p tsconfig.test.json` reports type errors in `tests/integration/billingFawaterak.test.ts`, `trainingPlanSaveNumericFields.test.ts`, `tests/unit/packages.serializer.test.ts` and a few `src/scripts/*` files. The tests still run.
+**Why it matters:** The test and script code is not type-checked in CI, so real type mistakes there go unnoticed.
+**Effort:** Small to medium
+**Priority:** Low
