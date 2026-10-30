@@ -8,7 +8,6 @@ import Link from "next/link";
 import api from "@/lib/axios";
 import { getSocket } from "@/lib/socket";
 import { useDateFormatter } from "@/utils/useDateFormatter";
-import { getDateLabel } from "@/utils/date";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
@@ -25,7 +24,7 @@ import EmptyState from "@/app/components/EmptyState";
 import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
 import MessageComposer from "@/app/components/MessageComposer";
 import ClientQuickViewModal from "@/app/components/clientQuickView/ClientQuickViewModal";
-import MessageRow from "@/app/components/MessageRow";
+import MessageList from "@/app/components/MessageList";
 import { useMessageReply } from "@/utils/useMessageReply";
 import ObservationCard from "@/app/components/ObservationCard";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -67,60 +66,9 @@ function formatTimestamp(ts, locale) {
     return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
-function formatGroupTime(ts, locale) {
-    if (!ts) return '';
-    return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-}
-
 function getInitials(fname, lname) {
     return `${fname?.[0] ?? ''}${lname?.[0] ?? ''}`.toUpperCase();
 }
-
-// Groups consecutive messages from the same sender within a 5-minute window.
-function buildSegments(messages, locale, dateLabels) {
-    const groups = [];
-    messages.forEach(msg => {
-        const last = groups[groups.length - 1];
-        const sameSender = last && last.sender_type === msg.sender_type;
-        const withinWindow = last &&
-            (new Date(msg.created_at) - new Date(last.messages[last.messages.length - 1].created_at)) < 5 * 60 * 1000;
-        if (sameSender && withinWindow) {
-            last.messages.push(msg);
-        } else {
-            groups.push({ sender_type: msg.sender_type, messages: [msg] });
-        }
-    });
-
-    const segments = [];
-    let lastDate = null;
-    groups.forEach(group => {
-        const dateStr = new Date(group.messages[0].created_at).toDateString();
-        if (dateStr !== lastDate) {
-            segments.push({ type: 'date', label: getDateLabel(group.messages[0].created_at, locale, dateLabels) });
-            lastDate = dateStr;
-        }
-        segments.push({ type: 'group', group });
-    });
-    return segments;
-}
-
-// Returns tailwind radius classes based on position in a message group.
-function bubbleRadius(isTeam, pos) {
-    if (isTeam) {
-        if (pos === 'solo')   return 'rounded-2xl rounded-br-sm';
-        if (pos === 'first')  return 'rounded-2xl rounded-br-sm';
-        if (pos === 'middle') return 'rounded-l-2xl rounded-r-lg';
-        if (pos === 'last')   return 'rounded-l-2xl rounded-tr-2xl rounded-br-sm';
-    } else {
-        if (pos === 'solo')   return 'rounded-2xl rounded-bl-sm';
-        if (pos === 'first')  return 'rounded-2xl rounded-bl-sm';
-        if (pos === 'middle') return 'rounded-r-2xl rounded-l-lg';
-        if (pos === 'last')   return 'rounded-r-2xl rounded-tl-2xl rounded-bl-sm';
-    }
-    return 'rounded-2xl';
-}
-
-const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
 
 const NO_PACKAGE = '__no_package__';
 const STATUS_ORDER = ['Active', 'Pre-start', 'Frozen', 'Expired', 'No Subscriptions'];
@@ -512,8 +460,6 @@ export default function MessengerPage() {
         client: selectedThread ? `${selectedThread.fname} ${selectedThread.lname}`.trim() : '',
     };
 
-    const segments = buildSegments(messages, locale, { today: t('today'), yesterday: t('yesterday') });
-
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden p-3">
@@ -823,67 +769,20 @@ export default function MessengerPage() {
 
                                 {/* Messages with grouping + date separators */}
                                 <Card.Content className="overflow-hidden min-h-0 p-0">
-                                    <ScrollShadow hideScrollBar className="h-full overflow-y-auto px-5 pt-2 pb-4 flex flex-col gap-1">
-                                        {messagesLoading ? (
-                                            Array.from({ length: 4 }).map((_, i) => (
-                                                <div key={i} className={`flex mb-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                                                    <Skeleton className="h-10 w-52 rounded-2xl" />
-                                                </div>
-                                            ))
-                                        ) : messages.length === 0 ? (
-                                            <div className="flex-1 flex items-center justify-center">
-                                                <p className="text-sm text-muted-foreground">{t('emptyChat')}</p>
-                                            </div>
-                                        ) : (
-                                            segments.map((seg, si) => {
-                                                if (seg.type === 'date') {
-                                                    return (
-                                                        <div key={`date-${si}`} className="flex items-center gap-3 my-3">
-                                                            <Separator className="flex-1" />
-                                                            <span className="text-[11px] text-muted font-medium px-2">{seg.label}</span>
-                                                            <Separator className="flex-1" />
-                                                        </div>
-                                                    );
-                                                }
-
-                                                const { group } = seg;
-                                                const isTeam = group.sender_type === 'team';
-                                                const count  = group.messages.length;
-
-                                                return (
-                                                    <div key={`group-${si}`} className={`flex flex-col gap-0.5 mb-3 ${isTeam ? 'items-end' : 'items-start'}`}>
-                                                        {group.messages.map((msg, mi) => {
-                                                            const pos = count === 1 ? 'solo'
-                                                                : mi === 0 ? 'first'
-                                                                : mi === count - 1 ? 'last'
-                                                                : 'middle';
-                                                            return (
-                                                                <MessageRow
-                                                                    key={msg.id}
-                                                                    message={msg}
-                                                                    t={t}
-                                                                    isOwn={isTeam}
-                                                                    radiusClass={bubbleRadius(isTeam, pos)}
-                                                                    canManage={isTeam && !msg.deleted_at}
-                                                                    onEditStart={m => { cancelReply(); setEditingMessage({ id: m.id, body: m.body || '' }); }}
-                                                                    onDelete={handleDeleteMessage}
-                                                                    onReply={m => { setEditingMessage(null); startReply(m); }}
-                                                                    onJumpToMessage={jumpToMessage}
-                                                                    senderNames={senderNames}
-                                                                    isHighlighted={highlightedId === msg.id}
-                                                                />
-                                                            );
-                                                        })}
-                                                        {/* Single timestamp per group, shown after last message */}
-                                                        <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
-                                                            {formatGroupTime(group.messages[group.messages.length - 1].created_at, locale)}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                        <div ref={messagesEndRef} />
-                                    </ScrollShadow>
+                                    <MessageList
+                                        className="px-5 pt-2 pb-4"
+                                        messages={messages}
+                                        loading={messagesLoading}
+                                        t={t}
+                                        locale={locale}
+                                        senderNames={senderNames}
+                                        endRef={messagesEndRef}
+                                        highlightedId={highlightedId}
+                                        onEditStart={m => { cancelReply(); setEditingMessage({ id: m.id, body: m.body || '' }); }}
+                                        onDelete={handleDeleteMessage}
+                                        onReply={m => { setEditingMessage(null); startReply(m); }}
+                                        onJumpToMessage={jumpToMessage}
+                                    />
                                 </Card.Content>
 
                                 {/* Reply bar */}

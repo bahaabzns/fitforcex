@@ -2661,6 +2661,13 @@
           "reviewed": "Reviewed"
       }
   },
+  "clientChat": {
+    "title": "Chat with {name}",
+    "open": "Open chat with {name}",
+    "openWithUnread": "Open chat with {name}, {count} unread",
+    "minimize": "Minimize chat",
+    "openInMessenger": "Open in Messenger"
+  },
   "messenger": {
     "title": "Messages",
     "searchPlaceholder": "Search…",

@@ -2661,6 +2661,13 @@
           "reviewed": "تمت المراجعة"
       }
   },
+  "clientChat": {
+    "title": "محادثة مع {name}",
+    "open": "فتح المحادثة مع {name}",
+    "openWithUnread": "فتح المحادثة مع {name}، {count} غير مقروءة",
+    "minimize": "تصغير المحادثة",
+    "openInMessenger": "فتح في المراسلة"
+  },
   "messenger": {
     "title": "الرسائل",
     "searchPlaceholder": "بحث…",
