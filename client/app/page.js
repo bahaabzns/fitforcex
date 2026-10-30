@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Alexandria } from "next/font/google";
 import api from "@/lib/axios";
 import LandingNav from "./components/LandingNav";
 import LandingHeroVideo from "./components/LandingHeroVideo";
@@ -15,13 +14,6 @@ import LandingFaq from "./components/LandingFaq";
 import LandingFooter from "./components/LandingFooter";
 import LandingScrollToTop from "./components/LandingScrollToTop";
 import LandingWhatsAppButton from "./components/LandingWhatsAppButton";
-
-// One family for both scripts: Alexandria ships Latin + Arabic glyphs (variable weight).
-const alexandria = Alexandria({
-    subsets: ["latin", "arabic"],
-    weight: ["400", "500", "600", "700"],
-    variable: "--font-landing",
-});
 
 export default function HomePage() {
     const [checking, setChecking] = useState(true);
@@ -43,7 +35,7 @@ export default function HomePage() {
 
     if (checking) {
         return (
-            <div className={`dark min-h-screen bg-[#080d1a] flex items-center justify-center font-landing ${alexandria.variable}`}>
+            <div className={`dark min-h-screen bg-[#080d1a] flex items-center justify-center font-landing`}>
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                     <p className="text-muted-foreground">Loading...</p>
@@ -55,7 +47,7 @@ export default function HomePage() {
     const dashboardUrl = user?.currentWorkspace?.slug ? `/${user.currentWorkspace.slug}/dashboard` : null;
 
     return (
-        <main className={`dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#080d1a] text-white flex flex-col font-landing ${alexandria.variable}`}>
+        <main className={`dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#080d1a] text-white flex flex-col font-landing`}>
 
             {/* ── Nav ── */}
             <LandingNav user={user} dashboardUrl={dashboardUrl} />
