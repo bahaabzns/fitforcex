@@ -70,6 +70,8 @@ function getInitials(fname, lname) {
     return `${fname?.[0] ?? ''}${lname?.[0] ?? ''}`.toUpperCase();
 }
 
+const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
+
 const NO_PACKAGE = '__no_package__';
 const STATUS_ORDER = ['Active', 'Pre-start', 'Frozen', 'Expired', 'No Subscriptions'];
 
