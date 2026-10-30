@@ -20,7 +20,7 @@ import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
 import { Virtualizer, ListLayout } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
-import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X, ListFilter, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronRight, ChevronLeft, Info, UserRound, Megaphone, NotebookText, Plus } from "lucide-react";
+import { Send, Mail, Phone, Package, Calendar, Clock, X, ListFilter, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronRight, ChevronLeft, Info, UserRound, Megaphone, NotebookText, Plus } from "lucide-react";
 import EmptyState from "@/app/components/EmptyState";
 import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
 import MessageComposer from "@/app/components/MessageComposer";
@@ -1060,12 +1060,6 @@ export default function MessengerPage() {
                                             <UserRound size={13} />
                                             {t('viewFullProfile')}
                                         </Button>
-                                        <Link href={`/${workspaceSlug}/clients/${clientProfile.id}`}>
-                                            <Button variant="outline" size="sm" className="w-full gap-1.5">
-                                                <ExternalLink size={13} />
-                                                {t('openProfile')}
-                                            </Button>
-                                        </Link>
                                     </div>
                                 </div>
                             ) : null}
