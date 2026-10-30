@@ -160,7 +160,7 @@ export default function ClientChatWidget({ clientId }) {
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label={unread > 0 ? tChat('openWithUnread', { name: clientName, count: unread }) : tChat('open', { name: clientName })}
-                className="fixed bottom-4 end-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg transition-transform hover:scale-105 max-md:bottom-[calc(1rem+env(safe-area-inset-bottom))]"
+                className="fixed bottom-[5.5rem] end-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg transition-transform hover:scale-105 max-md:bottom-[calc(5.5rem+env(safe-area-inset-bottom))]"
             >
                 <MessageCircle size={24} />
                 {unread > 0 && (
@@ -178,7 +178,7 @@ export default function ClientChatWidget({ clientId }) {
         <section
             role="dialog"
             aria-label={tChat('title', { name: clientName })}
-            className="fixed z-40 flex flex-col overflow-hidden border border-separator bg-surface shadow-2xl max-md:inset-0 max-md:h-dvh md:bottom-4 md:end-4 md:h-[500px] md:max-h-[calc(100dvh-2rem)] md:w-[360px] md:rounded-2xl"
+            className="fixed z-40 flex flex-col overflow-hidden border border-separator bg-surface shadow-2xl max-md:inset-0 max-md:h-dvh md:bottom-6 md:end-6 md:h-[500px] md:max-h-[calc(100dvh-3rem)] md:w-[360px] md:rounded-2xl"
         >
             <header className="flex shrink-0 items-center gap-2 border-b border-separator px-3 py-2.5 max-md:pt-[calc(0.625rem+env(safe-area-inset-top))]">
                 <Avatar size="sm">
