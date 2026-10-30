@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
 import { deleteFile } from '../../lib/storage';
-import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
+import { attachmentTypeFromMime, serializeMessage, resolveReplyTarget, MESSAGE_SELECT } from '../../lib/messageAttachments';
 import { computeStatusesForClients } from '../../lib/clientSubscriptionStatus';
 import { getIo } from '../../lib/socket';
 
@@ -149,7 +149,7 @@ export async function getMessages(req: Request, res: Response, next: NextFunctio
 }
 
 export async function sendMessage(req: Request, res: Response, next: NextFunction) {
-    const { body } = req.body as { body?: string };
+    const { body, replyToId } = req.body as { body?: string; replyToId?: unknown };
     if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
     if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
 
@@ -161,16 +161,21 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
         });
         if (!thread) return res.status(404).json({ error: 'Thread not found' });
 
-        const message = await prisma.messages.create({
+        const reply = await resolveReplyTarget(threadId, replyToId);
+        if (!reply.ok) return res.status(400).json({ error: reply.error });
+
+        const message = serializeMessage(await prisma.messages.create({
             data: {
                 id:              createId(),
                 thread_id:       threadId,
                 sender_type:     'team',
                 sender_id:       req.user!.userId,
                 body:            body.trim(),
+                reply_to_id:     reply.replyToId,
                 read_by_team_at: new Date(),
             },
-        });
+            select: MESSAGE_SELECT,
+        }));
 
         await prisma.threads.update({
             where: { id: threadId },
@@ -191,7 +196,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             realtime:    { rooms: [`workspace:${req.user!.workspaceId}`], event: 'new_message', payload: { threadId, message } },
         });
 
-        res.status(201).json(serializeMessage(message));
+        res.status(201).json(message);
     } catch (err) { next(err); }
 }
 
@@ -200,7 +205,7 @@ export async function sendAttachment(req: Request, res: Response, next: NextFunc
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
     const threadId = req.params.threadId as string;
-    const { body, durationSeconds } = req.body as { body?: string; durationSeconds?: string };
+    const { body, durationSeconds, replyToId } = req.body as { body?: string; durationSeconds?: string; replyToId?: unknown };
 
     try {
         const thread = await prisma.threads.findFirst({
@@ -208,6 +213,9 @@ export async function sendAttachment(req: Request, res: Response, next: NextFunc
             select: { id: true, client_id: true },
         });
         if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+        const reply = await resolveReplyTarget(threadId, replyToId);
+        if (!reply.ok) return res.status(400).json({ error: reply.error });
 
         const key  = file.key ?? file.path;
         const type = attachmentTypeFromMime(file.mimetype);
@@ -225,8 +233,10 @@ export async function sendAttachment(req: Request, res: Response, next: NextFunc
                 attachment_size:     file.size,
                 attachment_mime:     file.mimetype,
                 attachment_duration: type === 'voice' && durationSeconds ? Math.round(Number(durationSeconds)) : null,
+                reply_to_id:         reply.replyToId,
                 read_by_team_at:     new Date(),
             },
+            select: MESSAGE_SELECT,
         });
 
         await prisma.threads.update({
@@ -306,6 +316,7 @@ export async function deleteMessage(req: Request, res: Response, next: NextFunct
                 attachment_size:     null,
                 attachment_mime:     null,
                 attachment_duration: null,
+                reply_to_id:         null,
             },
             select: MESSAGE_SELECT,
         });

@@ -124,6 +124,7 @@ router.post('/threads/broadcast', messengerController.broadcastMessage);
  *             required: [body]
  *             properties:
  *               body: { type: string, maxLength: 5000 }
+ *               replyToId: { type: string, description: Id of a live message in this thread to quote }
  *     responses:
  *       201:
  *         description: Message created; real-time event emitted to workspace room
@@ -184,6 +185,7 @@ router.patch('/threads/:threadId/status',  messengerController.updateThreadStatu
  *               file:            { type: string, format: binary }
  *               body:            { type: string, maxLength: 5000 }
  *               durationSeconds: { type: number }
+ *               replyToId:       { type: string, description: Id of a live message in this thread to quote }
  *     responses:
  *       201:
  *         description: Attachment message created
@@ -192,7 +194,7 @@ router.patch('/threads/:threadId/status',  messengerController.updateThreadStatu
  *             schema:
  *               $ref: '#/components/schemas/Message'
  *       400:
- *         description: No file uploaded
+ *         description: No file uploaded, or invalid replyToId
  *       404:
  *         description: Thread not found
  *

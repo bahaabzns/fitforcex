@@ -234,24 +234,24 @@ model food_categories {
 // nutrition.controller.ts's saveDraft), so a live reference would be
 // silently orphaned by the coach's very next save.
 model food_diary_entries {
-  id             String    @id
+  id             String     @id
   client_id      String
   workspace_id   String
   plan_id        String?
   cycle_id       String?
-  date           DateTime  @db.Date
-  items          Json      @default("[]")
-  total_calories Decimal?  @db.Decimal
-  total_protein  Decimal?  @db.Decimal
-  total_carbs    Decimal?  @db.Decimal
-  total_fats     Decimal?  @db.Decimal
+  date           DateTime   @db.Date
+  items          Json       @default("[]")
+  total_calories Decimal?   @db.Decimal
+  total_protein  Decimal?   @db.Decimal
+  total_carbs    Decimal?   @db.Decimal
+  total_fats     Decimal?   @db.Decimal
   goal_calories  Int?
   goal_protein   Int?
   goal_carbs     Int?
   goal_fats      Int?
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
-  clients        clients   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  created_at     DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime   @default(now()) @db.Timestamptz(6)
+  clients        clients    @relation(fields: [client_id], references: [id], onDelete: Cascade)
   workspaces     workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
   @@unique([client_id, date], map: "food_diary_entries_client_id_date_key")
@@ -260,25 +260,25 @@ model food_diary_entries {
 }
 
 model food_items {
-  id                                                                          String                             @id
-  name_en                                                                     String                             @db.VarChar(255)
-  calories_per_serving                                                        Decimal                            @db.Decimal
-  protein_per_serving                                                         Decimal                            @db.Decimal
-  carbs_per_serving                                                           Decimal                            @db.Decimal
-  fats_per_serving                                                            Decimal                            @db.Decimal
-  workspace_id                                                                String?
-  food_category                                                               String?
-  serving_size                                                                Decimal?                           @db.Decimal
-  serving_unit                                                                String?
-  name_ar                                                                     String?                            @db.VarChar(255)
-  client_observations                                                         client_observations[]
-  workspaces                                                                  workspaces?                        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_items_workspace")
-  food_swap_history_as_from                                                   food_swap_history[]                @relation("food_swap_history_from_food_item_idTofood_items")
-  food_swap_history_as_to                                                     food_swap_history[]                @relation("food_swap_history_to_food_item_idTofood_items")
-  nutrition_meal_item_alternatives                                            nutrition_meal_item_alternatives[]
-  nutrition_meal_items                                                        nutrition_meal_items[]
-  nutrition_meal_items_as_original                                            nutrition_meal_items[]             @relation("nutrition_meal_items_original_food_item_idTofood_items")
-  observation_relations                                                       observation_relations[]
+  id                               String                             @id
+  name_en                          String                             @db.VarChar(255)
+  calories_per_serving             Decimal                            @db.Decimal
+  protein_per_serving              Decimal                            @db.Decimal
+  carbs_per_serving                Decimal                            @db.Decimal
+  fats_per_serving                 Decimal                            @db.Decimal
+  workspace_id                     String?
+  food_category                    String?
+  serving_size                     Decimal?                           @db.Decimal
+  serving_unit                     String?
+  name_ar                          String?                            @db.VarChar(255)
+  client_observations              client_observations[]
+  workspaces                       workspaces?                        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_items_workspace")
+  food_swap_history_as_from        food_swap_history[]                @relation("food_swap_history_from_food_item_idTofood_items")
+  food_swap_history_as_to          food_swap_history[]                @relation("food_swap_history_to_food_item_idTofood_items")
+  nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
+  nutrition_meal_items             nutrition_meal_items[]
+  nutrition_meal_items_as_original nutrition_meal_items[]             @relation("nutrition_meal_items_original_food_item_idTofood_items")
+  observation_relations            observation_relations[]
 }
 
 model master_exercise_muscle_groups {
@@ -553,26 +553,30 @@ model metrics {
 }
 
 model messages {
-  id                  String    @id
+  id                  String     @id
   thread_id           String
   sender_type         String
   sender_id           String
   body                String?
-  read_by_team_at     DateTime? @db.Timestamptz(6)
-  read_by_client_at   DateTime? @db.Timestamptz(6)
-  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  read_by_team_at     DateTime?  @db.Timestamptz(6)
+  read_by_client_at   DateTime?  @db.Timestamptz(6)
+  created_at          DateTime   @default(now()) @db.Timestamptz(6)
   attachment_duration Int?
   attachment_mime     String?
   attachment_name     String?
   attachment_size     Int?
   attachment_url      String?
-  deleted_at          DateTime? @db.Timestamptz(6)
-  edited_at           DateTime? @db.Timestamptz(6)
-  type                String    @default("text")
+  deleted_at          DateTime?  @db.Timestamptz(6)
+  edited_at           DateTime?  @db.Timestamptz(6)
+  type                String     @default("text")
+  reply_to_id         String?
+  reply_to            messages?  @relation("message_replies", fields: [reply_to_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  replies             messages[] @relation("message_replies")
 
   @@index([thread_id])
   @@index([thread_id, created_at])
   @@index([thread_id, sender_type, read_by_team_at])
+  @@index([reply_to_id])
 }
 
 model nutrition_cycles {
@@ -602,22 +606,22 @@ model nutrition_meal_item_alternatives {
 }
 
 model nutrition_meal_items {
-  id                                                                String                             @id
-  meal_id                                                           String?
-  food_item_id                                                      String?
-  amount                                                            Decimal                            @default(100) @db.Decimal
-  meal_item_order                                                   Int
-  original_food_item_id                                             String?
-  original_amount                                                   Decimal?                           @db.Decimal
-  is_swapped                                                        Boolean                            @default(false)
-  swapped_at                                                        DateTime?                          @db.Timestamptz(6)
-  swapped_by_client_id                                              String?
-  food_swap_history                                                 food_swap_history[]
-  nutrition_meal_item_alternatives                                  nutrition_meal_item_alternatives[]
-  food_items                                                        food_items?                        @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nutrition_meals                                                   nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  original_food_item                                                food_items?                        @relation("nutrition_meal_items_original_food_item_idTofood_items", fields: [original_food_item_id], references: [id], onUpdate: NoAction)
-  swapped_by_client                                                 clients?                           @relation(fields: [swapped_by_client_id], references: [id], onUpdate: NoAction)
+  id                               String                             @id
+  meal_id                          String?
+  food_item_id                     String?
+  amount                           Decimal                            @default(100) @db.Decimal
+  meal_item_order                  Int
+  original_food_item_id            String?
+  original_amount                  Decimal?                           @db.Decimal
+  is_swapped                       Boolean                            @default(false)
+  swapped_at                       DateTime?                          @db.Timestamptz(6)
+  swapped_by_client_id             String?
+  food_swap_history                food_swap_history[]
+  nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
+  food_items                       food_items?                        @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nutrition_meals                  nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  original_food_item               food_items?                        @relation("nutrition_meal_items_original_food_item_idTofood_items", fields: [original_food_item_id], references: [id], onUpdate: NoAction)
+  swapped_by_client                clients?                           @relation(fields: [swapped_by_client_id], references: [id], onUpdate: NoAction)
 
   @@index([meal_id])
   @@index([food_item_id])
@@ -931,51 +935,51 @@ model payment_methods {
 // `nutrition_pdf_settings_one_default_per_workspace` that PSL can't express,
 // so it lives only in the migration.
 model nutrition_pdf_settings {
-  id                          String    @id
+  id                          String      @id
   workspace_id                String?
-  name                        String    @default("Default")
-  is_default                  Boolean   @default(false)
-  coach_name                  String    @default("FitForce")
-  footer_text                 String    @default("Generated by FitForce")
-  primary_color               String    @default("#007AFF")
-  show_notes                  Boolean   @default(true)
-  show_alternatives           Boolean   @default(true)
-  show_macros_summary         Boolean   @default(true)
-  show_cycle_totals           Boolean   @default(true)
-  show_meal_totals             Boolean   @default(true)
-  updated_at                  DateTime? @default(now()) @db.Timestamp(6)
+  name                        String      @default("Default")
+  is_default                  Boolean     @default(false)
+  coach_name                  String      @default("FitForce")
+  footer_text                 String      @default("Generated by FitForce")
+  primary_color               String      @default("#007AFF")
+  show_notes                  Boolean     @default(true)
+  show_alternatives           Boolean     @default(true)
+  show_macros_summary         Boolean     @default(true)
+  show_cycle_totals           Boolean     @default(true)
+  show_meal_totals            Boolean     @default(true)
+  updated_at                  DateTime?   @default(now()) @db.Timestamp(6)
   logo_url                    String?
-  header_text_color           String    @default("#FFFFFF")
-  show_food_calories           Boolean   @default(true)
-  table_header_bg_color        String    @default("#E8E8ED")
-  table_alt_bg_color           String    @default("#F9F9FB")
-  show_food_macros             Boolean   @default(true)
-  show_cover_page              Boolean   @default(true)
-  show_plan_summary_page       Boolean   @default(true)
-  show_meal_summary_page       Boolean   @default(true)
-  show_cycle_summary_page      Boolean   @default(true)
-  page_bg_image_url            String?
-  cover_image_url              String?
-  cover_title                  String    @default("Nutrition Plan")
-  cover_subtitle                String?   @default("")
-  summary_bg_image_url          String?
-  page_width                    Float     @default(595.28) @db.Real
-  page_height                   Float     @default(841.89) @db.Real
-  plan_summary_bg_image_url     String?
-  meal_summary_bg_image_url     String?
-  cycle_summary_bg_image_url    String?
-  back_cover_bg_image_url       String?
-  show_back_cover_page          Boolean   @default(false)
-  max_meals_per_page            Int       @default(0)
-  meals_content_primary_color   String?
-  plan_summary_primary_color    String?
-  cycle_summary_primary_color   String?
-  show_cover_header             Boolean   @default(true)
-  show_cover_title              Boolean   @default(true)
-  show_cover_subtitle           Boolean   @default(true)
-  show_cover_client_name        Boolean   @default(true)
-  body_text_color               String    @default("#1A1A1A")
-  workspaces                    workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  header_text_color           String      @default("#FFFFFF")
+  show_food_calories          Boolean     @default(true)
+  table_header_bg_color       String      @default("#E8E8ED")
+  table_alt_bg_color          String      @default("#F9F9FB")
+  show_food_macros            Boolean     @default(true)
+  show_cover_page             Boolean     @default(true)
+  show_plan_summary_page      Boolean     @default(true)
+  show_meal_summary_page      Boolean     @default(true)
+  show_cycle_summary_page     Boolean     @default(true)
+  page_bg_image_url           String?
+  cover_image_url             String?
+  cover_title                 String      @default("Nutrition Plan")
+  cover_subtitle              String?     @default("")
+  summary_bg_image_url        String?
+  page_width                  Float       @default(595.28) @db.Real
+  page_height                 Float       @default(841.89) @db.Real
+  plan_summary_bg_image_url   String?
+  meal_summary_bg_image_url   String?
+  cycle_summary_bg_image_url  String?
+  back_cover_bg_image_url     String?
+  show_back_cover_page        Boolean     @default(false)
+  max_meals_per_page          Int         @default(0)
+  meals_content_primary_color String?
+  plan_summary_primary_color  String?
+  cycle_summary_primary_color String?
+  show_cover_header           Boolean     @default(true)
+  show_cover_title            Boolean     @default(true)
+  show_cover_subtitle         Boolean     @default(true)
+  show_cover_client_name      Boolean     @default(true)
+  body_text_color             String      @default("#1A1A1A")
+  workspaces                  workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([workspace_id, name], map: "nutrition_pdf_settings_workspace_id_name_key")
   @@index([workspace_id], map: "nutrition_pdf_settings_workspace_id_idx")
@@ -987,45 +991,45 @@ model nutrition_pdf_settings {
 // profiles per workspace (migration 091); exactly one is the default
 // (is_default) — see nutrition_pdf_settings for the partial-index note.
 model training_pdf_settings {
-  id                              String    @id
-  workspace_id                    String?
-  name                            String    @default("Default")
-  is_default                      Boolean   @default(false)
-  coach_name                      String    @default("FitForce")
-  footer_text                     String    @default("Generated by FitForce")
-  primary_color                   String    @default("#007AFF")
-  header_text_color               String    @default("#FFFFFF")
-  table_header_bg_color           String    @default("#E8E8ED")
-  table_alt_bg_color              String    @default("#F9F9FB")
-  logo_url                        String?
-  show_cover_page                 Boolean   @default(true)
-  show_back_cover_page             Boolean   @default(false)
-  show_plan_summary_page           Boolean   @default(true)
-  cover_title                      String    @default("Training Plan")
-  cover_subtitle                   String?   @default("")
-  cover_image_url                  String?
-  page_bg_image_url                String?
-  back_cover_bg_image_url          String?
-  page_width                       Float     @default(595.28) @db.Real
-  page_height                      Float     @default(841.89) @db.Real
-  show_notes                       Boolean   @default(true)
-  show_exercise_notes              Boolean   @default(true)
-  show_exercise_equipment          Boolean   @default(true)
-  show_sets_detail                 Boolean   @default(true)
-  show_day_summary_page            Boolean   @default(true)
-  day_summary_bg_image_url         String?
-  exercise_content_primary_color   String?
-  day_summary_primary_color        String?
-  max_exercises_per_page           Int       @default(0)
-  show_cover_header                Boolean   @default(true)
-  show_cover_title                 Boolean   @default(true)
-  show_cover_subtitle              Boolean   @default(true)
-  show_cover_client_name           Boolean   @default(true)
-  body_text_color                  String    @default("#1A1A1A")
-  show_exercise_thumbnail           Boolean   @default(true)
-  exercise_thumbnail_size           String    @default("medium")
-  updated_at                       DateTime? @default(now()) @db.Timestamp(6)
-  workspaces                       workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                             String      @id
+  workspace_id                   String?
+  name                           String      @default("Default")
+  is_default                     Boolean     @default(false)
+  coach_name                     String      @default("FitForce")
+  footer_text                    String      @default("Generated by FitForce")
+  primary_color                  String      @default("#007AFF")
+  header_text_color              String      @default("#FFFFFF")
+  table_header_bg_color          String      @default("#E8E8ED")
+  table_alt_bg_color             String      @default("#F9F9FB")
+  logo_url                       String?
+  show_cover_page                Boolean     @default(true)
+  show_back_cover_page           Boolean     @default(false)
+  show_plan_summary_page         Boolean     @default(true)
+  cover_title                    String      @default("Training Plan")
+  cover_subtitle                 String?     @default("")
+  cover_image_url                String?
+  page_bg_image_url              String?
+  back_cover_bg_image_url        String?
+  page_width                     Float       @default(595.28) @db.Real
+  page_height                    Float       @default(841.89) @db.Real
+  show_notes                     Boolean     @default(true)
+  show_exercise_notes            Boolean     @default(true)
+  show_exercise_equipment        Boolean     @default(true)
+  show_sets_detail               Boolean     @default(true)
+  show_day_summary_page          Boolean     @default(true)
+  day_summary_bg_image_url       String?
+  exercise_content_primary_color String?
+  day_summary_primary_color      String?
+  max_exercises_per_page         Int         @default(0)
+  show_cover_header              Boolean     @default(true)
+  show_cover_title               Boolean     @default(true)
+  show_cover_subtitle            Boolean     @default(true)
+  show_cover_client_name         Boolean     @default(true)
+  body_text_color                String      @default("#1A1A1A")
+  show_exercise_thumbnail        Boolean     @default(true)
+  exercise_thumbnail_size        String      @default("medium")
+  updated_at                     DateTime?   @default(now()) @db.Timestamp(6)
+  workspaces                     workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([workspace_id, name], map: "training_pdf_settings_workspace_id_name_key")
   @@index([workspace_id], map: "training_pdf_settings_workspace_id_idx")
@@ -1121,7 +1125,7 @@ model addons {
   label              String
   label_ar           String?
   dimension          String
-  units               Int
+  units              Int
   price_monthly      Decimal              @db.Decimal(10, 2)
   currency           String               @default("LE")
   payment_link       String?
@@ -1403,17 +1407,17 @@ model workspace_invitations {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model workspace_members {
-  id           String     @id
-  workspace_id String
-  user_id      String
-  role         String
-  permissions  Json       @default("{}")
-  is_active    Boolean    @default(true)
-  joined_at    DateTime   @default(now()) @db.Timestamptz(6)
+  id                  String     @id
+  workspace_id        String
+  user_id             String
+  role                String
+  permissions         Json       @default("{}")
+  is_active           Boolean    @default(true)
+  joined_at           DateTime   @default(now()) @db.Timestamptz(6)
   daily_plan_capacity Int?
   days_off            Int[]      @default([])
-  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces          workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([workspace_id, user_id])
   @@index([user_id], map: "idx_workspace_members_user")
@@ -1421,30 +1425,30 @@ model workspace_members {
 }
 
 model workspace_payments {
-  id                    String             @id
-  workspace_id          String
-  plan_id               String
-  variation_id          String?
-  addon_id              String?
-  amount                Decimal            @db.Decimal(10, 2)
-  currency              String             @default("EGP")
-  duration_days         Int
-  gateway_reference_id  String?
-  gateway_payment_url   String?
-  gateway_status        String             @default("pending")
-  gateway_raw_webhook   Json?
-  payment_method        String             @default("card")
-  gateway               String?
-  reference_code        String?            @unique
-  notes                 String?
-  paid_at               DateTime?          @db.Timestamptz(6)
-  created_at            DateTime           @default(now()) @db.Timestamptz(6)
-  credit_applied        Decimal?           @db.Decimal(10, 2)
-  plans                 plans              @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  plan_variations       plan_variations?   @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  addons                addons?            @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  workspaces            workspaces         @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  workspace_addons       workspace_addons[]
+  id                            String                          @id
+  workspace_id                  String
+  plan_id                       String
+  variation_id                  String?
+  addon_id                      String?
+  amount                        Decimal                         @db.Decimal(10, 2)
+  currency                      String                          @default("EGP")
+  duration_days                 Int
+  gateway_reference_id          String?
+  gateway_payment_url           String?
+  gateway_status                String                          @default("pending")
+  gateway_raw_webhook           Json?
+  payment_method                String                          @default("card")
+  gateway                       String?
+  reference_code                String?                         @unique
+  notes                         String?
+  paid_at                       DateTime?                       @db.Timestamptz(6)
+  created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  credit_applied                Decimal?                        @db.Decimal(10, 2)
+  plans                         plans                           @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan_variations               plan_variations?                @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  addons                        addons?                         @relation(fields: [addon_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspaces                    workspaces                      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_addons              workspace_addons[]
   workspace_subscription_events workspace_subscription_events[]
 
   @@index([gateway_reference_id])
@@ -1454,23 +1458,23 @@ model workspace_payments {
 }
 
 model workspace_subscription_events {
-  id                    String              @id
-  workspace_id          String
-  payment_id            String?
-  event_type            String
-  plan_id               String?
-  variation_id          String?
-  locked_price_monthly  Decimal?            @db.Decimal(10, 2)
-  locked_currency       String?
-  starts_at             DateTime?           @db.Timestamptz(6)
-  expires_at            DateTime?           @db.Timestamptz(6)
-  previous_expires_at   DateTime?           @db.Timestamptz(6)
-  actor_type            String
-  actor_label           String?
-  is_backfilled         Boolean             @default(false)
-  created_at            DateTime            @default(now()) @db.Timestamptz(6)
-  workspaces            workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  workspace_payments    workspace_payments? @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id                   String              @id
+  workspace_id         String
+  payment_id           String?
+  event_type           String
+  plan_id              String?
+  variation_id         String?
+  locked_price_monthly Decimal?            @db.Decimal(10, 2)
+  locked_currency      String?
+  starts_at            DateTime?           @db.Timestamptz(6)
+  expires_at           DateTime?           @db.Timestamptz(6)
+  previous_expires_at  DateTime?           @db.Timestamptz(6)
+  actor_type           String
+  actor_label          String?
+  is_backfilled        Boolean             @default(false)
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  workspaces           workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_payments   workspace_payments? @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([workspace_id, created_at])
   @@index([payment_id])
@@ -1478,39 +1482,39 @@ model workspace_subscription_events {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model workspace_subscriptions {
-  id                    String           @id
-  workspace_id          String           @unique
-  plan_id               String
-  variation_id          String?
-  locked_price_monthly  Decimal?         @db.Decimal(10, 2)
-  locked_currency       String?
-  status                String           @default("active")
-  starts_at             DateTime         @default(now()) @db.Timestamptz(6)
-  expires_at            DateTime?        @db.Timestamptz(6)
-  notes                 String?
-  created_at            DateTime         @default(now()) @db.Timestamptz(6)
-  plans                 plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  plan_variations       plan_variations? @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  workspaces            workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                   String           @id
+  workspace_id         String           @unique
+  plan_id              String
+  variation_id         String?
+  locked_price_monthly Decimal?         @db.Decimal(10, 2)
+  locked_currency      String?
+  status               String           @default("active")
+  starts_at            DateTime         @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime?        @db.Timestamptz(6)
+  notes                String?
+  created_at           DateTime         @default(now()) @db.Timestamptz(6)
+  plans                plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plan_variations      plan_variations? @relation(fields: [variation_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  workspaces           workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([variation_id])
 }
 
 model workspaces {
-  id                                           String                         @id
-  slug                                         String                         @unique
+  id                                           String                          @id
+  slug                                         String                          @unique
   name                                         String
   owner_id                                     String
-  slug_customized                              Boolean                        @default(false)
-  archived_at                                  DateTime?                      @db.Timestamptz(6)
-  created_at                                   DateTime                       @default(now()) @db.Timestamptz(6)
-  clone_status                                 String                         @default("ready")
+  slug_customized                              Boolean                         @default(false)
+  archived_at                                  DateTime?                       @db.Timestamptz(6)
+  created_at                                   DateTime                        @default(now()) @db.Timestamptz(6)
+  clone_status                                 String                          @default("ready")
   clone_error                                  String?
-  client_deletion_strategy                     String                         @default("anonymize")
+  client_deletion_strategy                     String                          @default("anonymize")
   renewal_link                                 String?
   owner_daily_plan_capacity                    Int?
-  owner_days_off                               Int[]                          @default([])
-  service_target_days                          Int                            @default(2)
+  owner_days_off                               Int[]                           @default([])
+  service_target_days                          Int                             @default(2)
   check_in_schedules                           check_in_schedules[]
   client_observations                          client_observations[]
   clients                                      clients[]
@@ -1537,7 +1541,7 @@ model workspaces {
   training_plans                               training_plans[]
   training_pdf_settings                        training_pdf_settings[]
   transactions                                 transactions[]
-  users_users_default_workspace_idToworkspaces users[]                        @relation("users_default_workspace_idToworkspaces")
+  users_users_default_workspace_idToworkspaces users[]                         @relation("users_default_workspace_idToworkspaces")
   workout_logs                                 workout_logs[]
   workspace_audit_log                          workspace_audit_log[]
   workspace_invitations                        workspace_invitations[]
@@ -1548,7 +1552,7 @@ model workspaces {
   workspace_branding                           workspace_branding?
   workspace_banners                            workspace_banners[]
   workspace_subscription_events                workspace_subscription_events[]
-  users_workspaces_owner_idTousers             users                          @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
+  users_workspaces_owner_idTousers             users                           @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
 
   @@index([owner_id], map: "idx_workspaces_owner")
   @@index([slug], map: "idx_workspaces_slug")
@@ -1588,19 +1592,19 @@ model food_category_merges {
 }
 
 model food_swap_history {
-  id                                                         String               @id
-  meal_item_id                                               String
-  client_id                                                  String?
-  from_food_item_id                                          String?
-  to_food_item_id                                            String?
-  from_amount                                                Decimal?             @db.Decimal
-  to_amount                                                  Decimal?             @db.Decimal
-  action                                                     String
-  created_at                                                 DateTime?            @default(now()) @db.Timestamptz(6)
-  clients                                                    clients?             @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-  from_food_item                                             food_items?          @relation("food_swap_history_from_food_item_idTofood_items", fields: [from_food_item_id], references: [id], onUpdate: NoAction)
-  nutrition_meal_items                                       nutrition_meal_items @relation(fields: [meal_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  to_food_item                                               food_items?          @relation("food_swap_history_to_food_item_idTofood_items", fields: [to_food_item_id], references: [id], onUpdate: NoAction)
+  id                   String               @id
+  meal_item_id         String
+  client_id            String?
+  from_food_item_id    String?
+  to_food_item_id      String?
+  from_amount          Decimal?             @db.Decimal
+  to_amount            Decimal?             @db.Decimal
+  action               String
+  created_at           DateTime?            @default(now()) @db.Timestamptz(6)
+  clients              clients?             @relation(fields: [client_id], references: [id], onUpdate: NoAction)
+  from_food_item       food_items?          @relation("food_swap_history_from_food_item_idTofood_items", fields: [from_food_item_id], references: [id], onUpdate: NoAction)
+  nutrition_meal_items nutrition_meal_items @relation(fields: [meal_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  to_food_item         food_items?          @relation("food_swap_history_to_food_item_idTofood_items", fields: [to_food_item_id], references: [id], onUpdate: NoAction)
 
   @@index([client_id], map: "idx_food_swap_history_client")
   @@index([meal_item_id, created_at(sort: Desc)], map: "idx_food_swap_history_meal_item")
@@ -1620,17 +1624,17 @@ model page_tutorials {
 
 /// Client Portal branding, one row per workspace. Image columns hold storage keys.
 model workspace_branding {
-  workspace_id  String     @id
-  logo_key      String?
-  logo_dark_key String?
-  primary_color String?    @db.Char(7)
-  accent_color  String?    @db.Char(7)
-  welcome_message String?  @db.VarChar(160)
-  version       Int        @default(1)
-  created_at    DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
-  updated_by    String?
-  workspaces    workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspace_id    String     @id
+  logo_key        String?
+  logo_dark_key   String?
+  primary_color   String?    @db.Char(7)
+  accent_color    String?    @db.Char(7)
+  welcome_message String?    @db.VarChar(160)
+  version         Int        @default(1)
+  created_at      DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime   @default(now()) @db.Timestamptz(6)
+  updated_by      String?
+  workspaces      workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model workspace_banners {
