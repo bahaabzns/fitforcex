@@ -133,3 +133,9 @@ Format per package:
 **Why:** Exercise library video/GIF/thumbnail uploads were hard-capped at 5MB and coaches had to shrink files by hand. The server now accepts up to 50MB and compresses anything over 5MB (WhatsApp-style) before storing. `sharp` re-encodes images and animated GIFs (to animated WebP); `ffmpeg-static` bundles an ffmpeg binary used to re-encode video to H.264 MP4 at stepped-down resolution/quality. Vetted: both widely adopted and maintained (sharp released 2026-09, ffmpeg-static 2025-11); `ffmpeg-static` downloads the binary on install, so prod builds need network access. Compression runs in-process per upload (CPU spike) — revisit with a queue if upload volume grows.
 **Used in:** `server/src/lib/mediaCompression.ts`, `server/src/modules/training/training.service.ts`
 **Review date:** 2027-01-15
+
+## node-cron v4.6.0 (server) — bumped from 4.2.1
+**Installed:** 2026-10-30
+**Why:** In 4.2.1 the missed-execution catch-up loop (`while (expected < now)`) never advanced for hourly patterns (`0 * * * *`: `getNextMatch(21:00)` returned 21:00 again). Any stall crossing an hour boundary (laptop sleep, suspended process) put the server in an endless loop, spamming "missed execution" warnings and blocking the event loop. Reproduced with a time-warp harness: 4.2.1 hangs (killed by timeout), 4.6.0 completes. Vetted: latest tag, ISC, zero dependencies, same API for `cron.schedule`.
+**Used in:** `server/src/middleware/scheduler.ts`
+**Review date:** 2027-01-30
