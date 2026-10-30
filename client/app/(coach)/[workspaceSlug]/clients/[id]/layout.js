@@ -10,6 +10,7 @@ import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import ClientChatWidget from "@/app/components/clientChat/ClientChatWidget";
 
 // Sliding white indicator that tracks the active tab position.
 // Placed inside TabListContainer (position:relative) so it overlays the TabList background.
@@ -204,6 +205,8 @@ export default function ClientLayout({ children }) {
                     </PageHeaderActionsContext.Provider>
                 )}
             </div>
+
+            <ClientChatWidget key={id} clientId={id} />
         </div>
     );
 }
