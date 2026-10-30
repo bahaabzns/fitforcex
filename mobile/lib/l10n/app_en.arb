@@ -299,6 +299,12 @@
   "messagesDeleteConfirm": "Delete this message?",
   "messagesEditingBanner": "Editing message",
   "messagesDeletedPlaceholder": "This message was deleted.",
+  "messagesReply": "Reply",
+  "messagesCancelReply": "Cancel reply",
+  "messagesReplyYou": "You",
+  "messagesReplyPhoto": "Photo",
+  "messagesReplyVoice": "Voice message",
+  "messagesReplyFile": "File",
   "messagesEditedLabel": "(edited)",
 
   "homeWelcome": "Welcome back, {name}!",

@@ -30,11 +30,11 @@ class MessagesRepository {
     }
   }
 
-  Future<Message> send(String body) async {
+  Future<Message> send(String body, {String? replyToId}) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/api/client-portal/messages',
-        data: {'body': body},
+        data: {'body': body, if (replyToId != null) 'replyToId': replyToId},
       );
       return Message.fromJson(res.data!);
     } on DioException catch (e) {
@@ -42,10 +42,12 @@ class MessagesRepository {
     }
   }
 
-  Future<Message> sendAttachment(XFile file, {String? caption}) async {
+  Future<Message> sendAttachment(XFile file,
+      {String? caption, String? replyToId}) async {
     try {
       final form = FormData.fromMap({
         if ((caption ?? '').trim().isNotEmpty) 'body': caption!.trim(),
+        if (replyToId != null) 'replyToId': replyToId,
         'file': await MultipartFile.fromFile(file.path, filename: file.name),
       });
       final res = await _dio.post<Map<String, dynamic>>(

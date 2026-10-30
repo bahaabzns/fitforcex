@@ -40,6 +40,14 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   bool _sending = false;
   bool _attaching = false;
   Message? _editing;
+  Message? _replyingTo;
+  String? _highlightedId;
+  Timer? _highlightTimer;
+  final _messageKeys = <String, GlobalKey>{};
+  // Segment indices the list built since the last reset — lets a jump to an
+  // off-screen original know which way to keep scrolling (ListView.builder
+  // only builds what's near the viewport).
+  final _builtSegmentIndices = <int>{};
   Timer? _poll;
   io.Socket? _socket;
 
@@ -54,6 +62,7 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   @override
   void dispose() {
     _stopPolling();
+    _highlightTimer?.cancel();
     _socket?.dispose();
     _draft.dispose();
     _scroll.dispose();
@@ -138,11 +147,14 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
 
     setState(() => _sending = true);
     try {
-      final msg = await ref.read(messagesRepositoryProvider).send(body);
+      final msg = await ref
+          .read(messagesRepositoryProvider)
+          .send(body, replyToId: _replyingTo?.id);
       if (!mounted) return;
       setState(() {
         _messages = [..._messages, msg];
         _draft.clear();
+        _replyingTo = null;
       });
       _scrollToBottom();
     } catch (e) {
@@ -155,8 +167,73 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
 
   void _startEdit(Message m) {
     setState(() {
+      _replyingTo = null;
       _editing = m;
       _draft.text = m.body;
+    });
+  }
+
+  void _startReply(Message m) {
+    if (m.isDeleted) return;
+    setState(() {
+      _editing = null;
+      _replyingTo = m;
+    });
+  }
+
+  void _cancelReply() => setState(() => _replyingTo = null);
+
+  GlobalKey _keyFor(String messageId) =>
+      _messageKeys.putIfAbsent(messageId, GlobalKey.new);
+
+  /// Scrolls to a quoted original and flashes it. The list is lazy, so an
+  /// off-screen target is reached by jumping toward it and nudging a viewport at
+  /// a time until its row has been built.
+  Future<void> _jumpToMessage(String messageId) async {
+    final segments = buildChatSegments(_messages);
+    final segmentIndex = segments.indexWhere(
+      (s) => s is MessageGroup && s.messages.any((m) => m.id == messageId),
+    );
+    if (segmentIndex < 0) return;
+
+    const maxNudges = 40;
+    for (var attempt = 0; attempt < maxNudges; attempt++) {
+      if (!mounted || !_scroll.hasClients) return;
+      final targetContext = _keyFor(messageId).currentContext;
+      if (targetContext != null && targetContext.mounted) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+        _highlight(messageId);
+        return;
+      }
+
+      final position = _scroll.position;
+      final firstGuess = attempt == 0 && _builtSegmentIndices.isEmpty;
+      final double target;
+      if (firstGuess) {
+        target = position.maxScrollExtent *
+            (segmentIndex / (segments.length - 1).clamp(1, segments.length));
+      } else {
+        final built = _builtSegmentIndices;
+        final towardEnd = built.isNotEmpty && built.reduce((a, b) => a > b ? a : b) < segmentIndex;
+        target = position.pixels +
+            (towardEnd ? 1 : -1) * position.viewportDimension * 0.8;
+      }
+      _builtSegmentIndices.clear();
+      _scroll.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
+
+  void _highlight(String messageId) {
+    setState(() => _highlightedId = messageId);
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _highlightedId = null);
     });
   }
 
@@ -230,13 +307,16 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
     setState(() => _attaching = true);
     try {
       final caption = _draft.text.trim();
-      final msg = await ref
-          .read(messagesRepositoryProvider)
-          .sendAttachment(file, caption: caption.isEmpty ? null : caption);
+      final msg = await ref.read(messagesRepositoryProvider).sendAttachment(
+            file,
+            caption: caption.isEmpty ? null : caption,
+            replyToId: _replyingTo?.id,
+          );
       if (!mounted) return;
       setState(() {
         _messages = [..._messages, msg];
         _draft.clear();
+        _replyingTo = null;
       });
       _scrollToBottom();
     } catch (e) {
@@ -302,12 +382,26 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
                       messages: _messages,
                       onEdit: _startEdit,
                       onDelete: _deleteMessage,
+                      onReply: _startReply,
+                      onQuoteTap: _jumpToMessage,
+                      keyFor: _keyFor,
+                      highlightedId: _highlightedId,
+                      coachName: l10n.messagesCoachFallback,
+                      onSegmentBuilt: _builtSegmentIndices.add,
                     ),
         ),
         SafeArea(
           top: false,
           child: Column(
             children: [
+              if (_replyingTo != null && _editing == null)
+                _ReplyPreview(
+                  message: _replyingTo!,
+                  senderName: _replyingTo!.isClient
+                      ? l10n.messagesReplyYou
+                      : l10n.messagesCoachFallback,
+                  onCancel: _cancelReply,
+                ),
               if (_editing != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -452,12 +546,24 @@ class _MessageList extends StatelessWidget {
     required this.messages,
     required this.onEdit,
     required this.onDelete,
+    required this.onReply,
+    required this.onQuoteTap,
+    required this.keyFor,
+    required this.highlightedId,
+    required this.coachName,
+    required this.onSegmentBuilt,
   });
 
   final ScrollController scroll;
   final List<Message> messages;
   final ValueChanged<Message> onEdit;
   final ValueChanged<Message> onDelete;
+  final ValueChanged<Message> onReply;
+  final ValueChanged<String> onQuoteTap;
+  final GlobalKey Function(String messageId) keyFor;
+  final String? highlightedId;
+  final String coachName;
+  final void Function(int segmentIndex) onSegmentBuilt;
 
   @override
   Widget build(BuildContext context) {
@@ -467,11 +573,20 @@ class _MessageList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: segments.length,
       itemBuilder: (context, i) {
+        onSegmentBuilt(i);
         final seg = segments[i];
         return switch (seg) {
           DateSeparator(:final date) => _DateChip(date: date),
-          MessageGroup() =>
-            _Group(group: seg, onEdit: onEdit, onDelete: onDelete),
+          MessageGroup() => _Group(
+              group: seg,
+              onEdit: onEdit,
+              onDelete: onDelete,
+              onReply: onReply,
+              onQuoteTap: onQuoteTap,
+              keyFor: keyFor,
+              highlightedId: highlightedId,
+              coachName: coachName,
+            ),
         };
       },
     );
@@ -514,19 +629,42 @@ class _DateChip extends StatelessWidget {
 }
 
 class _Group extends StatelessWidget {
-  const _Group({required this.group, required this.onEdit, required this.onDelete});
+  const _Group({
+    required this.group,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onReply,
+    required this.onQuoteTap,
+    required this.keyFor,
+    required this.highlightedId,
+    required this.coachName,
+  });
   final MessageGroup group;
   final ValueChanged<Message> onEdit;
   final ValueChanged<Message> onDelete;
+  final ValueChanged<Message> onReply;
+  final ValueChanged<String> onQuoteTap;
+  final GlobalKey Function(String messageId) keyFor;
+  final String? highlightedId;
+  final String coachName;
 
   void _showActions(BuildContext context, Message m) {
     final l10n = AppLocalizations.of(context);
+    // Edit/delete are only for the client's own messages; Reply is for everyone.
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
-            if (m.type == messageTypeText)
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: Text(l10n.messagesReply),
+              onTap: () {
+                Navigator.pop(ctx);
+                onReply(m);
+              },
+            ),
+            if (m.isClient && m.type == messageTypeText)
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: Text(l10n.messagesEdit),
@@ -535,17 +673,82 @@ class _Group extends StatelessWidget {
                   onEdit(m);
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: Text(l10n.messagesDelete),
-              onTap: () {
-                Navigator.pop(ctx);
-                onDelete(m);
-              },
-            ),
+            if (m.isClient)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: Text(l10n.messagesDelete),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onDelete(m);
+                },
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _row(BuildContext context, Message m, bool isClient) {
+    final l10n = AppLocalizations.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
+    final highlighted = highlightedId == m.id;
+
+    final bubble = KeyedSubtree(
+      key: keyFor(m.id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: highlighted
+              ? [BoxShadow(color: primary.withValues(alpha: 0.6), spreadRadius: 2)]
+              : const [],
+        ),
+        child: _Bubble(
+          message: m,
+          isClient: isClient,
+          coachName: coachName,
+          onQuoteTap: onQuoteTap,
+        ),
+      ),
+    );
+
+    final row = Align(
+      alignment: isClient
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+        ),
+        child: GestureDetector(
+          onLongPress: m.isDeleted ? null : () => _showActions(context, m),
+          child: bubble,
+        ),
+      ),
+    );
+
+    if (m.isDeleted) return row;
+
+    // Swipe toward the reading direction to reply. confirmDismiss returns false
+    // so the row always springs back instead of being removed.
+    return Dismissible(
+      key: ValueKey('reply-swipe-${m.id}'),
+      direction: DismissDirection.startToEnd,
+      dismissThresholds: const {DismissDirection.startToEnd: 0.2},
+      confirmDismiss: (_) async {
+        onReply(m);
+        return false;
+      },
+      background: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Icon(Icons.reply,
+              semanticLabel: l10n.messagesReply,
+              color: context.appColors.mutedForeground),
+        ),
+      ),
+      child: row,
     );
   }
 
@@ -566,22 +769,7 @@ class _Group extends StatelessWidget {
           for (final m in group.messages)
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: Align(
-                alignment: isClient
-                    ? AlignmentDirectional.centerEnd
-                    : AlignmentDirectional.centerStart,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-                  ),
-                  child: GestureDetector(
-                    onLongPress: (isClient && !m.isDeleted)
-                        ? () => _showActions(context, m)
-                        : null,
-                    child: _Bubble(message: m, isClient: isClient),
-                  ),
-                ),
-              ),
+              child: _row(context, m, isClient),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -593,17 +781,202 @@ class _Group extends StatelessWidget {
   }
 }
 
+/// Accent-barred summary of a quoted message: text excerpt, or a short label
+/// for photo / voice / file, or the deleted notice. Used inside reply bubbles
+/// ([MessageQuote]) and in the composer's preview ([Message]).
+class _QuoteBlock extends StatelessWidget {
+  const _QuoteBlock({
+    required this.senderName,
+    required this.type,
+    required this.body,
+    required this.attachmentName,
+    required this.attachmentUrl,
+    required this.isDeleted,
+    required this.foreground,
+    required this.accent,
+    this.onTap,
+  });
+
+  final String senderName;
+  final String type;
+  final String body;
+  final String? attachmentName;
+  final String? attachmentUrl;
+  final bool isDeleted;
+  final Color foreground;
+  final Color accent;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final style = TextStyle(fontSize: 12, color: foreground.withValues(alpha: 0.85));
+
+    final IconData? icon;
+    final String summary;
+    if (isDeleted) {
+      icon = null;
+      summary = l10n.messagesDeletedPlaceholder;
+    } else if (type == messageTypeImage) {
+      icon = Icons.image_outlined;
+      summary = body.isNotEmpty ? body : l10n.messagesReplyPhoto;
+    } else if (type == messageTypeVoice) {
+      icon = Icons.mic_none;
+      summary = l10n.messagesReplyVoice;
+    } else if (type == messageTypeFile) {
+      icon = Icons.insert_drive_file_outlined;
+      summary = (attachmentName ?? '').isNotEmpty ? attachmentName! : l10n.messagesReplyFile;
+    } else {
+      icon = null;
+      summary = body;
+    }
+    final showThumbnail =
+        !isDeleted && type == messageTypeImage && (attachmentUrl ?? '').isNotEmpty;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: foreground.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: BorderDirectional(start: BorderSide(color: accent, width: 4)),
+        ),
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 6, 8, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(senderName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style.copyWith(fontWeight: FontWeight.w600, color: accent)),
+                  Row(
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 13, color: style.color),
+                        const SizedBox(width: 4),
+                      ],
+                      Expanded(
+                        child: Text(
+                          summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: isDeleted
+                              ? style.copyWith(fontStyle: FontStyle.italic)
+                              : style,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (showThumbnail) ...[
+              const SizedBox(width: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  attachmentUrl!,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox(width: 36, height: 36),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Replying to …" strip above the input, with an X to cancel.
+class _ReplyPreview extends StatelessWidget {
+  const _ReplyPreview({
+    required this.message,
+    required this.senderName,
+    required this.onCancel,
+  });
+
+  final Message message;
+  final String senderName;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuoteBlock(
+              senderName: senderName,
+              type: message.type,
+              body: message.body,
+              attachmentName: message.attachmentName,
+              attachmentUrl: message.attachmentUrl,
+              isDeleted: message.isDeleted,
+              foreground: scheme.onSurface,
+              accent: scheme.primary,
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.messagesCancelReply,
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: onCancel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.isClient});
+  const _Bubble({
+    required this.message,
+    required this.isClient,
+    required this.coachName,
+    required this.onQuoteTap,
+  });
 
   final Message message;
   final bool isClient;
+  final String coachName;
+  final ValueChanged<String> onQuoteTap;
+
+  Widget? _quote(BuildContext context, Color fg) {
+    final quoted = message.replyTo;
+    if (quoted == null || message.isDeleted) return null;
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return _QuoteBlock(
+      senderName: quoted.senderType == messageSenderClient
+          ? l10n.messagesReplyYou
+          : coachName,
+      type: quoted.type,
+      body: quoted.body,
+      attachmentName: quoted.attachmentName,
+      attachmentUrl: quoted.attachmentUrl,
+      isDeleted: quoted.isDeleted,
+      foreground: fg,
+      accent: isClient ? scheme.onPrimary : scheme.primary,
+      onTap: () => onQuoteTap(quoted.id),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final fg = isClient ? scheme.onPrimary : scheme.onSurface;
     final bg = isClient ? scheme.primary : context.appColors.secondary;
+    final quote = _quote(context, fg);
 
     if (message.isDeleted) {
       final l10n = AppLocalizations.of(context);
@@ -625,6 +998,7 @@ class _Bubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (quote != null) quote,
               GestureDetector(
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => _ImageViewer(url: message.attachmentUrl!),
@@ -663,6 +1037,7 @@ class _Bubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (quote != null) quote,
           Text(message.body, style: TextStyle(fontSize: 14, height: 1.3, color: fg)),
           if (message.isEdited)
             Padding(

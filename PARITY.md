@@ -23,6 +23,7 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
+- [ ] 2026-10-30 — 0de907b — messenger replies (client portal chat) — clients can reply to a specific message (quote on the bubble, preview above the input, tap-to-jump); mobile messages page was ported in the same commit (swipe, long-press menu, quote) — prune at triage
 - [ ] 2026-10-28 — d4e1d4c — nutrition builder panels (coach web) — panels accept a readOnly prop (no edit controls, values shown as labels) for the Messenger client quick view; the client portal and builder pages are unchanged; coach web only, no mobile app equivalent — prune at triage
 - [ ] 2026-10-18 — 8c112fd — nutrition builder (coach web) — sortable rows no longer block touch scrolling, notes start collapsed, cycle macro summary can be folded; coach web layout only, no mobile app equivalent — prune at triage
 - [ ] 2026-10-18 — adf871a — calorie calculator (coach web) — unit inputs shrink to their column so the grid no longer overflows horizontally; CSS-only fix, no mobile app equivalent — prune at triage

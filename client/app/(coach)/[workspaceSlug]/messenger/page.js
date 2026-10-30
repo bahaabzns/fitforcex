@@ -26,6 +26,7 @@ import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
 import MessageComposer from "@/app/components/MessageComposer";
 import ClientQuickViewModal from "@/app/components/clientQuickView/ClientQuickViewModal";
 import MessageRow from "@/app/components/MessageRow";
+import { useMessageReply } from "@/utils/useMessageReply";
 import ObservationCard from "@/app/components/ObservationCard";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import ObservationModal from "@/app/components/ObservationModal";
@@ -167,6 +168,7 @@ export default function MessengerPage() {
     const [togglingStatus, setTogglingStatus] = useState(false);
     const [me, setMe] = useState(null);
     const messagesEndRef = useRef(null);
+    const { replyingTo, startReply, cancelReply, highlightedId, jumpToMessage } = useMessageReply(messagesEndRef);
     const pollRef = useRef(null);
     const prevMessageCountRef = useRef(0);
     const threadsRefreshTimerRef = useRef(null);
@@ -194,6 +196,7 @@ export default function MessengerPage() {
         setSelectedThreadId(thread.id ?? null);
         setMessages([]);
         setEditingMessage(null);
+        cancelReply();
         setProfileLoading(true);
         api.get(`/api/clients/${thread.client_id}`)
             .then(res => setClientProfile(res.data))
@@ -455,18 +458,19 @@ export default function MessengerPage() {
     // These intentionally don't catch — MessageComposer keeps the draft/attachment/
     // edit state intact on failure so the user can retry, matching the prior
     // "silent — message stays in draft" behavior of the old inline send handler.
-    const handleSendText = async (body) => {
+    const handleSendText = async (body, replyToId) => {
         const threadId = await ensureThreadId();
-        const res = await api.post(`/api/messenger/threads/${threadId}/messages`, { body });
+        const res = await api.post(`/api/messenger/threads/${threadId}/messages`, { body, replyToId });
         setMessages(prev => [...prev, res.data]);
         fetchThreads();
     };
 
-    const handleSendAttachment = async (attachment, caption) => {
+    const handleSendAttachment = async (attachment, caption, replyToId) => {
         const threadId = await ensureThreadId();
         const formData = new FormData();
         formData.append('file', attachment.file, attachment.name);
         if (caption) formData.append('body', caption);
+        if (replyToId) formData.append('replyToId', replyToId);
         if (attachment.durationSeconds) formData.append('durationSeconds', String(attachment.durationSeconds));
         const res = await api.post(`/api/messenger/threads/${threadId}/attachments`, formData);
         setMessages(prev => [...prev, res.data]);
@@ -486,6 +490,7 @@ export default function MessengerPage() {
             const res = await api.delete(`/api/messenger/threads/${selectedThreadId}/messages/${messageId}`);
             setMessages(prev => prev.map(m => m.id === messageId ? res.data : m));
             if (editingMessage?.id === messageId) setEditingMessage(null);
+            if (replyingTo?.id === messageId) cancelReply();
             fetchThreads();
         } catch { /* silent */ }
     };
@@ -500,6 +505,11 @@ export default function MessengerPage() {
             setThreads(prev => prev.map(t => t.id === threadId ? { ...t, status: newStatus } : t));
         } catch { /* silent */ }
         finally { setTogglingStatus(false); }
+    };
+
+    const senderNames = {
+        team:   t('replyYou'),
+        client: selectedThread ? `${selectedThread.fname} ${selectedThread.lname}`.trim() : '',
     };
 
     const segments = buildSegments(messages, locale, { today: t('today'), yesterday: t('yesterday') });
@@ -855,8 +865,12 @@ export default function MessengerPage() {
                                                                     isOwn={isTeam}
                                                                     radiusClass={bubbleRadius(isTeam, pos)}
                                                                     canManage={isTeam && !msg.deleted_at}
-                                                                    onEditStart={m => setEditingMessage({ id: m.id, body: m.body || '' })}
+                                                                    onEditStart={m => { cancelReply(); setEditingMessage({ id: m.id, body: m.body || '' }); }}
                                                                     onDelete={handleDeleteMessage}
+                                                                    onReply={m => { setEditingMessage(null); startReply(m); }}
+                                                                    onJumpToMessage={jumpToMessage}
+                                                                    senderNames={senderNames}
+                                                                    isHighlighted={highlightedId === msg.id}
                                                                 />
                                                             );
                                                         })}
@@ -881,6 +895,9 @@ export default function MessengerPage() {
                                         onSaveEdit={handleSaveEdit}
                                         onSendText={handleSendText}
                                         onSendAttachment={handleSendAttachment}
+                                        replyingTo={replyingTo}
+                                        onCancelReply={cancelReply}
+                                        senderNames={senderNames}
                                     />
                                 </Card.Footer>
                             </>

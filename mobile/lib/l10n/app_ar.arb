@@ -294,6 +294,12 @@
   "messagesDeleteConfirm": "هل تريد حذف هذه الرسالة؟",
   "messagesEditingBanner": "جارٍ تعديل الرسالة",
   "messagesDeletedPlaceholder": "تم حذف هذه الرسالة.",
+  "messagesReply": "رد",
+  "messagesCancelReply": "إلغاء الرد",
+  "messagesReplyYou": "أنت",
+  "messagesReplyPhoto": "صورة",
+  "messagesReplyVoice": "رسالة صوتية",
+  "messagesReplyFile": "ملف",
   "messagesEditedLabel": "(معدّلة)",
 
   "homeWelcome": "مرحباً بعودتك، {name}!",
