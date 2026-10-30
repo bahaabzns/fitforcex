@@ -52,6 +52,20 @@ const options: swaggerJsdoc.Options = {
                         senderId:    { type: 'string' },
                         body:        { type: 'string' },
                         createdAt:   { type: 'string', format: 'date-time' },
+                        reply_to_id: { type: 'string', nullable: true },
+                        reply_to:    {
+                            type: 'object', nullable: true,
+                            description: 'The quoted message (content is null when it was deleted)',
+                            properties: {
+                                id:              { type: 'string' },
+                                sender_type:     { type: 'string', enum: ['team', 'client'] },
+                                type:            { type: 'string', enum: ['text', 'image', 'voice', 'file'] },
+                                body:            { type: 'string', nullable: true },
+                                attachment_name: { type: 'string', nullable: true },
+                                attachment_url:  { type: 'string', nullable: true },
+                                deleted_at:      { type: 'string', format: 'date-time', nullable: true },
+                            },
+                        },
                     },
                 },
                 NutritionPlan: {

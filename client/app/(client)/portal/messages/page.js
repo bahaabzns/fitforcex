@@ -11,6 +11,7 @@ import { Send } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import MessageComposer from "@/app/components/MessageComposer";
 import MessageRow from "@/app/components/MessageRow";
+import { useMessageReply } from "@/utils/useMessageReply";
 import EmptyState from "@/app/components/EmptyState";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -78,6 +79,7 @@ export default function ClientMessagesPage() {
     const [editingMessage, setEditingMessage] = useState(null);
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
+    const { replyingTo, startReply, cancelReply, highlightedId, jumpToMessage } = useMessageReply(messagesEndRef);
     const pollRef = useRef(null);
     const prevMessageCountRef = useRef(0);
 
@@ -109,15 +111,16 @@ export default function ClientMessagesPage() {
 
     // These intentionally don't catch — MessageComposer keeps the draft/attachment/
     // edit state intact on failure so the user can retry.
-    const handleSendText = async (body) => {
-        const res = await api.post('/api/client-portal/messages', { body });
+    const handleSendText = async (body, replyToId) => {
+        const res = await api.post('/api/client-portal/messages', { body, replyToId });
         setMessages(prev => [...prev, res.data]);
     };
 
-    const handleSendAttachment = async (attachment, caption) => {
+    const handleSendAttachment = async (attachment, caption, replyToId) => {
         const formData = new FormData();
         formData.append('file', attachment.file, attachment.name);
         if (caption) formData.append('body', caption);
+        if (replyToId) formData.append('replyToId', replyToId);
         if (attachment.durationSeconds) formData.append('durationSeconds', String(attachment.durationSeconds));
         const res = await api.post('/api/client-portal/messages/attachments', formData);
         setMessages(prev => [...prev, res.data]);
@@ -135,8 +138,11 @@ export default function ClientMessagesPage() {
             const res = await api.delete(`/api/client-portal/messages/${messageId}`);
             setMessages(prev => prev.map(m => m.id === messageId ? res.data : m));
             if (editingMessage?.id === messageId) setEditingMessage(null);
+            if (replyingTo?.id === messageId) cancelReply();
         } catch { /* silent */ }
     };
+
+    const senderNames = { client: t('replyYou'), team: t('coachFallback') };
 
     const segments = buildSegments(messages, locale, { today: t('today'), yesterday: t('yesterday') });
 
@@ -214,8 +220,12 @@ export default function ClientMessagesPage() {
                                                     isOwn={isOwn}
                                                     radiusClass={bubbleRadius(isOwn, pos)}
                                                     canManage={isOwn && !msg.deleted_at}
-                                                    onEditStart={m => setEditingMessage({ id: m.id, body: m.body || '' })}
+                                                    onEditStart={m => { cancelReply(); setEditingMessage({ id: m.id, body: m.body || '' }); }}
                                                     onDelete={handleDeleteMessage}
+                                                    onReply={m => { setEditingMessage(null); startReply(m); }}
+                                                    onJumpToMessage={jumpToMessage}
+                                                    senderNames={senderNames}
+                                                    isHighlighted={highlightedId === msg.id}
                                                 />
                                             );
                                         })}
@@ -239,6 +249,9 @@ export default function ClientMessagesPage() {
                         onSaveEdit={handleSaveEdit}
                         onSendText={handleSendText}
                         onSendAttachment={handleSendAttachment}
+                        replyingTo={replyingTo}
+                        onCancelReply={cancelReply}
+                        senderNames={senderNames}
                     />
                 </Card.Footer>
             </Card>

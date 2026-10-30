@@ -4,7 +4,7 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { toPublicUrl, makeUploader, deleteFile } from '../../lib/storage';
-import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
+import { attachmentTypeFromMime, serializeMessage, resolveReplyTarget, MESSAGE_SELECT } from '../../lib/messageAttachments';
 import { attachmentUploaderFor, isValidAttachmentCategory } from '../../lib/formAttachments';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
@@ -901,7 +901,7 @@ export async function getMessages(req: Request, res: Response, next: NextFunctio
 }
 
 export async function sendMessage(req: Request, res: Response, next: NextFunction) {
-    const { body } = req.body as { body?: string };
+    const { body, replyToId } = req.body as { body?: string; replyToId?: unknown };
     if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
     if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
 
@@ -912,16 +912,21 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
         });
         if (!thread) return res.status(404).json({ error: 'No thread found — open the messages page first' });
 
-        const message = await prisma.messages.create({
+        const reply = await resolveReplyTarget(thread.id, replyToId);
+        if (!reply.ok) return res.status(400).json({ error: reply.error });
+
+        const message = serializeMessage(await prisma.messages.create({
             data: {
                 id:                createId(),
                 thread_id:         thread.id,
                 sender_type:       'client',
                 sender_id:         req.client!.clientId,
                 body:              body.trim(),
+                reply_to_id:       reply.replyToId,
                 read_by_client_at: new Date(),
             },
-        });
+            select: MESSAGE_SELECT,
+        }));
 
         await prisma.threads.update({
             where: { id: thread.id },
@@ -943,7 +948,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             realtime:    { rooms: [`workspace:${req.client!.workspaceId}`], event: 'new_message', payload: { threadId: thread.id, message, fromClient: true } },
         });
 
-        res.status(201).json(serializeMessage(message));
+        res.status(201).json(message);
     } catch (err) {
         next(err);
     }
@@ -953,7 +958,7 @@ export async function sendMessageAttachment(req: Request, res: Response, next: N
     const file = req.file as (Express.Multer.File & { key?: string }) | undefined;
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const { body, durationSeconds } = req.body as { body?: string; durationSeconds?: string };
+    const { body, durationSeconds, replyToId } = req.body as { body?: string; durationSeconds?: string; replyToId?: unknown };
 
     try {
         const thread = await prisma.threads.upsert({
@@ -961,6 +966,9 @@ export async function sendMessageAttachment(req: Request, res: Response, next: N
             create: { id: createId(), workspace_id: req.client!.workspaceId, client_id: req.client!.clientId },
             update: {},
         });
+
+        const reply = await resolveReplyTarget(thread.id, replyToId);
+        if (!reply.ok) return res.status(400).json({ error: reply.error });
 
         const key  = file.key ?? file.path;
         const type = attachmentTypeFromMime(file.mimetype);
@@ -978,8 +986,10 @@ export async function sendMessageAttachment(req: Request, res: Response, next: N
                 attachment_size:     file.size,
                 attachment_mime:     file.mimetype,
                 attachment_duration: type === 'voice' && durationSeconds ? Math.round(Number(durationSeconds)) : null,
+                reply_to_id:         reply.replyToId,
                 read_by_client_at:   new Date(),
             },
+            select: MESSAGE_SELECT,
         });
 
         await prisma.threads.update({
@@ -1061,6 +1071,7 @@ export async function deleteMessage(req: Request, res: Response, next: NextFunct
                 attachment_size:     null,
                 attachment_mime:     null,
                 attachment_duration: null,
+                reply_to_id:         null,
             },
             select: MESSAGE_SELECT,
         });

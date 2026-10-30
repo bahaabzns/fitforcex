@@ -6,6 +6,7 @@ import { TextField } from "@heroui/react/textfield";
 import { TextArea } from "@heroui/react/textarea";
 import { Button } from "@heroui/react/button";
 import EmojiPickerButton from "@/app/components/EmojiPickerButton";
+import ReplyQuote from "@/app/components/ReplyQuote";
 import { useVoiceRecorder, formatDuration } from "@/utils/useVoiceRecorder";
 
 const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
@@ -29,11 +30,16 @@ function attachmentKindFromFile(file) {
  * @param {{ id: string, body: string } | null} editingMessage
  * @param {() => void} onCancelEdit
  * @param {(id: string, body: string) => Promise<void>} onSaveEdit
- * @param {(body: string) => Promise<void>} onSendText
- * @param {(attachment: { kind: 'image'|'voice'|'file', file: File|Blob, name: string, durationSeconds?: number }, caption: string) => Promise<void>} onSendAttachment
+ * @param {(body: string, replyToId?: string) => Promise<void>} onSendText
+ * @param {(attachment: { kind: 'image'|'voice'|'file', file: File|Blob, name: string, durationSeconds?: number }, caption: string, replyToId?: string) => Promise<void>} onSendAttachment
+ * @param {object | null} replyingTo   the message being quoted (also needs t keys:
+ *   cancelReplyLabel, replyPhoto, replyVoice, replyFile, messageDeleted)
+ * @param {() => void} onCancelReply
+ * @param {{ team: string, client: string }} senderNames   display name per sender_type
  */
 export default function MessageComposer({
     t, editingMessage, onCancelEdit, onSaveEdit, onSendText, onSendAttachment,
+    replyingTo = null, onCancelReply, senderNames = {},
 }) {
     const [draft, setDraft] = useState(editingMessage ? (editingMessage.body ?? "") : "");
     const [pendingAttachment, setPendingAttachment] = useState(null);
@@ -121,7 +127,10 @@ export default function MessageComposer({
 
         if (pendingAttachment) {
             setSending(true);
-            try { await onSendAttachment(pendingAttachment, draft.trim()); setPendingAttachment(null); setDraft(""); }
+            try {
+                await onSendAttachment(pendingAttachment, draft.trim(), replyingTo?.id);
+                setPendingAttachment(null); setDraft(""); onCancelReply?.();
+            }
             catch (err) { setSendError(err?.response?.data?.error || t("sendFailed")); }
             finally { setSending(false); }
             return;
@@ -129,7 +138,7 @@ export default function MessageComposer({
 
         if (!draft.trim()) return;
         setSending(true);
-        try { await onSendText(draft.trim()); setDraft(""); }
+        try { await onSendText(draft.trim(), replyingTo?.id); setDraft(""); onCancelReply?.(); }
         catch (err) { setSendError(err?.response?.data?.error || t("sendFailed")); }
         finally { setSending(false); }
     }
@@ -162,6 +171,22 @@ export default function MessageComposer({
                     <span className="text-xs font-medium text-primary">{t("editingLabel")}</span>
                     <button type="button" onClick={onCancelEdit} className="text-muted-foreground hover:text-foreground transition-colors">
                         <X size={14} />
+                    </button>
+                </div>
+            )}
+
+            {replyingTo && !editingMessage && (
+                <div className="flex items-start gap-2 -mx-1">
+                    <div className="flex-1 min-w-0">
+                        <ReplyQuote replyTo={replyingTo} senderNames={senderNames} t={t} />
+                    </div>
+                    <button
+                        type="button"
+                        aria-label={t("cancelReplyLabel")}
+                        className="mt-1 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                        onClick={onCancelReply}
+                    >
+                        <X size={15} />
                     </button>
                 </div>
             )}

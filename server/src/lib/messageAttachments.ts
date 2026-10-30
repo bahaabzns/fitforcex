@@ -1,5 +1,6 @@
 import multerS3 from 'multer-s3';
 import { makeUploader, toPublicUrl } from './storage';
+import { prisma } from './prisma';
 
 // Shared between the coach messenger and the client portal chat — both send/
 // receive the same `messages` rows, so the upload rules and the URL
@@ -38,6 +39,15 @@ export function attachmentTypeFromMime(mime: string): 'image' | 'voice' | 'file'
     return 'file';
 }
 
+/**
+ * Minimal projection of a quoted (replied-to) message. A deleted original has its
+ * body/attachment nulled at delete time, so this never leaks removed content.
+ */
+export const REPLY_TO_SELECT = {
+    id: true, sender_type: true, type: true, body: true,
+    attachment_name: true, attachment_url: true, deleted_at: true,
+} as const;
+
 /** Shared Prisma `select` for a message row — used by every read/write path on both sides of the chat. */
 export const MESSAGE_SELECT = {
     id: true, sender_type: true, sender_id: true, body: true,
@@ -45,9 +55,42 @@ export const MESSAGE_SELECT = {
     attachment_mime: true, attachment_duration: true,
     edited_at: true, deleted_at: true,
     read_by_team_at: true, read_by_client_at: true, created_at: true,
+    reply_to_id: true,
+    reply_to: { select: REPLY_TO_SELECT },
 } as const;
 
-/** Converts a message's stored attachment key to a servable URL for API responses. */
-export function serializeMessage<T extends { attachment_url: string | null }>(message: T): T {
-    return { ...message, attachment_url: toPublicUrl(message.attachment_url) };
+type SerializableMessage = {
+    attachment_url: string | null;
+    reply_to?: { attachment_url: string | null } | null;
+};
+
+/** Converts a message's (and its quoted message's) stored attachment key to a servable URL for API responses. */
+export function serializeMessage<T extends SerializableMessage>(message: T): T {
+    const serialized = { ...message, attachment_url: toPublicUrl(message.attachment_url) };
+    if (message.reply_to) {
+        serialized.reply_to = { ...message.reply_to, attachment_url: toPublicUrl(message.reply_to.attachment_url) };
+    }
+    return serialized;
+}
+
+export type ReplyTargetCheck =
+    | { ok: true; replyToId: string | null }
+    | { ok: false; error: string };
+
+/**
+ * Validates an optional `replyToId` from a send request: it must name a live
+ * message in the SAME thread, so a caller can't quote (and thereby read) a
+ * message from another conversation or workspace.
+ */
+export async function resolveReplyTarget(threadId: string, raw: unknown): Promise<ReplyTargetCheck> {
+    if (raw === undefined || raw === null || raw === '') return { ok: true, replyToId: null };
+    if (typeof raw !== 'string') return { ok: false, error: 'replyToId must be a string' };
+
+    const target = await prisma.messages.findFirst({
+        where:  { id: raw, thread_id: threadId },
+        select: { id: true, deleted_at: true },
+    });
+    if (!target) return { ok: false, error: 'Message to reply to was not found in this conversation' };
+    if (target.deleted_at) return { ok: false, error: 'You cannot reply to a deleted message' };
+    return { ok: true, replyToId: target.id };
 }
