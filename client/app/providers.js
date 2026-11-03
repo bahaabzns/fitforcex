@@ -30,6 +30,7 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                     forcedTheme={inDemo ? 'dark' : undefined}
                 >
                     <RouterProvider>
+                        {inDemo && <style>{`html, body { scrollbar-width: none; -ms-overflow-style: none; } html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; }`}</style>}
                         <OverlayInertFix />
                         {!inDemo && <MetaPixelTracker />}
                         {!inDemo && <ClarityTracker />}
