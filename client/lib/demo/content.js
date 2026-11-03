@@ -97,3 +97,40 @@ export function localizeDeep(value) {
     };
     return walk(copy);
 }
+
+// ── Progress: five check-ins two weeks apart, ending today, plus a before/after photo pair ────────────
+const STEP_MS = 14 * 24 * 3_600_000;
+const KEEP = [0, 2, 4, 6, 7];
+const METRIC_SERIES = [
+    { id: "demo-m-weight", name: "Weight", unit: "kg", icon: "⚖️", values: [78.4, 77.8, 77.1, 76.6, 75.9, 75.3, 74.8, 74.2] },
+    { id: "demo-m-waist", name: "Waist", unit: "cm", icon: "📏", values: [86, 85.2, 84.5, 83.6, 82.9, 82.1, 81.4, 80.6] },
+    { id: "demo-m-hip", name: "Hip", unit: "cm", icon: "📏", values: [101.5, 101, 100.4, 99.9, 99.3, 98.8, 98.2, 97.7] },
+    { id: "demo-m-chest", name: "Chest", unit: "cm", icon: "📏", values: [92, 92, 92.3, 92.5, 92.6, 92.9, 93, 93.2] },
+    { id: "demo-m-bodyfat", name: "Body Fat", unit: "%", icon: "📊", values: [27.4, 26.9, 26.3, 25.8, 25.2, 24.7, 24.1, 23.6] },
+    { id: "demo-m-leftarm", name: "Left Arm", unit: "cm", icon: "💪", values: [28.2, 28.3, 28.5, 28.6, 28.8, 29, 29.1, 29.3] },
+    { id: "demo-m-rightarm", name: "Right Arm", unit: "cm", icon: "💪", values: [28.6, 28.7, 28.9, 29, 29.2, 29.4, 29.5, 29.7] },
+];
+
+export function buildTransformation(locale) {
+    const now = Date.now();
+    const last = KEEP.length - 1;
+    const dateAt = (index) => new Date(now - (last - index) * STEP_MS - 2 * 3_600_000).toISOString();
+    const photoPath = (kind) => `/lp/demo/${locale === "ar" ? "ar" : "en"}-${kind}.webp`;
+    const metrics = METRIC_SERIES.map((series) => ({
+        id: series.id, name: series.name, unit: series.unit, type: "number", icon: series.icon,
+        history: KEEP.map((source, index) => ({ date: dateAt(index), value: String(series.values[source]), responseId: `${series.id}-${index}` })),
+    }));
+    metrics.push({
+        id: "demo-m-front", name: "Front Photo", unit: null, type: "image", icon: "📷",
+        history: [
+            { date: dateAt(0), value: photoPath("before"), responseId: "demo-photo-before" },
+            { date: dateAt(last), value: photoPath("after"), responseId: "demo-photo-after" },
+        ],
+    });
+    return {
+        metrics,
+        timeline: [dateAt(last), dateAt(0)].map((submittedAt, index) => ({
+            submissionId: `demo-submission-${index}`, submittedAt, formTitle: "Progress Measurements", formTitleAr: "قياسات التقدم", answers: [],
+        })),
+    };
+}

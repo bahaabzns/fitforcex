@@ -539,7 +539,9 @@
 .lp-demo-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--lp-text-2); background: #000; pointer-events: none; }
 @media (min-width: 900px) {
   .lp-demo-app { grid-template-columns: 1fr auto; gap: 56px; }
-  .lp-demo-phone { --phone-w: 340px; }
+  /* Height follows the visitor's screen (leaving room for the sticky nav); width follows from the 9:16.2 ratio. */
+  .lp-demo-phone { --phone-h: clamp(560px, calc(100vh - 170px), 860px); --phone-w: calc(var(--phone-h) * 9 / 16.2); aspect-ratio: 9 / 16.2; }
+  .lp-demo-app { grid-template-columns: 1fr auto; gap: 48px; }
 }
 
 /* Full-screen demo on phones */
@@ -556,4 +558,10 @@
 @media (max-width: 899px) {
   .lp-demo-app__phone { order: -1; }
   .lp-demo-app__side .lp-demo-app__note { text-align: center; }
+}
+
+/* Demo phone on desktop: wider and shorter so the real app's cards have room to breathe. */
+@media (min-width: 900px) {
+  .lp-demo-phone { border-radius: 44px; }
+  .lp-demo-phone .lp-phone-frame__screen { border-radius: 37px; }
 }

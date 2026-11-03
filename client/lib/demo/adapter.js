@@ -3,7 +3,7 @@
 // State (eaten meals, swaps, messages, forms, workouts) lives in this module, so reloading the
 // iframe is the "start over" button.
 import fixtures from "./portal-fixtures.json";
-import { DEMO_MESSAGES, DEMO_REPLY, localizeDeep, FOOD_CATALOG, FOOD_GROUP_LABELS } from "./content";
+import { DEMO_MESSAGES, DEMO_REPLY, localizeDeep, buildTransformation, FOOD_CATALOG, FOOD_GROUP_LABELS } from "./content";
 
 const LATENCY_MS = 120;
 const COACH_REPLY_DELAY_MS = 2200;
@@ -232,6 +232,7 @@ function route(method, path, config) {
         if (path === "/api/client-portal/food-diary/today") return clone(getDiary());
         if (path === "/api/client-portal/active-training-plan") return trainingPlan();
         if (path === "/api/client-portal/prompts/active") return "";
+        if (path === "/api/client-portal/transformation") return buildTransformation(isArabic() ? "ar" : "en");
         if (path === "/api/client-portal/me" || path === "/api/client-portal/branding") {
             const data = fixture(path);
             const welcome = WELCOME[isArabic() ? "ar" : "en"];
