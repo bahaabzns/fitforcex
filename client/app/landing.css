@@ -364,8 +364,10 @@
 }
 .lp-chip.is-active { background: var(--lp-blue); color: var(--lp-on-blue); border-color: var(--lp-blue); }
 .lp-day { display: grid; gap: 20px; }
-.lp-day__list { display: none; list-style: none; margin: 0; padding: 0; flex-direction: column; gap: 14px; }
-.lp-day__list li { min-height: 170px; display: flex; align-items: flex-start; }
+.lp-closing--cta { margin-top: 36px; color: var(--lp-blue); text-decoration: underline; text-underline-offset: 6px; }
+.lp-caption__next { margin-top: 8px; width: fit-content; min-height: 44px; padding: 0 18px; border-radius: 14px; cursor: pointer; color: #fff; font: inherit; font-weight: 600; background: var(--lp-glass); border: 1px solid var(--lp-glass-border); }
+.lp-day__list { display: none; list-style: none; margin: 0; padding: 0; flex-direction: column; gap: 10px; }
+.lp-day__list li { min-height: 0; display: flex; align-items: flex-start; }
 .lp-stepbtn {
   width: 100%; display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px; border-radius: 20px; cursor: pointer;
   color: inherit; font: inherit; text-align: start; transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
@@ -373,20 +375,24 @@
 .lp-stepbtn .lp-num { font-size: 2.3rem; }
 .lp-stepbtn__copy { display: flex; flex-direction: column; gap: 4px; }
 .lp-stepbtn__copy strong { font-family: "Alexandria", sans-serif; font-size: 1.12rem; line-height: 1.5; }
-.lp-stepbtn__copy span { color: var(--lp-text-3); font-size: 0.95rem; line-height: 1.8; }
+.lp-stepbtn__copy span { color: var(--lp-text-3); font-size: 0.95rem; line-height: 1.8; display: none; }
 .lp-stepbtn.is-active { background: rgba(47, 169, 255, 0.1); border-color: rgba(47, 169, 255, 0.55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 20px 60px -24px rgba(47, 169, 255, 0.55); }
-.lp-stepbtn.is-active .lp-stepbtn__copy span { color: var(--lp-text-2); }
-.lp-stage { position: relative; width: 100%; aspect-ratio: 16 / 11; }
+.lp-stepbtn.is-active .lp-stepbtn__copy span { display: block; color: var(--lp-text-2); }
+.lp-stepbtn:not(.is-active) { align-items: center; padding-block: 14px; }
+.lp-stepbtn:not(.is-active) .lp-num { font-size: 1.7rem; }
+.lp-stage { position: relative; width: 100%; aspect-ratio: 16 / 10; }
 .lp-stage__layer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.45s ease; }
 .lp-stage__layer.is-active { opacity: 1; pointer-events: auto; }
-.lp-stage__phones { display: flex; justify-content: center; gap: 22px; height: 100%; }
+.lp-stage__layer .lp-browser { height: 100%; }
+.lp-stage__panel { background: radial-gradient(ellipse at 50% 0%, rgba(47, 169, 255, 0.18), transparent 70%), var(--lp-glass); }
+.lp-stage__phones { display: flex; justify-content: center; align-items: center; gap: 28px; height: 100%; padding: 18px; }
 .lp-stage__phones .lp-phone-frame { height: 100%; width: auto; }
 .lp-caption { display: flex; flex-direction: column; gap: 4px; margin-top: 20px; }
 .lp-caption strong { font-family: "Alexandria", sans-serif; font-size: 1.15rem; }
 .lp-caption span { color: var(--lp-text-2); }
 @media (min-width: 960px) {
   .lp-chips, .lp-caption { display: none; }
-  .lp-day { grid-template-columns: 0.8fr 1.2fr; gap: 48px; align-items: start; }
+  .lp-day { grid-template-columns: 0.62fr 1.38fr; gap: 40px; align-items: start; }
   .lp-day__list { display: flex; }
   .lp-stage { position: sticky; top: 96px; }
 }
@@ -429,3 +435,10 @@
 .lp-compare[open] summary { margin-bottom: 20px; }
 
 @media (prefers-reduced-motion: reduce) { .lp-bar { transition: none; } }
+
+@media (max-width: 959px) {
+  .lp-stage { aspect-ratio: 5 / 4; }
+  .lp-stage__phones { gap: 16px; padding: 14px; }
+  .lp-stage__phones .lp-phone-frame { border-radius: 26px; padding: 5px; }
+  .lp-stage__phones .lp-phone-frame__screen { border-radius: 21px; }
+}

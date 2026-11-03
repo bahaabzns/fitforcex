@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LANDING_DAY_STEPS, LANDING_SECTIONS, LANDING_SHOTS } from "@/lib/landingConfig";
 import { LpBrowser, LpPhoneFrame } from "./LpFrames";
@@ -19,13 +20,15 @@ function StepVisual({ shotIds, alt }) {
         );
     }
     return (
-        <div className="lp-stage__phones">
-            {shotIds.map((id, index) => (
-                <LpPhoneFrame key={id}>
-                    <LpShotImage shotId={id} alt={index === 0 ? alt : ""} />
-                </LpPhoneFrame>
-            ))}
-        </div>
+        <LpBrowser className="lp-stage__panel">
+            <div className="lp-stage__phones">
+                {shotIds.map((id, index) => (
+                    <LpPhoneFrame key={id}>
+                        <LpShotImage shotId={id} alt={index === 0 ? alt : ""} />
+                    </LpPhoneFrame>
+                ))}
+            </div>
+        </LpBrowser>
     );
 }
 
@@ -114,7 +117,12 @@ export default function LpDay() {
                 <div className="lp-caption" aria-live="polite">
                     <strong>{steps[active].title}</strong>
                     <span>{steps[active].text}</span>
+                    {active < steps.length - 1 && (
+                        <button type="button" className="lp-caption__next" onClick={() => choose(active + 1)}>{tUi("next")}</button>
+                    )}
                 </div>
+
+                <Link href="/register" className="lp-closing lp-closing--cta">{t("cta")}</Link>
             </div>
         </section>
     );

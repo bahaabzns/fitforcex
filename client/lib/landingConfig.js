@@ -36,9 +36,10 @@ export const LANDING_COACHES = [
 // in the same order as the arrays here. `toolMarker` is the one marker shown in the bento crop
 // (it must stay inside the zoomed crop on every screen size). Arabic screens are mirrored, so x flips unless mirror is false.
 export const LANDING_SHOTS = {
-    addClient: { kind: "browser", file: "b-{l}-add-client", w: 2304, h: 1440, focus: { x: 50, y: 48, zoom: 1.9 } },
-    nutrition: { kind: "browser", file: "b-{l}-nutrition", w: 2304, h: 1440, focus: { x: 52, y: 45, zoom: 1.6 } },
-    foodDiary: { kind: "browser", file: "b-{l}-food-diary", w: 2304, h: 1440, focus: { x: 45, y: 40, zoom: 1.45 } },
+    addClient: { kind: "browser", file: "b-{l}-add-client", w: 2304, h: 1440, focus: { x: 50, y: 47, zoom: 1.55 } },
+    nutrition: { kind: "browser", file: "b-{l}-nutrition", w: 2304, h: 1440, focus: { x: 52, y: 45, zoom: 1.3 } },
+    foodDiary: { kind: "browser", file: "b-{l}-food-diary", w: 2304, h: 1440, focus: { x: 40, y: 31, zoom: 1.75 } },
+    finance: { kind: "browser", file: "b-{l}-finance", w: 1500, h: 940, focus: { x: 50, y: 50, zoom: 1 } },
     clients: { kind: "browser", file: "b-{l}-clients", w: 2304, h: 1440, focus: { x: 65, y: 48, zoom: 1.5 } },
     phoneNutrition: { kind: "phone", file: "{l}-portal-nutrition", w: 1170, h: 2532, focus: { x: 50, y: 50, zoom: 1 } },
     training: { kind: "phone", file: "{l}-portal-training", w: 1170, h: 2532, focus: { x: 50, y: 50, zoom: 1 } },
@@ -50,7 +51,7 @@ export const LANDING_SHOTS = {
 
 // Order matters: matches `lp.day.steps` and `lp.phones.screens` in the messages.
 // Day step 3 is the client's phone, shown as two phones in the same stage.
-export const LANDING_DAY_STEPS = [["addClient"], ["nutrition"], ["phoneNutrition", "training"], ["foodDiary"], ["clients"]];
+export const LANDING_DAY_STEPS = [["addClient"], ["nutrition"], ["phoneNutrition", "training"], ["foodDiary"], ["finance"]];
 export const LANDING_PHONE_SCREENS = ["phoneNutrition", "shopping", "swap"];
 
 export function shotSrc(shot, locale) {

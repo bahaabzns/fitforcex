@@ -3464,9 +3464,10 @@
         {
           "title": "Stay on top of renewals and follow-ups",
           "text": "Every client’s status, package and payments in one list, with a messenger for the follow-up.",
-          "alt": "The clients list with status, package and date columns"
+          "alt": "The transactions screen with payment totals, payment methods and a transactions table"
         }
-      ]
+      ],
+      "cta": "Try it on your clients: start free"
     },
     "pricing": {
       "title": "Pick the plan that fits your roster",
@@ -3568,7 +3569,8 @@
       ]
     },
     "ui": {
-      "steps": "Steps"
+      "steps": "Steps",
+      "next": "Next step"
     }
   }
 }
