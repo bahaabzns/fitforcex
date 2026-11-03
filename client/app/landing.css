@@ -343,7 +343,7 @@
 @media (min-width: 800px) { .lp-coaches { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1100px) { .lp-coaches { grid-template-columns: repeat(3, 1fr); } }
 .lp-coach { height: 132px; overflow: hidden; display: flex; flex-direction: row; align-items: stretch; }
-.lp-coach__photo { position: relative; flex: none; width: 112px; height: 132px; }
+.lp-coach__photo { position: relative; flex: none; width: 106px; height: 132px; }
 .lp-coach__photo img { object-fit: cover; }
 .lp-coach__body { padding: 14px 18px; display: flex; flex-direction: column; justify-content: center; gap: 4px; flex: 1; min-width: 0; }
 .lp-coach__body h3 { font-size: 1.1rem; }
@@ -383,7 +383,7 @@
 .lp-chip { flex: none; scroll-snap-align: start; cursor: pointer; border-radius: 14px; font-family: "Alexandria", sans-serif; font-weight: 700; color: var(--lp-text-2); background: var(--lp-glass); border: 1px solid var(--lp-glass-border); }
 .lp-chip.is-active { background: var(--lp-blue); color: var(--lp-on-blue); border-color: var(--lp-blue); }
 .lp-day { display: grid; gap: 20px; }
-.lp-closing--cta { margin-top: 36px; color: var(--lp-blue); text-decoration: underline; text-underline-offset: 6px; }
+.lp-day__cta { display: flex; justify-content: center; margin-top: 36px; }
 .lp-caption__next { margin-top: 8px; width: fit-content; min-height: 44px; padding: 0 18px; border-radius: 14px; cursor: pointer; color: #fff; font: inherit; font-weight: 600; background: var(--lp-glass); border: 1px solid var(--lp-glass-border); }
 .lp-day__list { display: none; list-style: none; margin: 0; padding: 0; flex-direction: column; gap: 10px; }
 .lp-day__list li { min-height: 0; display: flex; align-items: stretch; flex: 0 0 auto; }
@@ -503,10 +503,10 @@
 @media (prefers-reduced-motion: reduce) { .lp-dots-row .lp-dot::before { transition: none; } }
 
 /* Pricing: bullets moved to one shared line. */
-.lp-plan__later { margin: -8px 0 0; text-align: center; color: var(--lp-text-3); font-size: 0.9rem; }
+.lp-plan__later { margin: 0; text-align: center; color: var(--lp-text-3); font-size: 0.9rem; }
 .lp-plan__later a { display: inline-flex; align-items: center; min-height: 44px; color: var(--lp-blue); font-weight: 600; }
 .lp-plan__later a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.lp-shared { max-width: 760px; margin: 28px auto 0; text-align: center; color: var(--lp-text-2); line-height: 1.9; }
+.lp-compare .lp-shared { max-width: 760px; margin: 28px auto 0; text-align: center; color: var(--lp-text-2); line-height: 1.9; }
 
 @media (max-width: 767px) {
   /* Headings lighter so content starts sooner. */
@@ -589,3 +589,37 @@
 .lp-bring__shot { aspect-ratio: 5 / 3; border-radius: 14px; overflow: hidden; background: #18181b; border: 1px solid var(--lp-glass-border); display: grid; place-items: center; margin-bottom: 8px; }
 .lp-bring__shot img { max-width: 100%; max-height: 100%; display: block; }
 .lp-bring h3, .lp-bring p { padding-inline: 8px; }
+
+/* Pricing: buttons sit on one line across cards; client count is the second highlight after price. */
+.lp-plan__actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.lp-plan__clients { color: var(--lp-blue); font-weight: 700; font-size: 1.15rem; }
+.lp-plan__meta .lp-plan__clients { display: inline-block; padding: 4px 14px; border-radius: 999px; background: rgba(47, 169, 255, 0.12); border: 1px solid rgba(47, 169, 255, 0.35); }
+
+/* Problem rows on phones: a clear before -> after pair. */
+.lp-row__tag { display: none; }
+@media (max-width: 799px) {
+  .lp-row { grid-template-columns: 1fr; }
+  .lp-row__arrow { display: block; margin: -2px auto; padding: 0; background: rgba(47, 169, 255, 0.09); width: 100%; height: 22px; }
+  .lp-row__before, .lp-row__after { flex-wrap: wrap; gap: 6px 12px; border-radius: 0; }
+  .lp-row__before p, .lp-row__after p { flex-basis: 100%; }
+  .lp-row__before p { text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, 0.3); }
+  .lp-row__tag { display: inline-block; margin-inline-start: auto; padding: 1px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: rgba(255, 255, 255, 0.08); color: var(--lp-text-3); }
+  .lp-row__after .lp-row__tag { background: rgba(47, 169, 255, 0.2); color: var(--lp-blue); }
+  .lp-row__before svg, .lp-row__after svg { order: -1; }
+  .lp-row__tag { order: 0; }
+}
+
+/* Day section on phones: one segmented control, centered copy. */
+@media (max-width: 959px) {
+  .lp-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; overflow: visible; padding: 5px; border-radius: 18px; background: var(--lp-glass); border: 1px solid var(--lp-glass-border); }
+  .lp-chip { min-width: 0; padding: 8px 2px; font-size: 0.72rem; background: transparent; border-color: transparent; }
+  .lp-caption { align-items: center; text-align: center; }
+  .lp-caption__next { align-self: center; }
+  .lp-scope { justify-self: center; }
+}
+
+/* Import screenshots keep their own proportions, so no empty bands above or below. */
+.lp-bring__shot { aspect-ratio: auto; display: block; }
+.lp-bring__shot img { width: 100%; height: auto; max-height: none; }
+.lp-plan__meta { align-self: flex-start; }
+.lp-range__head .lp-plan__clients { color: var(--lp-blue); font-size: 1.15rem; }

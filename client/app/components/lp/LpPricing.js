@@ -80,7 +80,7 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
                 <div className="lp-range">
                     <div className="lp-range__head">
                         <label htmlFor={sliderId}>{t("variantLabel")}</label>
-                        <strong>{clientsLabel}</strong>
+                        <strong className="lp-plan__clients">{clientsLabel}</strong>
                     </div>
                     <input
                         id={sliderId}
@@ -100,15 +100,17 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
                 </div>
             ) : (
                 <div className="lp-plan__meta">
-                    <span>{clientsLabel}</span>
+                    <span className="lp-plan__clients">{clientsLabel}</span>
                 </div>
             )}
             <div className="lp-plan__meta">
                 <span>{seats == null ? t("unlimitedSeats") : t("seats", { count: seats })}</span>
             </div>
 
+            <div className="lp-plan__actions">
             <Link href={checkoutHref} className={`lp-btn lp-btn--full ${plan.is_popular ? "lp-btn--primary" : "lp-btn--glass"}`}>{t("choose")}</Link>
             <p className="lp-plan__later"><Link href="/register">{t("orStartFree")}</Link></p>
+            </div>
         </article>
     );
 }

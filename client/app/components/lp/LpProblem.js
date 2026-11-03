@@ -39,11 +39,13 @@ export default function LpProblem() {
                                 <li key={before} className="lp-row">
                                     <div className="lp-row__before">
                                         <BeforeIcon size={22} aria-hidden="true" />
+                                        <span className="lp-row__tag" aria-hidden="true">{t("beforeTag")}</span>
                                         <p><span className="sr-only">{t("withoutTitle")}: </span>{before}</p>
                                     </div>
                                     <ArrowRight className="lp-row__arrow" size={22} aria-hidden="true" />
                                     <div className="lp-row__after">
                                         <AfterIcon size={22} aria-hidden="true" />
+                                        <span className="lp-row__tag" aria-hidden="true">{t("afterTag")}</span>
                                         <p><span className="sr-only">{t("withTitle")}: </span>{withFitForce[index]}</p>
                                     </div>
                                 </li>

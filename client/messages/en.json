@@ -3453,7 +3453,9 @@
         "Packages and payments kept on each client",
         "Active, expired and frozen clients visible at a glance"
       ],
-      "closing": "The rest is in the steps below."
+      "closing": "The rest is in the steps below.",
+      "beforeTag": "Before",
+      "afterTag": "With FitForce"
     },
     "day": {
       "title": "A day with FitForce, step by step",
@@ -3546,15 +3548,15 @@
         },
         {
           "q": "Which payment methods can I use to subscribe?",
-          "a": "[Payment methods]"
+          "a": "You can pay with InstaPay, Vodafone Cash or Visa."
         },
         {
           "q": "Is my clients' data safe?",
-          "a": "[Data protection details]"
+          "a": "Every coach works in a separate workspace, and your clients' data is never visible to other coaches. Clients sign in with their own account and only see their own data. Passwords are stored hashed (bcrypt), sessions use httpOnly cookies and are verified on the server, and the API has security headers and rate limiting. Payments go through an external payment gateway."
         },
         {
           "q": "When is support available?",
-          "a": "[Support hours]"
+          "a": "Technical support is available Sunday to Thursday, from 11 AM to 7 PM."
         },
         {
           "q": "Is it really in Arabic?",

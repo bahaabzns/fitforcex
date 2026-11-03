@@ -134,7 +134,9 @@ export default function LpDay() {
                     )}
                 </div>
 
-                <Link href="/register" className="lp-closing lp-closing--cta">{t("cta")}</Link>
+                <div className="lp-day__cta">
+                    <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">{t("cta")}</Link>
+                </div>
             </div>
         </section>
     );
