@@ -2,6 +2,13 @@ import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import { LANDING_SECTIONS } from "@/lib/landingConfig";
 
+// Answers still waiting for real copy are written as [bracketed] text and shown in amber.
+function Answer({ text }) {
+    return text.split(/(\[[^\]]+\])/).map((part, index) => (
+        part.startsWith("[") ? <span key={index} className="lp-placeholder">{part}</span> : part
+    ));
+}
+
 export default function LpFaq() {
     const t = useTranslations("lp.faq");
     const items = t.raw("items");
@@ -19,7 +26,7 @@ export default function LpFaq() {
                                 {q}
                                 <ChevronDown size={22} aria-hidden="true" />
                             </summary>
-                            <p>{a}</p>
+                            <p><Answer text={a} /></p>
                         </details>
                     ))}
                 </div>

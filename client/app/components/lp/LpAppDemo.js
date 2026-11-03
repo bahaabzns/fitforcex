@@ -103,7 +103,7 @@ export default function LpAppDemo() {
         <>
             <LpShotImage shotId="phoneNutrition" alt={t("posterAlt")} />
             <div className="lp-demo-facade">
-                <button type="button" className="lp-btn lp-btn--primary lp-btn--lg" onClick={start}>
+                <button type="button" data-pixel="ViewContent" className="lp-btn lp-btn--primary lp-btn--lg" onClick={start}>
                     <Play size={18} fill="currentColor" strokeWidth={0} aria-hidden="true" />
                     {t("try")}
                 </button>

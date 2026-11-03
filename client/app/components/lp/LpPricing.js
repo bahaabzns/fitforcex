@@ -53,6 +53,11 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
     const seats = variation?.max_team_seats;
     const clientsLabel = variation?.max_clients == null ? t("unlimitedClients") : t("upTo", { count: format(variation.max_clients) });
 
+    // The same params checkout reads, so the button lands on the plan, period and tier shown on the card.
+    const checkoutHref = `/register?plan=${encodeURIComponent(plan.name)}`
+        + (period?.period_key ? `&period=${encodeURIComponent(period.period_key)}` : "")
+        + (variation ? `&variation=${encodeURIComponent(variation.id)}` : "");
+
     return (
         <article className={`lp-glass lp-plan ${plan.is_popular ? "lp-glass--blue" : ""}`}>
             <span className="lp-plan__badge" aria-hidden={!plan.is_popular} style={plan.is_popular ? undefined : { visibility: "hidden" }}>{t("featured")}</span>
@@ -102,8 +107,8 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
                 <span>{seats == null ? t("unlimitedSeats") : t("seats", { count: seats })}</span>
             </div>
 
-            <Link href="/register" className={`lp-btn lp-btn--full ${plan.is_popular ? "lp-btn--primary" : "lp-btn--glass"}`}>{t("choose")}</Link>
-            <p className="lp-plan__later">{t("upgradeLater")}</p>
+            <Link href={checkoutHref} className={`lp-btn lp-btn--full ${plan.is_popular ? "lp-btn--primary" : "lp-btn--glass"}`}>{t("choose")}</Link>
+            <p className="lp-plan__later"><Link href="/register">{t("orStartFree")}</Link></p>
         </article>
     );
 }

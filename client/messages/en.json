@@ -3391,7 +3391,26 @@
         "description": ""
       },
       "photoPlaceholder": "[Coach photo]",
-      "bioPlaceholder": "[Short bio]"
+      "bioPlaceholder": "[Short bio]",
+      "namePlaceholder": "[Coach name]",
+      "stats": {
+        "label": "FitForce right now",
+        "coaches": "coaches",
+        "clients": "clients",
+        "plans": "plans built"
+      },
+      "coach4": {
+        "name": "Fitness Savior",
+        "description": ""
+      },
+      "coach5": {
+        "name": "",
+        "description": ""
+      },
+      "coach6": {
+        "name": "",
+        "description": ""
+      }
     },
     "meta": {
       "title": "FitForce — Run your online coaching from one place",
@@ -3489,7 +3508,7 @@
       "seats": "{count, plural, one {# team seat} other {# team seats}}",
       "unlimitedSeats": "Unlimited team seats",
       "featured": "Most popular",
-      "choose": "Start free",
+      "choose": "Subscribe",
       "variantLabel": "Number of clients",
       "billing": "Billing period",
       "billedEvery": "billed {amount} EGP every {months} months",
@@ -3505,8 +3524,8 @@
       "free": "Just trying it? Start free with up to 3 clients.",
       "enterprise": "Need more than this? Talk to us.",
       "compare": "Compare plans",
-      "upgradeLater": "Start free and upgrade when you need to",
-      "shared": "Every plan includes: unlimited training and nutrition plans, a client portal and app, exercise and food libraries, check-ins and forms, progress photos and reports, in-app chat, and your own branding."
+      "shared": "Every plan includes: unlimited training and nutrition plans, a client portal and app, exercise and food libraries, check-ins and forms, progress photos and reports, in-app chat, and your own branding.",
+      "orStartFree": "Or start free with up to 3 clients"
     },
     "faq": {
       "title": "Questions coaches ask",
@@ -3522,6 +3541,22 @@
         {
           "q": "How do I get paid?",
           "a": "Packages and payments are tracked per client, and checkout runs through Fawaterak with prices in EGP."
+        },
+        {
+          "q": "Can I bring my own forms and exercises?",
+          "a": "Yes. Import a Google Form into FitForce by pasting its link, and add your own exercises by pasting a YouTube link, so you keep the content you already use."
+        },
+        {
+          "q": "Which payment methods can I use to subscribe?",
+          "a": "[Payment methods]"
+        },
+        {
+          "q": "Is my clients' data safe?",
+          "a": "[Data protection details]"
+        },
+        {
+          "q": "When is support available?",
+          "a": "[Support hours]"
         },
         {
           "q": "Is it really in Arabic?",
@@ -3595,6 +3630,18 @@
     "ui": {
       "steps": "Steps",
       "next": "Next step"
+    },
+    "bring": {
+      "title": "Already have your own content? Bring it with you",
+      "subtitle": "You don't have to start from zero.",
+      "forms": {
+        "title": "Your forms, from Google Forms",
+        "body": "Paste a Google Form link and FitForce turns it into a form you can send to any client."
+      },
+      "exercises": {
+        "title": "Your exercises, from YouTube",
+        "body": "Add your own exercises with a YouTube link, and they sit next to the built-in library in every plan."
+      }
     }
   }
 }

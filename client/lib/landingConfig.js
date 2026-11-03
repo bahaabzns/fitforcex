@@ -23,10 +23,13 @@ export const DEMO_VIDEO_ID = "j4p2_PcHV_M";
 
 // `name` and `description` come from messages `lp.coaches.<id>`.
 export const LANDING_COACHES = [
-    { id: "coach1", image: "/lp/coach-elbasuony.webp", instagramUrl: "https://instagram.com/basuoo", instagramHandle: "@basuoo" },
-    { id: "coach2", image: "/lp/coach-gamal.webp", instagramUrl: "https://instagram.com/dr.agamal", instagramHandle: "@dr.agamal" },
-    // No photo or bio yet: the card shows amber placeholders until they are added.
-    { id: "coach3", image: null, instagramUrl: "https://instagram.com/belghamdi", instagramHandle: "@belghamdi" },
+    { id: "coach1", image: "/lp/coach-elbasuony.webp", instagramUrl: "https://www.instagram.com/elbasuony87/", instagramHandle: "@elbasuony87" },
+    { id: "coach2", image: "/lp/coach-gamal.webp", instagramUrl: "https://www.instagram.com/dr.abdallahgamal/", instagramHandle: "@dr.abdallahgamal" },
+    // Empty name/bio in messages render as amber placeholders until the real copy is supplied.
+    { id: "coach3", image: "/lp/coach-belghamdi.webp", instagramUrl: "https://www.instagram.com/belghamdi.coaching/", instagramHandle: "@belghamdi.coaching" },
+    { id: "coach4", image: "/lp/coach-fitness-savior.webp", instagramUrl: "https://www.instagram.com/fitness_savior/", instagramHandle: "@fitness_savior" },
+    { id: "coach5", image: "/lp/coach-arafa.webp", instagramUrl: "https://www.instagram.com/arafacoaching/", instagramHandle: "@arafacoaching" },
+    { id: "coach6", image: "/lp/coach-shaady.webp", instagramUrl: "https://www.instagram.com/shaadytarek/", instagramHandle: "@shaadytarek" },
 ];
 
 // ── Product screenshots ──────────────────────────────────────────────────────
