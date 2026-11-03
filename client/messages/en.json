@@ -3391,8 +3391,6 @@
         "description": ""
       },
       "photoPlaceholder": "[Coach photo]",
-      "bioPlaceholder": "[Short bio]",
-      "namePlaceholder": "[Coach name]",
       "stats": {
         "label": "FitForce right now",
         "coaches": "coaches",
@@ -3400,15 +3398,15 @@
         "plans": "plans built"
       },
       "coach4": {
-        "name": "Fitness Savior",
+        "name": "Bola Hany",
         "description": ""
       },
       "coach5": {
-        "name": "",
+        "name": "Arafa",
         "description": ""
       },
       "coach6": {
-        "name": "",
+        "name": "Shady Tarek",
         "description": ""
       }
     },

@@ -3391,8 +3391,6 @@
         "description": ""
       },
       "photoPlaceholder": "[صورة الكوتش]",
-      "bioPlaceholder": "[نبذة عن الكوتش]",
-      "namePlaceholder": "[اسم الكوتش]",
       "stats": {
         "label": "فيت فورس دلوقتي",
         "coaches": "مدرب",
@@ -3400,15 +3398,15 @@
         "plans": "خطة اتبنت"
       },
       "coach4": {
-        "name": "Fitness Savior",
+        "name": "بولا هاني",
         "description": ""
       },
       "coach5": {
-        "name": "",
+        "name": "عرفه",
         "description": ""
       },
       "coach6": {
-        "name": "",
+        "name": "شادي طارق",
         "description": ""
       }
     },

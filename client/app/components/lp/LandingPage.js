@@ -5,6 +5,7 @@ import api from "@/lib/axios";
 import { trackPixelEvent } from "@/lib/metaPixel";
 import LpNav from "./LpNav";
 import LpHero from "./LpHero";
+import LpStats from "./LpStats";
 import LpProblem from "./LpProblem";
 import LpDay from "./LpDay";
 import LpBring from "./LpBring";
@@ -48,6 +49,7 @@ export default function LandingPage() {
         }}>
             <LpNav dashboardUrl={dashboardUrl} />
             <LpHero dashboardUrl={dashboardUrl} />
+            <LpStats />
             <LpProblem />
             <LpDay />
             <LpAppDemo />
