@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ChefHat, LineChart, Smartphone, UserPlus, Wallet } from "lucide-react";
@@ -8,7 +8,6 @@ import { LANDING_DAY_SCOPES, LANDING_DAY_STEPS, LANDING_SECTIONS, LANDING_SHOTS 
 import { LpBrowser, LpPhoneFrame } from "./LpFrames";
 import LpShotImage from "./LpShotImage";
 
-const SPY_LOCK_MS = 1200;
 // Same order as `lp.day.steps`; used by the phone chips.
 const STEP_ICONS = [UserPlus, ChefHat, Smartphone, LineChart, Wallet];
 
@@ -39,31 +38,8 @@ export default function LpDay() {
     const steps = t.raw("steps");
     const labels = t.raw("labels");
     const [active, setActive] = useState(0);
-    const rowRefs = useRef([]);
     const tabRefs = useRef([]);
-    // A click wins over scroll-spy for a moment, so the scroll it causes can't switch the step back.
-    const spyLocked = useRef(false);
-    const lockTimer = useRef(null);
-
-    const choose = (index) => {
-        spyLocked.current = true;
-        clearTimeout(lockTimer.current);
-        lockTimer.current = setTimeout(() => { spyLocked.current = false; }, SPY_LOCK_MS);
-        setActive(index);
-    };
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting && !spyLocked.current) setActive(Number(entry.target.dataset.step));
-                });
-            },
-            { rootMargin: "-42% 0px -42% 0px" }
-        );
-        rowRefs.current.forEach((row) => row && observer.observe(row));
-        return () => { observer.disconnect(); clearTimeout(lockTimer.current); };
-    }, []);
+    const choose = (index) => setActive(index);
 
     // Arrow keys move between steps, like any tab list.
     function onKeyDown(event) {
@@ -78,7 +54,7 @@ export default function LpDay() {
     return (
         <section id={LANDING_SECTIONS.day} className="lp-section" style={{ scrollMarginTop: 90 }}>
             <div className="lp-container lp-above">
-                <div className="lp-head">
+                <div className="lp-head lp-head--center">
                     <h2 className="lp-h2" style={{ fontSize: "clamp(1.75rem, 1.6vw + 1rem, 2.75rem)" }}>{t("title")}</h2>
                     <p className="lp-lead">{t("subtitle")}</p>
                 </div>
@@ -104,33 +80,32 @@ export default function LpDay() {
                     })}
                 </div>
 
+                <p className="lp-day__hint">{t("hint")}</p>
+
                 <div className="lp-day">
-                    <div>
-                        <p className="lp-day__hint">{t("hint")}</p>
-                        <ol className="lp-day__list" role="tablist" aria-orientation="vertical" aria-label={tUi("steps")} onKeyDown={onKeyDown}>
-                            {steps.map((step, index) => (
-                                <li key={step.title} ref={(node) => { rowRefs.current[index] = node; }} data-step={index} role="presentation">
-                                    <button
-                                        type="button"
-                                        role="tab"
-                                        id={`day-tab-${index}`}
-                                        aria-selected={active === index}
-                                        aria-controls={`day-panel-${index}`}
-                                        tabIndex={active === index ? 0 : -1}
-                                        ref={(node) => { tabRefs.current[index] = node; }}
-                                        className={`lp-glass lp-stepbtn ${active === index ? "is-active" : ""}`}
-                                        onClick={() => choose(index)}
-                                    >
-                                        <span className="lp-num lp-grad" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                                        <span className="lp-stepbtn__copy">
-                                            <strong>{step.title}</strong>
-                                            <span className="lp-stepbtn__text"><span>{step.text}</span></span>
-                                        </span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ol>
-                    </div>
+                    <ol className="lp-day__list" role="tablist" aria-orientation="vertical" aria-label={tUi("steps")} onKeyDown={onKeyDown}>
+                        {steps.map((step, index) => (
+                            <li key={step.title} data-active={active === index} role="presentation">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    id={`day-tab-${index}`}
+                                    aria-selected={active === index}
+                                    aria-controls={`day-panel-${index}`}
+                                    tabIndex={active === index ? 0 : -1}
+                                    ref={(node) => { tabRefs.current[index] = node; }}
+                                    className={`lp-glass lp-stepbtn ${active === index ? "is-active" : ""}`}
+                                    onClick={() => choose(index)}
+                                >
+                                    <span className="lp-num lp-grad" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                                    <span className="lp-stepbtn__copy">
+                                        <strong>{step.title}</strong>
+                                        <span className="lp-stepbtn__text"><span>{step.text}</span></span>
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
+                    </ol>
 
                     <div className="lp-stage">
                         {LANDING_DAY_STEPS.map((shotIds, index) => (
