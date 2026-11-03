@@ -18,8 +18,7 @@ export default function LpCoaches() {
 
     return (
         <section id={LANDING_SECTIONS.coaches} className="lp-section" style={{ scrollMarginTop: 90 }}>
-            <div className="lp-glow lp-glow--soft" style={{ top: "10%", insetInlineStart: "-15%" }} aria-hidden="true" />
-            <div className="lp-container lp-above">
+                        <div className="lp-container lp-above">
                 <div className="lp-head lp-head--center">
                     <h2 className="lp-h2">{t("title")}</h2>
                     <p className="lp-lead">{t("subtitle")}</p>
@@ -31,11 +30,15 @@ export default function LpCoaches() {
                         return (
                             <li key={coach.id} className="lp-glass lp-coach">
                                 <div className="lp-coach__photo">
-                                    <Image src={coach.image} alt={copy.name} fill sizes="(min-width: 640px) 340px, 90vw" />
+                                    {coach.image
+                                        ? <Image src={coach.image} alt={copy.name} fill sizes="(min-width: 640px) 340px, 90vw" />
+                                        : <span className="lp-placeholder lp-coach__ph">{t("photoPlaceholder")}</span>}
                                 </div>
                                 <div className="lp-coach__body">
                                     <h3>{copy.name}</h3>
-                                    <p>{copy.description}</p>
+                                    {copy.description
+                                        ? <p>{copy.description}</p>
+                                        : <p><span className="lp-placeholder">{t("bioPlaceholder")}</span></p>}
                                     <a href={coach.instagramUrl} target="_blank" rel="noopener noreferrer" className="lp-coach__link">
                                         <InstagramIcon width={18} height={18} />
                                         <span dir="ltr">{coach.instagramHandle}</span>

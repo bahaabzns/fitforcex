@@ -189,8 +189,7 @@ export default function LpPricing() {
 
     return (
         <section id={LANDING_SECTIONS.pricing} className="lp-section" style={{ scrollMarginTop: 90 }}>
-            <div className="lp-glow" style={{ top: "6%", left: "50%", translate: "-50% 0" }} aria-hidden="true" />
-            <div className="lp-container lp-above">
+                        <div className="lp-container lp-above">
                 <div className="lp-head lp-head--center">
                     <h2 className="lp-h2">{t("title")}</h2>
                     <p className="lp-lead">{t("subtitle")}</p>
@@ -242,12 +241,14 @@ export default function LpPricing() {
                             ))}
                         </div>
 
-                        <ComparisonTable plans={plans} selections={selections} t={t} locale={locale} format={format} />
+                        <details className="lp-compare">
+                            <summary>{t("compare")}</summary>
+                            <ComparisonTable plans={plans} selections={selections} t={t} locale={locale} format={format} />
+                        </details>
 
-                        <div className="lp-note">
-                            <p><Link href="/register">{t("free")}</Link></p>
-                            <p><a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{t("enterprise")}</a></p>
-                        </div>
+                        <p className="lp-note">
+                            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{t("enterprise")}</a>
+                        </p>
                     </>
                 )}
             </div>

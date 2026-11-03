@@ -39,7 +39,6 @@ export default function LpNav({ dashboardUrl }) {
     const [open, setOpen] = useState(false);
 
     const links = [
-        { id: LANDING_SECTIONS.features, label: t("features") },
         { id: LANDING_SECTIONS.day, label: t("day") },
         { id: LANDING_SECTIONS.app, label: t("app") },
         { id: LANDING_SECTIONS.pricing, label: t("pricing") },

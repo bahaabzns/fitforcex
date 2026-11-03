@@ -1,14 +1,17 @@
 'use client';
 
+import { useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { LANDING_SECTIONS } from "@/lib/landingConfig";
+import { Play } from "lucide-react";
 import LpShot from "./LpShot";
+import LpDemoModal from "./LpDemoModal";
 
 export default function LpHero({ dashboardUrl }) {
     const t = useTranslations("lp.hero");
     const tNav = useTranslations("lp.nav");
     const locale = useLocale();
+    const [demoOpen, setDemoOpen] = useState(false);
 
     return (
         <section className="lp-section lp-hero">
@@ -21,10 +24,13 @@ export default function LpHero({ dashboardUrl }) {
                         </h1>
                         <p className="lp-lead" style={{ maxWidth: "40rem" }}>{t("subtitle")}</p>
                         <div className="lp-hero__actions">
-                            <Link href={dashboardUrl || "/register"} className="lp-btn lp-btn--primary lp-btn--lg">
+                            <Link href={dashboardUrl || "/register"} id="lp-hero-cta" className="lp-btn lp-btn--primary lp-btn--lg">
                                 {dashboardUrl ? tNav("dashboard") : t("cta")}
                             </Link>
-                            <a href={`#${LANDING_SECTIONS.day}`} className="lp-btn lp-btn--glass lp-btn--lg">{t("secondary")}</a>
+                            <button type="button" className="lp-btn lp-btn--glass lp-btn--lg" onClick={() => setDemoOpen(true)}>
+                                <Play size={18} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+                                {t("secondary")}
+                            </button>
                         </div>
                         {!dashboardUrl && <p className="lp-hero__note">{t("note")}</p>}
                     </div>
@@ -34,6 +40,7 @@ export default function LpHero({ dashboardUrl }) {
                     </div>
                 </div>
             </div>
+            <LpDemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
         </section>
     );
 }

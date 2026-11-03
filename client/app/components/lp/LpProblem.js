@@ -8,7 +8,6 @@ export default function LpProblem() {
 
     return (
         <section className="lp-section">
-            <div className="lp-glow lp-glow--soft" style={{ top: "10%", insetInlineEnd: "-20%" }} aria-hidden="true" />
             <div className="lp-container lp-above">
                 <div className="lp-head">
                     <h2 className="lp-h2">{t("title")}</h2>

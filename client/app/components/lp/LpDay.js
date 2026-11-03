@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { LANDING_DAY_STEPS, LANDING_SECTIONS, LANDING_SHOTS } from "@/lib/landingConfig";
 import { LpBrowser, LpPhoneFrame } from "./LpFrames";
-import LpZoomImage from "./LpZoomImage";
+import LpShotImage from "./LpShotImage";
 
 const SPY_LOCK_MS = 1200;
 
@@ -14,7 +14,7 @@ function StepVisual({ shotIds, alt }) {
     if (shotIds.length === 1 && LANDING_SHOTS[shotIds[0]].kind === "browser") {
         return (
             <LpBrowser>
-                <LpZoomImage shotId={shotIds[0]} alt={alt} markerLimit={3} />
+                <LpShotImage shotId={shotIds[0]} alt={alt} />
             </LpBrowser>
         );
     }
@@ -22,7 +22,7 @@ function StepVisual({ shotIds, alt }) {
         <div className="lp-stage__phones">
             {shotIds.map((id, index) => (
                 <LpPhoneFrame key={id}>
-                    <LpZoomImage shotId={id} alt={index === 0 ? alt : ""} markerLimit={3} />
+                    <LpShotImage shotId={id} alt={index === 0 ? alt : ""} />
                 </LpPhoneFrame>
             ))}
         </div>
@@ -60,7 +60,6 @@ export default function LpDay() {
 
     return (
         <section id={LANDING_SECTIONS.day} className="lp-section" style={{ scrollMarginTop: 90 }}>
-            <div className="lp-glow" style={{ top: "20%", insetInlineStart: "-25%" }} aria-hidden="true" />
             <div className="lp-container lp-above">
                 <div className="lp-head">
                     <h2 className="lp-h2">{t("title")}</h2>

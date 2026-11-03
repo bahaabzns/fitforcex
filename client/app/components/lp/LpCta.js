@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
@@ -32,7 +33,6 @@ export function LpFinalCta({ dashboardUrl }) {
                             {t("whatsapp")}
                         </a>
                     </div>
-                    {!dashboardUrl && <p style={{ color: "var(--lp-text-3)", fontSize: "0.95rem" }}>{t("note")}</p>}
                 </div>
             </div>
         </section>
@@ -68,13 +68,24 @@ export function LpFooter() {
 export function LpFloating({ dashboardUrl }) {
     const t = useTranslations("lp.bar");
     const tNav = useTranslations("lp.nav");
+    // Starts visible so the bar still works if the hero button is missing (e.g. logged-in view).
+    const [showBar, setShowBar] = useState(true);
+
+    // The phone bar only appears once the hero button has scrolled out of view.
+    useEffect(() => {
+        const heroButton = document.getElementById("lp-hero-cta");
+        if (!heroButton) return undefined;
+        const observer = new IntersectionObserver(([entry]) => setShowBar(!entry.isIntersecting));
+        observer.observe(heroButton);
+        return () => observer.disconnect();
+    }, []);
 
     return (
         <>
             <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="lp-wa-float" aria-label={t("whatsapp")}>
                 <WhatsAppIcon width={26} height={26} />
             </a>
-            <div className="lp-bar">
+            <div className={`lp-bar ${showBar ? "is-visible" : ""}`}>
                 <Link href={dashboardUrl || "/register"} className="lp-btn lp-btn--primary">
                     {dashboardUrl ? tNav("dashboard") : t("start")}
                 </Link>

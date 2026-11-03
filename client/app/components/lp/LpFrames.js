@@ -1,13 +1,8 @@
-// The only two frame types on the page. Sizes are set in landing.css (.lp-browser, .lp-phone-frame).
+// The only two screenshot frames. Sizes are set in landing.css.
 
-// Glass browser frame for dashboard screens.
+// Glass frame for dashboard screens.
 export function LpBrowser({ children, className = "" }) {
-    return (
-        <div className={`lp-glass lp-browser ${className}`}>
-            <div className="lp-browser__bar" aria-hidden="true"><i /><i /><i /></div>
-            <div className="lp-browser__view">{children}</div>
-        </div>
-    );
+    return <div className={`lp-glass lp-browser ${className}`}>{children}</div>;
 }
 
 // Phone frame for client-app screens.
