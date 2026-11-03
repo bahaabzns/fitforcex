@@ -605,8 +605,11 @@
 .lp-row__tag { display: none; }
 @media (max-width: 799px) {
   .lp-row { grid-template-columns: 1fr; }
-  .lp-row__arrow { display: block; margin: -2px auto; padding: 0; background: rgba(47, 169, 255, 0.09); width: 100%; height: 22px; }
+  /* A small round badge on the seam between the two halves, not a full-width band. */
+  .lp-row__arrow { display: block; position: relative; z-index: 1; box-sizing: border-box; width: 32px; height: 32px; padding: 7px; margin: -16px auto; border-radius: 50%; background: #0b1730; border: 1px solid rgba(47, 169, 255, 0.5); }
   .lp-row__before, .lp-row__after { flex-wrap: wrap; gap: 6px 12px; border-radius: 0; }
+  .lp-row__before { padding-bottom: 28px; }
+  .lp-row__after { padding-top: 28px; }
   .lp-row__before p, .lp-row__after p { flex-basis: 100%; }
   .lp-row__before p { text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, 0.3); }
   .lp-row__tag { display: inline-block; margin-inline-start: auto; padding: 1px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: rgba(255, 255, 255, 0.08); color: var(--lp-text-3); }
