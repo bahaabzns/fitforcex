@@ -466,3 +466,50 @@
   .lp-stepbtn:not(.is-active) .lp-num { font-size: 1.5rem; }
   .lp-stepbtn__copy span { min-height: 0; }
 }
+
+/* ══ Phone polish ══ */
+/* Hero: phone screenshot on phones, dashboard on desktop. */
+.lp-hero__shot--phone { display: flex; justify-content: center; width: 100%; }
+.lp-hero__shot--phone .lp-phone-frame { --phone-w: min(62vw, 250px); }
+@media (min-width: 768px) { .lp-hero__shot--phone { display: none; } }
+@media (max-width: 767px) { .lp-hero__shot--desktop { display: none; } }
+.lp-hero__note { color: #fff; font-size: 1rem; font-weight: 500; }
+
+/* Phone-row dots. */
+.lp-dots-row { display: flex; justify-content: center; margin-bottom: 20px; }
+.lp-dots-row .lp-dot { position: relative; width: 30px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.lp-dots-row .lp-dot::before { content: ""; position: absolute; inset-inline: 10px; top: 17px; height: 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.3); transition: inset-inline 0.25s ease, background-color 0.25s ease; }
+.lp-dots-row .lp-dot.is-active::before { inset-inline: 3px; background: var(--lp-blue); }
+@media (min-width: 900px) { .lp-dots-row { display: none; } }
+@media (prefers-reduced-motion: reduce) { .lp-dots-row .lp-dot::before { transition: none; } }
+
+/* Pricing: bullets moved to one shared line. */
+.lp-plan__later { margin: -8px 0 0; text-align: center; color: var(--lp-text-3); font-size: 0.9rem; }
+.lp-shared { max-width: 760px; margin: 28px auto 0; text-align: center; color: var(--lp-text-2); line-height: 1.9; }
+
+@media (max-width: 767px) {
+  /* Headings lighter so content starts sooner. */
+  .lp-h2 { font-size: clamp(1.65rem, 6vw, 2rem) !important; }
+  .lp-head { margin-bottom: 24px; }
+
+  /* Comparison rows: tighter. */
+  .lp-row__before, .lp-row__after { min-height: 0; padding: 12px 14px; gap: 12px; }
+  .lp-row__before p, .lp-row__after p { font-size: 0.95rem; line-height: 1.6; }
+
+  /* Header: bigger language buttons. */
+  .lp-lang button { min-height: 44px; min-width: 48px; }
+
+  /* Coaches: compact horizontal cards. */
+  .lp-coaches { flex-direction: column; flex-wrap: nowrap; gap: 12px; }
+  .lp-coach { width: 100%; max-width: none; flex-direction: row; align-items: center; }
+  .lp-coach__photo { flex: none; width: 104px; aspect-ratio: 1 / 1; align-self: stretch; height: auto; }
+  .lp-coach__body { padding: 14px 16px; gap: 4px; }
+  .lp-coach__body h3 { font-size: 1.1rem; }
+  .lp-coach__body p { font-size: 0.9rem; line-height: 1.7; }
+
+  /* Footer: two tidy columns. */
+  .lp-footer__links { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; width: 100%; }
+}
+
+/* Stacked plan cards don't need the invisible spacer badge that aligns them side by side. */
+@media (max-width: 899px) { .lp-plan__badge[aria-hidden="true"] { display: none; } }

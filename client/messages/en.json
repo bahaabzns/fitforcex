@@ -3375,8 +3375,8 @@
       "close": "Close"
     },
     "coaches": {
-      "title": "Trusted by Top-Tier Coaches",
-      "subtitle": "Real coaches, real clients. Follow them and see how they coach.",
+      "title": "Coaches who rely on FitForce",
+      "subtitle": "Real coaches, real clients.",
       "coach1": {
         "name": "Ahmed Elbasuony",
         "description": "First Egyptian WNBF competitor and judge. From overweight teen to bodybuilding champion, now helping others achieve their wellness goals."
@@ -3416,7 +3416,8 @@
       "cta": "Start free",
       "secondary": "Watch the demo",
       "note": "Free for up to 3 clients. No credit card.",
-      "imageAlt": "The FitForce coach dashboard showing plan requests, the team workload and a daily chart"
+      "imageAlt": "The FitForce coach dashboard showing plan requests, the team workload and a daily chart",
+      "phoneAlt": "The client plan screen in the FitForce app with a calorie ring and meals"
     },
     "problem": {
       "title": "How many times have you resent the same plan on WhatsApp?",
@@ -3488,7 +3489,7 @@
       "seats": "{count, plural, one {# team seat} other {# team seats}}",
       "unlimitedSeats": "Unlimited team seats",
       "featured": "Most popular",
-      "choose": "Subscribe",
+      "choose": "Start free",
       "variantLabel": "Number of clients",
       "billing": "Billing period",
       "billedEvery": "billed {amount} EGP every {months} months",
@@ -3503,7 +3504,9 @@
       "talk": "Talk to us on WhatsApp",
       "free": "Just trying it? Start free with up to 3 clients.",
       "enterprise": "Need more than this? Talk to us.",
-      "compare": "Compare plans"
+      "compare": "Compare plans",
+      "upgradeLater": "Start free and upgrade when you need to",
+      "shared": "Every plan includes: unlimited training and nutrition plans, a client portal and app, exercise and food libraries, check-ins and forms, progress photos and reports, in-app chat, and your own branding."
     },
     "faq": {
       "title": "Questions coaches ask",
@@ -3576,7 +3579,8 @@
           "text": "Pick another food from the same group. The amount is adjusted to match the calories.",
           "alt": "The client app food swap dialog with alternatives"
         }
-      ]
+      ],
+      "dots": "Screens"
     },
     "ui": {
       "steps": "Steps",

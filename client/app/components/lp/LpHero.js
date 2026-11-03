@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Play } from "lucide-react";
 import LpShot from "./LpShot";
+import { LpPhoneFrame } from "./LpFrames";
+import LpShotImage from "./LpShotImage";
 import LpDemoModal from "./LpDemoModal";
 
 export default function LpHero({ dashboardUrl }) {
@@ -35,8 +37,13 @@ export default function LpHero({ dashboardUrl }) {
                         {!dashboardUrl && <p className="lp-hero__note">{t("note")}</p>}
                     </div>
 
-                    <div className="lp-hero__shot lp-rise">
-                        <LpShot src={`/lp/${locale}-dashboard.webp`} alt={t("imageAlt")} priority sizes="(min-width: 1200px) 1100px, 100vw" />
+                    <div className="lp-hero__shot lp-hero__shot--desktop lp-rise">
+                        <LpShot src={`/lp/${locale}-dashboard.webp`} alt={t("imageAlt")} sizes="(min-width: 1200px) 1100px, 100vw" />
+                    </div>
+                    <div className="lp-hero__shot--phone lp-rise">
+                        <LpPhoneFrame>
+                            <LpShotImage shotId="phoneNutrition" alt={t("phoneAlt")} />
+                        </LpPhoneFrame>
                     </div>
                 </div>
             </div>

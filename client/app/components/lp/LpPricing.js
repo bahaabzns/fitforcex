@@ -8,7 +8,6 @@ import { pickLocalized } from "@/lib/utils";
 import { LANDING_SECTIONS, WHATSAPP_URL } from "@/lib/landingConfig";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const CARD_FEATURE_COUNT = 6;
 
 function useFormatters() {
     const locale = useLocale();
@@ -51,11 +50,7 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
     const months = period?.months ?? 1;
     const base = variation?.price_monthly != null ? Number(variation.price_monthly) : null;
     const monthly = base != null ? Math.round(base * (1 - discount / 100)) : null;
-    const features = pickLocalized(locale, plan.features, plan.features_ar) || [];
     const seats = variation?.max_team_seats;
-    const href = `/register?plan=${encodeURIComponent(plan.name)}`
-        + (period?.period_key ? `&period=${encodeURIComponent(period.period_key)}` : "")
-        + (variation ? `&variation=${encodeURIComponent(variation.id)}` : "");
     const clientsLabel = variation?.max_clients == null ? t("unlimitedClients") : t("upTo", { count: format(variation.max_clients) });
 
     return (
@@ -107,13 +102,8 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
                 <span>{seats == null ? t("unlimitedSeats") : t("seats", { count: seats })}</span>
             </div>
 
-            <ul className="lp-plan__features">
-                {features.slice(0, CARD_FEATURE_COUNT).map((feature) => (
-                    <li key={feature}><Check size={16} aria-hidden="true" />{feature}</li>
-                ))}
-            </ul>
-
-            <Link href={href} className={`lp-btn lp-btn--full ${plan.is_popular ? "lp-btn--primary" : "lp-btn--glass"}`}>{t("choose")}</Link>
+            <Link href="/register" className={`lp-btn lp-btn--full ${plan.is_popular ? "lp-btn--primary" : "lp-btn--glass"}`}>{t("choose")}</Link>
+            <p className="lp-plan__later">{t("upgradeLater")}</p>
         </article>
     );
 }
@@ -240,6 +230,8 @@ export default function LpPricing() {
                                 />
                             ))}
                         </div>
+
+                        <p className="lp-shared">{t("shared")}</p>
 
                         <details className="lp-compare">
                             <summary>{t("compare")}</summary>
