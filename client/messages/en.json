@@ -3556,31 +3556,41 @@
       "whatsapp": "WhatsApp"
     },
     "phones": {
-      "title": "This is what your client sees",
-      "subtitle": "A real app on their phone, in their language. The plan you built is there every day, so they stop asking you for it.",
-      "bullets": [
-        "Native iOS and Android app",
-        "Full right-to-left Arabic, not a translated afterthought",
-        "Plans, shopping list, food swap and workouts in one place"
-      ],
-      "screens": [
+      "title": "Try your client’s app yourself",
+      "subtitle": "This is your client’s real app with demo data. Tap anything, switch between the icons at the bottom, and see how it makes your work easier and keeps clients happy.",
+      "note": "A demo with sample data. Nothing is saved.",
+      "try": "Try the app",
+      "loading": "Getting the app ready…",
+      "reset": "Start over",
+      "close": "Close",
+      "progress": "Tried {done} of {total}",
+      "done": "Done",
+      "todo": "Not yet",
+      "allDone": "You tried everything. Start free with your clients",
+      "frameTitle": "Preview of the FitForce client app",
+      "posterAlt": "The client plan screen in the FitForce app",
+      "tasks": [
         {
-          "title": "Today's meals and macros",
-          "text": "Calories, macros and every meal, with cycles for training and rest days.",
-          "alt": "The client app nutrition plan with a calorie ring and meals"
+          "task": "Mark a meal as eaten",
+          "benefit": "Why it matters to you: adherence is logged for you and shows up on your dashboard."
         },
         {
-          "title": "A shopping list built from the plan",
-          "text": "Set the days per cycle and get every item to buy, with the total amount.",
-          "alt": "The client app shopping list with items and amounts"
+          "task": "Swap a food in a meal",
+          "benefit": "Why it matters to you: fewer WhatsApp questions, and the calories stay the same."
         },
         {
-          "title": "Swap any food",
-          "text": "Pick another food from the same group. The amount is adjusted to match the calories.",
-          "alt": "The client app food swap dialog with alternatives"
+          "task": "Open training and log a set",
+          "benefit": "Why it matters to you: weights are logged and turned into a progress chart per exercise."
+        },
+        {
+          "task": "Send your coach a message",
+          "benefit": "Why it matters to you: all your communication in one place, not in WhatsApp."
+        },
+        {
+          "task": "Fill in the check-in form",
+          "benefit": "Why it matters to you: check-ins reach you organized instead of scattered messages."
         }
-      ],
-      "dots": "Screens"
+      ]
     },
     "ui": {
       "steps": "Steps",

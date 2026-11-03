@@ -6,7 +6,7 @@ import LpNav from "./LpNav";
 import LpHero from "./LpHero";
 import LpProblem from "./LpProblem";
 import LpDay from "./LpDay";
-import LpPhones from "./LpPhones";
+import LpAppDemo from "./LpAppDemo";
 import LpCoaches from "./LpCoaches";
 import LpPricing from "./LpPricing";
 import LpFaq from "./LpFaq";
@@ -31,7 +31,7 @@ export default function LandingPage() {
             <LpHero dashboardUrl={dashboardUrl} />
             <LpProblem />
             <LpDay />
-            <LpPhones />
+            <LpAppDemo />
             <LpCoaches />
             <LpPricing />
             <LpFaq />
