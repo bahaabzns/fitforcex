@@ -9,8 +9,8 @@ export default function LpProblem() {
     return (
         <section className="lp-section">
             <div className="lp-container lp-above">
-                <div className="lp-head">
-                    <h2 className="lp-h2">{t("title")}</h2>
+                <div className="lp-head lp-head--center" style={{ maxWidth: 980 }}>
+                    <h2 className="lp-h2" style={{ fontSize: "clamp(1.9rem, 2.4vw + 0.6rem, 2.5rem)" }}>{t("title")}</h2>
                     <p className="lp-lead">{t("subtitle")}</p>
                 </div>
 
