@@ -3420,7 +3420,7 @@
     },
     "problem": {
       "title": "How many times have you resent the same plan on WhatsApp?",
-      "subtitle": "Every coach knows this loop. Here is the same week, without the chaos.",
+      "subtitle": "And how many times have you scrolled a chat to find a client’s weight?",
       "withoutTitle": "Without FitForce",
       "withTitle": "With FitForce",
       "without": [
@@ -3435,21 +3435,7 @@
         "Packages and payments kept on each client",
         "Active, expired and frozen clients visible at a glance"
       ],
-      "closing": "The rest is in the steps below.",
-      "visual": {
-        "sample": "Illustration",
-        "chat": "Coach, can you resend my plan?",
-        "chatTime": "9:41 PM",
-        "pdf": "plan_final_v7.pdf",
-        "payq": "Did I pay this month?",
-        "clientName": "Sample client",
-        "plan": "Plan",
-        "planState": "Sent",
-        "checkin": "Weekly check-in",
-        "checkinState": "Due Sunday",
-        "pay": "Package",
-        "payState": "Paid"
-      }
+      "closing": "The rest is in the steps below."
     },
     "day": {
       "title": "A day with FitForce, step by step",
