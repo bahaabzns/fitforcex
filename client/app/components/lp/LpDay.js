@@ -15,20 +15,23 @@ const STEP_ICONS = [UserPlus, ChefHat, Smartphone, LineChart, Wallet];
 function StepVisual({ shotIds, alt, scopeLabel }) {
     const isBrowser = shotIds.length === 1 && LANDING_SHOTS[shotIds[0]].kind === "browser";
     return (
-        <LpBrowser className={isBrowser ? "" : "lp-stage__panel"}>
+        <>
+            <LpBrowser className={isBrowser ? "" : "lp-stage__panel"}>
+                {isBrowser ? (
+                    <LpShotImage shotId={shotIds[0]} alt={alt} />
+                ) : (
+                    <div className="lp-stage__phones">
+                        {shotIds.map((id, index) => (
+                            <LpPhoneFrame key={id}>
+                                <LpShotImage shotId={id} alt={index === 0 ? alt : ""} />
+                            </LpPhoneFrame>
+                        ))}
+                    </div>
+                )}
+            </LpBrowser>
+            {/* Under the frame, so it never covers the screenshot. */}
             <span className="lp-scope">{scopeLabel}</span>
-            {isBrowser ? (
-                <LpShotImage shotId={shotIds[0]} alt={alt} />
-            ) : (
-                <div className="lp-stage__phones">
-                    {shotIds.map((id, index) => (
-                        <LpPhoneFrame key={id}>
-                            <LpShotImage shotId={id} alt={index === 0 ? alt : ""} />
-                        </LpPhoneFrame>
-                    ))}
-                </div>
-            )}
-        </LpBrowser>
+        </>
     );
 }
 

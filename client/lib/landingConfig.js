@@ -36,10 +36,10 @@ export const LANDING_COACHES = [
 // in the same order as the arrays here. `toolMarker` is the one marker shown in the bento crop
 // (it must stay inside the zoomed crop on every screen size). Arabic screens are mirrored, so x flips unless mirror is false.
 export const LANDING_SHOTS = {
-    addClient: { kind: "browser", file: "b-{l}-add-client", w: 2304, h: 1440, focus: { x: 50, y: 50, zoom: 1.15 } },
-    nutrition: { kind: "browser", file: "b-{l}-nutrition", w: 2304, h: 1440, focus: { x: 52, y: 45, zoom: 1.3 } },
-    foodDiary: { kind: "browser", file: "b-{l}-food-diary", w: 2304, h: 1440, focus: { x: 44, y: 33, zoom: 1.5 } },
-    finance: { kind: "browser", file: "b-{l}-finance", w: 1500, h: 940, focus: { x: 50, y: 50, zoom: 1 } },
+    addClient: { kind: "browser", file: "stage-{l}-add-client", w: 2400, h: 1650, focus: { x: 50, y: 50, zoom: 1 } },
+    nutrition: { kind: "browser", file: "stage-{l}-nutrition", w: 2400, h: 1650, focus: { x: 50, y: 50, zoom: 1 } },
+    foodDiary: { kind: "browser", file: "stage-{l}-adherence", w: 2400, h: 1650, focus: { x: 50, y: 50, zoom: 1 } },
+    finance: { kind: "browser", file: "stage-{l}-payments", w: 2400, h: 1650, focus: { x: 50, y: 50, zoom: 1 } },
     clients: { kind: "browser", file: "b-{l}-clients", w: 2304, h: 1440, focus: { x: 65, y: 48, zoom: 1.5 } },
     phoneNutrition: { kind: "phone", file: "{l}-portal-nutrition", w: 1170, h: 2532, focus: { x: 50, y: 50, zoom: 1 } },
     training: { kind: "phone", file: "{l}-portal-training", w: 1170, h: 2532, focus: { x: 50, y: 50, zoom: 1 } },

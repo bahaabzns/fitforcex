@@ -111,12 +111,15 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
 function ComparisonTable({ plans, selections, t, locale, format }) {
     const names = plans.map((plan) => pickLocalized(locale, plan.display_name, plan.display_name_ar));
     const featureSets = plans.map((plan) => new Set(pickLocalized(locale, plan.features, plan.features_ar) || []));
-    const allFeatures = [...new Set(plans.flatMap((plan) => pickLocalized(locale, plan.features, plan.features_ar) || []))];
+    // Features every plan has are already in the "all plans include" line, so the table keeps only
+    // the rows that actually differ between plans.
+    const allFeatures = [...new Set(plans.flatMap((plan) => pickLocalized(locale, plan.features, plan.features_ar) || []))]
+        .filter((feature) => !featureSets.every((set) => set.has(feature)));
     const variationOf = (plan) => plan.variations.find((v) => v.id === selections[plan.id]) ?? plan.variations[0];
 
     return (
         <div className="lp-glass lp-table-wrap">
-            <div className="lp-table-scroll" tabIndex={0} role="region" aria-label={t("compareTitle")}>
+            <div className="lp-table-scroll">
                 <table className="lp-table">
                     <caption className="sr-only">{t("compareTitle")}</caption>
                     <thead>
@@ -231,12 +234,11 @@ export default function LpPricing() {
                             ))}
                         </div>
 
-                        <p className="lp-shared">{t("shared")}</p>
-
-                        <details className="lp-compare">
-                            <summary>{t("compare")}</summary>
+                        <section className="lp-compare" aria-labelledby="lp-compare-title">
+                            <h3 id="lp-compare-title">{t("compare")}</h3>
                             <ComparisonTable plans={plans} selections={selections} t={t} locale={locale} format={format} />
-                        </details>
+                            <p className="lp-shared">{t("shared")}</p>
+                        </section>
 
                         <p className="lp-note">
                             <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{t("enterprise")}</a>
