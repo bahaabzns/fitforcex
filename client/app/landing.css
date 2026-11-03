@@ -286,6 +286,18 @@
 /* ── Final CTA ── */
 .lp-cta { padding: clamp(36px, 6vw, 80px) clamp(20px, 4vw, 56px); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px; }
 .lp-cta h2 { font-size: clamp(1.9rem, 3.4vw + 0.6rem, 3.2rem); max-width: 18ch; }
+/* Same blueprint grid as the hero, clipped to the box and fading toward its edges.
+   impeccable-disable codex-grid-background: requested explicitly to match the hero. */
+.lp-cta { position: relative; overflow: hidden; isolation: isolate; }
+.lp-cta::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(47, 169, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 169, 255, 0.2) 1px, transparent 1px);
+  background-size: 64px 64px; background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 75% 80% at 50% 40%, #000 20%, transparent 80%);
+  mask-image: radial-gradient(ellipse 75% 80% at 50% 40%, #000 20%, transparent 80%);
+}
 .lp-cta__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 8px; }
 
 /* ── Footer ── */
