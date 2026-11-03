@@ -3443,31 +3443,41 @@
       "steps": [
         {
           "title": "Add a client",
-          "text": "Create the account, pick a package and assign forms. Four short steps and the client is in.",
+          "text": "A new client is ready with no paperwork or spreadsheets. Create the account, pick a package and assign forms in 4 short steps.",
           "alt": "The Add Client dialog with four steps: create account, add subscription, collect data, review"
         },
         {
           "title": "Build the diet and training plan",
-          "text": "Calories and macros add up as you build each meal. Training days hold the exercises and sets.",
+          "text": "A plan ready to send, built in front of you. Calories and macros add up as you build each meal, and training days hold the exercises and sets.",
           "alt": "The nutrition plan builder showing a calorie ring, macros and the meals of the day"
         },
         {
           "title": "Your client follows it from the mobile app",
-          "text": "They see today’s meals and workout, log what they ate and did, and message you from the same app.",
+          "text": "Clients follow the plan without asking you about it. They see today’s meals and workout, log what they ate and did, and message you from the same app.",
           "alt": "The FitForce client mobile app"
         },
         {
           "title": "See real adherence",
-          "text": "The food diary charts adherence for every plan, so you know who is following it and who is slipping.",
+          "text": "Know who is following the plan and who is slipping, without asking. The food diary charts adherence for every plan.",
           "alt": "The food diary with an overall adherence chart"
         },
         {
           "title": "Stay on top of renewals and follow-ups",
-          "text": "Every client’s status, package and payments in one list, with a messenger for the follow-up.",
+          "text": "Never miss a renewal or a payment. Every client’s status, package and payments in one list, with a messenger for the follow-up.",
           "alt": "The transactions screen with payment totals, payment methods and a transactions table"
         }
       ],
-      "cta": "Try it on your clients: start free"
+      "cta": "Try it on your clients: start free",
+      "hint": "Click any step to see it.",
+      "coach": "Coach dashboard",
+      "client": "Client app",
+      "labels": [
+        "Client",
+        "Plan",
+        "App",
+        "Adherence",
+        "Payments"
+      ]
     },
     "pricing": {
       "title": "Pick the plan that fits your roster",
