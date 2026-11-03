@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Minus } from "lucide-react";
+import { Check, Minus, Users } from "lucide-react";
 import { pickLocalized } from "@/lib/utils";
 import { LANDING_SECTIONS, WHATSAPP_URL } from "@/lib/landingConfig";
 
@@ -40,6 +40,13 @@ function usePricingData() {
     return { plans, discounts, status, retry };
 }
 
+// "Up to 100 clients" with only the number highlighted; "Unlimited clients" is highlighted whole.
+function ClientsLabel({ label, count }) {
+    if (count == null) return <b>{label}</b>;
+    const [before, after] = label.split(count);
+    return <>{before}<b>{count}</b>{after}</>;
+}
+
 function PlanCard({ plan, variation, onPickVariation, period, t, locale, format }) {
     const sliderId = useId();
     const variations = Array.isArray(plan.variations) ? plan.variations : [];
@@ -51,6 +58,7 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
     const base = variation?.price_monthly != null ? Number(variation.price_monthly) : null;
     const monthly = base != null ? Math.round(base * (1 - discount / 100)) : null;
     const seats = variation?.max_team_seats;
+    const clientsCount = variation?.max_clients == null ? null : format(variation.max_clients);
     const clientsLabel = variation?.max_clients == null ? t("unlimitedClients") : t("upTo", { count: format(variation.max_clients) });
 
     // The same params checkout reads, so the button lands on the plan, period and tier shown on the card.
@@ -80,7 +88,7 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
                 <div className="lp-range">
                     <div className="lp-range__head">
                         <label htmlFor={sliderId}>{t("variantLabel")}</label>
-                        <strong className="lp-plan__clients">{clientsLabel}</strong>
+                        <strong className="lp-plan__clients"><ClientsLabel label={clientsLabel} count={clientsCount} /></strong>
                     </div>
                     <input
                         id={sliderId}
@@ -100,7 +108,10 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
                 </div>
             ) : (
                 <div className="lp-plan__meta">
-                    <span className="lp-plan__clients">{clientsLabel}</span>
+                    <span className="lp-plan__clients">
+                        <Users size={20} aria-hidden="true" />
+                        <span><ClientsLabel label={clientsLabel} count={clientsCount} /></span>
+                    </span>
                 </div>
             )}
             <div className="lp-plan__meta">

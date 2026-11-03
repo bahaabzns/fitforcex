@@ -598,8 +598,9 @@
 
 /* Pricing: buttons sit on one line across cards; client count is the second highlight after price. */
 .lp-plan__actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
-.lp-plan__clients { color: var(--lp-blue); font-weight: 700; font-size: 1.15rem; }
-.lp-plan__meta .lp-plan__clients { display: inline-block; padding: 4px 14px; border-radius: 999px; background: rgba(47, 169, 255, 0.12); border: 1px solid rgba(47, 169, 255, 0.35); }
+.lp-plan__clients { display: inline-flex; align-items: center; gap: 8px; color: var(--lp-text-2); font-size: 1.05rem; }
+.lp-plan__clients svg { color: var(--lp-blue); flex: none; }
+.lp-plan__clients b { color: var(--lp-blue); font-weight: 800; font-size: 1.3rem; }
 
 /* Problem rows on phones: a clear before -> after pair. */
 .lp-row__tag { display: none; }
@@ -631,4 +632,4 @@
 .lp-bring__shot { aspect-ratio: auto; display: block; }
 .lp-bring__shot img { width: 100%; height: auto; max-height: none; }
 .lp-plan__meta { align-self: flex-start; }
-.lp-range__head .lp-plan__clients { color: var(--lp-blue); font-size: 1.15rem; }
+.lp-range__head .lp-plan__clients { font-weight: 500; color: var(--lp-text-2); }
