@@ -10,11 +10,11 @@ const RESERVED = new Set(['my', 'admin', 'www', 'api', 'mail', 'smtp']);
 // plain dev, 'lvh.me' for subdomain smoke-testing (see client/.env.local).
 const LOCAL_DEV_ROOT_DOMAINS = new Set(['localhost', 'lvh.me']);
 
-// Landing page and the checkout/signup wizard default to Arabic for a first-time visitor —
-// every other route keeps the app's normal English default (see i18n/request.js). Only
-// kicks in when no NEXT_LOCALE cookie exists yet; an explicit language choice (via
-// LanguageSwitcher.js) always wins, since the cookie is checked before this header there.
-const ARABIC_DEFAULT_PATHS = new Set(['/', '/register']);
+// The checkout/signup wizard defaults to Arabic for a first-time visitor; the landing page
+// and every other route keep the app's English default (see i18n/request.js). Only kicks in
+// when no NEXT_LOCALE cookie exists yet; an explicit language choice (the landing page's
+// EN / ع switch or LanguageSwitcher.js) always wins, since the cookie is checked first.
+const ARABIC_DEFAULT_PATHS = new Set(['/register']);
 
 function withDefaultLocale(request) {
     const { pathname } = request.nextUrl;

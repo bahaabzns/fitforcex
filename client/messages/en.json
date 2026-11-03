@@ -3368,5 +3368,434 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel"
+  },
+  "lp": {
+    "demo": {
+      "title": "See how FitForce works",
+      "subtitle": "A walkthrough of the real dashboard.",
+      "play": "Play the video: How to use FitForce",
+      "videoTitle": "How to use FitForce"
+    },
+    "coaches": {
+      "title": "Trusted by Top-Tier Coaches",
+      "subtitle": "Real coaches, real clients. Follow them and see how they coach.",
+      "coach1": {
+        "name": "Ahmed Elbasuony",
+        "description": "First Egyptian WNBF competitor and judge. From overweight teen to bodybuilding champion, now helping others achieve their wellness goals."
+      },
+      "coach2": {
+        "name": "Abdallah Gamal",
+        "description": "Medical doctor and WNBF natural athlete with 2000+ clients worldwide. Former IGCSE teacher and cardiology assistant bringing simple, flexible plans."
+      },
+      "instagram": "Instagram"
+    },
+    "top": {
+      "label": "Back to top"
+    },
+    "meta": {
+      "title": "FitForce — Run your online coaching from one place",
+      "description": "Build diet and training plans, follow every client from their phone, and see who is really sticking to the plan. Free for up to 3 clients."
+    },
+    "nav": {
+      "features": "Features",
+      "day": "A day with FitForce",
+      "app": "Client app",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "login": "Log in",
+      "start": "Start free",
+      "dashboard": "Go to dashboard",
+      "menu": "Open menu",
+      "close": "Close menu"
+    },
+    "hero": {
+      "title": "Run your whole coaching business",
+      "highlight": "from one place.",
+      "subtitle": "Build diet and training plans, follow every client from their phone, and see who is really sticking to the plan. No more WhatsApp threads and spreadsheets.",
+      "cta": "Start free",
+      "secondary": "See a day with FitForce",
+      "note": "Free for up to 3 clients. No credit card.",
+      "imageAlt": "The FitForce coach dashboard showing plan requests, the team workload and a daily chart"
+    },
+    "problem": {
+      "title": "Your day right now: WhatsApp, sheets, and follow-ups in your head",
+      "subtitle": "Every coach knows this loop. Here is the same week, without the chaos.",
+      "withoutTitle": "Without FitForce",
+      "withTitle": "With FitForce",
+      "without": [
+        "Plans typed into PDFs and resent on WhatsApp",
+        "Progress buried in chat threads",
+        "Payments tracked in a spreadsheet",
+        "Renewals remembered, or forgotten"
+      ],
+      "with": [
+        "Plans built once and delivered to the client’s app",
+        "Progress and adherence charted for every client",
+        "Packages and payments kept on each client",
+        "Active, expired and frozen clients visible at a glance"
+      ]
+    },
+    "day": {
+      "title": "A day with FitForce, step by step",
+      "subtitle": "This is the real coach dashboard. Follow one client from sign-up to renewal.",
+      "steps": [
+        {
+          "title": "Add a client",
+          "text": "Create the account, pick a package and assign forms. Four short steps and the client is in.",
+          "alt": "The Add Client dialog with four steps: create account, add subscription, collect data, review"
+        },
+        {
+          "title": "Build the diet and training plan",
+          "text": "Calories and macros add up as you build each meal. Training days hold the exercises and sets.",
+          "alt": "The nutrition plan builder showing a calorie ring, macros and the meals of the day"
+        },
+        {
+          "title": "Your client follows it from the mobile app",
+          "text": "They see today’s meals and workout, log what they ate and did, and message you from the same app.",
+          "alt": "The FitForce client mobile app"
+        },
+        {
+          "title": "See real adherence",
+          "text": "The food diary charts adherence for every plan, so you know who is following it and who is slipping.",
+          "alt": "The food diary with an overall adherence chart"
+        },
+        {
+          "title": "Stay on top of renewals and follow-ups",
+          "text": "Every client’s status, package and payments in one list, with a messenger for the follow-up.",
+          "alt": "The clients list with status, package and date columns"
+        }
+      ]
+    },
+    "features": {
+      "title": "Everything a coach needs, nothing to stitch together",
+      "items": [
+        {
+          "title": "Plan builder",
+          "text": "Diet and training plans with macros, exercises and sets, plus a library to reuse."
+        },
+        {
+          "title": "Client app and portal",
+          "text": "iOS, Android and the web portal, in Arabic or English."
+        },
+        {
+          "title": "Adherence tracking",
+          "text": "Food-diary and workout logs, charted per client and per plan."
+        },
+        {
+          "title": "Forms and check-ins",
+          "text": "Send forms, collect answers and track the metrics that matter."
+        },
+        {
+          "title": "In-app messenger",
+          "text": "Talk to clients where they already follow their plan."
+        },
+        {
+          "title": "Packages and payments",
+          "text": "Sell packages and collect payments in EGP through Fawaterak."
+        }
+      ]
+    },
+    "pricing": {
+      "title": "Pick the plan that fits your roster",
+      "subtitle": "Prices in EGP, tax included. Start free with up to 3 clients, cancel anytime.",
+      "perMonth": "EGP / month",
+      "upTo": "Up to {count} clients",
+      "unlimitedClients": "Unlimited clients",
+      "seats": "{count, plural, one {# team seat} other {# team seats}}",
+      "unlimitedSeats": "Unlimited team seats",
+      "featured": "Most popular",
+      "choose": "Subscribe",
+      "variantLabel": "Number of clients",
+      "billing": "Billing period",
+      "billedEvery": "billed {amount} EGP every {months} months",
+      "compareTitle": "Compare plans",
+      "feature": "Feature",
+      "clients": "Clients",
+      "teamSeats": "Team seats",
+      "included": "Included",
+      "notIncluded": "Not included",
+      "loadError": "We could not load pricing right now.",
+      "retry": "Try again",
+      "talk": "Talk to us on WhatsApp",
+      "free": "Just trying it? Start free with up to 3 clients.",
+      "enterprise": "Need more than this? Talk to us."
+    },
+    "faq": {
+      "title": "Questions coaches ask",
+      "items": [
+        {
+          "q": "How does the free plan work?",
+          "a": "Start free with up to 3 clients, no credit card. When your roster grows, move to a paid plan."
+        },
+        {
+          "q": "Do my clients pay for the app?",
+          "a": "No. Your clients use the portal and the mobile app through your workspace. You only pay for your own plan."
+        },
+        {
+          "q": "How do I get paid?",
+          "a": "Packages and payments are tracked per client, and checkout runs through Fawaterak with prices in EGP."
+        },
+        {
+          "q": "Is it really in Arabic?",
+          "a": "Yes. The coach dashboard, the client portal and the mobile app support Arabic with right-to-left layout, alongside English."
+        },
+        {
+          "q": "Is there a mobile app?",
+          "a": "Yes, for your clients, on iOS and Android. They see their plans, track progress and message you."
+        },
+        {
+          "q": "Can I cancel anytime?",
+          "a": "Yes. You can cancel your plan whenever you want."
+        }
+      ]
+    },
+    "cta": {
+      "title": "Ready to take WhatsApp out of your workflow?",
+      "subtitle": "Set up your workspace and send your first plan from FitForce.",
+      "start": "Start free",
+      "whatsapp": "Chat on WhatsApp",
+      "note": "Free for up to 3 clients. No credit card."
+    },
+    "footer": {
+      "about": "About",
+      "contact": "Contact",
+      "privacy": "Privacy policy",
+      "refund": "Refund & cancellation",
+      "delivery": "Delivery policy",
+      "rights": "© {year} FitForce. All rights reserved."
+    },
+    "bar": {
+      "start": "Start free",
+      "whatsapp": "WhatsApp"
+    },
+    "ui": {
+      "open": "View full size",
+      "close": "Close",
+      "prev": "Previous screen",
+      "next": "Next screen",
+      "steps": "Steps",
+      "marker": "Details",
+      "screens": "Screens"
+    },
+    "tools": {
+      "title": "Built-in tools your clients will notice",
+      "subtitle": "The details that make a coach look organized, and make clients stay.",
+      "items": [
+        {
+          "title": "1,400+ exercise library",
+          "text": "Plus your own exercises"
+        },
+        {
+          "title": "Before and after compare",
+          "text": "Drag to see the change"
+        },
+        {
+          "title": "Your brand",
+          "text": "Logo, colors, welcome message"
+        },
+        {
+          "title": "Team and permissions",
+          "text": "Seats, roles, daily limits"
+        },
+        {
+          "title": "Built-in messenger",
+          "text": "Replies, files, broadcasts"
+        },
+        {
+          "title": "Shopping list",
+          "text": "Built from the plan"
+        },
+        {
+          "title": "Food swap",
+          "text": "Calories matched"
+        }
+      ]
+    },
+    "phones": {
+      "title": "This is what your client sees",
+      "subtitle": "A real app on their phone, in their language. The plan you built is there every day, so they stop asking you for it.",
+      "bullets": [
+        "Native iOS and Android app",
+        "Full right-to-left Arabic, not a translated afterthought",
+        "Plans, shopping list, food swap and workouts in one place"
+      ],
+      "hint": "Swipe or tap to move between screens.",
+      "screens": [
+        {
+          "title": "Today's meals and macros",
+          "text": "Calories, macros and every meal, with cycles for training and rest days.",
+          "alt": "The client app nutrition plan with a calorie ring and meals"
+        },
+        {
+          "title": "A shopping list built from the plan",
+          "text": "Set the days per cycle and get every item to buy, with the total amount.",
+          "alt": "The client app shopping list with items and amounts"
+        },
+        {
+          "title": "Swap any food",
+          "text": "Pick another food from the same group. The amount is adjusted to match the calories.",
+          "alt": "The client app food swap dialog with alternatives"
+        },
+        {
+          "title": "Workouts with video",
+          "text": "Exercise videos, sets, reps and the weights from last time, then start the day.",
+          "alt": "The client app training plan with an exercise video and sets"
+        }
+      ]
+    },
+    "shots": {
+      "addClient": {
+        "markers": [
+          "Four short steps, then the client is in",
+          "Generate a portal password in one click",
+          "Next: assign a package and forms"
+        ],
+        "cards": [
+          {
+            "label": "Add client",
+            "value": "4 steps"
+          }
+        ]
+      },
+      "nutrition": {
+        "markers": [
+          "Calories and macros update as you build",
+          "Every meal shows its own macros",
+          "The active plan and its progress"
+        ],
+        "cards": [
+          {
+            "label": "Daily calories",
+            "value": "2,343 kcal"
+          }
+        ]
+      },
+      "foodDiary": {
+        "markers": [
+          "Overall adherence",
+          "Adherence over time",
+          "Adherence for each plan"
+        ],
+        "cards": [
+          {
+            "label": "Adherence",
+            "value": "88%"
+          }
+        ]
+      },
+      "clients": {
+        "markers": [
+          "Status at a glance",
+          "The package for each client",
+          "Add a client in one click"
+        ],
+        "cards": []
+      },
+      "library": {
+        "markers": [
+          "A photo for every exercise",
+          "English and Arabic names",
+          "Add your own exercise"
+        ],
+        "cards": [
+          {
+            "label": "Exercise library",
+            "value": "1,400+"
+          }
+        ]
+      },
+      "branding": {
+        "markers": [
+          "Upload your logo",
+          "Pick your brand color",
+          "Live preview of the client app"
+        ],
+        "cards": [
+          {
+            "label": "Client app",
+            "value": "Your brand"
+          }
+        ]
+      },
+      "messenger": {
+        "markers": [
+          "Broadcast to many clients",
+          "Reply to a message, attach files",
+          "The client profile beside the chat"
+        ],
+        "cards": []
+      },
+      "team": {
+        "markers": [
+          "Team seats used",
+          "Set a daily plan limit",
+          "A role for each member"
+        ],
+        "cards": [
+          {
+            "label": "Team seats",
+            "value": "22 of 30"
+          }
+        ]
+      },
+      "compare": {
+        "markers": [
+          "Drag to compare before and after",
+          "Pick any two photos"
+        ],
+        "cards": [
+          {
+            "label": "Before / After",
+            "value": "Drag"
+          }
+        ]
+      },
+      "shopping": {
+        "markers": [
+          "Set days per cycle",
+          "Total to buy for each item"
+        ],
+        "cards": [
+          {
+            "label": "Shopping list",
+            "value": "Auto"
+          }
+        ]
+      },
+      "swap": {
+        "markers": [
+          "Same food group, calories matched",
+          "Search alternatives",
+          "Confirm the swap"
+        ],
+        "cards": [
+          {
+            "label": "Calories",
+            "value": "Matched"
+          }
+        ]
+      },
+      "phoneNutrition": {
+        "markers": [
+          "Calories and macros",
+          "Swap any food",
+          "Open the shopping list"
+        ],
+        "cards": [
+          {
+            "label": "Today",
+            "value": "2,343 kcal"
+          }
+        ]
+      },
+      "training": {
+        "markers": [
+          "Exercise video",
+          "Sets, reps and last weights",
+          "Start the day"
+        ],
+        "cards": []
+      }
+    }
   }
 }
