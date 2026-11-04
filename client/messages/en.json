@@ -3624,7 +3624,8 @@
     },
     "ui": {
       "steps": "Steps",
-      "next": "Next step"
+      "next": "Next step",
+      "close": "Close"
     },
     "bring": {
       "title": "Already have your own content? Bring it with you",
