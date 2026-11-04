@@ -7,6 +7,7 @@ import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
 import OverlayInertFix from './components/OverlayInertFix';
 import MetaPixelTracker from './components/MetaPixelTracker';
+import VisitorTracker from './components/VisitorTracker';
 import ClarityTracker from './components/ClarityTracker';
 import { isDemoFrame } from '@/lib/axios';
 
@@ -33,6 +34,7 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                         {inDemo && <style>{`html, body { scrollbar-width: none; -ms-overflow-style: none; } html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; } main > div { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }`}</style>}
                         <OverlayInertFix />
                         {!inDemo && <MetaPixelTracker />}
+                        {!inDemo && <VisitorTracker />}
                         {!inDemo && <ClarityTracker />}
                         {children}
                     </RouterProvider>

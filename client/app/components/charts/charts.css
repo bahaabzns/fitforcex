@@ -1,0 +1,62 @@
+/* Chart tokens — the validated categorical palette (blue / orange / aqua are the first three slots,
+   which pass the all-pairs colour-blind checks) plus the blue ramp for ordered steps. Dark mode
+   uses its own stepped values, not an automatic flip. The app switches theme with `.dark` on <html>. */
+.viz-root {
+    --viz-surface:   var(--color-card);
+    --viz-ink:       #0b0b0b;
+    --viz-ink-2:     #52514e;
+    --viz-muted:     #898781;
+    --viz-grid:      #e1e0d9;
+    --viz-baseline:  #c3c2b7;
+    --viz-gray:      #c3c2b7;
+    --viz-s1:        #2a78d6;
+    --viz-s2:        #eb6834;
+    --viz-s3:        #1baf7a;
+    --viz-s4:        #eda100;
+    --viz-s5:        #e87ba4;
+    --viz-step-1:    #86b6ef;
+    --viz-step-2:    #3987e5;
+    --viz-step-3:    #1c5cab;
+    --viz-on-fill:   #ffffff;
+}
+
+.dark .viz-root {
+    --viz-ink:       #f0efec;
+    --viz-ink-2:     #c3c2b7;
+    --viz-grid:      #2c2c2a;
+    --viz-baseline:  #383835;
+    --viz-gray:      #4b4a46;
+    --viz-s1:        #3987e5;
+    --viz-s2:        #d95926;
+    --viz-s3:        #199e70;
+    --viz-s4:        #c98500;
+    --viz-s5:        #d55181;
+}
+
+.viz-root { color: var(--viz-ink); }
+.viz-ink-2 { color: var(--viz-ink-2); }
+.viz-muted { color: var(--viz-muted); }
+
+/* Marks lift slightly on hover/focus so the reader sees them respond. */
+.viz-mark { transition: filter 120ms ease, opacity 120ms ease; }
+.viz-mark:hover, .viz-mark:focus-visible { filter: brightness(1.12); }
+.viz-mark:focus-visible { outline: 2px solid var(--viz-ink); outline-offset: 2px; }
+
+.viz-tooltip {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    min-width: 140px;
+    max-width: 260px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--viz-surface);
+    border: 1px solid var(--viz-baseline);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    font-size: 12px;
+}
+
+@media (forced-colors: active) {
+    /* Colour can't carry identity here, so fall back to system colours and a visible outline. */
+    .viz-bar, .viz-segment { forced-color-adjust: none; outline: 1px solid CanvasText; background: Highlight !important; }
+}

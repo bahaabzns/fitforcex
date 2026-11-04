@@ -8,6 +8,8 @@ import { prisma } from '../../lib/prisma';
 import { normalizeEmail } from '../../utils/email';
 import { cloneDefaultLibraries, getLibraryCounts } from '../../lib/libraryClone';
 import { sendMetaEvent } from '../../lib/metaConversions';
+import { linkVisitorToWorkspace } from '../tracking/tracking.service';
+import logger from '../../logger';
 import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
     fetchUserWorkspaces, fetchPendingInvitationsCount, issueToken,
@@ -17,7 +19,7 @@ import {
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
-        const { fname, lname, email, password, phone, workspaceName, metaEventId } = req.body as Record<string, string | undefined>;
+        const { fname, lname, email, password, phone, workspaceName, metaEventId, visitorId } = req.body as Record<string, string | undefined>;
 
         if (!password || typeof password !== 'string' || !password.trim()) {
             return res.status(400).json({ message: 'Password is required' });
@@ -115,6 +117,14 @@ export async function register(req: Request, res: Response, next: NextFunction) 
             });
 
             await storeAndSendVerificationCode(userId, normalizedEmail);
+
+            // Attach the anonymous pre-signup history to this workspace (admin Conversions page).
+            // Tracking is never allowed to fail a signup.
+            try {
+                await linkVisitorToWorkspace(workspaceId, typeof visitorId === 'string' ? visitorId : undefined);
+            } catch (linkErr) {
+                logger.warn({ err: linkErr, workspaceId }, '[tracking] could not link visitor to workspace');
+            }
 
             // Seed the new workspace with the global Default Libraries in the
             // background — the response returns immediately; the onboarding screen
