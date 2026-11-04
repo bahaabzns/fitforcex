@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Play } from "lucide-react";
+import { assetUrl } from "@/lib/landingConfig";
 import LpShot from "./LpShot";
 import { LpPhoneFrame } from "./LpFrames";
 import LpShotImage from "./LpShotImage";
@@ -38,7 +39,7 @@ export default function LpHero({ dashboardUrl }) {
                     </div>
 
                     <div className="lp-hero__shot lp-hero__shot--desktop lp-rise">
-                        <LpShot src={`/lp/${locale}-dashboard.webp`} alt={t("imageAlt")} sizes="(min-width: 1200px) 1100px, 100vw" />
+                        <LpShot src={assetUrl(`/lp/${locale}-dashboard.webp`)} alt={t("imageAlt")} sizes="(min-width: 1200px) 1100px, 100vw" />
                     </div>
                     <div className="lp-hero__shot--phone lp-rise">
                         <LpPhoneFrame>

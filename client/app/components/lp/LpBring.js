@@ -1,4 +1,5 @@
 import { useLocale, useTranslations } from "next-intl";
+import { assetUrl } from "@/lib/landingConfig";
 import { FileInput, CirclePlay } from "lucide-react";
 
 const ITEMS = [
@@ -23,8 +24,8 @@ export default function LpBring() {
                             <div className="lp-bring__shot">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                    src={`/lp/${locale}-bring-${key}.webp`}
-                                    srcSet={`/lp/${locale}-bring-${key}-m.webp 560w, /lp/${locale}-bring-${key}.webp 1008w`}
+                                    src={assetUrl(`/lp/${locale}-bring-${key}.webp`)}
+                                    srcSet={`${assetUrl(`/lp/${locale}-bring-${key}-m.webp`)} 560w, ${assetUrl(`/lp/${locale}-bring-${key}.webp`)} 1008w`}
                                     sizes="(min-width: 720px) 480px, 100vw"
                                     alt={t(`${key}.title`)}
                                     loading="lazy"

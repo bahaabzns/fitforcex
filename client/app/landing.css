@@ -704,3 +704,18 @@
   .lp-chip__title { display: inline; font-size: 1.02rem; line-height: 1.4; text-align: start; }
   .lp-chip svg { flex: none; }
 }
+
+/* Day section: tabs, caption and frame share one width that fits the screen height. */
+.lp-day { display: flex; flex-direction: column; margin-inline: auto; max-width: 1100px; }
+.lp-day .lp-chips { order: 1; }
+.lp-day .lp-stage { order: 2; max-width: none; margin-inline: 0; width: 100%; }
+.lp-day .lp-caption { order: 3; max-width: none; margin-top: 20px; }
+@media (min-width: 960px) {
+  .lp-day { max-width: clamp(640px, calc((100dvh - 300px) * 1.4545), 1100px); }
+  .lp-day .lp-chips { max-width: none; margin-bottom: 8px; }
+  .lp-day .lp-caption { order: 2; margin: 4px 0 18px; gap: 2px; }
+  .lp-day .lp-stage { order: 3; }
+  .lp-day .lp-caption__next { display: none; }
+  .lp-day .lp-chip { min-height: 56px; padding-inline: 14px; }
+  .lp-day .lp-chip__title { font-size: 0.98rem; }
+}

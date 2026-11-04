@@ -61,6 +61,11 @@ export const LANDING_DAY_SCOPES = ["coach", "coach", "coach", "coach"];
 export const LANDING_DAY_STEPS = [["addClient"], ["nutrition"], ["foodDiary"], ["finance"]];
 export const LANDING_PHONE_SCREENS = ["phoneNutrition", "shopping", "swap"];
 
+// Bump when screenshots are retaken: file names stay the same, so returning visitors and CDNs
+// would otherwise keep showing the old images.
+export const LANDING_ASSET_VERSION = "2026-11-04b";
+export const assetUrl = (path) => `${path}?v=${LANDING_ASSET_VERSION}`;
+
 export function shotSrc(shot, locale) {
-    return `/lp/${shot.file.replace("{l}", locale)}.webp`;
+    return assetUrl(`/lp/${shot.file.replace("{l}", locale)}.webp`);
 }

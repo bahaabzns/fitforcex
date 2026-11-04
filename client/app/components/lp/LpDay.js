@@ -26,6 +26,7 @@ export default function LpDay() {
     const isRtl = useLocale() === "ar";
     const steps = t.raw("steps");
     const labels = t.raw("labels");
+    const tabs = t.raw("tabs");
     const [active, setActive] = useState(0);
     const tabRefs = useRef([]);
 
@@ -49,6 +50,7 @@ export default function LpDay() {
                     <p className="lp-lead">{t("subtitle")}</p>
                 </div>
 
+                <div className="lp-day">
                 <div className="lp-chips" role="tablist" aria-label={tUi("steps")} onKeyDown={onKeyDown}>
                     {steps.map((step, index) => {
                         const Icon = STEP_ICONS[index];
@@ -67,10 +69,18 @@ export default function LpDay() {
                             >
                                 <Icon size={20} aria-hidden="true" />
                                 <span className="lp-chip__label">{labels[index]}</span>
-                                <span className="lp-chip__title">{step.title}</span>
+                                <span className="lp-chip__title">{tabs[index]}</span>
                             </button>
                         );
                     })}
+                </div>
+
+                <div className="lp-caption" aria-live="polite">
+                    <strong>{steps[active].title}</strong>
+                    <span>{steps[active].text}</span>
+                    {active < steps.length - 1 && (
+                        <button type="button" className="lp-caption__next" onClick={() => setActive(active + 1)}>{tUi("next")}</button>
+                    )}
                 </div>
 
                 <div className="lp-stage">
@@ -87,13 +97,6 @@ export default function LpDay() {
                         </div>
                     ))}
                 </div>
-
-                <div className="lp-caption" aria-live="polite">
-                    <strong>{steps[active].title}</strong>
-                    <span>{steps[active].text}</span>
-                    {active < steps.length - 1 && (
-                        <button type="button" className="lp-caption__next" onClick={() => setActive(active + 1)}>{tUi("next")}</button>
-                    )}
                 </div>
 
                 <div className="lp-day__cta">

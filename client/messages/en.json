@@ -3491,6 +3491,12 @@
         "Plan",
         "Progress",
         "Payments"
+      ],
+      "tabs": [
+        "Add a client",
+        "Build the plan",
+        "Track progress",
+        "Track payments"
       ]
     },
     "pricing": {
