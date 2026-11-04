@@ -92,6 +92,9 @@ export default function LpDayJourney() {
                     </ol>
                 </nav>
 
+                {/* Phones have no room beside the timeline, so the active step's text sits under it. */}
+                <p className="lp-jcap" aria-live="polite">{steps[active].text}</p>
+
                 <div className="lp-jstage">
                     <div className="lp-stage">
                         {LANDING_DAY_STEPS.map((shotIds, index) => (
