@@ -3473,9 +3473,9 @@
           "alt": "The nutrition plan builder showing a calorie ring, macros and the meals of the day"
         },
         {
-          "title": "See real adherence",
-          "text": "Know who is following the plan and who is slipping, without asking. The food diary charts adherence for every plan.",
-          "alt": "The food diary with an overall adherence chart"
+          "title": "Track your client's weight and measurements",
+          "text": "Weight and body measurements come from check-in forms and are charted per metric, so you see real progress without asking.",
+          "alt": "A client's weight and body measurement charts"
         },
         {
           "title": "Stay on top of renewals and follow-ups",
@@ -3490,7 +3490,7 @@
       "labels": [
         "Client",
         "Plan",
-        "Adherence",
+        "Progress",
         "Payments"
       ]
     },
