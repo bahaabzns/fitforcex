@@ -829,7 +829,8 @@
 @media (max-width: 799px) {
   .lp-cs__stage { height: auto; border-radius: 26px; }
   .lp-cs__slide { display: flex; flex-direction: column; }
-  .lp-cs__photo { position: relative; inset: auto; width: 100%; aspect-ratio: 4 / 4.3; --fade: to top; transform: none; }
+  .lp-cs__photo { position: relative; inset: auto; width: 100%; aspect-ratio: 4 / 4.3; transform: none; }
+  [dir="rtl"] .lp-cs__photo, [dir="ltr"] .lp-cs__photo { --fade: to bottom; }
   .lp-cs__slide.is-active .lp-cs__photo { transform: none; }
   .lp-cs__text { position: relative; inset: auto; width: 100%; margin-top: -76px; padding: 0 18px 24px; align-items: center; text-align: center; gap: 14px; }
   .lp-cs__name { width: auto; max-width: 100%; font-size: clamp(2.2rem, 11vw, 3rem); }
