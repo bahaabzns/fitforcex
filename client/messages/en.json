@@ -3473,11 +3473,6 @@
           "alt": "The nutrition plan builder showing a calorie ring, macros and the meals of the day"
         },
         {
-          "title": "Your client follows it from the mobile app",
-          "text": "Clients follow the plan without asking you about it. They see today’s meals and workout, log what they ate and did, and message you from the same app.",
-          "alt": "The FitForce client mobile app"
-        },
-        {
           "title": "See real adherence",
           "text": "Know who is following the plan and who is slipping, without asking. The food diary charts adherence for every plan.",
           "alt": "The food diary with an overall adherence chart"
@@ -3495,7 +3490,6 @@
       "labels": [
         "Client",
         "Plan",
-        "App",
         "Adherence",
         "Payments"
       ]
@@ -3643,6 +3637,22 @@
         "title": "Your exercises, from YouTube",
         "body": "Add your own exercises with a YouTube link, and they sit next to the built-in library in every plan."
       }
+    },
+    "wa": {
+      "title": "FitForce",
+      "status": "We reply Sunday to Thursday, 11 AM to 7 PM",
+      "greeting": "Hi, welcome to FitForce 👋 Pick a question below, or start a chat and we'll reply on WhatsApp.",
+      "quick": "Quick questions",
+      "start": "Start chat",
+      "startText": "Hello! I'm interested in FitForce.",
+      "close": "Close",
+      "questions": [
+        "Which plan fits my number of clients?",
+        "How do I start free?",
+        "Can I bring my existing forms and exercises?",
+        "Can I use my own branding?",
+        "How do I pay, and can I cancel anytime?"
+      ]
     }
   }
 }

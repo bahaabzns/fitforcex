@@ -3,13 +3,13 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ChefHat, LineChart, Smartphone, UserPlus, Wallet } from "lucide-react";
+import { ChefHat, LineChart, UserPlus, Wallet } from "lucide-react";
 import { LANDING_DAY_SCOPES, LANDING_DAY_STEPS, LANDING_SECTIONS, LANDING_SHOTS } from "@/lib/landingConfig";
 import { LpBrowser, LpPhoneFrame } from "./LpFrames";
 import LpShotImage from "./LpShotImage";
 
 // Same order as `lp.day.steps`; used by the phone chips.
-const STEP_ICONS = [UserPlus, ChefHat, Smartphone, LineChart, Wallet];
+const STEP_ICONS = [UserPlus, ChefHat, LineChart, Wallet];
 
 // One stage for every step: same frame, same shape. Phones sit inside it for the client-app step.
 function StepVisual({ shotIds, alt, scopeLabel }) {

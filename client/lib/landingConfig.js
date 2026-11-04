@@ -1,5 +1,7 @@
 // Landing-page facts that are not translated copy.
 
+export const WHATSAPP_NUMBER = "201501233314";
+export const whatsappLink = (text) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 export const WHATSAPP_URL = "https://wa.me/201501233314?text=Hello!%20I'm%20interested%20in%20FitForce.";
 
 // Section anchors shared by the nav and the sections themselves.
@@ -55,8 +57,8 @@ export const LANDING_SHOTS = {
 // Order matters: matches `lp.day.steps` and `lp.phones.screens` in the messages.
 // Day step 3 is the client's phone, shown as two phones in the same stage.
 // Which app each day step shows, for the small label on the stage.
-export const LANDING_DAY_SCOPES = ["coach", "coach", "client", "coach", "coach"];
-export const LANDING_DAY_STEPS = [["addClient"], ["nutrition"], ["phoneNutrition", "training"], ["foodDiary"], ["finance"]];
+export const LANDING_DAY_SCOPES = ["coach", "coach", "coach", "coach"];
+export const LANDING_DAY_STEPS = [["addClient"], ["nutrition"], ["foodDiary"], ["finance"]];
 export const LANDING_PHONE_SCREENS = ["phoneNutrition", "shopping", "swap"];
 
 export function shotSrc(shot, locale) {

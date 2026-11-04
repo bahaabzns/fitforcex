@@ -316,6 +316,7 @@
   position: fixed; z-index: 40; inset-inline-end: 24px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%;
   display: none; align-items: center; justify-content: center;
   background: var(--lp-wa); color: var(--lp-on-blue); box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+  border: 0; cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .lp-wa-float:hover { transform: scale(1.06); box-shadow: 0 12px 38px rgba(37, 211, 102, 0.55); }
@@ -592,8 +593,8 @@
 .lp-bring svg { color: var(--lp-blue); }
 .lp-bring p { color: var(--lp-text-2); }
 .lp-bring li { padding: 16px 16px 24px; }
-.lp-bring__shot { aspect-ratio: 5 / 3; border-radius: 14px; overflow: hidden; background: #18181b; border: 1px solid var(--lp-glass-border); display: grid; place-items: center; margin-bottom: 8px; }
-.lp-bring__shot img { max-width: 100%; max-height: 100%; display: block; }
+.lp-bring__shot { margin-bottom: 8px; }
+.lp-bring__shot img { display: block; width: 100%; height: auto; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35)); }
 .lp-bring h3, .lp-bring p { padding-inline: 8px; }
 
 /* Pricing: buttons sit on one line across cards; client count is the second highlight after price. */
@@ -629,7 +630,30 @@
 }
 
 /* Import screenshots keep their own proportions, so no empty bands above or below. */
-.lp-bring__shot { aspect-ratio: auto; display: block; }
-.lp-bring__shot img { width: 100%; height: auto; max-height: none; }
 .lp-plan__meta { align-self: flex-start; }
 .lp-range__head .lp-plan__clients { font-weight: 500; color: var(--lp-text-2); }
+
+/* Desktop hero title: exactly two lines. */
+@media (min-width: 1000px) {
+  .lp-hero h1, [dir="rtl"] .lp-hero h1 { max-width: none; font-size: clamp(2.75rem, 3.7vw, 3.4rem); }
+  .lp-hero h1 .lp-grad { display: block; }
+}
+
+/* WhatsApp quick-questions popover */
+.lp-wachat { position: fixed; z-index: 50; inset-inline: 12px; bottom: 76px; max-height: calc(100dvh - 100px); display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; background: #0e1526; border: 1px solid var(--lp-glass-border); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); }
+@media (min-width: 768px) { .lp-wachat { inset-inline: auto 24px; width: 370px; bottom: 96px; } }
+.lp-wachat__head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #0a1020; border-bottom: 1px solid var(--lp-glass-border); }
+.lp-wachat__head > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.lp-wachat__head strong { font-family: "Alexandria", sans-serif; }
+.lp-wachat__head span:not(.lp-wachat__logo) { color: var(--lp-text-3); font-size: 0.8rem; }
+.lp-wachat__logo { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--lp-wa); color: var(--lp-on-blue); }
+.lp-wachat__close { flex: none; width: 44px; height: 44px; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; background: transparent; color: var(--lp-text-2); }
+.lp-wachat__close:hover { background: rgba(255, 255, 255, 0.08); }
+.lp-wachat__body { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.lp-wachat__bubble { margin: 0; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.07); line-height: 1.8; }
+.lp-wachat__label { margin: 4px 0 0; color: var(--lp-text-3); font-size: 0.85rem; font-weight: 600; }
+.lp-wachat__body ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lp-wachat__body li a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--lp-glass-border); color: #fff; font-weight: 600; line-height: 1.6; }
+.lp-wachat__body li a:hover { background: rgba(37, 211, 102, 0.12); border-color: rgba(37, 211, 102, 0.45); }
+.lp-wachat__body li a svg { flex: none; color: var(--lp-text-3); }
+.lp-wachat__start { margin: 0 16px 16px; width: auto; }

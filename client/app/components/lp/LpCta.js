@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
-import { WHATSAPP_URL } from "@/lib/landingConfig";
+import { useLocale, useTranslations } from "next-intl";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { WHATSAPP_URL, whatsappLink } from "@/lib/landingConfig";
 
 function WhatsAppIcon(props) {
     return (
@@ -64,12 +65,66 @@ export function LpFooter() {
     );
 }
 
+// Chat-style popover: the visitor picks a ready-made question and lands in WhatsApp with it prefilled.
+function WhatsAppChat({ open, onClose }) {
+    const t = useTranslations("lp.wa");
+    const locale = useLocale();
+    const closeRef = useRef(null);
+    const questions = t.raw("questions");
+    const Chevron = locale === "ar" ? ChevronLeft : ChevronRight;
+
+    useEffect(() => {
+        if (!open) return undefined;
+        closeRef.current?.focus();
+        const onKey = (event) => { if (event.key === "Escape") onClose(); };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [open, onClose]);
+
+    if (!open) return null;
+    return (
+        <div className="lp-wachat" role="dialog" aria-modal="false" aria-labelledby="lp-wachat-title">
+            <div className="lp-wachat__head">
+                <span className="lp-wachat__logo"><WhatsAppIcon width={26} height={26} /></span>
+                <div>
+                    <strong id="lp-wachat-title">{t("title")}</strong>
+                    <span>{t("status")}</span>
+                </div>
+                <button type="button" ref={closeRef} className="lp-wachat__close" onClick={onClose} aria-label={t("close")}>
+                    <X size={20} aria-hidden="true" />
+                </button>
+            </div>
+            <div className="lp-wachat__body">
+                <p className="lp-wachat__bubble">{t("greeting")}</p>
+                <p className="lp-wachat__label">{t("quick")}</p>
+                <ul>
+                    {questions.map((question) => (
+                        <li key={question}>
+                            <a href={whatsappLink(question)} target="_blank" rel="noopener noreferrer">
+                                {question}
+                                <Chevron size={18} aria-hidden="true" />
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+            <a href={whatsappLink(t("startText"))} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn--wa lp-btn--full lp-wachat__start">
+                <WhatsAppIcon width={20} height={20} />
+                {t("start")}
+            </a>
+        </div>
+    );
+}
+
 // Desktop: floating button. Phones: sticky bar with the primary action next to WhatsApp.
 export function LpFloating({ dashboardUrl }) {
     const t = useTranslations("lp.bar");
     const tNav = useTranslations("lp.nav");
     // Starts visible so the bar still works if the hero button is missing (e.g. logged-in view).
     const [showBar, setShowBar] = useState(true);
+    const [chatOpen, setChatOpen] = useState(false);
+    const toggleChat = () => setChatOpen((isOpen) => !isOpen);
+    const closeChat = () => setChatOpen(false);
 
     // The phone bar only appears once the hero button has scrolled out of view.
     useEffect(() => {
@@ -82,17 +137,18 @@ export function LpFloating({ dashboardUrl }) {
 
     return (
         <>
-            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="lp-wa-float" aria-label={t("whatsapp")}>
-                <WhatsAppIcon width={26} height={26} />
-            </a>
+            <WhatsAppChat open={chatOpen} onClose={closeChat} />
+            <button type="button" className="lp-wa-float" aria-label={t("whatsapp")} aria-expanded={chatOpen} onClick={toggleChat}>
+                {chatOpen ? <X size={26} aria-hidden="true" /> : <WhatsAppIcon width={26} height={26} />}
+            </button>
             <div className={`lp-bar ${showBar ? "is-visible" : ""}`}>
                 <Link href={dashboardUrl || "/register"} className="lp-btn lp-btn--primary">
                     {dashboardUrl ? tNav("dashboard") : t("start")}
                 </Link>
-                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn--wa">
+                <button type="button" className="lp-btn lp-btn--wa" aria-expanded={chatOpen} onClick={toggleChat}>
                     <WhatsAppIcon width={20} height={20} />
                     {t("whatsapp")}
-                </a>
+                </button>
             </div>
         </>
     );
