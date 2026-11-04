@@ -920,3 +920,17 @@
 .lp-task.is-done { box-shadow: 0 0 40px -12px rgba(47, 169, 255, 0.8); }
 .lp-task.is-done::after { color: rgba(47, 169, 255, 0.35); }
 @media (prefers-reduced-motion: reduce) { .lp-demo-ring, .lp-demo-facade .lp-btn { animation: none; } .lp-demo-bar span { transition: none; } }
+
+/* Softer lighting for the demo and pricing sections. */
+.lp-demo-sec::before { opacity: 0.55; }
+.lp-demo-app__phone .lp-phone-frame { box-shadow: inset 0 1px 0 var(--lp-glass-top), 0 50px 100px -34px rgba(47, 169, 255, 0.45), 0 0 0 1px rgba(47, 169, 255, 0.25), 0 0 50px rgba(47, 169, 255, 0.18); }
+.lp-demo-ring { border-color: rgba(47, 169, 255, 0.2); }
+.lp-task__icon { box-shadow: 0 0 14px -6px rgba(47, 169, 255, 0.4); }
+.lp-task.is-done { box-shadow: 0 0 24px -14px rgba(47, 169, 255, 0.5); }
+.lp-pricing-sec::before { opacity: 0.55; }
+.lp-pricing-sec__glow { opacity: 0.55; }
+.lp-plan.lp-glass--blue { box-shadow: 0 0 0 1px rgba(47, 169, 255, 0.28), 0 30px 80px -34px rgba(47, 169, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.lp-plan.lp-glass--blue::before { background: radial-gradient(ellipse at 50% 0%, rgba(47, 169, 255, 0.15), transparent 60%); }
+.lp-plan__amount { text-shadow: 0 0 24px rgba(47, 169, 255, 0.18); }
+.lp-switch { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 40px -26px rgba(47, 169, 255, 0.35); }
+.lp-switch button[aria-pressed="true"] { box-shadow: 0 6px 18px -8px rgba(47, 169, 255, 0.6); }
