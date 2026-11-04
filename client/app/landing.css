@@ -622,7 +622,7 @@
 
 /* Day section on phones: one segmented control, centered copy. */
 @media (max-width: 959px) {
-  .lp-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; overflow: visible; padding: 5px; border-radius: 18px; background: var(--lp-glass); border: 1px solid var(--lp-glass-border); }
+  .lp-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; overflow: visible; padding: 5px; border-radius: 18px; background: var(--lp-glass); border: 1px solid var(--lp-glass-border); }
   .lp-chip { min-width: 0; padding: 8px 2px; font-size: 0.72rem; background: transparent; border-color: transparent; }
   .lp-caption { align-items: center; text-align: center; }
   .lp-caption__next { align-self: center; }
@@ -657,3 +657,22 @@
 .lp-wachat__body li a:hover { background: rgba(37, 211, 102, 0.12); border-color: rgba(37, 211, 102, 0.45); }
 .lp-wachat__body li a svg { flex: none; color: var(--lp-text-3); }
 .lp-wachat__start { margin: 0 16px 16px; width: auto; }
+
+/* Browser frame: title bar with window dots, then the screenshot edge to edge. */
+.lp-chrome { display: flex; align-items: center; gap: 7px; height: 34px; padding-inline: 16px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid var(--lp-glass-border); }
+.lp-chrome i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); }
+.lp-browser { display: flex; flex-direction: column; aspect-ratio: auto; }
+.lp-browser__screen { position: relative; width: 100%; aspect-ratio: 2400 / 1650; }
+.lp-frame { padding: 0; overflow: hidden; }
+.lp-frame img { display: block; width: 100%; height: auto; }
+
+/* Day stage: layers stack in one grid cell, so the stage is exactly as tall as the frame. */
+.lp-stage { display: grid; aspect-ratio: auto; }
+.lp-stage__layer { position: static; grid-area: 1 / 1; align-content: start; }
+.lp-stage__layer .lp-browser { height: auto; }
+@media (min-width: 960px) {
+  .lp-day { align-items: center; }
+  .lp-day__list { height: auto; min-height: 0; justify-content: center; }
+  .lp-day__list li[data-active="true"] { flex: 0 0 auto; }
+}
+@media (max-width: 959px) { .lp-stage { aspect-ratio: auto; } }
