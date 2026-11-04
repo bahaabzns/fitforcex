@@ -6,6 +6,8 @@ import * as adminController from './admin.controller';
 import * as libraryController from './defaultLibraries.controller';
 import * as templateController from './adminFormTemplates.controller';
 import * as tutorialsController from './tutorials.controller';
+import * as conversionsController from './conversions.controller';
+import * as followUpsController from './followUps.controller';
 import insightsAdminRouter from '../insights/insightsAdmin.routes';
 
 const router = Router();
@@ -462,6 +464,77 @@ router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrial
  *       200:
  *         description: Payment updated
  */
+/**
+ * @openapi
+ * /admin/conversions:
+ *   get:
+ *     summary: Per-coach conversion funnel (first visit → trial → paid) with averages
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Coaches on trial or paid, with first visit, sessions, days to trial/paid and first source (null = unknown)
+ */
+router.get('/conversions',                 adminAuthMiddleware, conversionsController.getConversions);
+
+/**
+ * @openapi
+ * /admin/follow-ups:
+ *   get:
+ *     summary: Every coach (workspace owner) with WhatsApp number, status, days since signup and follow-up reminders
+ *     tags: [Admin]
+ *     parameters:
+ *       - { in: query, name: includeArchived, schema: { type: boolean } }
+ *     responses:
+ *       200:
+ *         description: Coaches plus the free plan client limit
+ *
+ * /admin/follow-ups/entries/{entryId}:
+ *   patch:
+ *     summary: Edit a recorded follow-up
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Updated follow-up
+ *   delete:
+ *     summary: Remove a recorded follow-up (soft delete)
+ *     tags: [Admin]
+ *     responses:
+ *       204:
+ *         description: Removed
+ *
+ * /admin/follow-ups/{workspaceId}:
+ *   get:
+ *     summary: Follow-up history for one coach, newest first
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Workspace summary and its follow-up entries
+ *   post:
+ *     summary: Record a follow-up (what was sent, the reply, optional next follow-up date)
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sentNote]
+ *             properties:
+ *               sentNote: { type: string }
+ *               replyNote: { type: string, nullable: true }
+ *               followedUpAt: { type: string, description: "ISO date-time or YYYY-MM-DD; defaults to now" }
+ *               nextFollowUpOn: { type: string, format: date, nullable: true }
+ *     responses:
+ *       201:
+ *         description: Follow-up recorded
+ */
+// "entries" routes are declared before the /:workspaceId ones so the param never shadows them.
+router.get('/follow-ups',                         adminAuthMiddleware, followUpsController.listFollowUpCoaches);
+router.patch('/follow-ups/entries/:entryId',      adminAuthMiddleware, followUpsController.updateFollowUp);
+router.delete('/follow-ups/entries/:entryId',     adminAuthMiddleware, followUpsController.deleteFollowUp);
+router.get('/follow-ups/:workspaceId',            adminAuthMiddleware, followUpsController.getFollowUpHistory);
+router.post('/follow-ups/:workspaceId',           adminAuthMiddleware, followUpsController.createFollowUp);
+
 router.get('/payments/stats',              adminAuthMiddleware, adminController.getPaymentStats);
 router.get('/payments',                    adminAuthMiddleware, adminController.getPayments);
 router.post('/payments/:id/mark-paid',     adminAuthMiddleware, adminController.markPaymentPaid);

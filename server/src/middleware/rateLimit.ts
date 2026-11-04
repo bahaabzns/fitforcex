@@ -55,6 +55,17 @@ export const webhookLimiter = rateLimit({
     skip:           skipInTest,
 });
 
+// Public, unauthenticated visit beacon — one call per marketing-page navigation, so a real visitor
+// stays far below this; the cap exists to stop a flood from filling the visitors tables.
+export const trackLimiter = rateLimit({
+    windowMs:       1 * 60 * 1000,
+    max:            60,
+    message:        { error: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders:  false,
+    skip:           skipInTest,
+});
+
 export const uploadLimiter = rateLimit({
     windowMs:       1 * 60 * 1000,
     max:            20,

@@ -56,6 +56,7 @@ import insightsRouter from './modules/insights/index';
 import pdfExportRouter from './modules/pdfExport/index';
 import tutorialsRouter from './modules/tutorials/index';
 import brandingRouter from './modules/branding/index';
+import trackingRouter from './modules/tracking/index';
 import { coachRouter as announcementsRouter, adminRouter as adminAnnouncementsRouter } from './modules/announcements/announcements.routes';
 
 if (env.NODE_ENV !== 'test') {
@@ -129,6 +130,7 @@ const apiLimiter = (req: Request, res: Response, next: NextFunction) => {
 };
 
 app.use('/api/auth',           authRouter);
+app.use('/api/track',          trackingRouter);
 app.use('/api/dashboard',      dashboardRouter);
 app.use('/api/operations',     apiLimiter, operationsRouter);
 app.use('/api/messenger',      mutationLimiter, messengerRouter);

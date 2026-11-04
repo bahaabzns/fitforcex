@@ -31,6 +31,7 @@ export async function resetTestDb(): Promise<void> {
                 package_variations, packages, transactions,
                 workspace_members, workspace_subscriptions,
                 workspaces, user_sessions,
+                visitor_sessions, visitors,
                 password_reset_tokens, users
             RESTART IDENTITY CASCADE
         `);
