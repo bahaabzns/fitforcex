@@ -3368,5 +3368,303 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel"
+  },
+  "lp": {
+    "demo": {
+      "videoTitle": "How to use FitForce",
+      "close": "Close"
+    },
+    "coaches": {
+      "title": "Coaches who rely on our services",
+      "subtitle": "Real coaches, real clients.",
+      "coach1": {
+        "name": "Ahmed Elbasuony",
+        "description": "First Egyptian WNBF competitor and judge. From overweight teen to bodybuilding champion, now helping others achieve their wellness goals."
+      },
+      "coach2": {
+        "name": "Abdallah Gamal",
+        "description": "Medical doctor and WNBF natural athlete with 2000+ clients worldwide. Former IGCSE teacher and cardiology assistant bringing simple, flexible plans."
+      },
+      "instagram": "Instagram",
+      "coach3": {
+        "name": "Bassam Al-Ghamdi",
+        "description": ""
+      },
+      "photoPlaceholder": "[Coach photo]",
+      "stats": {
+        "label": "FitForce right now",
+        "coaches": "coaches",
+        "clients": "clients",
+        "plans": "plans built",
+        "live": "Live now"
+      },
+      "coach4": {
+        "name": "Bola Hany",
+        "description": ""
+      },
+      "coach5": {
+        "name": "Arafa",
+        "description": ""
+      },
+      "coach6": {
+        "name": "Shady Tarek",
+        "description": ""
+      },
+      "previous": "Previous coach",
+      "next": "Next coach",
+      "pause": "Pause rotation",
+      "play": "Resume rotation",
+      "prefix": "Coach"
+    },
+    "meta": {
+      "title": "FitForce — Run your online coaching from one place",
+      "description": "Build diet and training plans, follow every client from their phone, and see who is really sticking to the plan. Free for up to 3 clients."
+    },
+    "nav": {
+      "features": "Features",
+      "day": "A day with FitForce",
+      "app": "Client app",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "login": "Log in",
+      "start": "Start free",
+      "dashboard": "Go to dashboard",
+      "menu": "Open menu",
+      "close": "Close menu"
+    },
+    "hero": {
+      "title": "Run your whole coaching business",
+      "highlight": "from one place.",
+      "subtitle": "Build diet and training plans, follow every client from their phone, and see who is really sticking to the plan. No more WhatsApp threads and spreadsheets.",
+      "cta": "Start free",
+      "secondary": "Watch the demo",
+      "note": "Free for up to 3 clients. No credit card.",
+      "imageAlt": "The FitForce coach dashboard showing plan requests, the team workload and a daily chart",
+      "phoneAlt": "The client plan screen in the FitForce app with a calorie ring and meals"
+    },
+    "problem": {
+      "title": "How many times have you resent the same plan on WhatsApp?",
+      "subtitle": "And how many times have you scrolled a chat to find a client’s weight?",
+      "withoutTitle": "Without FitForce",
+      "withTitle": "With FitForce",
+      "without": [
+        "Plans typed into PDFs and resent on WhatsApp",
+        "Progress buried in chat threads",
+        "Payments tracked in a spreadsheet",
+        "Renewals remembered, or forgotten"
+      ],
+      "with": [
+        "Plans built once and delivered to the client’s app",
+        "Progress and adherence charted for every client",
+        "Packages and payments kept on each client",
+        "Active, expired and frozen clients visible at a glance"
+      ],
+      "closing": "The rest is in the steps below.",
+      "beforeTag": "Before",
+      "afterTag": "With FitForce"
+    },
+    "day": {
+      "title": "A day with FitForce, step by step",
+      "subtitle": "This is the real coach dashboard. Follow one client from sign-up to renewal.",
+      "steps": [
+        {
+          "title": "Add a client",
+          "text": "A new client is ready with no paperwork or spreadsheets. Create the account, pick a package and assign forms in 4 short steps.",
+          "alt": "The Add Client dialog with four steps: create account, add subscription, collect data, review"
+        },
+        {
+          "title": "Build the diet and training plan",
+          "text": "A plan ready to send, built in front of you. Calories and macros add up as you build each meal, and training days hold the exercises and sets.",
+          "alt": "The nutrition plan builder showing a calorie ring, macros and the meals of the day"
+        },
+        {
+          "title": "Track your client's weight and measurements",
+          "text": "Weight and body measurements come from check-in forms and are charted per metric, so you see real progress without asking.",
+          "alt": "A client's weight and body measurement charts"
+        },
+        {
+          "title": "Follow every payment and renewal",
+          "text": "Every transaction, package and subscription status in one table, so you know who paid and who is about to renew.",
+          "alt": "The transactions screen with payment totals, payment methods and a transactions table"
+        }
+      ],
+      "cta": "Try it on your clients: start free",
+      "coach": "Coach dashboard",
+      "client": "Client app",
+      "labels": [
+        "Client",
+        "Plan",
+        "Progress",
+        "Payments"
+      ],
+      "tabs": [
+        "Add a client",
+        "Build the plan",
+        "Track progress",
+        "Track payments"
+      ]
+    },
+    "pricing": {
+      "title": "Pick the plan that fits your roster",
+      "subtitle": "Prices in EGP, tax included. Start free with up to 3 clients, cancel anytime.",
+      "perMonth": "EGP / month",
+      "upTo": "Up to {count} clients",
+      "unlimitedClients": "Unlimited clients",
+      "seats": "{count, plural, one {# team seat} other {# team seats}}",
+      "unlimitedSeats": "Unlimited team seats",
+      "featured": "Most popular",
+      "choose": "Subscribe",
+      "variantLabel": "Number of clients",
+      "billing": "Billing period",
+      "billedEvery": "billed {amount} EGP every {months} months",
+      "compareTitle": "Compare plans",
+      "feature": "Feature",
+      "clients": "Clients",
+      "teamSeats": "Team seats",
+      "included": "Included",
+      "notIncluded": "Not included",
+      "loadError": "We could not load pricing right now.",
+      "retry": "Try again",
+      "talk": "Talk to us on WhatsApp",
+      "free": "Just trying it? Start free with up to 3 clients.",
+      "enterprise": "Need more than this? Talk to us.",
+      "compare": "Compare plans",
+      "shared": "Every plan includes: unlimited training and nutrition plans, a client portal and app, exercise and food libraries, check-ins and forms, progress photos and reports, in-app chat, and your own branding.",
+      "orStartFree": "Or start free with up to 3 clients",
+      "saveChip": "You save {percent}%"
+    },
+    "faq": {
+      "title": "Questions coaches ask",
+      "items": [
+        {
+          "q": "How does the free plan work?",
+          "a": "Start free with up to 3 clients, no credit card. When your roster grows, move to a paid plan."
+        },
+        {
+          "q": "Do my clients pay for the app?",
+          "a": "No. Your clients use the portal and the mobile app through your workspace. You only pay for your own plan."
+        },
+        {
+          "q": "How do I get paid?",
+          "a": "Packages and payments are tracked per client, and checkout runs through Fawaterak with prices in EGP."
+        },
+        {
+          "q": "Can I bring my own forms and exercises?",
+          "a": "Yes. Import a Google Form into FitForce by pasting its link, and add your own exercises by pasting a YouTube link, so you keep the content you already use."
+        },
+        {
+          "q": "Which payment methods can I use to subscribe?",
+          "a": "You can pay with InstaPay, Vodafone Cash or Visa."
+        },
+        {
+          "q": "Is my clients' data safe?",
+          "a": "Every coach works in a separate workspace, and your clients' data is never visible to other coaches. Clients sign in with their own account and only see their own data. Passwords are stored hashed (bcrypt), sessions use httpOnly cookies and are verified on the server, and the API has security headers and rate limiting. Payments go through an external payment gateway."
+        },
+        {
+          "q": "When is support available?",
+          "a": "Technical support is available Sunday to Thursday, from 11 AM to 7 PM."
+        },
+        {
+          "q": "Is it really in Arabic?",
+          "a": "Yes. The coach dashboard, the client portal and the mobile app support Arabic with right-to-left layout, alongside English."
+        },
+        {
+          "q": "Is there a mobile app?",
+          "a": "Yes, for your clients, on iOS and Android. They see their plans, track progress and message you."
+        },
+        {
+          "q": "Can I cancel anytime?",
+          "a": "Yes. You can cancel your plan whenever you want."
+        }
+      ]
+    },
+    "cta": {
+      "title": "Ready to take WhatsApp out of your workflow?",
+      "subtitle": "Set up your workspace and send your first plan from FitForce.",
+      "start": "Start free",
+      "whatsapp": "Chat on WhatsApp"
+    },
+    "footer": {
+      "about": "About",
+      "contact": "Contact",
+      "privacy": "Privacy policy",
+      "refund": "Refund & cancellation",
+      "delivery": "Delivery policy",
+      "rights": "© {year} FitForce. All rights reserved."
+    },
+    "bar": {
+      "start": "Start free",
+      "whatsapp": "WhatsApp"
+    },
+    "phones": {
+      "title": "Try your client’s app yourself",
+      "subtitle": "This is your client’s real app with demo data. Tap anything, switch between the icons at the bottom, and see how it makes your work easier and keeps clients happy.",
+      "note": "A demo with sample data. Nothing is saved.",
+      "try": "Try the app",
+      "loading": "Getting the app ready…",
+      "reset": "Start over",
+      "close": "Close",
+      "progress": "Tried {done} of {total}",
+      "done": "Done",
+      "todo": "Not yet",
+      "allDone": "You tried everything. Start free with your clients",
+      "frameTitle": "Preview of the FitForce client app",
+      "posterAlt": "The client plan screen in the FitForce app",
+      "tasks": [
+        {
+          "task": "Mark a meal as eaten",
+          "benefit": "Why it matters to you: adherence is logged for you and shows up on your dashboard."
+        },
+        {
+          "task": "Swap a food in a meal",
+          "benefit": "Why it matters to you: fewer WhatsApp questions, and the calories stay the same."
+        },
+        {
+          "task": "Open training and log a set",
+          "benefit": "Why it matters to you: weights are logged and turned into a progress chart per exercise."
+        },
+        {
+          "task": "Send your coach a message",
+          "benefit": "Why it matters to you: all your communication in one place, not in WhatsApp."
+        },
+        {
+          "task": "Fill in the check-in form",
+          "benefit": "Why it matters to you: check-ins reach you organized instead of scattered messages."
+        }
+      ]
+    },
+    "ui": {
+      "steps": "Steps",
+      "next": "Next step",
+      "close": "Close"
+    },
+    "bring": {
+      "title": "Already have your own content? Bring it with you",
+      "subtitle": "You don't have to start from zero.",
+      "forms": {
+        "title": "Your forms, from Google Forms",
+        "body": "Paste a Google Form link and FitForce turns it into a form you can send to any client."
+      },
+      "exercises": {
+        "title": "Your exercises, from YouTube",
+        "body": "Add your own exercises with a YouTube link, and they sit next to the built-in library in every plan."
+      }
+    },
+    "wa": {
+      "title": "FitForce",
+      "status": "We reply within 24 hours",
+      "greeting": "Hi, welcome to FitForce 👋 Pick a question below, or start a chat and we'll reply on WhatsApp.",
+      "quick": "Quick questions",
+      "start": "Start chat",
+      "startText": "Hello! I'm interested in FitForce.",
+      "close": "Close",
+      "questions": [
+        "Which plan fits my number of clients?",
+        "How do I start free?",
+        "Can I bring my existing forms and exercises?",
+        "Can I use my own branding?",
+        "How do I pay, and can I cancel anytime?"
+      ]
+    }
   }
 }

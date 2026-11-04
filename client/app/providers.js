@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { RouterProvider } from '@heroui/react';
 import { I18nProvider } from 'react-aria-components';
 import { ThemeProvider } from 'next-themes';
@@ -7,8 +8,13 @@ import { NextIntlClientProvider } from 'next-intl';
 import OverlayInertFix from './components/OverlayInertFix';
 import MetaPixelTracker from './components/MetaPixelTracker';
 import ClarityTracker from './components/ClarityTracker';
+import { isDemoFrame } from '@/lib/axios';
+
+const subscribeNoop = () => () => {};
 
 export function Providers({ children, defaultTheme = 'system', locale = 'en', messages = {} }) {
+    // Inside the landing page's demo iframe: always dark, and no analytics of any kind.
+    const inDemo = useSyncExternalStore(subscribeNoop, isDemoFrame, () => false);
     return (
         <NextIntlClientProvider locale={locale} messages={messages}>
             {/* React Aria manages its own locale/direction context, defaulting to
@@ -21,11 +27,13 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                     attribute="class"
                     defaultTheme={defaultTheme}
                     enableSystem
+                    forcedTheme={inDemo ? 'dark' : undefined}
                 >
                     <RouterProvider>
+                        {inDemo && <style>{`html, body { scrollbar-width: none; -ms-overflow-style: none; } html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; } main > div { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }`}</style>}
                         <OverlayInertFix />
-                        <MetaPixelTracker />
-                        <ClarityTracker />
+                        {!inDemo && <MetaPixelTracker />}
+                        {!inDemo && <ClarityTracker />}
                         {children}
                     </RouterProvider>
                 </ThemeProvider>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Popover } from "@heroui/react/popover";
 import { PartyPopper } from "lucide-react";
+import { isDemoFrame } from "@/lib/axios";
 
 /**
  * A first-time-only floating hint that anchors to an interactive trigger,
@@ -54,7 +55,7 @@ export default function NewFeatureTooltip({
 }) {
     const storageKey = `ff_seen_feature_hint_${featureKey}`;
     const [seen, setSeen] = useState(() => {
-        if (typeof window === "undefined") return true;
+        if (typeof window === "undefined" || isDemoFrame()) return true;
         try { return !!localStorage.getItem(storageKey); } catch { return true; }
     });
 

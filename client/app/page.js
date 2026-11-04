@@ -1,129 +1,39 @@
-'use client';
+import { getLocale, getTranslations } from "next-intl/server";
+import LandingPage from "./components/lp/LandingPage";
+import "./landing.css";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
-import api from "@/lib/axios";
-import LandingNav from "./components/LandingNav";
-import LandingHeroVideo from "./components/LandingHeroVideo";
-import LandingFeatures from "./components/LandingFeatures";
-import LandingTestimonials from "./components/LandingTestimonials";
-import LandingPricing from "./components/LandingPricing";
-import LandingFounder from "./components/LandingFounder";
-import LandingFaq from "./components/LandingFaq";
-import LandingFooter from "./components/LandingFooter";
-import LandingScrollToTop from "./components/LandingScrollToTop";
-import LandingWhatsAppButton from "./components/LandingWhatsAppButton";
+export async function generateMetadata() {
+    const locale = await getLocale();
+    const t = await getTranslations("lp.meta");
+    const ogImage = { url: `/og-${locale === "ar" ? "ar" : "en"}.png`, width: 1200, height: 630, alt: t("title") };
+    // Set NEXT_PUBLIC_SITE_URL (e.g. https://fitforce.io) in production so the canonical link and share images get absolute URLs.
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    return {
+        ...(siteUrl ? { metadataBase: new URL(siteUrl), alternates: { canonical: "/" } } : {}),
+        title: t("title"),
+        description: t("description"),
+        openGraph: { title: t("title"), description: t("description"), type: "website", locale: locale === "ar" ? "ar_EG" : "en_US", images: [ogImage] },
+        twitter: { card: "summary_large_image", title: t("title"), description: t("description"), images: [ogImage.url] },
+    };
+}
 
-export default function HomePage() {
-    const [checking, setChecking] = useState(true);
-    const [user, setUser] = useState(null);
-    const t = useTranslations("landing.hero");
+// Answers still written as [placeholders] are not published to search engines.
+const PLACEHOLDER_ANSWER = /\[[^\]]+\]/;
 
-    useEffect(() => {
-        api.get('/api/auth/me')
-            .then(res => {
-                setUser(res.data);
-            })
-            .catch(() => {
-                setUser(null);
-            })
-            .finally(() => {
-                setChecking(false);
-            });
-    }, []);
-
-    if (checking) {
-        return (
-            <div className={`dark min-h-screen bg-[#080d1a] flex items-center justify-center font-landing`}>
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    <p className="text-muted-foreground">Loading...</p>
-                </div>
-            </div>
-        );
-    }
-
-    const dashboardUrl = user?.currentWorkspace?.slug ? `/${user.currentWorkspace.slug}/dashboard` : null;
+export default async function HomePage() {
+    const t = await getTranslations("lp.faq");
+    const faqJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: t.raw("items")
+            .filter(({ a }) => !PLACEHOLDER_ANSWER.test(a))
+            .map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
+    };
 
     return (
-        <main className={`dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#080d1a] text-white flex flex-col font-landing`}>
-
-            {/* ── Nav ── */}
-            <LandingNav user={user} dashboardUrl={dashboardUrl} />
-
-            {/* ── Hero ── */}
-            <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-0 gap-8 overflow-hidden">
-
-                {/* Radial glow behind heading */}
-                <div
-                    className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-125"
-                    style={{
-                        background:
-                            "radial-gradient(ellipse 70% 50% at 50% 0%, color-mix(in oklch, var(--color-primary) 18%, transparent), transparent)",
-                    }}
-                />
-
-                {/* Heading */}
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.2] rtl:leading-[1.55] max-w-5xl text-balance text-white">
-                    {t("titleLine1")}{" "}
-                    <span className="text-primary xl:whitespace-nowrap">{t("titleHighlight")}</span>
-                </h1>
-
-                {/* Subtitle */}
-                <p className="text-lg text-white/55 max-w-2xl leading-relaxed">
-                    {t("subtitle")}
-                </p>
-
-                {/* CTA */}
-                <div className="flex flex-col items-center gap-2">
-                    {dashboardUrl ? (
-                        <Link href={dashboardUrl} className="button button--primary button--lg">
-                            {t("goToDashboard")}
-                        </Link>
-                    ) : (
-                        <>
-                            <Link href="/register" className="button button--primary button--lg">
-                                {t("cta")}
-                            </Link>
-                            <p className="text-white/55 text-sm">✓ {t("noCreditCard")}</p>
-                        </>
-                    )}
-                </div>
-
-                {/* Hero video */}
-                <LandingHeroVideo />
-            </section>
-
-            {/* ── Trust banner ── */}
-            <section className="mt-8 sm:mt-16 py-5 border-y border-white/8 bg-white/2">
-                <p className="text-center text-white/55 text-sm sm:text-base font-medium px-4">
-                    {t("trustLine")}{" "}
-                    <span className="text-white/85">{t("trustHighlight")}</span>
-                </p>
-            </section>
-
-            {/* ── Feature Cards ── */}
-            <LandingFeatures />
-
-            {/* ── Trusted By (coach carousel) ── */}
-            <LandingTestimonials />
-
-            {/* ── Choose Your Plan ── */}
-            <LandingPricing />
-
-            {/* ── Founder's Guarantee ── */}
-            <LandingFounder />
-
-            {/* ── FAQ ── */}
-            <LandingFaq />
-
-            {/* ── Footer ── */}
-            <LandingFooter dashboardUrl={dashboardUrl} />
-
-            {/* ── Floating buttons ── */}
-            <LandingScrollToTop />
-            <LandingWhatsAppButton />
-        </main>
+        <>
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\u003c") }} />
+            <LandingPage />
+        </>
     );
 }

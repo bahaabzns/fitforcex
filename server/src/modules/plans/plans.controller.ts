@@ -83,3 +83,27 @@ export async function getBillingDiscounts(_req: Request, res: Response, next: Ne
         next(err);
     }
 }
+
+// ── Landing-page stats ───────────────────────────────────────────────────────
+// Public, aggregate-only numbers for the marketing page (no names, no emails). "Coaches" follows
+// the Super Admin dashboard (workspaces that are not archived); clients and plans are the live
+// totals. Cached briefly so a traffic spike never turns into a spike of count queries.
+const LANDING_STATS_TTL_MS = 5 * 60 * 1000;
+let landingStatsCache: { at: number; data: { coaches: number; clients: number; plans: number } } | null = null;
+
+export async function getLandingStats(_req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!landingStatsCache || Date.now() - landingStatsCache.at > LANDING_STATS_TTL_MS) {
+            const [coaches, clients, nutritionPlans, trainingPlans] = await Promise.all([
+                prisma.workspaces.count({ where: { archived_at: null } }),
+                prisma.clients.count({ where: { deleted_at: null, archived_at: null } }),
+                prisma.nutrition_plans.count(),
+                prisma.training_plans.count(),
+            ]);
+            landingStatsCache = { at: Date.now(), data: { coaches, clients, plans: nutritionPlans + trainingPlans } };
+        }
+        res.set('Cache-Control', 'public, max-age=300').json(landingStatsCache.data);
+    } catch (err) {
+        next(err);
+    }
+}
