@@ -131,7 +131,6 @@ export default function LpAppDemo() {
                                 </button>
                             )}
                         </div>
-                        <div className="lp-demo-bar" role="presentation"><span style={{ width: `${(done.size / tasks.length) * 100}%` }} /></div>
                         {taskList}
                         {allDone && (
                             <Link href="/register" className="lp-closing lp-closing--cta" style={{ marginTop: 8 }}>{t("allDone")}</Link>

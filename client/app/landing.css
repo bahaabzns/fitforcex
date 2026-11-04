@@ -911,8 +911,6 @@
 @keyframes lp-ring { from { transform: scale(0.55); opacity: 0.9; } to { transform: scale(1.25); opacity: 0; } }
 .lp-demo-facade .lp-btn { animation: lp-pulse 2.4s ease-in-out infinite; }
 @keyframes lp-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(47, 169, 255, 0.55), 0 16px 40px -10px rgba(47, 169, 255, 0.8); } 50% { box-shadow: 0 0 0 16px rgba(47, 169, 255, 0), 0 16px 40px -10px rgba(47, 169, 255, 0.8); } }
-.lp-demo-bar { height: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-.lp-demo-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2fa9ff, #7ad0ff); box-shadow: 0 0 18px rgba(47, 169, 255, 0.8); transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 .lp-demo-app__progress strong { font-size: 1.25rem; }
 .lp-tasks { counter-reset: quest; }
 .lp-task { position: relative; counter-increment: quest; padding-block: 16px; }
