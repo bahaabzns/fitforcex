@@ -3375,7 +3375,7 @@
       "close": "Close"
     },
     "coaches": {
-      "title": "Coaches who rely on FitForce",
+      "title": "Coaches who rely on our services",
       "subtitle": "Real coaches, real clients.",
       "coach1": {
         "name": "Ahmed Elbasuony",
@@ -3409,7 +3409,11 @@
       "coach6": {
         "name": "Shady Tarek",
         "description": ""
-      }
+      },
+      "previous": "Previous coach",
+      "next": "Next coach",
+      "pause": "Pause rotation",
+      "play": "Resume rotation"
     },
     "meta": {
       "title": "FitForce — Run your online coaching from one place",
