@@ -3530,7 +3530,8 @@
       "enterprise": "Need more than this? Talk to us.",
       "compare": "Compare plans",
       "shared": "Every plan includes: unlimited training and nutrition plans, a client portal and app, exercise and food libraries, check-ins and forms, progress photos and reports, in-app chat, and your own branding.",
-      "orStartFree": "Or start free with up to 3 clients"
+      "orStartFree": "Or start free with up to 3 clients",
+      "saveChip": "You save {percent}%"
     },
     "faq": {
       "title": "Questions coaches ask",

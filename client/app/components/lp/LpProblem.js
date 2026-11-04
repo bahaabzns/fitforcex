@@ -40,7 +40,7 @@ export default function LpProblem() {
                                     <div className="lp-row__before">
                                         <BeforeIcon size={22} aria-hidden="true" />
                                         <span className="lp-row__tag" aria-hidden="true">{t("beforeTag")}</span>
-                                        <p><span className="sr-only">{t("withoutTitle")}: </span>{before}</p>
+                                        <p><span className="sr-only">{t("withoutTitle")}: </span><span className="lp-strike">{before}</span></p>
                                     </div>
                                     <ArrowRight className="lp-row__arrow" size={22} aria-hidden="true" />
                                     <div className="lp-row__after">

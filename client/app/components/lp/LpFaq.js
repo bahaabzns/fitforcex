@@ -12,6 +12,7 @@ function Answer({ text }) {
 export default function LpFaq() {
     const t = useTranslations("lp.faq");
     const items = t.raw("items");
+    const half = Math.ceil(items.length / 2);
 
     return (
         <section id={LANDING_SECTIONS.faq} className="lp-section" style={{ scrollMarginTop: 90 }}>
@@ -20,14 +21,18 @@ export default function LpFaq() {
                     <h2 className="lp-h2">{t("title")}</h2>
                 </div>
                 <div className="lp-faq">
-                    {items.map(({ q, a }, index) => (
-                        <details key={q} className="lp-glass" open={index === 0}>
-                            <summary>
-                                {q}
-                                <ChevronDown size={22} aria-hidden="true" />
-                            </summary>
-                            <p><Answer text={a} /></p>
-                        </details>
+                    {[items.slice(0, half), items.slice(half)].map((column, columnIndex) => (
+                        <div key={columnIndex} className="lp-faq__col">
+                            {column.map(({ q, a }, index) => (
+                                <details key={q} className="lp-glass" open={columnIndex === 0 && index === 0}>
+                                    <summary>
+                                        {q}
+                                        <ChevronDown size={22} aria-hidden="true" />
+                                    </summary>
+                                    <p><Answer text={a} /></p>
+                                </details>
+                            ))}
+                        </div>
                     ))}
                 </div>
             </div>

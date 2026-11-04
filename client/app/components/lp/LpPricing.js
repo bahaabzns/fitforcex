@@ -76,9 +76,11 @@ function PlanCard({ plan, variation, onPickVariation, period, t, locale, format 
 
             <div>
                 <div className="lp-plan__price">
+                    {discount > 0 && base != null && <span className="lp-plan__was">{format(base)}</span>}
                     <span className="lp-plan__amount">{monthly != null ? format(monthly) : "—"}</span>
                     <span className="lp-plan__unit">{t("perMonth")}</span>
                 </div>
+                {discount > 0 && <span className="lp-plan__save">{t("saveChip", { percent: discount })}</span>}
                 {months > 1 && monthly != null && (
                     <p className="lp-plan__sub">{t("billedEvery", { amount: format(monthly * months), months })}</p>
                 )}
@@ -199,8 +201,9 @@ export default function LpPricing() {
     }, [plans, picked]);
 
     return (
-        <section id={LANDING_SECTIONS.pricing} className="lp-section" style={{ scrollMarginTop: 90 }}>
-                        <div className="lp-container lp-above">
+        <section id={LANDING_SECTIONS.pricing} className="lp-section lp-pricing-sec" style={{ scrollMarginTop: 90 }}>
+            <div className="lp-glow lp-glow--soft lp-pricing-sec__glow" aria-hidden="true" />
+            <div className="lp-container lp-above">
                 <div className="lp-head lp-head--center">
                     <h2 className="lp-h2">{t("title")}</h2>
                     <p className="lp-lead">{t("subtitle")}</p>
@@ -229,8 +232,8 @@ export default function LpPricing() {
                                 <div className="lp-switch" role="group" aria-label={t("billing")}>
                                     {discounts.map((d) => (
                                         <button key={d.period_key} type="button" aria-pressed={period?.period_key === d.period_key} onClick={() => setPeriodKey(d.period_key)}>
-                                            {pickLocalized(locale, d.label, d.label_ar)}
-                                            {(d.save_label || d.save_label_ar) ? ` · ${pickLocalized(locale, d.save_label, d.save_label_ar)}` : ""}
+                                            <span>{pickLocalized(locale, d.label, d.label_ar)}</span>
+                                            {d.discount_percent > 0 && <em dir="ltr">-{d.discount_percent}%</em>}
                                         </button>
                                     ))}
                                 </div>

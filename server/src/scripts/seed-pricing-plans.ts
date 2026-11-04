@@ -266,7 +266,27 @@ async function seedTrialSettings() {
     console.info(`[Seed] trial settings: enabled=${TRIAL_SETTINGS.trial_enabled}, duration=${TRIAL_SETTINGS.trial_duration_days}d`);
 }
 
+// Billing periods shown on the landing page and checkout: the longer the commitment, the bigger the discount.
+const BILLING_PERIODS = [
+    { period_key: 'monthly',    label: 'Monthly',   label_ar: 'شهري',        save_label: null,        save_label_ar: null,         discount_percent: 0,  months: 1,  sort_order: 0 },
+    { period_key: 'quarterly',  label: '3 months',  label_ar: '3 شهور',      save_label: 'Save 5%',   save_label_ar: 'وفّر 5%',    discount_percent: 5,  months: 3,  sort_order: 1 },
+    { period_key: 'semiannual', label: '6 months',  label_ar: '6 شهور',      save_label: 'Save 10%',  save_label_ar: 'وفّر 10%',   discount_percent: 10, months: 6,  sort_order: 2 },
+    { period_key: 'annual',     label: 'Annual',    label_ar: 'سنوي',        save_label: 'Save 20%',  save_label_ar: 'وفّر 20%',   discount_percent: 20, months: 12, sort_order: 3 },
+];
+
+async function seedBillingPeriods() {
+    for (const period of BILLING_PERIODS) {
+        await prisma.billing_discounts.upsert({
+            where:  { period_key: period.period_key },
+            update: { ...period, is_active: true },
+            create: { id: createId(), ...period, is_active: true },
+        });
+        console.info(`[Seed] billing period "${period.period_key}": ${period.months} month(s), ${period.discount_percent}% off`);
+    }
+}
+
 async function main() {
+    await seedBillingPeriods();
     const planIdByName = await seedPlans();
     const addonIdByKey = await seedAddons();
     await seedAddonRules(planIdByName, addonIdByKey);
