@@ -3478,13 +3478,12 @@
           "alt": "A client's weight and body measurement charts"
         },
         {
-          "title": "Stay on top of renewals and follow-ups",
-          "text": "Never miss a renewal or a payment. Every client’s status, package and payments in one list, with a messenger for the follow-up.",
+          "title": "Follow every payment and renewal",
+          "text": "Every transaction, package and subscription status in one table, so you know who paid and who is about to renew.",
           "alt": "The transactions screen with payment totals, payment methods and a transactions table"
         }
       ],
       "cta": "Try it on your clients: start free",
-      "hint": "Click any step to see it.",
       "coach": "Coach dashboard",
       "client": "Client app",
       "labels": [
