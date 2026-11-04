@@ -899,3 +899,26 @@
   .lp-strike { background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)) center / 100% 1.5px no-repeat; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 }
 .lp-faq__col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* ── App demo: a spotlight stage for the phone and a quest-style task list ── */
+.lp-demo-sec { position: relative; overflow: hidden; }
+.lp-demo-sec::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 60% 50% at 20% 55%, rgba(47, 169, 255, 0.22), transparent 70%), radial-gradient(ellipse 40% 40% at 85% 20%, rgba(124, 92, 255, 0.14), transparent 70%); }
+.lp-demo-app__phone { position: relative; padding: 28px; }
+.lp-demo-app__phone .lp-phone-frame { position: relative; z-index: 2; box-shadow: inset 0 1px 0 var(--lp-glass-top), 0 60px 120px -30px rgba(47, 169, 255, 0.75), 0 0 0 1px rgba(47, 169, 255, 0.35), 0 0 90px rgba(47, 169, 255, 0.35); }
+.lp-demo-ring { position: absolute; z-index: 1; inset: 0; margin: auto; border-radius: 50%; border: 1px solid rgba(47, 169, 255, 0.35); pointer-events: none; }
+.lp-demo-ring--a { width: 120%; aspect-ratio: 1; animation: lp-ring 7s ease-out infinite; }
+.lp-demo-ring--b { width: 120%; aspect-ratio: 1; animation: lp-ring 7s ease-out 3.5s infinite; }
+@keyframes lp-ring { from { transform: scale(0.55); opacity: 0.9; } to { transform: scale(1.25); opacity: 0; } }
+.lp-demo-facade .lp-btn { animation: lp-pulse 2.4s ease-in-out infinite; }
+@keyframes lp-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(47, 169, 255, 0.55), 0 16px 40px -10px rgba(47, 169, 255, 0.8); } 50% { box-shadow: 0 0 0 16px rgba(47, 169, 255, 0), 0 16px 40px -10px rgba(47, 169, 255, 0.8); } }
+.lp-demo-bar { height: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.lp-demo-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2fa9ff, #7ad0ff); box-shadow: 0 0 18px rgba(47, 169, 255, 0.8); transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.lp-demo-app__progress strong { font-size: 1.25rem; }
+.lp-tasks { counter-reset: quest; }
+.lp-task { position: relative; counter-increment: quest; padding-block: 16px; }
+.lp-task::after { content: counter(quest, decimal-leading-zero); position: absolute; inset-block-start: 8px; inset-inline-end: 14px; font-family: "Alexandria", sans-serif; font-weight: 800; font-size: 1.6rem; line-height: 1; color: rgba(255, 255, 255, 0.07); }
+.lp-task__icon { width: 46px; height: 46px; border-radius: 14px; box-shadow: 0 0 24px -4px rgba(47, 169, 255, 0.55); }
+@media (hover: hover) { .lp-task:hover { transform: translateX(6px); border-color: rgba(47, 169, 255, 0.45); } [dir="rtl"] .lp-task:hover { transform: translateX(-6px); } }
+.lp-task.is-done { box-shadow: 0 0 40px -12px rgba(47, 169, 255, 0.8); }
+.lp-task.is-done::after { color: rgba(47, 169, 255, 0.35); }
+@media (prefers-reduced-motion: reduce) { .lp-demo-ring, .lp-demo-facade .lp-btn { animation: none; } .lp-demo-bar span { transition: none; } }

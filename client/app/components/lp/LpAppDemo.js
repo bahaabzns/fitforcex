@@ -112,7 +112,7 @@ export default function LpAppDemo() {
     );
 
     return (
-        <section id={LANDING_SECTIONS.app} className="lp-section" style={{ scrollMarginTop: 90 }}>
+        <section id={LANDING_SECTIONS.app} className="lp-section lp-demo-sec" style={{ scrollMarginTop: 90 }}>
             <div className="lp-container lp-above">
                 <div className="lp-head lp-head--center">
                     <h2 className="lp-h2">{t("title")}</h2>
@@ -131,6 +131,7 @@ export default function LpAppDemo() {
                                 </button>
                             )}
                         </div>
+                        <div className="lp-demo-bar" role="presentation"><span style={{ width: `${(done.size / tasks.length) * 100}%` }} /></div>
                         {taskList}
                         {allDone && (
                             <Link href="/register" className="lp-closing lp-closing--cta" style={{ marginTop: 8 }}>{t("allDone")}</Link>
@@ -138,6 +139,8 @@ export default function LpAppDemo() {
                     </div>
 
                     <div className="lp-demo-app__phone">
+                        <span className="lp-demo-ring lp-demo-ring--a" aria-hidden="true" />
+                        <span className="lp-demo-ring lp-demo-ring--b" aria-hidden="true" />
                         <LpPhoneFrame className="lp-demo-phone">
                             {started && isDesktop ? (
                                 <>
