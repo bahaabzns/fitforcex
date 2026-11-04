@@ -875,7 +875,7 @@
 .lp-cs__cta:hover { background: rgba(255, 255, 255, 0.09); }
 
 /* ── Pricing: a lit stage, a bigger period switch and a glowing featured plan ── */
-.lp-pricing-sec { position: relative; overflow: hidden; }
+.lp-pricing-sec { position: relative; overflow-x: clip; overflow-y: visible; }
 .lp-pricing-sec::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(47, 169, 255, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(47, 169, 255, 0.07) 1px, transparent 1px); background-size: 56px 56px; -webkit-mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 70%); mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 70%); }
 .lp-pricing-sec__glow { top: 8%; left: 50%; translate: -50% 0; }
 .lp-switch { padding: 6px; gap: 4px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 20px 60px -30px rgba(47, 169, 255, 0.5); }
@@ -901,7 +901,7 @@
 .lp-faq__col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 /* ── App demo: a spotlight stage for the phone and a quest-style task list ── */
-.lp-demo-sec { position: relative; overflow: hidden; }
+.lp-demo-sec { position: relative; overflow-x: clip; overflow-y: visible; }
 .lp-demo-sec::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 60% 50% at 20% 55%, rgba(47, 169, 255, 0.22), transparent 70%), radial-gradient(ellipse 40% 40% at 85% 20%, rgba(124, 92, 255, 0.14), transparent 70%); }
 .lp-demo-app__phone { position: relative; padding: 28px; }
 .lp-demo-app__phone .lp-phone-frame { position: relative; z-index: 2; box-shadow: inset 0 1px 0 var(--lp-glass-top), 0 60px 120px -30px rgba(47, 169, 255, 0.75), 0 0 0 1px rgba(47, 169, 255, 0.35), 0 0 90px rgba(47, 169, 255, 0.35); }
