@@ -719,3 +719,6 @@
   .lp-day .lp-chip { min-height: 56px; padding-inline: 14px; }
   .lp-day .lp-chip__title { font-size: 0.98rem; }
 }
+
+/* Earlier step-list rules set align-items: start on .lp-day; the new column layout needs full-width children. */
+.lp-day { align-items: stretch; }
