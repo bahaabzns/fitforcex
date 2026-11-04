@@ -89,7 +89,7 @@ export default function LpCoaches() {
                                     aria-hidden={!isActive}
                                     className={`lp-cs__slide ${isActive ? "is-active" : ""}`}
                                 >
-                                    {coach.image && <Image className="lp-cs__bg" src={coach.image} alt="" fill sizes="50vw" />}
+                                    {coach.image && <Image className="lp-cs__bg" src={coach.image.replace(".webp", "-sm.webp")} alt="" fill sizes="50vw" unoptimized />}
                                     <span className="lp-cs__bgshade" aria-hidden="true" />
                                     <div className="lp-cs__photo">
                                         {coach.image
@@ -108,7 +108,7 @@ export default function LpCoaches() {
                                             tabIndex={isActive ? 0 : -1}
                                             data-track="coach_instagram"
                                         >
-                                            {coach.image && <Image className="lp-cs__avatar" src={coach.image} alt="" width={44} height={44} unoptimized />}
+                                            {coach.image && <Image className="lp-cs__avatar" src={coach.image.replace(".webp", "-sm.webp")} alt="" width={44} height={44} unoptimized />}
                                             <span className="lp-cs__handle">
                                                 <span dir="ltr">{coach.instagramHandle}</span>
                                                 <small><InstagramIcon width={13} height={13} />{t("instagram")}</small>
@@ -141,7 +141,7 @@ export default function LpCoaches() {
                                     onClick={() => setActive(index)}
                                     aria-label={`${t("prefix")} ${t.raw(coach.id).name}`}
                                 >
-                                    {coach.image && <Image src={coach.image} alt="" fill sizes="72px" />}
+                                    {coach.image && <Image src={coach.image.replace(".webp", "-sm.webp")} alt="" fill sizes="72px" unoptimized />}
                                 </button>
                             ))}
                         </div>

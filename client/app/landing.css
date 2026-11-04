@@ -95,7 +95,7 @@
 .lp-btn--primary:hover { box-shadow: 0 12px 40px -6px rgba(47, 169, 255, 0.7); }
 .lp-btn--glass { background: var(--lp-glass); color: #fff; border-color: rgba(255, 255, 255, 0.28); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
 .lp-btn--glass:hover { background: rgba(255, 255, 255, 0.09); }
-.lp-btn--wa { background: var(--lp-wa); color: var(--lp-on-blue); box-shadow: 0 8px 28px -6px rgba(37, 211, 102, 0.5); }
+.lp-btn--wa { background: var(--lp-wa); color: #fff; box-shadow: 0 8px 28px -6px rgba(37, 211, 102, 0.5); }
 .lp-btn--wa:hover { box-shadow: 0 12px 36px -6px rgba(37, 211, 102, 0.65); }
 .lp-btn--full { width: 100%; }
 .lp-btn--lg { min-height: 54px; padding-inline: 32px; border-radius: 16px; font-size: 1.05rem; }
@@ -944,4 +944,10 @@
   .lp-switch { display: flex; width: 100%; flex-wrap: nowrap; padding: 4px; gap: 2px; }
   .lp-switch button { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 0 4px; min-height: 52px; font-size: 0.85rem; white-space: nowrap; }
   .lp-switch button em { font-size: 0.68rem; padding: 1px 6px; }
+}
+/* Stats strip: reserve its height while loading so nothing below jumps when the numbers arrive. */
+.lp-stats-band--loading .lp-stats { min-height: 112px; border-color: transparent; }
+.lp-count__live { transition: none; }
+@media (max-width: 599px) {
+  .lp-switch button { padding: 8px 4px; min-height: 60px; gap: 5px; }
 }

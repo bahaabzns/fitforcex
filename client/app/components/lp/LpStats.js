@@ -10,7 +10,7 @@ const COUNT_UP_MS = 1400;
 // Live totals from the platform itself (same source as the Super Admin dashboard). A stat that
 // is missing or zero is simply not shown, and the strip hides entirely if the request fails.
 function useLandingStats() {
-    const [stats, setStats] = useState(null);
+    const [stats, setStats] = useState(undefined);
     useEffect(() => {
         let active = true;
         fetch(STATS_URL)
@@ -25,7 +25,8 @@ function useLandingStats() {
 // Counts up from zero the first time it scrolls into view; reduced-motion users get the final number.
 function CountUp({ value }) {
     const ref = useRef(null);
-    const [shown, setShown] = useState(0);
+    // Starts on the real number (crawlers, screenshots, no-JS), then replays from zero once on screen.
+    const [shown, setShown] = useState(value);
 
     useEffect(() => {
         const node = ref.current;
@@ -35,7 +36,7 @@ function CountUp({ value }) {
         const observer = new IntersectionObserver(([entry]) => {
             if (!entry.isIntersecting) return;
             observer.disconnect();
-            if (reduceMotion) { setShown(value); return; }
+            if (reduceMotion) return;
             const start = performance.now();
             const tick = (now) => {
                 const progress = Math.min((now - start) / COUNT_UP_MS, 1);
@@ -63,6 +64,8 @@ export default function LpStats() {
     const t = useTranslations("lp.coaches.stats");
     const stats = useLandingStats();
     const visible = STAT_KEYS.filter((key) => Number(stats?.[key]) > 0);
+    // `undefined` until the request settles; `null` means it failed.
+    if (stats === undefined) return <section className="lp-stats-band lp-stats-band--loading" aria-hidden="true"><div className="lp-container"><div className="lp-stats" /></div></section>;
     if (visible.length === 0) return null;
 
     return (

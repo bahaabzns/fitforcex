@@ -6,7 +6,10 @@ export async function generateMetadata() {
     const locale = await getLocale();
     const t = await getTranslations("lp.meta");
     const ogImage = { url: `/og-${locale === "ar" ? "ar" : "en"}.png`, width: 1200, height: 630, alt: t("title") };
+    // Set NEXT_PUBLIC_SITE_URL (e.g. https://fitforce.io) in production so the canonical link and share images get absolute URLs.
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
     return {
+        ...(siteUrl ? { metadataBase: new URL(siteUrl), alternates: { canonical: "/" } } : {}),
         title: t("title"),
         description: t("description"),
         openGraph: { title: t("title"), description: t("description"), type: "website", locale: locale === "ar" ? "ar_EG" : "en_US", images: [ogImage] },
