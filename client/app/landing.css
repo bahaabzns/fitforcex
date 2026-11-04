@@ -722,3 +722,42 @@
 
 /* Earlier step-list rules set align-items: start on .lp-day; the new column layout needs full-width children. */
 .lp-day { align-items: stretch; }
+
+/* ── Day section, scroll-driven journey (desktop, tall screens) ── */
+.lp-journey { display: none; }
+@media (min-width: 960px) and (min-height: 700px) {
+  .lp-day.lp-day--tabs { display: none; }
+  .lp-journey { display: block; height: calc(100dvh + 165dvh); }
+  .lp-journey__sticky {
+    position: sticky; top: 96px; height: calc(100dvh - 120px); min-height: 520px;
+    display: grid; grid-template-columns: minmax(240px, 290px) 1fr; gap: clamp(24px, 3vw, 48px); align-items: center;
+  }
+  .lp-jt { position: relative; height: min(100%, 560px); }
+  .lp-jt ol { list-style: none; margin: 0; padding: 0; height: 100%; display: flex; flex-direction: column; }
+  .lp-jt li { flex: 1; display: flex; align-items: center; }
+  .lp-jt li button { width: 100%; display: flex; align-items: center; gap: 20px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--lp-text-3); font: inherit; text-align: start; }
+  .lp-jt__dot { flex: none; width: 44px; height: 44px; display: grid; place-items: center; }
+  .lp-jt__dot::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #080d1a; border: 2px solid rgba(255, 255, 255, 0.28); transition: border-color 0.3s ease, background-color 0.3s ease; }
+  .lp-jt li.is-done .lp-jt__dot::after { border-color: var(--lp-blue); background: var(--lp-blue); }
+  .lp-jt__copy { display: flex; flex-direction: column; gap: 4px; }
+  .lp-jt__copy strong { font-family: "Alexandria", sans-serif; font-size: 1.1rem; line-height: 1.5; transition: color 0.3s ease; }
+  .lp-jt__copy span { max-height: 0; overflow: hidden; opacity: 0; font-size: 0.95rem; line-height: 1.8; color: var(--lp-text-2); transition: max-height 0.4s ease, opacity 0.3s ease; }
+  .lp-jt li.is-active .lp-jt__copy strong { color: #fff; }
+  .lp-jt li.is-active .lp-jt__copy span { max-height: 9em; opacity: 1; }
+  .lp-jt li button:hover .lp-jt__copy strong { color: #fff; }
+  .lp-jt li button:focus-visible { outline: 2px solid var(--lp-blue); outline-offset: 4px; border-radius: 12px; }
+  /* Vertical line through the dot centers; the fill and the traveler follow the scroll progress (--p). */
+  .lp-jt__line, .lp-jt__fill { position: absolute; inset-inline-start: 21px; width: 2px; top: calc(100% / var(--n) / 2); border-radius: 2px; }
+  .lp-jt__line { height: calc(100% * (var(--n) - 1) / var(--n)); background: rgba(255, 255, 255, 0.14); }
+  .lp-jt__fill { height: calc(100% * (var(--n) - 1) / var(--n) * var(--p)); background: var(--lp-blue); box-shadow: 0 0 14px rgba(47, 169, 255, 0.6); }
+  .lp-jt__traveler {
+    position: absolute; z-index: 2; inset-inline-start: 0; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+    top: calc(100% / var(--n) * (0.5 + var(--p) * (var(--n) - 1))); transform: translateY(-50%);
+    color: var(--lp-on-blue); background: var(--lp-blue); box-shadow: 0 0 0 6px rgba(47, 169, 255, 0.18), 0 10px 30px rgba(47, 169, 255, 0.5);
+  }
+  .lp-jstage { min-width: 0; display: flex; justify-content: center; }
+  .lp-jstage .lp-stage { width: min(100%, calc((100dvh - 120px - 34px) * 1.4545)); max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-jt__copy span, .lp-jt__copy strong, .lp-jt__dot::after { transition: none; }
+}

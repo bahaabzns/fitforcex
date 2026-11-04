@@ -7,6 +7,7 @@ import { ChefHat, LineChart, UserPlus, Wallet } from "lucide-react";
 import { LANDING_DAY_STEPS, LANDING_SECTIONS, LANDING_SHOTS } from "@/lib/landingConfig";
 import { LpBrowser } from "./LpFrames";
 import LpShotImage from "./LpShotImage";
+import LpDayJourney from "./LpDayJourney";
 
 // Same order as `lp.day.steps`.
 const STEP_ICONS = [UserPlus, ChefHat, LineChart, Wallet];
@@ -50,7 +51,7 @@ export default function LpDay() {
                     <p className="lp-lead">{t("subtitle")}</p>
                 </div>
 
-                <div className="lp-day">
+                <div className="lp-day lp-day--tabs">
                 <div className="lp-chips" role="tablist" aria-label={tUi("steps")} onKeyDown={onKeyDown}>
                     {steps.map((step, index) => {
                         const Icon = STEP_ICONS[index];
@@ -98,6 +99,8 @@ export default function LpDay() {
                     ))}
                 </div>
                 </div>
+
+                <LpDayJourney />
 
                 <div className="lp-day__cta">
                     <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">{t("cta")}</Link>
