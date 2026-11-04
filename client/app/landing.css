@@ -934,3 +934,7 @@
 .lp-plan__amount { text-shadow: 0 0 24px rgba(47, 169, 255, 0.18); }
 .lp-switch { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 40px -26px rgba(47, 169, 255, 0.35); }
 .lp-switch button[aria-pressed="true"] { box-shadow: 0 6px 18px -8px rgba(47, 169, 255, 0.6); }
+
+/* WhatsApp glyph is white on its green circle. */
+.lp-wa-float { color: #fff; }
+.lp-wachat__logo { color: #fff; }
