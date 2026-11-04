@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { LANDING_COACHES, LANDING_SECTIONS } from "@/lib/landingConfig";
@@ -15,35 +16,56 @@ function InstagramIcon(props) {
     );
 }
 
+// Flips to true the first time the element is on screen, so the cards can rise in once.
+function useRevealOnce() {
+    const ref = useRef(null);
+    const [seen, setSeen] = useState(false);
+    useEffect(() => {
+        const node = ref.current;
+        if (!node) return undefined;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (!entry.isIntersecting) return;
+            setSeen(true);
+            observer.disconnect();
+        }, { threshold: 0.12 });
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, []);
+    return [ref, seen];
+}
+
 export default function LpCoaches() {
     const t = useTranslations("lp.coaches");
+    const [listRef, seen] = useRevealOnce();
 
     return (
-        <section id={LANDING_SECTIONS.coaches} className="lp-section" style={{ scrollMarginTop: 90 }}>
+        <section id={LANDING_SECTIONS.coaches} className="lp-section lp-coaches-sec" style={{ scrollMarginTop: 90 }}>
+            <div className="lp-glow lp-glow--soft lp-coaches-sec__glow" aria-hidden="true" />
             <div className="lp-container lp-above">
                 <div className="lp-head lp-head--center">
                     <h2 className="lp-h2">{t("title")}</h2>
                     <p className="lp-lead">{t("subtitle")}</p>
                 </div>
 
-                <ul className="lp-coaches">
-                    {LANDING_COACHES.map((coach) => {
+                <ul className={`lp-coaches ${seen ? "is-in" : ""}`} ref={listRef}>
+                    {LANDING_COACHES.map((coach, index) => {
                         const copy = t.raw(coach.id);
                         return (
-                            <li key={coach.id} className="lp-glass lp-coach">
-                                <div className="lp-coach__photo">
+                            <li key={coach.id} style={{ "--i": index }}>
+                                <a href={coach.instagramUrl} target="_blank" rel="noopener noreferrer" className="lp-coach" data-track="coach_instagram">
                                     {coach.image
-                                        ? <Image src={coach.image} alt={copy.name || coach.instagramHandle} fill sizes="132px" />
+                                        ? <Image src={coach.image} alt="" fill sizes="(min-width: 1100px) 360px, (min-width: 800px) 45vw, 48vw" />
                                         : <span className="lp-placeholder lp-coach__ph">{t("photoPlaceholder")}</span>}
-                                </div>
-                                <div className="lp-coach__body">
-                                    <h3>{copy.name}</h3>
-                                    <a href={coach.instagramUrl} target="_blank" rel="noopener noreferrer" className="lp-coach__link" data-track="coach_instagram">
-                                        <InstagramIcon width={18} height={18} />
-                                        <span dir="ltr">{coach.instagramHandle}</span>
-                                        <span className="sr-only">{t("instagram")}</span>
-                                    </a>
-                                </div>
+                                    <span className="lp-coach__shade" aria-hidden="true" />
+                                    <span className="lp-coach__info">
+                                        <strong>{copy.name}</strong>
+                                        <span className="lp-coach__handle" dir="ltr">
+                                            <InstagramIcon width={16} height={16} />
+                                            {coach.instagramHandle}
+                                        </span>
+                                    </span>
+                                    <span className="sr-only">{t("instagram")}</span>
+                                </a>
                             </li>
                         );
                     })}

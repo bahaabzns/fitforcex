@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Play } from "lucide-react";
@@ -15,6 +15,29 @@ export default function LpHero({ dashboardUrl }) {
     const tNav = useTranslations("lp.nav");
     const locale = useLocale();
     const [demoOpen, setDemoOpen] = useState(false);
+    const stageRef = useRef(null);
+
+    // The dashboard starts laid back in perspective and levels out as the page scrolls.
+    useEffect(() => {
+        const stage = stageRef.current;
+        if (!stage) return undefined;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            stage.style.setProperty("--tilt", "0.45");
+            return undefined;
+        }
+        let frame = 0;
+        const update = () => {
+            frame = 0;
+            stage.style.setProperty("--tilt", Math.max(0, 1 - window.scrollY / 520).toFixed(3));
+        };
+        const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+        schedule();
+        window.addEventListener("scroll", schedule, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", schedule);
+            cancelAnimationFrame(frame);
+        };
+    }, []);
 
     return (
         <section className="lp-section lp-hero">
@@ -38,13 +61,18 @@ export default function LpHero({ dashboardUrl }) {
                         {!dashboardUrl && <p className="lp-hero__note">{t("note")}</p>}
                     </div>
 
-                    <div className="lp-hero__shot lp-hero__shot--desktop lp-rise">
-                        <LpShot src={assetUrl(`/lp/${locale}-dashboard.webp`)} alt={t("imageAlt")} sizes="(min-width: 1200px) 1100px, 100vw" />
-                    </div>
-                    <div className="lp-hero__shot--phone lp-rise">
-                        <LpPhoneFrame>
-                            <LpShotImage shotId="phoneNutrition" alt={t("phoneAlt")} />
-                        </LpPhoneFrame>
+                    <div className="lp-hero__shot lp-hero__shot--epic lp-rise" ref={stageRef}>
+                        <div className="lp-epic">
+                            <span className="lp-epic__beam" aria-hidden="true" />
+                            <div className="lp-epic__tilt">
+                                <LpShot src={assetUrl(`/lp/${locale}-dashboard.webp`)} alt={t("imageAlt")} sizes="(min-width: 1200px) 1240px, 100vw" priority />
+                            </div>
+                            <div className="lp-epic__phone" aria-hidden="true">
+                                <LpPhoneFrame>
+                                    <LpShotImage shotId="phoneNutrition" alt="" />
+                                </LpPhoneFrame>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
