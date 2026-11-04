@@ -938,3 +938,10 @@
 /* WhatsApp glyph is white on its green circle. */
 .lp-wa-float { color: #fff; }
 .lp-wachat__logo { color: #fff; }
+
+/* Billing period tabs stay on one line on phones: tighter padding, and the badge drops under the label only if needed. */
+@media (max-width: 599px) {
+  .lp-switch { display: flex; width: 100%; flex-wrap: nowrap; padding: 4px; gap: 2px; }
+  .lp-switch button { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 0 4px; min-height: 52px; font-size: 0.85rem; white-space: nowrap; }
+  .lp-switch button em { font-size: 0.68rem; padding: 1px 6px; }
+}
