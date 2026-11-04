@@ -93,11 +93,12 @@ export default function LpCoaches() {
                                     <span className="lp-cs__bgshade" aria-hidden="true" />
                                     <div className="lp-cs__photo">
                                         {coach.image
-                                            ? <Image src={coach.image} alt={copy.name} fill sizes="(min-width: 800px) 700px, 100vw" priority={index === 0} unoptimized />
+                                            ? <Image src={coach.image} alt={`${t("prefix")} ${copy.name}`} fill sizes="(min-width: 800px) 700px, 100vw" priority={index === 0} unoptimized />
                                             : <span className="lp-placeholder lp-coach__ph">{t("photoPlaceholder")}</span>}
                                     </div>
                                     <div className="lp-cs__text">
                                         <span className="lp-cs__count" dir="ltr" aria-hidden="true">{String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}</span>
+                                        <span className="lp-cs__role">{t("prefix")}</span>
                                         <h3 className="lp-cs__name">{copy.name}</h3>
                                         <a
                                             href={coach.instagramUrl}
@@ -134,7 +135,7 @@ export default function LpCoaches() {
                                     ref={(node) => { tabRefs.current[index] = node; }}
                                     className={`lp-cs__tab ${index === active ? "is-active" : ""}`}
                                     onClick={() => setActive(index)}
-                                    aria-label={t.raw(coach.id).name}
+                                    aria-label={`${t("prefix")} ${t.raw(coach.id).name}`}
                                 >
                                     {coach.image && <Image src={coach.image} alt="" fill sizes="72px" />}
                                 </button>

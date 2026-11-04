@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -37,6 +37,21 @@ function LanguageSwitch() {
 export default function LpNav({ dashboardUrl }) {
     const t = useTranslations("lp.nav");
     const [open, setOpen] = useState(false);
+    const firstLinkRef = useRef(null);
+
+    // Bottom sheet behaviour: Escape closes it, the page behind does not scroll, focus moves into it.
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (event) => { if (event.key === "Escape") setOpen(false); };
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", onKey);
+        firstLinkRef.current?.focus();
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
 
     const links = [
         { id: LANDING_SECTIONS.day, label: t("day") },
@@ -79,12 +94,21 @@ export default function LpNav({ dashboardUrl }) {
             </nav>
 
             {open && (
-                <div className="lp-mobile-menu lp-glass">
-                    {links.map(({ id, label }) => (
-                        <a key={id} href={`#${id}`} onClick={() => setOpen(false)}>{label}</a>
-                    ))}
-                    {!dashboardUrl && <Link href="/login" onClick={() => setOpen(false)}>{t("login")}</Link>}
-                </div>
+                <>
+                    <div className="lp-sheet-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />
+                    <div className="lp-sheet" role="dialog" aria-modal="true" aria-label={t("menu")}>
+                        <span className="lp-sheet__grab" aria-hidden="true" />
+                        <nav className="lp-sheet__links" aria-label="Main">
+                            {links.map(({ id, label }, index) => (
+                                <a key={id} href={`#${id}`} ref={index === 0 ? firstLinkRef : undefined} onClick={() => setOpen(false)}>{label}</a>
+                            ))}
+                            {!dashboardUrl && <Link href="/login" onClick={() => setOpen(false)}>{t("login")}</Link>}
+                        </nav>
+                        <Link href={dashboardUrl || "/register"} className="lp-btn lp-btn--primary lp-btn--full lp-btn--lg" onClick={() => setOpen(false)}>
+                            {dashboardUrl ? t("dashboard") : t("start")}
+                        </Link>
+                    </div>
+                </>
             )}
         </>
     );

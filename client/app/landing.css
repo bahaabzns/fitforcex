@@ -128,9 +128,6 @@
 }
 .lp-lang button[aria-pressed="true"] { background: rgba(47, 169, 255, 0.18); color: #fff; }
 .lp-menu-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--lp-glass-border); background: var(--lp-glass); color: #fff; cursor: pointer; }
-.lp-mobile-menu { position: fixed; z-index: 49; inset-inline: 16px; top: 76px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
-.lp-mobile-menu a { padding: 12px 14px; min-height: 48px; display: flex; align-items: center; border-radius: 12px; color: var(--lp-text-2); }
-.lp-mobile-menu a:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
 @media (max-width: 599px) { .lp-nav__end > .lp-btn { display: none; } }
 @media (min-width: 900px) {
   .lp-nav__links { display: flex; }
@@ -844,3 +841,19 @@
 @media (prefers-reduced-motion: reduce) {
   .lp-cs__slide, .lp-cs__slide.is-active, .lp-cs__photo, .lp-cs__text { transition: none; }
 }
+
+/* Mobile menu: a bottom sheet that slides up over a dimmed page. */
+.lp-sheet-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(2, 5, 12, 0.66); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: lp-sheet-fade 0.25s ease; }
+.lp-sheet { position: fixed; z-index: 71; inset-inline: 0; bottom: 0; padding: 10px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; border-radius: 28px 28px 0 0; background: #0b1224; border: 1px solid var(--lp-glass-border); border-bottom: 0; box-shadow: 0 -30px 80px rgba(0, 0, 0, 0.6), 0 -1px 0 rgba(47, 169, 255, 0.35); animation: lp-sheet-in 0.32s cubic-bezier(0.16, 1, 0.3, 1); }
+.lp-sheet__grab { align-self: center; width: 40px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
+.lp-sheet__links { display: flex; flex-direction: column; }
+.lp-sheet__links a { display: flex; align-items: center; min-height: 56px; padding: 0 8px; font-family: "Alexandria", sans-serif; font-size: 1.1rem; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.lp-sheet__links a:last-child { border-bottom: 0; }
+.lp-sheet__links a:focus-visible { outline: 2px solid var(--lp-blue); outline-offset: -2px; border-radius: 12px; }
+@keyframes lp-sheet-in { from { transform: translateY(100%); } }
+@keyframes lp-sheet-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lp-sheet, .lp-sheet-backdrop { animation: none; } }
+@media (min-width: 900px) { .lp-sheet, .lp-sheet-backdrop { display: none; } }
+
+/* Small "Captain" label above each coach name. */
+.lp-cs__role { margin-bottom: -10px; font-family: "Alexandria", sans-serif; font-size: clamp(1rem, 2.4vw, 2.1rem); line-height: 1; font-weight: 600; color: var(--lp-blue); }
