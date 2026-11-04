@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { trackPixelEvent } from "@/lib/metaPixel";
+import { getVisitorId } from "@/lib/visitorTracking";
 import { redirectToDashboard, redirectToWorkspace } from "@/lib/coachSlug";
 import { useTranslations, useLocale } from "next-intl";
 import { pickLocalized } from "@/lib/utils";
@@ -200,6 +201,7 @@ export default function RegisterPage() {
                 password: formData.password,
                 phone,
                 metaEventId,
+                visitorId: getVisitorId(),
             });
             const slug = res.data?.workspace_slug;
             if (!slug) { router.push('/login'); return; }
@@ -238,6 +240,7 @@ export default function RegisterPage() {
                     password: formData.password,
                     phone,
                     metaEventId,
+                    visitorId: getVisitorId(),
                 });
                 slug = registerRes.data?.workspace_slug;
                 if (!slug) {
