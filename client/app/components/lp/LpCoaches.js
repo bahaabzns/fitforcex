@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Pause, Play } from "lucide-react";
 import { LANDING_COACHES, LANDING_SECTIONS } from "@/lib/landingConfig";
 
 const AUTOPLAY_MS = 5000;
@@ -108,8 +108,12 @@ export default function LpCoaches() {
                                             tabIndex={isActive ? 0 : -1}
                                             data-track="coach_instagram"
                                         >
-                                            <InstagramIcon width={20} height={20} />
-                                            <span dir="ltr">{coach.instagramHandle}</span>
+                                            {coach.image && <Image className="lp-cs__avatar" src={coach.image} alt="" width={44} height={44} unoptimized />}
+                                            <span className="lp-cs__handle">
+                                                <span dir="ltr">{coach.instagramHandle}</span>
+                                                <small><InstagramIcon width={13} height={13} />{t("instagram")}</small>
+                                            </span>
+                                            <ArrowUpRight className="lp-cs__go" size={20} aria-hidden="true" />
                                             <span className="sr-only">{t("instagram")}</span>
                                         </a>
                                     </div>
