@@ -341,7 +341,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                     </Button>
                 )}
                 {savePlanVisible && (
-                    <Button variant="primary" isDisabled={isSaving} className="max-md:flex-1 max-md:min-w-0"
+                    <Button variant="primary" isDisabled={isSaving} data-guide="plan-save" className="max-md:flex-1 max-md:min-w-0"
                         onClick={() => {
                             // Package Lifecycle §12.5: only prompt when the plan being
                             // saved is currently active -- a draft save is unaffected.

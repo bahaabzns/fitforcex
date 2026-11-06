@@ -18,6 +18,8 @@ import { DateField } from "@heroui/react/date-field";
 import AreaChart from "@/app/components/charts/AreaChart";
 import WelcomeOnboarding from "@/app/components/WelcomeOnboarding";
 import PaymentConfirmedModal from "@/app/components/PaymentConfirmedModal";
+import DemoWelcomeModal from "@/app/components/demo/DemoWelcomeModal";
+import GettingStartedCard from "@/app/components/gettingStarted/GettingStartedCard";
 import { toStartOfDay, toEndOfDay, filterByRange, rangeForDays, PRESETS, deltaInfo } from "@/utils/chartDateRange";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -71,6 +73,14 @@ export default function DashboardPage() {
     }, []);
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");
+
+    // Opening the dashboard is what creates the demo client (once); the response says whether to show its welcome.
+    const [demoStatus, setDemoStatus] = useState(null);
+    useEffect(() => {
+        api.get('/api/demo-client')
+            .then(res => setDemoStatus(res.data))
+            .catch(() => {}); // the demo is a nice-to-have, never block the dashboard on it
+    }, []);
 
     useEffect(() => {
         api.get('/api/dashboard')
@@ -143,7 +153,18 @@ export default function DashboardPage() {
     return (
         <div className="p-4 sm:p-8 flex flex-col gap-6">
             {showWelcome && (
-                <WelcomeOnboarding workspaceSlug={workspaceSlug} onDone={() => setShowWelcome(false)} />
+                <WelcomeOnboarding
+                    workspaceSlug={workspaceSlug}
+                    onDone={() => setShowWelcome(false)}
+                    onDemoWelcomeSeen={() => setDemoStatus(current => (current ? { ...current, showWelcome: false } : current))}
+                />
+            )}
+            {demoStatus?.showWelcome && !showWelcome && !confirmedPaymentId && (
+                <DemoWelcomeModal
+                    status={demoStatus}
+                    workspaceSlug={workspaceSlug}
+                    onClose={() => setDemoStatus(current => ({ ...current, showWelcome: false }))}
+                />
             )}
             {confirmedPaymentId && (
                 <PaymentConfirmedModal paymentId={confirmedPaymentId} onClose={dismissPaymentConfirmed} />
@@ -156,6 +177,8 @@ export default function DashboardPage() {
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
+
+            <GettingStartedCard />
 
             <AnnouncementCard />
 

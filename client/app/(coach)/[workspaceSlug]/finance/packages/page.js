@@ -207,6 +207,21 @@ export default function PackagesPage() {
     const [error, setError] = useState("");
 
     const searchRef = useRef(null);
+    const [creatingStarter, setCreatingStarter] = useState(false);
+
+    // One click to a ready-to-edit package (name, price and cycles can all be changed afterwards).
+    async function createStarterPackage() {
+        setCreatingStarter(true);
+        try {
+            await api.post("/api/getting-started/starter-package");
+            const res = await api.get("/api/packages");
+            setPackages(res.data ?? []);
+        } catch {
+            setError(t('starterPackageFailed'));
+        } finally {
+            setCreatingStarter(false);
+        }
+    }
 
     useEffect(() => {
         Promise.all([
@@ -421,8 +436,8 @@ export default function PackagesPage() {
                         </span>
                     )}
                 </Table.Cell>
-                <Table.Cell>{isPackage ? null : t('durationDays', { count: v.duration })}</Table.Cell>
-                <Table.Cell>{isPackage ? null : `${Number(v.price).toLocaleString()} ${v.currency}`}</Table.Cell>
+                <Table.Cell className="whitespace-nowrap">{isPackage ? null : t('durationDays', { count: v.duration })}</Table.Cell>
+                <Table.Cell className="whitespace-nowrap">{isPackage ? null : `${Number(v.price).toLocaleString()} ${v.currency}`}</Table.Cell>
                 <Table.Cell>{isPackage ? null : <span className="text-muted-foreground">{v.description || "—"}</span>}</Table.Cell>
                 <Table.Cell className="text-end">{isPackage ? packageActions(row.pkg) : variationActions(row.pkg, v)}</Table.Cell>
                 <Table.Collection items={row.children}>{renderTreeRow}</Table.Collection>
@@ -691,7 +706,7 @@ export default function PackagesPage() {
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); setCreatedPackageForPolicy(null); }} title={createdPackageForPolicy ? t('newPackagePolicyTitle') : t('newPackageTitle')} wide>
                 {!createdPackageForPolicy && (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5" data-guide="pkg-name">
                         <FieldLabel required>{t('packageNameLabel')}</FieldLabel>
                         <TextField variant="secondary" fullWidth aria-label={t('packageNameLabel')} value={packageName} onChange={setPackageName}>
                             <Input type="text" placeholder={t('packageNameLabel')} />
@@ -722,19 +737,19 @@ export default function PackagesPage() {
                                         )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-1.5" data-guide="pkg-variation">
                                             <FieldLabel required>{t('variationNamePlaceholder')}</FieldLabel>
                                             <TextField variant="secondary" fullWidth aria-label={t('variationNamePlaceholder')} value={v.name} onChange={(val) => updateVariation(i, "name", val)}>
                                                 <Input type="text" placeholder={t('variationNamePlaceholder')} />
                                             </TextField>
                                         </div>
-                                        <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-1.5" data-guide="pkg-duration">
                                             <FieldLabel required>{t('colDuration')}</FieldLabel>
                                             <TextField variant="secondary" fullWidth aria-label={t('durationPlaceholder')} value={v.duration} onChange={(val) => updateVariation(i, "duration", val)}>
                                                 <Input type="number" min="1" inputMode="numeric" placeholder={t('durationPlaceholder')} />
                                             </TextField>
                                         </div>
-                                        <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-1.5" data-guide="pkg-price">
                                             <FieldLabel required>{t('colPrice')}</FieldLabel>
                                             <TextField variant="secondary" fullWidth aria-label={t('pricePlaceholder')} value={v.price} onChange={(val) => updateVariation(i, "price", val)}>
                                                 <Input type="number" min="0" inputMode="decimal" placeholder={t('pricePlaceholder')} />
@@ -779,7 +794,7 @@ export default function PackagesPage() {
                         <Button type="button" variant="ghost" onClick={() => { setShowForm(false); setError(""); }}>
                             {tCommon('cancel')}
                         </Button>
-                        <Button type="submit" variant="primary">
+                        <Button type="submit" variant="primary" data-guide="pkg-submit">
                             {t('createPackage')}
                         </Button>
                     </ModalFooter>
@@ -956,9 +971,9 @@ export default function PackagesPage() {
                 </form>
             </Modal>
 
-            {/* Toolbar: quick search + New Package */}
-            <div className="flex items-center gap-2">
-                <div ref={searchRef} className="max-w-xs w-full">
+            {/* Toolbar: quick search + New Package. Wraps on a phone: the search takes its own row, the buttons sit below. */}
+            <div className="flex flex-wrap items-center gap-2">
+                <div ref={searchRef} className="w-full sm:max-w-xs">
                     <SearchField
                         value={search}
                         onChange={setSearch}
@@ -1046,8 +1061,13 @@ export default function PackagesPage() {
                     )}
                 </div>
 
-                <div className="ms-auto">
-                    <Button variant="primary" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setVariations([emptyVariation()]); setCreatedPackageForPolicy(null); }}>
+                <div className="ms-auto flex flex-wrap items-center gap-2">
+                    {!loading && !packages.some(pkg => !pkg.is_demo) && (
+                        <Button variant="outline" data-guide="starter-package" onClick={createStarterPackage} isDisabled={creatingStarter}>
+                            {t('starterPackage')}
+                        </Button>
+                    )}
+                    <Button variant="primary" data-guide="new-package" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setVariations([emptyVariation()]); setCreatedPackageForPolicy(null); }}>
                         {t('newPackage')}
                     </Button>
                 </div>
@@ -1075,6 +1095,7 @@ export default function PackagesPage() {
                     <Table.Content
                         aria-label={t('title')}
                         treeColumn="name"
+                        className="min-w-[640px]"
                         expandedKeys={expandedPackages}
                         onExpandedChange={setExpandedPackages}
                     >

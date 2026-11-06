@@ -349,6 +349,7 @@ export default function MiddlePanel({
                                                         ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
                                                         : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                                 }`}
+                                                data-guide="nutrition-meal"
                                                 onClick={() => setSelectedMeal(meal)}
                                             >
                                                 {!readOnly && <span

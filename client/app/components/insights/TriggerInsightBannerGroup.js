@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useGettingStartedContext } from '@/app/components/gettingStarted/GettingStartedProvider';
 import api from '@/lib/axios';
 import PromptCard from './PromptCard';
 
@@ -22,8 +23,14 @@ export default function TriggerInsightBannerGroup({ basePath, events }) {
     const [hidden, setHidden] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [thanked, setThanked] = useState(false);
+    // While a new owner is still working through the getting-started checklist no feedback prompt is asked or shown
+    // (they cover the page and the arrows, and the questions make no sense yet). Where there is no checklist at all
+    // (the client portal) `ready` is always true and `status` is null, so nothing changes there.
+    const { ready, status: onboarding } = useGettingStartedContext();
+    const holdPrompts = !ready || !!onboarding?.visible;
 
     useEffect(() => {
+        if (holdPrompts) return undefined;
         let cancelled = false;
         (async () => {
             for (const event of events) {
@@ -38,9 +45,9 @@ export default function TriggerInsightBannerGroup({ basePath, events }) {
         })();
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [basePath, events.join(',')]);
+    }, [basePath, events.join(','), holdPrompts]);
 
-    if (!prompt || hidden) return null;
+    if (holdPrompts || !prompt || hidden) return null;
 
     const respondUrlPrefix = `${basePath}/prompts`;
     const dismissUrlPrefix = `${basePath}/prompts`;

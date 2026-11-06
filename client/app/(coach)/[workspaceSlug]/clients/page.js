@@ -36,6 +36,7 @@ import { Link as UILink } from "@heroui/react/link";
 import { today, getLocalTimeZone } from "@internationalized/date";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import DemoBadge from "@/app/components/demo/DemoBadge";
 
 // --- HELPERS ---
 function statusChipColor(status) {
@@ -398,6 +399,17 @@ export default function ClientsPage() {
         setShowForm(true);
     }
 
+    // The demo welcome's "Add a real client" button lands here with ?add=1: open the form once, then drop the param.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('add') !== '1') return;
+        params.delete('add');
+        const rest = params.toString();
+        window.history.replaceState(null, '', `/${workspaceSlug}/clients${rest ? `?${rest}` : ''}`);
+        Promise.resolve().then(openAddClientForm);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     async function handleAddClient() {
         // Final safety net: re-validate every step before submitting and jump back if needed.
         const accountErrors = validateStep(0);
@@ -633,6 +645,7 @@ export default function ClientsPage() {
         currentPackageVariationId: c.current_package_variation_id || null,
         currentSubscriptionStatus: c.subscription_status || "Active",
         isArchived: !!c.is_archived,
+        isDemo: !!c.is_demo,
         dateCreated: c.created_at,
     }));
 
@@ -660,9 +673,12 @@ export default function ClientsPage() {
             sortable: true,
             render: (row) => (
                 <div className="min-w-0">
-                    <Link href={`/${workspaceSlug}/clients/${row.id}`} className="text-primary hover:underline font-medium block truncate">
-                        {row.name}
-                    </Link>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Link href={`/${workspaceSlug}/clients/${row.id}`} className="text-primary hover:underline font-medium block truncate">
+                            {row.name}
+                        </Link>
+                        {row.isDemo && <DemoBadge className="shrink-0" />}
+                    </div>
                     {row.email && <p className="text-muted-foreground text-[10px] truncate">{row.email}</p>}
                 </div>
             ),
@@ -1106,7 +1122,7 @@ export default function ClientsPage() {
                                 {t('wizardBack')}
                             </Button>
                         )}
-                        <Button type="submit" variant="primary">
+                        <Button type="submit" variant="primary" data-guide={isLastStep ? 'client-form-submit' : 'client-form-next'}>
                             {isLastStep ? t('addClient') : t('wizardNext')}
                         </Button>
                     </ModalFooter>
@@ -1163,7 +1179,7 @@ export default function ClientsPage() {
                     action: { label: t('addClient'), onPress: openAddClientForm },
                 }}
                 toolbarEnd={
-                    <Button variant="primary" onClick={openAddClientForm}>
+                    <Button variant="primary" onClick={openAddClientForm} data-guide="add-client">
                         + {t('addClient')}
                     </Button>
                 }

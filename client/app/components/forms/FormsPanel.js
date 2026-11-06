@@ -117,6 +117,7 @@ export default function FormsPanel({
                                         {handleImportGoogleForm && (
                                             <Button
                                                 variant="outline"
+                                                data-guide="form-import"
                                                 onClick={() => setIsImportOpen(true)}
                                                 className="gap-2 max-md:w-full"
                                             >
@@ -124,7 +125,7 @@ export default function FormsPanel({
                                                 {tForms('importFromGoogleForms')}
                                             </Button>
                                         )}
-                                        <Button variant="primary" onClick={handleCreateForm} className="max-md:w-full">
+                                        <Button variant="primary" data-guide="form-create" onClick={handleCreateForm} className="max-md:w-full">
                                             {tNutrition('newForm')}
                                         </Button>
                                     </div>
@@ -213,6 +214,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
 
     return (
         <div
+            data-guide="form-item"
             onClick={onSelect}
             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 ${
                 form.status === 'archived' ? "opacity-60" : ""

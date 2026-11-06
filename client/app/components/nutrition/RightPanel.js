@@ -184,7 +184,7 @@ export default function RightPanel({
                                                             <p translate="no" className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
                                                                 {localizedFoodName(item.name, item.name_ar, isRTL)}
                                                             </p>
-                                                            <div className="flex items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                                                            <div className="flex items-center gap-1.5 mt-0.5" data-guide="meal-amount" onClick={(e) => e.stopPropagation()}>
                                                                 {readOnly ? (
                                                                     <span className="text-sm text-muted-foreground">
                                                                         <span className="font-semibold text-foreground">{Number(item.amount) || 0}</span> {item.serving_unit}

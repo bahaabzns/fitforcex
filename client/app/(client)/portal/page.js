@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { getCoachSlug } from "@/lib/coachSlug";
 import { normalizeEmail } from "@/lib/normalizeEmail";
+import { readDemoPrefill } from "@/lib/demoClient";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
@@ -73,6 +74,19 @@ export default function PortalLoginPage() {
             .catch(() => {});
         return () => { active = false; };
     }, [coachSlug]);
+
+    // Opened from the coach's sidebar while trying the demo client: fill the demo login, then take it out of the URL.
+    // The URL is cleaned inside the timer so a development double-run of this effect still finds it on the second pass.
+    useEffect(() => {
+        const demo = readDemoPrefill(window.location.search);
+        if (!demo) return undefined;
+        const timer = setTimeout(() => {
+            setEmail(demo.email);
+            setPassword(demo.password);
+            window.history.replaceState(null, '', window.location.pathname);
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         // Already authenticated — skip login

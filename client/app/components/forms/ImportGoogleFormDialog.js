@@ -131,6 +131,7 @@ export default function ImportGoogleFormDialog({ open, onClose, handleImportGoog
                     </Button>
                     <Button
                         type="submit"
+                        data-guide="form-import-submit"
                         variant="primary"
                         isDisabled={isImporting || (mode === "url" ? !url.trim() : !html.trim())}
                     >

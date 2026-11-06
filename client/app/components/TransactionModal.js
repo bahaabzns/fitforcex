@@ -413,7 +413,7 @@ function TransactionForm({
                 <Button type="button" variant="ghost" onClick={onClose}>
                     {tCommon("cancel")}
                 </Button>
-                <Button type="submit" variant="primary" isDisabled={saving}>
+                <Button type="submit" variant="primary" data-guide="transaction-submit" isDisabled={saving}>
                     {submitLabel}
                 </Button>
             </ModalFooter>
