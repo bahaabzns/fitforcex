@@ -256,17 +256,17 @@ const TRIGGER_CHECKS: Record<TriggerEvent, (submitterType: SubmitterType, submit
     },
     first_form_created: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.forms.count({ where: { workspace_id: workspaceId } });
+        const count = await prisma.forms.count({ where: { workspace_id: workspaceId, is_demo: false } });
         return count === 1;
     },
     first_checkin_request_sent: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.form_requests.count({ where: { workspace_id: workspaceId } });
+        const count = await prisma.form_requests.count({ where: { workspace_id: workspaceId, forms: { is_demo: false } } });
         return count === 1;
     },
     first_checkin_reviewed: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.form_requests.count({ where: { workspace_id: workspaceId, status: 'reviewed' } });
+        const count = await prisma.form_requests.count({ where: { workspace_id: workspaceId, status: 'reviewed', forms: { is_demo: false } } });
         return count === 1;
     },
 
@@ -278,24 +278,29 @@ const TRIGGER_CHECKS: Record<TriggerEvent, (submitterType: SubmitterType, submit
     },
     first_message_sent_by_coach: async (submitterType, submitterId) => {
         if (submitterType !== 'user') return false;
-        const count = await prisma.messages.count({ where: { sender_type: 'team', sender_id: submitterId } });
+        // Demo-client chat messages are written by the coach's user id, so they must not count.
+        const [{ count }] = await prisma.$queryRaw<[{ count: number }]>`
+            SELECT COUNT(*)::int AS count FROM messages m
+            JOIN threads t ON t.id = m.thread_id
+            JOIN clients c ON c.id = t.client_id
+            WHERE m.sender_type = 'team' AND m.sender_id = ${submitterId} AND c.is_demo = FALSE`;
         return count === 1;
     },
 
     // Clients
     first_client_added: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.clients.count({ where: { workspace_id: workspaceId } });
+        const count = await prisma.clients.count({ where: { workspace_id: workspaceId, is_demo: false } });
         return count === 1;
     },
     first_client_observation_logged: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.client_observations.count({ where: { workspace_id: workspaceId } });
+        const count = await prisma.client_observations.count({ where: { workspace_id: workspaceId, clients: { is_demo: false } } });
         return count === 1;
     },
     first_client_archived: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.clients.count({ where: { workspace_id: workspaceId, archived_at: { not: null } } });
+        const count = await prisma.clients.count({ where: { workspace_id: workspaceId, is_demo: false, archived_at: { not: null } } });
         return count === 1;
     },
     first_subscription_freeze_created: async (submitterType, submitterId, workspaceId) => {
@@ -307,12 +312,12 @@ const TRIGGER_CHECKS: Record<TriggerEvent, (submitterType: SubmitterType, submit
     // Billing
     first_completed_transaction_logged: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.transactions.count({ where: { workspace_id: workspaceId, status: 'completed' } });
+        const count = await prisma.transactions.count({ where: { workspace_id: workspaceId, status: 'completed', is_demo: false } });
         return count === 1;
     },
     first_refund_issued: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.transactions.count({ where: { workspace_id: workspaceId, status: 'refunded' } });
+        const count = await prisma.transactions.count({ where: { workspace_id: workspaceId, status: 'refunded', is_demo: false } });
         return count === 1;
     },
     first_workspace_subscription_paid: async (submitterType, submitterId, workspaceId) => {
@@ -324,12 +329,12 @@ const TRIGGER_CHECKS: Record<TriggerEvent, (submitterType: SubmitterType, submit
     // Packages
     first_package_created: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.packages.count({ where: { workspace_id: workspaceId } });
+        const count = await prisma.packages.count({ where: { workspace_id: workspaceId, is_demo: false } });
         return count === 1;
     },
     first_package_variation_assigned_to_client: async (submitterType, submitterId, workspaceId) => {
         if (submitterType !== 'user' || !workspaceId) return false;
-        const count = await prisma.clients.count({ where: { workspace_id: workspaceId, current_package_variation_id: { not: null } } });
+        const count = await prisma.clients.count({ where: { workspace_id: workspaceId, is_demo: false, current_package_variation_id: { not: null } } });
         return count === 1;
     },
 

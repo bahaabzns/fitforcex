@@ -148,6 +148,7 @@ model clients {
   deleted_at                   DateTime?              @db.Timestamptz(6)
   deleted_by                   String?
   current_package_variation_id String?
+  is_demo                      Boolean                @default(false)
   check_in_schedules           check_in_schedules[]
   client_measurements          client_measurements?
   client_observations          client_observations[]
@@ -478,6 +479,7 @@ model forms {
   title_ar              String?                 @db.VarChar(255)
   description_ar        String?
   current_version_id    String?
+  is_demo               Boolean                 @default(false)
   check_in_schedules    check_in_schedules[]
   form_requests         form_requests[]
   form_versions         form_versions[]         @relation("FormVersionsByForm")
@@ -705,6 +707,7 @@ model packages {
   workspace_id                 String
   name                         String
   active                       Boolean                        @default(true)
+  is_demo                      Boolean                        @default(false)
   created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
   updated_at                   DateTime                       @default(now()) @db.Timestamptz(6)
   package_variations           package_variations[]
@@ -922,6 +925,7 @@ model payment_methods {
   name         String
   type         String
   active       Boolean    @default(true)
+  is_demo      Boolean    @default(false)
   created_at   DateTime   @default(now()) @db.Timestamptz(6)
   workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_payment_methods_workspace")
 }
@@ -1310,6 +1314,7 @@ model transactions {
   subscription_start_date DateTime?           @db.Date
   start_mode              String              @default("on_first_plan")
   package_variation_id    String?
+  is_demo                 Boolean             @default(false)
   workspaces              workspaces          @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_transactions_workspace")
   clients                 clients?            @relation(fields: [client_id], references: [id], onUpdate: NoAction)
   package_variations      package_variations? @relation(fields: [package_variation_id], references: [id], onUpdate: NoAction, map: "fk_transactions_package_variation")
@@ -1515,6 +1520,11 @@ model workspaces {
   owner_daily_plan_capacity                    Int?
   owner_days_off                               Int[]                           @default([])
   service_target_days                          Int                             @default(2)
+  demo_client_created_at                       DateTime?                       @db.Timestamptz(6)
+  demo_client_deleted_at                       DateTime?                       @db.Timestamptz(6)
+  demo_welcome_seen_at                         DateTime?                       @db.Timestamptz(6)
+  getting_started_dismissed_at                 DateTime?                       @db.Timestamptz(6)
+  demo_client_events                           demo_client_events[]
   check_in_schedules                           check_in_schedules[]
   client_observations                          client_observations[]
   clients                                      clients[]
@@ -1756,4 +1766,16 @@ model capacity_history {
   changed_at        DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([workspace_id, user_id, changed_at(sort: Desc)], map: "capacity_history_ws_user_changed_idx")
+}
+
+// First time each demo-client funnel step happened for a workspace (opened / edited / viewed in
+// the app / welcome seen / deleted). One row per (workspace, step), so repeats are ignored.
+model demo_client_events {
+  id           String     @id
+  workspace_id String
+  event_type   String
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([workspace_id, event_type])
 }

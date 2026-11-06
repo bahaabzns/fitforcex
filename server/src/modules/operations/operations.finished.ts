@@ -88,7 +88,7 @@ export async function loadFinishedRows(
                COUNT(*)::int AS "count"
         FROM form_requests fr
         JOIN forms f ON f.id = fr.form_id
-        JOIN clients c ON c.id = fr.client_id
+        JOIN clients c ON c.id = fr.client_id AND c.is_demo = FALSE
         WHERE fr.workspace_id = ${workspaceId}
           AND fr.status = 'reviewed'
           AND fr.action_taken_at IS NOT NULL

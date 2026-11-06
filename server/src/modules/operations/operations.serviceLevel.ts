@@ -105,7 +105,7 @@ async function loadTurnaroundRows(workspaceId: string, range: TrendRange, timeZo
                GREATEST(0, EXTRACT(EPOCH FROM (fr.action_taken_at - (fr.submitted_at AT TIME ZONE 'UTC'))) / 3600.0)::float8 AS "hours"
         FROM form_requests fr
         JOIN forms f ON f.id = fr.form_id
-        JOIN clients c ON c.id = fr.client_id
+        JOIN clients c ON c.id = fr.client_id AND c.is_demo = FALSE
         WHERE fr.workspace_id = ${workspaceId}
           AND fr.status = 'reviewed'
           AND fr.action_taken_at IS NOT NULL
@@ -128,7 +128,7 @@ async function loadOpenWait(workspaceId: string, targetDays: number, filters: De
                COALESCE(MAX(EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'UTC') - fr.submitted_at)) / 3600.0), 0)::float8 AS "longest"
         FROM form_requests fr
         JOIN forms f ON f.id = fr.form_id
-        JOIN clients c ON c.id = fr.client_id
+        JOIN clients c ON c.id = fr.client_id AND c.is_demo = FALSE
         WHERE fr.workspace_id = ${workspaceId}
           AND fr.status = 'submitted'
           AND fr.archived_at IS NULL

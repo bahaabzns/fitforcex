@@ -326,7 +326,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                 LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
                 LEFT JOIN plans p ON p.id = ws.plan_id
                 LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.is_active = TRUE
-                LEFT JOIN clients c ON c.workspace_id = w.id
+                LEFT JOIN clients c ON c.workspace_id = w.id AND c.is_demo = FALSE
                 WHERE ${where}
                 GROUP BY w.id, u.id, p.id
                 ${having}
@@ -339,7 +339,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                     FROM workspaces w
                     LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
                     LEFT JOIN plans p ON p.id = ws.plan_id
-                    LEFT JOIN clients c ON c.workspace_id = w.id
+                    LEFT JOIN clients c ON c.workspace_id = w.id AND c.is_demo = FALSE
                     WHERE ${where}
                     GROUP BY w.id, p.id
                     ${having}
@@ -372,7 +372,7 @@ export async function getWorkspaceById(req: Request, res: Response, next: NextFu
                 LEFT JOIN plans p ON p.id = ws.plan_id
                 LEFT JOIN plan_variations pv ON pv.id = ws.variation_id
                 LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.is_active = TRUE
-                LEFT JOIN clients c ON c.workspace_id = w.id
+                LEFT JOIN clients c ON c.workspace_id = w.id AND c.is_demo = FALSE
                 WHERE w.id = ${req.params.id}
                 GROUP BY w.id, u.id, p.id, pv.id, ws.id
             `,
