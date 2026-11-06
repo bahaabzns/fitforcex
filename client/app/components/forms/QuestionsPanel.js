@@ -233,7 +233,7 @@ export default function QuestionsPanel({
                     </Disclosure>
                     {!questionsCollapsed && (
                         <MenuTrigger>
-                            <Button variant="primary">
+                            <Button variant="primary" data-guide="question-new">
                                 {t('newQuestion')}
                             </Button>
                             <AriaPopover className={`${resolvedTheme === "dark" ? "dark" : ""} popover min-w-45 rounded-2xl! outline-none sheet-popover`} placement="bottom end" offset={6}>
@@ -243,7 +243,7 @@ export default function QuestionsPanel({
                                     onAction={(key) => handleCreateQuestion(key)}
                                 >
                                     {QUESTION_TYPES.map(({ value, label, icon: Icon }) => (
-                                        <Menu.Item key={value} id={value} className="rounded-2xl! px-3! py-2! gap-3!">
+                                        <Menu.Item key={value} id={value} data-guide="question-type" className="rounded-2xl! px-3! py-2! gap-3!">
                                             <Icon size={16} className="shrink-0 opacity-70" />
                                             {label}
                                         </Menu.Item>

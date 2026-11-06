@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
+import { trackDemoEdit } from '../demoClient/demoClient.tracking';
 import * as nutritionController from './nutrition.controller';
 import * as mergeController from './foodCategoryMerge.controller';
 import * as bulkController from './foodItemsBulk.controller';
@@ -262,8 +263,8 @@ router.get('/plans/workspace-library', nutritionController.getWorkspaceLibrary);
 router.get('/plans',                   nutritionController.getPlans);
 router.get('/plans/:id',               nutritionController.getPlan);
 router.post('/plans',                  nutritionController.createPlan);
-router.post('/plans/save-draft',       nutritionController.saveDraft);
-router.post('/plans/save-plan-draft',  nutritionController.savePlanDraft);
+router.post('/plans/save-draft',       trackDemoEdit, nutritionController.saveDraft);
+router.post('/plans/save-plan-draft',  trackDemoEdit, nutritionController.savePlanDraft);
 router.put('/plans/:id',               nutritionController.updatePlan);
 router.delete('/plans/:id',            nutritionController.deletePlan);
 

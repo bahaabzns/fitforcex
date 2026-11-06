@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { computeStatusesForClients } from '../../lib/clientSubscriptionStatus';
 import { checkClientLimit } from '../../lib/seatLimits';
+import { DEMO_EVENT, recordDemoEvent } from '../demoClient/demoClient.service';
 import { logSubscriptionAudit } from '../subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, teamRecipients } from '../../lib/events';
 import { prisma } from '../../lib/prisma';
@@ -41,6 +42,7 @@ function mapClient(row: ClientRow) {
         current_package_variation_id: row.current_package_variation_id ?? null,
         subscription_status: row.subscription_status || 'Pre-start',
         has_password:        !!row.password,
+        is_demo:             row.is_demo === true,
         created_at:          row.created_at,
         // Archive lifecycle — null on active clients. `is_archived` is the single
         // source of truth the UI branches on (Archived chip, restore/danger zone).
@@ -220,6 +222,7 @@ export async function getClient(req: Request, res: Response, next: NextFunction)
         ]);
 
         if (!client) return res.status(404).json({ error: 'Client not found' });
+        if (client.is_demo) void recordDemoEvent(client.workspace_id!, DEMO_EVENT.OPENED);
 
         const mapped = mapClient(client as unknown as ClientRow);
         const statuses = await computeStatusesForClients(req.user!.workspaceId, [{ id: client.id, archived_at: client.archived_at }]);

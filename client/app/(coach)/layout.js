@@ -28,6 +28,10 @@ import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
 import FeedbackEntryModal from "@/app/components/insights/FeedbackEntryModal";
 import InsightBanner from "@/app/components/insights/InsightBanner";
+import GettingStartedButton from "@/app/components/gettingStarted/GettingStartedButton";
+import GuideProvider from "@/app/components/guide/GuideProvider";
+import GettingStartedProvider from "@/app/components/gettingStarted/GettingStartedProvider";
+import Celebration from "@/app/components/gettingStarted/Celebration";
 import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import TutorialButton from "@/app/components/TutorialButton";
@@ -238,6 +242,7 @@ function WorkspaceContent({ children }) {
                             size="sm"
                             variant="ghost"
                             onClick={() => isMobileSidebar ? setMobileSidebarOpen(o => !o) : setCollapsed(c => !c)}
+                            data-guide="menu-toggle"
                             title={isMobileSidebar ? (mobileSidebarOpen ? 'Close menu' : 'Open menu') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
                         >
                             <PanelLeft size={16} />
@@ -287,6 +292,7 @@ function WorkspaceContent({ children }) {
                             >
                                 <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
                             </NewFeatureTooltip>
+                            <GettingStartedButton />
                             <NotificationBell />
                             <ThemeToggle />
                             <LanguageSwitcher />
@@ -320,7 +326,12 @@ export default function WorkspaceLayout({ children }) {
     return (
         <HeaderCollapseProvider>
             <TutorialsProvider>
-                <WorkspaceContent>{children}</WorkspaceContent>
+                <GettingStartedProvider>
+                    <GuideProvider>
+                        <WorkspaceContent>{children}</WorkspaceContent>
+                        <Celebration />
+                    </GuideProvider>
+                </GettingStartedProvider>
             </TutorialsProvider>
         </HeaderCollapseProvider>
     );

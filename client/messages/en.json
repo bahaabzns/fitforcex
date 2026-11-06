@@ -1,4 +1,84 @@
-{
+{
+  "guide": {
+    "close": "Close",
+    "goClients": "Click Clients",
+    "openDemo": "Open the demo client",
+    "tabNutrition": "Open the Nutrition tab",
+    "changeAmount": "Change the amount of any food",
+    "saveHere": "Now click Save",
+    "openApp": "Click the client portal link; the login ({email} / {password}) fills itself in",
+    "queueLink": "Open the Plans Queue",
+    "financeMenu": "Open the Finance menu",
+    "packagesLink": "Open Packages and edit your ready-made package",
+    "addClient": "Click here to add your client",
+    "openClient": "Open your client",
+    "tabTransactions": "Open the Transactions tab",
+    "addTransaction": "Click here to record a payment",
+    "portalCopy": "Copy the link and send it to your client",
+    "openMenu": "Open the menu",
+    "pickPlan": "Click the plan in the plans panel",
+    "pickMeal": "Click a meal to open its foods",
+    "confirmSave": "Click Continue to save",
+    "clientFormNext": "Fill in the details, then click Next",
+    "clientFormSubmit": "Click Add to finish",
+    "transactionSubmit": "Fill in the payment, then click Save",
+    "starterPackage": "Click here for a ready-made package",
+    "newPackage": "Click here to create a new package",
+    "createForm": "Click here to build a form, or use the button beside it to import from Google Forms",
+    "importSubmit": "Paste the form link, then click Import",
+    "formsLink": "Open Forms",
+    "formsMenu": "Open the Forms menu",
+    "pkgName": "Write the package name",
+    "pkgVariation": "Write the plan name, for example: 1 Month",
+    "pkgDuration": "Write how many days it lasts",
+    "pkgPrice": "Write the price",
+    "pkgSubmit": "Click Create package",
+    "questionType": "Choose the question type",
+    "questionNew": "Click New question",
+    "formItem": "Pick your form from the list",
+    "formSave": "Click Save so the questions are stored"
+  },
+  "gettingStarted": {
+    "title": "Get started",
+    "subtitle": "Get started in a few steps",
+    "progress": "{done} of {total} done",
+    "hide": "Hide",
+    "celebrateStep": "Well done! You finished: {step}",
+    "celebrateAll": "You finished every step. You're ready to go!",
+    "group_try": "Try it on the demo client",
+    "group_setup": "Set up your work",
+    "group_first_client": "Your first real client",
+    "step_edit_demo": "Edit a meal in the demo client's diet",
+    "step_view_app": "See that diet in the client app",
+    "step_open_queue": "Open the Plans Queue, where your daily work lives",
+    "step_add_form": "Add a form: build one or import it from Google Forms",
+    "step_add_questions": "Add questions to your form and save it",
+    "step_create_package": "Create your first package",
+    "step_add_client": "Add your first real client on that package",
+    "step_share_portal": "Send your client their app link",
+    "step_record_payment": "Record their first payment",
+    "celebrateTitle": "Step done!",
+    "celebrateClose": "Great",
+    "next": "Next",
+    "chapterLeft": "{count} left",
+    "chapterDone": "done"
+  },
+  "demoClient": {
+    "badge": "Demo",
+    "loginHint": "Client app login: {email} / {password}",
+    "deleteButton": "Delete demo client",
+    "deleteTitle": "Delete the demo client?",
+    "deleteBody": "This removes the demo client and all of its sample data (diet, training, progress, forms, payments, messages and notes). It will not come back.",
+    "deleteConfirm": "Delete demo client",
+    "deleteFailed": "Could not delete the demo client. Please try again.",
+    "cancel": "Cancel",
+    "showcaseTitle": "Your account is ready",
+    "showcaseSubtitle": "We also set up a demo client for you. Follow the checklist step by step until you add your first real client.",
+    "skip": "Skip",
+    "openClientApp": "Open client app",
+    "startChecklist": "Start the steps",
+    "appLoginTitle": "Client app login"
+  },
   "announcements": {
     "label": "What's new",
     "badge": "What's new",
@@ -1649,7 +1729,7 @@
     "statusFrozen": "Frozen",
     "statusPreStart": "Pre-start",
     "statusRefunded": "Refunded"
-  },
+  },
   "packages": {
     "title": "Packages",
     "subtitle": "Create and manage pricing packages for your coaching services.",
@@ -1721,7 +1801,9 @@
     "defaultNutritionCheckinFormsHint": "Pre-selected when a coach activates a Nutrition Plan on this variation; sent to the client automatically when the plan ends.",
     "defaultTrainingCheckinFormsLabel": "Default Training Check-in Forms",
     "defaultTrainingCheckinFormsHint": "Pre-selected when a coach activates a Training Plan on this variation; sent to the client automatically when the plan ends.",
-    "selectFormsPlaceholder": "Select forms..."
+    "selectFormsPlaceholder": "Select forms...",
+    "starterPackage": "Create a ready-made package",
+    "starterPackageFailed": "Could not create the package. Please try again."
   },
   "paymentMethods": {
     "title": "Payment Methods",

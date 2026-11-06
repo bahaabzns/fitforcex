@@ -151,6 +151,7 @@ export default function FormsPage() {
                     </div>
                     <Button
                         variant="primary"
+                        data-guide="form-save"
                         isDisabled={!isDirty || isSaving}
                         onClick={async () => {
                             const result = await handleSaveDraft();

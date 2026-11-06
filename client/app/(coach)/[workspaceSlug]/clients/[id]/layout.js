@@ -11,6 +11,7 @@ import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import ClientChatWidget from "@/app/components/clientChat/ClientChatWidget";
+import DemoClientActions from "@/app/components/demo/DemoClientActions";
 
 // Sliding white indicator that tracks the active tab position.
 // Placed inside TabListContainer (position:relative) so it overlays the TabList background.
@@ -76,10 +77,15 @@ export default function ClientLayout({ children }) {
     // Fetched only for the tab title (distinguishes clients across many open tabs) —
     // the tab pages each fetch the full client record themselves as needed.
     const [clientCode, setClientCode] = useState(null);
+    const [isDemoClient, setIsDemoClient] = useState(false);
     useEffect(() => {
         let cancelled = false;
         api.get(`/api/clients/${id}`)
-            .then(res => { if (!cancelled) setClientCode(res.data?.code ?? res.data?.client_code ?? null); })
+            .then(res => {
+                if (cancelled) return;
+                setClientCode(res.data?.code ?? res.data?.client_code ?? null);
+                setIsDemoClient(!!res.data?.is_demo);
+            })
             .catch(() => {});
         return () => { cancelled = true; };
     }, [id]);
@@ -158,7 +164,7 @@ export default function ClientLayout({ children }) {
                         <SlidingIndicator selectedKey={selectedKey} />
                         <TabList>
                             {tabs.map(({ id: tabId, name, icon: Icon }, i) => (
-                                <Tab key={tabId} id={tabId} className="flex items-center gap-1.5 whitespace-nowrap">
+                                <Tab key={tabId} id={tabId} data-guide={`client-tab-${tabId}`} className="flex items-center gap-1.5 whitespace-nowrap">
                                     {i > 0 && <TabSeparator style={isRtl ? { left: 'auto', right: 0 } : undefined} />}
                                     <Icon size={14} />
                                     {name}
@@ -169,6 +175,7 @@ export default function ClientLayout({ children }) {
                 </TabsRoot>
                 </div>
                 <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full max-md:w-full max-md:ms-0 max-md:flex-nowrap">
+                    {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
                     {isTraining && trainingHeaderActions}
                     {isNutrition && nutritionHeaderActions}
                     {isOther && pageHeaderActions}

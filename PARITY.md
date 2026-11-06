@@ -23,6 +23,8 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
+- [ ] 2026-11-06 — 69ca4a2a — client portal login (web) — the login page fills the demo client's email/password when opened with demo_email/demo_password (only for the reserved @fitforce.demo address) and the slug-subdomain redirect now keeps the query string; the nutrition builder panels only gained data-guide attributes (coach web only); the mobile app login has no equivalent and nothing to port — prune at triage
+- [ ] 2026-10-30 — 4d06ca4 — TODO(area) — "refactor: extract shared MessageList from Messenger page" touched: client/utils/messengerThread.js — fill in what changed and why it matters for mobile
 - [ ] 2026-10-30 — 0de907b — messenger replies (client portal chat) — clients can reply to a specific message (quote on the bubble, preview above the input, tap-to-jump); mobile messages page was ported in the same commit (swipe, long-press menu, quote) — prune at triage
 - [ ] 2026-10-28 — d4e1d4c — nutrition builder panels (coach web) — panels accept a readOnly prop (no edit controls, values shown as labels) for the Messenger client quick view; the client portal and builder pages are unchanged; coach web only, no mobile app equivalent — prune at triage
 - [ ] 2026-10-18 — 8c112fd — nutrition builder (coach web) — sortable rows no longer block touch scrolling, notes start collapsed, cycle macro summary can be folded; coach web layout only, no mobile app equivalent — prune at triage

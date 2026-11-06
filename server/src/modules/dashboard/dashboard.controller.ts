@@ -12,18 +12,19 @@ export async function getDashboard(req: Request, res: Response, next: NextFuncti
                 select: { fname: true, lname: true, email: true },
             }),
             prisma.clients.findMany({
-                where: { workspace_id: wsId },
+                where: { workspace_id: wsId, is_demo: false },
                 select: { id: true, fname: true, lname: true, email: true, archived_at: true, created_at: true },
                 orderBy: { created_at: 'desc' },
             }),
             prisma.form_requests.count({ where: { workspace_id: wsId, status: 'pending' } }),
             prisma.clients.findMany({
-                where: { workspace_id: wsId, created_at: { not: null } },
+                where: { workspace_id: wsId, is_demo: false, created_at: { not: null } },
                 select: { created_at: true },
                 orderBy: { created_at: 'asc' },
             }),
         ]);
 
+        // The demo client is left out of these stats on purpose (it is a sample, not a real client).
         // Status is computed live, not read from clients.subscription_status — that
         // column is only a once-daily snapshot for change-detection (see
         // middleware/scheduler.ts), and reading it directly here previously made

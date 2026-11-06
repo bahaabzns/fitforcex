@@ -92,7 +92,7 @@ async function fetchCoachRows(includeArchived: boolean): Promise<FollowUpCoachRo
             ${COACH_STATUS_SQL} AS status,
             GREATEST(0, floor(extract(epoch FROM (now() - w.created_at)) / 86400))::int AS days_since_signup,
             (SELECT COUNT(*)::int FROM clients c
-              WHERE c.workspace_id = w.id AND c.deleted_at IS NULL AND c.archived_at IS NULL) AS clients_count,
+              WHERE c.workspace_id = w.id AND c.deleted_at IS NULL AND c.archived_at IS NULL AND c.is_demo = FALSE) AS clients_count,
             v.first_source,
             (SELECT COUNT(*)::int FROM admin_follow_ups f
               WHERE f.workspace_id = w.id AND f.deleted_at IS NULL) AS follow_up_count,

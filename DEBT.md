@@ -785,3 +785,19 @@ Format:
 **Why it matters:** The test and script code is not type-checked in CI, so real type mistakes there go unnoticed.
 **Effort:** Small to medium
 **Priority:** Low
+
+## 2026-11-06 — Demo client
+
+**Type:** Shortcut / Risk
+**What:** (1) The demo client signs in to the client app with a fixed email and password (`demoClient.content.ts`), shown to the coach; anyone who knows a workspace slug could open that demo (sample data only). (2) Every new place that counts clients, transactions or form requests for a workspace must add `is_demo = FALSE`; there is no central guard, so a missed spot would count the demo. (3) The before/after admin comparison is by signup date, not a randomized test, so seasonality can mislead. (4) Demo packages/forms stay visible in pickers, labelled "Demo", until the demo is deleted. (5) No food-diary or workout-log sample entries yet.
+**Why it matters:** (1) low, sample data; (2) silent inflation of stats or limits; (3) can over- or under-credit the feature.
+**Effort:** S (1), M (2: a view or helper), S (3), S (4), S (5)
+**Priority:** L (1), M (2), M (3), L (4-5)
+
+## 2026-11-06 — Getting-started checklist and arrow guide
+
+**Type:** Shortcut / Risk
+**What:** (1) The arrows find their targets by link `href` and `data-guide` attributes on buttons (`client/app/components/guide/guideSteps.js`); renaming a route or dropping an attribute silently breaks one step, and no test covers the client side. (2) The checklist status is read every 5 s while it is showing (new owners only, first 30 days). (3) "Add a form" and "add questions" are tracked as first-time events in `demo_client_events` (a table named for the demo), not by inspecting the forms. (4) The starter package still has a fixed price (1000 EGP) and currency. (5) Feedback prompts are held back for the whole time the checklist shows.
+**Why it matters:** (1) a broken step shows no arrow and nobody notices; (2) one cheap request per owner per 5 s; (3) a misleading table name; (4) a placeholder price could be mistaken for a real one; (5) feedback is delayed for new coaches.
+**Effort:** M (1: component tests), S (2), S (3: rename), S (4), S (5)
+**Priority:** M (1), L (2-5)

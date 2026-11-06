@@ -16,6 +16,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
+import DemoBadge from "@/app/components/demo/DemoBadge";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
@@ -71,17 +72,19 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
         return rows.reduce((sum, tx) => sum + convert(tx.amount, tx.currency, displayCurrency), 0);
     }
 
-    const totalCompleted = convertedSum(filteredRows.filter(tx => tx.status === "completed"));
-    const totalRefunded  = convertedSum(filteredRows.filter(tx => tx.status === "refunded"));
+    // Demo-client sample payments are listed (labelled "Demo") but never added into any money total.
+    const realRows = filteredRows.filter(tx => !tx.isDemo);
+    const totalCompleted = convertedSum(realRows.filter(tx => tx.status === "completed"));
+    const totalRefunded  = convertedSum(realRows.filter(tx => tx.status === "refunded"));
 
     const byPaymentMethod = {};
-    for (const tx of filteredRows) {
+    for (const tx of realRows) {
         if (!byPaymentMethod[tx.paymentMethod]) byPaymentMethod[tx.paymentMethod] = 0;
         byPaymentMethod[tx.paymentMethod] += convert(tx.amount, tx.currency, displayCurrency);
     }
 
     const byCurrency = {};
-    for (const tx of filteredRows) {
+    for (const tx of realRows) {
         if (!byCurrency[tx.currency]) byCurrency[tx.currency] = 0;
         byCurrency[tx.currency] += tx.amount;
     }
@@ -96,7 +99,15 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                 <span className="font-mono text-muted-foreground">#{String(row.code ?? "").padStart(4, "0")}</span>
             ),
         },
-        { key: "clientName", label: t('colClient'), filterType: "text", sortable: true },
+        {
+            key: "clientName", label: t('colClient'), filterType: "text", sortable: true,
+            render: (row) => (
+                <span className="inline-flex items-center gap-1.5">
+                    {row.clientName}
+                    {row.isDemo && <DemoBadge />}
+                </span>
+            ),
+        },
         {
             key: "packageVariation",
             label: t('colPackage'),

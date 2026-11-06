@@ -7,6 +7,7 @@ import * as libraryController from './defaultLibraries.controller';
 import * as templateController from './adminFormTemplates.controller';
 import * as tutorialsController from './tutorials.controller';
 import * as conversionsController from './conversions.controller';
+import * as demoClientReportController from './demoClientReport.controller';
 import * as followUpsController from './followUps.controller';
 import insightsAdminRouter from '../insights/insightsAdmin.routes';
 
@@ -475,6 +476,18 @@ router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrial
  *         description: Coaches on trial or paid, with first visit, sessions, days to trial/paid and first source (null = unknown)
  */
 router.get('/conversions',                 adminAuthMiddleware, conversionsController.getConversions);
+
+/**
+ * @openapi
+ * /admin/demo-client-report:
+ *   get:
+ *     summary: Demo client funnel and signup to first real client rate, before vs after launch
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Cohort rates, demo funnel steps and engagement comparison
+ */
+router.get('/demo-client-report',          adminAuthMiddleware, demoClientReportController.getDemoClientReport);
 
 /**
  * @openapi

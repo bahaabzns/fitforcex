@@ -937,3 +937,29 @@
     font-size: 16px;
   }
 }
+
+/* Gentle entrance for onboarding screens and the guide arrow. */
+@keyframes ff-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.ff-fade-in { animation: ff-fade-in 280ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .ff-fade-in { animation: none; } }
+
+/* Guide arrow: opacity-only entrance (the bubble positions itself with a transform) and a sideways nudge. */
+@keyframes ff-fade { from { opacity: 0; } to { opacity: 1; } }
+.ff-fade { animation: ff-fade 220ms ease-out both; }
+@keyframes ff-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(var(--nudge, 5px)); } }
+.ff-nudge { animation: ff-nudge 0.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ff-fade, .ff-nudge { animation: none; } }
+
+/* Confetti for a finished getting-started step (see gettingStarted/Celebration.js). */
+@keyframes ff-confetti {
+  0% { transform: translate3d(0, -10vh, 0) rotate(0); opacity: 1; }
+  100% { transform: translate3d(var(--drift, 0px), 110vh, 0) rotate(var(--rot, 720deg)); opacity: 0.9; }
+}
+.ff-confetti { position: fixed; top: 0; animation-name: ff-confetti; animation-timing-function: linear; animation-fill-mode: both; }
+
+/* A modal whose content is short (the getting-started checklist): keep it scrollable but never draw the scrollbar. */
+.ff-no-scrollbar .modal__body { scrollbar-width: none; }
+.ff-no-scrollbar .modal__body::-webkit-scrollbar { display: none; }

@@ -23,7 +23,7 @@ export default function ContinueOrRestartPrompt({ open, endDateLabel, onContinue
                     </p>
                 )}
                 <ModalFooter>
-                    <Button type="button" variant="outline" onClick={onContinue} isDisabled={submitting}>
+                    <Button type="button" variant="outline" data-guide="plan-save-confirm" onClick={onContinue} isDisabled={submitting}>
                         {t("continueRemaining")}
                     </Button>
                     <Button type="button" variant="primary" onClick={onRestart} isDisabled={submitting}>

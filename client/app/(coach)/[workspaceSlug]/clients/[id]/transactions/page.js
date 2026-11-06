@@ -690,7 +690,7 @@ export default function ClientTransactionsPage({ clientId, readOnly = false }) {
                     description: t('emptyHint'),
                     action: readOnly ? undefined : { label: t('addTransactionButton'), onPress: () => setShowAddModal(true) },
                 }}
-                toolbarEnd={readOnly ? undefined : <Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>{t('addTransactionButton')}</Button>}
+                toolbarEnd={readOnly ? undefined : <Button size="sm" variant="primary" data-guide="add-transaction" onClick={() => setShowAddModal(true)}>{t('addTransactionButton')}</Button>}
             />
 
             {/* Add / Edit Transaction — shared modal */}

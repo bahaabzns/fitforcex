@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { Languages, Check } from 'lucide-react';
 import api from '@/lib/axios';
+import { setLocaleCookie } from '@/lib/landingConfig';
 
 const LANGS = [
     { code: 'en', label: 'English' },
@@ -34,7 +35,7 @@ export default function LanguageSwitcher() {
         try {
             await api.patch('/api/auth/profile', { preferred_language: lang });
         } catch {}
-        document.cookie = `NEXT_LOCALE=${lang}; path=/; max-age=31536000; SameSite=Lax`;
+        setLocaleCookie(lang);
         router.refresh();
         setSwitching(false);
     }

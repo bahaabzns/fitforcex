@@ -179,9 +179,20 @@ export async function importRecords(req: Request, res: Response, next: NextFunct
             }
         });
 
+        // The master tables have no unique name, so without this a second import of the same file would double every row.
+        const existing = new Set<string>(
+            (await model(cfg).findMany({ select: { name_en: true } }) as { name_en: string }[]).map((row) => row.name_en.trim().toLowerCase()),
+        );
+        const fresh = valid.filter((row) => {
+            const key = String(row.name_en).trim().toLowerCase();
+            if (existing.has(key)) return false;
+            existing.add(key);
+            return true;
+        });
+
         let imported = 0;
-        if (valid.length) {
-            const result = await model(cfg).createMany({ data: valid, skipDuplicates: true });
+        if (fresh.length) {
+            const result = await model(cfg).createMany({ data: fresh, skipDuplicates: true });
             imported = result.count;
         }
         res.json({ imported, skipped: incoming.length - imported, errors });

@@ -9,6 +9,7 @@ import { attachmentUploaderFor, isValidAttachmentCategory } from '../../lib/form
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { recordEvent, teamRecipients } from '../../lib/events';
+import { DEMO_EVENT, recordDemoEvent } from '../demoClient/demoClient.service';
 import {
     summarizeLog,
     buildExerciseProgress,
@@ -260,6 +261,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
         const match = await bcrypt.compare(password, client.password as string);
         if (!match) return res.status(401).json({ message: 'Invalid email or password' });
+
+        void recordDemoEvent(client.workspace_id as string, client.is_demo ? DEMO_EVENT.VIEWED_APP : DEMO_EVENT.REAL_CLIENT_PORTAL_LOGIN);
 
         const token = jwt.sign(
             { clientId: client.id, workspaceId: client.workspace_id },
