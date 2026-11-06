@@ -5,6 +5,10 @@ import { Popover } from "@heroui/react/popover";
 import { PartyPopper } from "lucide-react";
 import { isDemoFrame } from "@/lib/axios";
 
+// Product decision (2026-11-06): the first-time hint bubbles are switched off everywhere. Set to true to bring
+// them all back; every call site keeps working because the wrapped control still renders either way.
+const FIRST_TIME_HINTS_ENABLED = false;
+
 /**
  * A first-time-only floating hint that anchors to an interactive trigger,
  * shows once ever per browser (localStorage-backed), and is dismissed either
@@ -55,7 +59,7 @@ export default function NewFeatureTooltip({
 }) {
     const storageKey = `ff_seen_feature_hint_${featureKey}`;
     const [seen, setSeen] = useState(() => {
-        if (typeof window === "undefined" || isDemoFrame()) return true;
+        if (!FIRST_TIME_HINTS_ENABLED || typeof window === "undefined" || isDemoFrame()) return true;
         try { return !!localStorage.getItem(storageKey); } catch { return true; }
     });
 
