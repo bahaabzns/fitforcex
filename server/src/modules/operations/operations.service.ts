@@ -53,7 +53,7 @@ export async function loadDemandGroups(workspaceId: string, filters: DemandFilte
                COUNT(*) FILTER (WHERE fr.submitted_at < (NOW() AT TIME ZONE 'UTC') - INTERVAL '7 days')::int AS "over7d"
         FROM form_requests fr
         JOIN forms f ON f.id = fr.form_id
-        JOIN clients c ON c.id = fr.client_id
+        JOIN clients c ON c.id = fr.client_id AND c.is_demo = FALSE
         WHERE fr.workspace_id = ${workspaceId}
           AND fr.archived_at IS NULL
           AND fr.status IN ('submitted', 'pending', 'sent', 'scheduled')
@@ -69,7 +69,7 @@ export async function loadPackageOptions(workspaceId: string): Promise<{ package
     const rows = await prisma.$queryRaw<{ name: string | null }[]>`
         SELECT DISTINCT c.current_package AS name
         FROM clients c
-        WHERE c.workspace_id = ${workspaceId}
+        WHERE c.workspace_id = ${workspaceId} AND c.is_demo = FALSE
         ORDER BY 1
     `;
     return {

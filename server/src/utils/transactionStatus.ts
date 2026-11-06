@@ -26,6 +26,8 @@ export function mapRow(row: TxDbRow) {
         createdAt:             row.created_at,
         subscriptionStartDate: row.subscription_start_date ?? null,
         startMode:             row.start_mode || 'on_first_plan',
+        // Demo-client sample payments are shown but must never be added into money totals.
+        isDemo:                row.is_demo === true,
     };
 }
 

@@ -5,6 +5,8 @@ import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import { buildPortalUrl } from "@/lib/coachSlug";
+import { demoPortalHref } from "@/lib/demoClient";
+import { useGettingStartedContext } from "@/app/components/gettingStarted/GettingStartedProvider";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -68,6 +70,11 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
     const [switching, setSwitching] = useState(false);
     const [totalUnread, setTotalUnread] = useState(0);
     const [portalLink, setPortalLink] = useState('');
+    // While the demo client exists and the coach has not yet signed in to the client app as it, the link opens the
+    // login with the demo credentials filled in. The shown and copied link stays the plain one for real clients.
+    const { status: gettingStarted } = useGettingStartedContext();
+    const triedDemoApp = !!gettingStarted?.steps?.some(step => step.key === 'view_app' && step.done);
+    const portalOpenHref = triedDemoApp ? portalLink : demoPortalHref(portalLink, gettingStarted?.demoLogin);
     const [linkCopied, setLinkCopied] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const wsRef = useRef(null);
@@ -233,7 +240,7 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                     <li>
                         <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
                             <Disclosure.Heading>
-                                <Disclosure.Trigger className={`${navLink(pathname.includes('/finance'))} w-full cursor-pointer`} disabled={collapsed}>
+                                <Disclosure.Trigger data-guide="nav-finance" className={`${navLink(pathname.includes('/finance'))} w-full cursor-pointer`} disabled={collapsed}>
                                     <Wallet size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
@@ -282,7 +289,7 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                     <li>
                         <Disclosure isExpanded={formsOpen} onExpandedChange={setFormsOpen}>
                             <Disclosure.Heading>
-                                <Disclosure.Trigger className={`${navLink(pathname.includes('/forms') && !pathname.includes('/clients/'))} w-full cursor-pointer`} disabled={collapsed}>
+                                <Disclosure.Trigger data-guide="nav-forms" className={`${navLink(pathname.includes('/forms') && !pathname.includes('/clients/'))} w-full cursor-pointer`} disabled={collapsed}>
                                     <ClipboardList size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
@@ -487,7 +494,8 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                 <div className="px-3">
                     <div className="flex items-center gap-1">
                         <a
-                            href={portalLink}
+                            href={portalOpenHref}
+                            data-guide="portal-link"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-sidebar-accent transition-colors flex-1 min-w-0"
@@ -507,6 +515,7 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                             size="sm"
                             variant="ghost"
                             onClick={handleCopyPortalLink}
+                            data-guide="portal-copy"
                             title={tSidebar('copyLink')}
                             className="shrink-0 text-muted-foreground hover:text-foreground"
                         >

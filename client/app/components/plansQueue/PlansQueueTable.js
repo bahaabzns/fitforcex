@@ -20,6 +20,7 @@ import { getInitials } from "@/utils/initials";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import AnswerBody from "@/app/components/forms/AnswerBody";
 import Modal from "@/app/components/Modal";
+import DemoBadge from "@/app/components/demo/DemoBadge";
 import ManageLabelsModal, { LABEL_COLOR_CLASSES, LABEL_COLOR_SWATCH } from "@/app/components/plansQueue/ManageLabelsModal";
 
 // "assessment" → "Assessment", "check-in" → "Check-in"
@@ -570,7 +571,10 @@ export default function PlansQueueTable({
             cardPriority: "primary",
             render: (row) => (
                 <div className="min-w-0">
-                    <p className="text-foreground font-medium text-sm truncate">{row.clientName}</p>
+                    <p className="flex items-center gap-1.5 text-foreground font-medium text-sm">
+                        <span className="truncate">{row.clientName}</span>
+                        {row.isDemo && <DemoBadge className="shrink-0" />}
+                    </p>
                     <p className="text-muted-foreground text-[10px] truncate">{row.clientEmail}</p>
                 </div>
             ),

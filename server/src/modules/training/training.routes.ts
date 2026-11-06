@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
+import { trackDemoEdit } from '../demoClient/demoClient.tracking';
 import { uploadLimiter } from '../../middleware/rateLimit';
 import { upload, processExerciseMedia } from './training.service';
 import * as trainingController from './training.controller';
@@ -258,8 +259,8 @@ router.delete('/exercise-library/:id', trainingController.deleteExercise);
 router.get('/plans/workspace-library', trainingController.getWorkspaceLibrary);
 router.get('/plans',                   trainingController.getPlans);
 router.get('/plans/:id',               trainingController.getPlan);
-router.post('/plans/save-draft',       trainingController.saveDraft);
-router.post('/plans/save-plan-draft',  trainingController.savePlanDraft);
+router.post('/plans/save-draft',       trackDemoEdit, trainingController.saveDraft);
+router.post('/plans/save-plan-draft',  trackDemoEdit, trainingController.savePlanDraft);
 router.post('/plans/:id/activate',     trainingController.activatePlan);
 
 export default router;

@@ -77,7 +77,7 @@ export async function getWorkspace(req: Request, res: Response, next: NextFuncti
                    COALESCE(pv.max_team_seats, p.max_team_seats) AS max_team_seats,
                    u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                    (SELECT COUNT(*)::int FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.is_active = TRUE) AS member_count,
-                   (SELECT COUNT(*)::int FROM clients c WHERE c.workspace_id = w.id AND c.deleted_at IS NULL) AS client_count
+                   (SELECT COUNT(*)::int FROM clients c WHERE c.workspace_id = w.id AND c.deleted_at IS NULL AND c.is_demo = FALSE) AS client_count
             FROM workspaces w
             JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
             JOIN plans p ON p.id = ws.plan_id

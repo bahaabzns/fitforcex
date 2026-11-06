@@ -96,9 +96,12 @@ export async function getLandingStats(_req: Request, res: Response, next: NextFu
         if (!landingStatsCache || Date.now() - landingStatsCache.at > LANDING_STATS_TTL_MS) {
             const [coaches, clients, nutritionPlans, trainingPlans] = await Promise.all([
                 prisma.workspaces.count({ where: { archived_at: null } }),
-                prisma.clients.count({ where: { deleted_at: null, archived_at: null } }),
-                prisma.nutrition_plans.count(),
-                prisma.training_plans.count(),
+                prisma.clients.count({ where: { deleted_at: null, archived_at: null, is_demo: false } }),
+                prisma.nutrition_plans.count({ where: { OR: [{ client_id: null }, { clients: { is_demo: false } }] } }),
+                prisma.$queryRaw<[{ count: number }]>`
+                    SELECT COUNT(*)::int AS count FROM training_plans tp
+                    WHERE NOT EXISTS (SELECT 1 FROM clients c WHERE c.id = tp.client_id AND c.is_demo = TRUE)`
+                    .then(([row]) => row.count),
             ]);
             landingStatsCache = { at: Date.now(), data: { coaches, clients, plans: nutritionPlans + trainingPlans } };
         }

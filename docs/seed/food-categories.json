@@ -1,0 +1,42 @@
+[
+  {
+    "name_en": "Protein",
+    "name_ar": "بروتين"
+  },
+  {
+    "name_en": "Carbohydrates",
+    "name_ar": "كربوهيدرات"
+  },
+  {
+    "name_en": "Vegetables",
+    "name_ar": "خضروات"
+  },
+  {
+    "name_en": "Fruits",
+    "name_ar": "فواكه"
+  },
+  {
+    "name_en": "Dairy",
+    "name_ar": "ألبان"
+  },
+  {
+    "name_en": "Fats & Oils",
+    "name_ar": "دهون وزيوت"
+  },
+  {
+    "name_en": "Nuts & Seeds",
+    "name_ar": "مكسرات وبذور"
+  },
+  {
+    "name_en": "Beverages",
+    "name_ar": "مشروبات"
+  },
+  {
+    "name_en": "Grains",
+    "name_ar": "حبوب"
+  },
+  {
+    "name_en": "Legumes",
+    "name_ar": "بقوليات"
+  }
+]

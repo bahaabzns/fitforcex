@@ -15,9 +15,19 @@ export const LANDING_SECTIONS = {
     faq: "faq",
 };
 
-// Persist an explicit language choice; i18n/request.js reads this cookie before any default.
+// Persist an explicit language choice for a year; i18n/request.js reads this cookie before the Arabic default.
+// It is scoped to the whole root domain (landing, my., coach slugs) so a choice made on the landing page is still
+// remembered after signing up. localhost can't take a domain, so there it stays per host.
+const COOKIE_ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost";
+const ONE_YEAR_SECONDS = 31536000;
+
 export function setLocaleCookie(code) {
-    document.cookie = `NEXT_LOCALE=${code}; path=/; max-age=31536000; SameSite=Lax`;
+    const onRootDomain = COOKIE_ROOT_DOMAIN !== "localhost"
+        && (window.location.hostname === COOKIE_ROOT_DOMAIN || window.location.hostname.endsWith(`.${COOKIE_ROOT_DOMAIN}`));
+    // Clear any older per-host cookie first so it can't shadow the shared one.
+    document.cookie = "NEXT_LOCALE=; path=/; max-age=0; SameSite=Lax";
+    const domain = onRootDomain ? `; domain=.${COOKIE_ROOT_DOMAIN}` : "";
+    document.cookie = `NEXT_LOCALE=${code}; path=/${domain}; max-age=${ONE_YEAR_SECONDS}; SameSite=Lax`;
 }
 
 // General "How to use FitForce" walkthrough on YouTube; the poster is self-hosted in /lp.

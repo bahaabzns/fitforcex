@@ -9,6 +9,7 @@ import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions 
 import { fetchAndParseGoogleForm, parseGoogleFormHtml } from './googleFormsImport';
 import { attachEditHistory } from '../../utils/formResponseHistory';
 import { normalizePostAction } from '../../utils/postAction';
+import { DEMO_EVENT, ensureWaitingDemoCheckIn, recordDemoEvent, recordDemoEventIfSeen } from '../demoClient/demoClient.service';
 
 export { normalizePostAction };
 
@@ -125,6 +126,7 @@ export async function createForm(req: Request, res: Response, next: NextFunction
             });
             return tx.forms.update({ where: { id: formId }, data: { current_version_id: versionId } });
         });
+        void recordDemoEvent(req.user!.workspaceId as string, DEMO_EVENT.FORM_ADDED);
         res.status(201).json({ ...form, question_count: 0 });
     } catch (err) {
         next(err);
@@ -664,6 +666,8 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
             where: { id: formId, workspace_id: req.user!.workspaceId },
         });
 
+        // The getting-started step "add questions to your form" is done by the first save that leaves questions in a form.
+        if (freshQuestions.length > 0) void recordDemoEventIfSeen(req.user!.workspaceId, DEMO_EVENT.FORM_QUESTIONS_SAVED, DEMO_EVENT.FORM_ADDED);
         res.json({
             form:      formRow ? await attachVersionInfo(formRow) : null,
             questions: freshQuestions,
@@ -938,6 +942,8 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
 
 export async function getQueue(req: Request, res: Response, next: NextFunction) {
     try {
+        await ensureWaitingDemoCheckIn(req.user!.workspaceId);
+        void recordDemoEvent(req.user!.workspaceId, DEMO_EVENT.QUEUE_OPENED);
         await activateDueScheduledRequests(req.user!.workspaceId);
 
         // Archived submissions are hidden from the active queue by default;
@@ -953,7 +959,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                    fr.archived_at, fr.label_id,
                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
                    f.form_type, f.post_action AS form_post_action,
-                   c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
+                   c.id AS client_id, c.client_code, c.fname, c.lname, c.email, c.is_demo AS client_is_demo,
                    au.fname AS assignee_fname, au.lname AS assignee_lname,
                    c.current_package AS client_package,
                    pql.name AS label_name, pql.color AS label_color,
@@ -1000,7 +1006,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
             if (row.status === 'pending' || row.status === 'scheduled' || row.status === 'sent') {
                 return {
                     id: row.id, clientId: row.client_id, clientCode: row.client_code,
-                    clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email,
+                    clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email, isDemo: row.client_is_demo === true,
                     clientPackage: row.client_package, subscriptionStatus: row.subscription_status,
                     formId: row.form_id, formTitle_en: row.form_title_en, formTitle_ar: row.form_title_ar,
                     formType: row.form_type || 'check-in',
@@ -1026,7 +1032,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
 
             return {
                 id: row.id, clientId: row.client_id, clientCode: row.client_code,
-                clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email,
+                clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email, isDemo: row.client_is_demo === true,
                 clientPackage: row.client_package, subscriptionStatus: row.subscription_status,
                 formId: row.form_id, formTitle_en: row.form_title_en, formTitle_ar: row.form_title_ar,
                 formType: row.form_type || 'check-in',

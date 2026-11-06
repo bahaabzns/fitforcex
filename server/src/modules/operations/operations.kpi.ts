@@ -56,7 +56,7 @@ export async function loadBacklogByDay(
                    (fr.archived_at AT TIME ZONE ${timeZone})::date AS archived_day
             FROM form_requests fr
             JOIN forms f ON f.id = fr.form_id
-            JOIN clients c ON c.id = fr.client_id
+            JOIN clients c ON c.id = fr.client_id AND c.is_demo = FALSE
             WHERE fr.workspace_id = ${workspaceId}
               AND fr.submitted_at IS NOT NULL
               AND COALESCE(NULLIF(fr.post_action, ''), f.post_action, 'nothing') <> 'nothing'

@@ -200,6 +200,7 @@ export default function LeftPanel({
                                             return (
                                                 <div
                                                     key={plan.id}
+                                                    data-guide="nutrition-plan"
                                                     onClick={() => handleSelectedPlan(plan)}
                                                     className={`group flex flex-col gap-2 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 ${
                                                         isActive

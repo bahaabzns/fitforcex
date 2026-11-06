@@ -16,7 +16,7 @@ export default function LegacyPortalSlugRedirect() {
         if (!coachSlug) return;
         const { protocol, port } = window.location;
         const host = port ? `${coachSlug}.${ROOT_DOMAIN}:${port}` : `${coachSlug}.${ROOT_DOMAIN}`;
-        window.location.replace(`${protocol}//${host}/portal`);
+        window.location.replace(`${protocol}//${host}/portal${window.location.search}`);
     }, [coachSlug]);
 
     return null;

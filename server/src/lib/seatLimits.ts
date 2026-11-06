@@ -67,13 +67,13 @@ export async function checkSeatLimit(workspaceId: string): Promise<void> {
 }
 
 export async function checkClientLimit(workspaceId: string): Promise<void> {
-    // Every client counts against the limit except deleted ones — intentional, to stop
+    // The demo client never counts. Every other client counts against the limit except deleted ones — intentional, to stop
     // freezing/expiring/archiving a client from being used as a way to dodge the plan cap.
     const { rows } = await pool.query(`
         SELECT COALESCE(pv.max_clients, p.max_clients) AS max_clients,
                COUNT(c.id) AS active_clients
         ${LIMIT_JOIN}
-        LEFT JOIN clients c ON c.workspace_id = $1 AND c.deleted_at IS NULL
+        LEFT JOIN clients c ON c.workspace_id = $1 AND c.deleted_at IS NULL AND c.is_demo = FALSE
         WHERE ws.workspace_id = $1
         GROUP BY pv.max_clients, p.max_clients
     `, [workspaceId]);
@@ -125,7 +125,7 @@ export async function getWorkspaceUsageCounts(workspaceId: string): Promise<{
     const [{ rows }, ownerSeat] = await Promise.all([
         pool.query(`
             SELECT
-                (SELECT COUNT(*) FROM clients c WHERE c.workspace_id = $1 AND c.deleted_at IS NULL) AS client_count,
+                (SELECT COUNT(*) FROM clients c WHERE c.workspace_id = $1 AND c.deleted_at IS NULL AND c.is_demo = FALSE) AS client_count,
                 (SELECT COUNT(DISTINCT wm.id) FROM workspace_members wm WHERE wm.workspace_id = $1 AND wm.is_active = TRUE)
                     + (SELECT COUNT(DISTINCT wi.id) FROM workspace_invitations wi WHERE wi.workspace_id = $1 AND wi.status = 'pending')
                     AS member_seat_count
