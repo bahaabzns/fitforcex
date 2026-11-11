@@ -7,58 +7,70 @@ import { useLocale } from 'next-intl';
 // Browsers differ by a pixel or two at the ends of a scroll range.
 const EDGE_TOLERANCE_PX = 2;
 
-// A sideways-scrolling strip (tab bars) that tells people there is more: a soft fade with a small
-// arrow appears on each side that has hidden content, and goes away once they reach that end.
-// Direction-aware, so in Arabic the "start" of the strip is on the right.
+const NOTHING_HIDDEN = { overflowing: false, start: false, end: false };
+
+// A sideways-scrolling strip (tab bars) that tells people there is more. When the content does not
+// fit, a small arrow slot appears on each side — outside the strip, so it never covers a label —
+// and its arrow shows while that side still has hidden content. Direction-aware: in Arabic the
+// start of the strip is on the right.
 export default function ScrollHint({ children, className = '' }) {
+    const outerRef = useRef(null);
     const scrollerRef = useRef(null);
     const isRtl = useLocale() === 'ar';
-    const [hasMore, setHasMore] = useState({ start: false, end: false });
+    const [hint, setHint] = useState(NOTHING_HIDDEN);
 
     const measure = useCallback(() => {
+        const outer = outerRef.current;
         const scroller = scrollerRef.current;
-        if (!scroller) return;
-        const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+        if (!outer || !scroller) return;
+
+        // Judged against the outer box (not the scroller) so adding the slots cannot flip the answer.
+        const content = scroller.firstElementChild;
+        const contentWidth = content ? content.offsetWidth : scroller.scrollWidth;
+        const overflowing = contentWidth > outer.clientWidth + EDGE_TOLERANCE_PX;
+
         // scrollLeft is negative in right-to-left layouts; only the distance from the start matters.
         const distanceFromStart = Math.abs(scroller.scrollLeft);
-        setHasMore({
-            start: distanceFromStart > EDGE_TOLERANCE_PX,
-            end: maxScroll - distanceFromStart > EDGE_TOLERANCE_PX,
-        });
+        const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+        const next = {
+            overflowing,
+            start: overflowing && distanceFromStart > EDGE_TOLERANCE_PX,
+            end: overflowing && maxScroll - distanceFromStart > EDGE_TOLERANCE_PX,
+        };
+        setHint(prev => (prev.overflowing === next.overflowing && prev.start === next.start && prev.end === next.end ? prev : next));
     }, []);
 
     // The observer reports once when it starts watching, then on every size change.
     useEffect(() => {
+        const outer = outerRef.current;
         const scroller = scrollerRef.current;
-        if (!scroller) return;
+        if (!outer || !scroller) return;
         const observer = new ResizeObserver(measure);
+        observer.observe(outer);
         observer.observe(scroller);
         if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
         return () => observer.disconnect();
     }, [measure]);
 
+    const StartArrow = isRtl ? ChevronRight : ChevronLeft;
+    const EndArrow = isRtl ? ChevronLeft : ChevronRight;
+
     return (
-        <div className={`relative min-w-0 ${className}`}>
-            <div ref={scrollerRef} onScroll={measure} className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={outerRef} className={`flex min-w-0 items-center ${className}`}>
+            {hint.overflowing && <ArrowSlot visible={hint.start} Arrow={StartArrow} />}
+            <div ref={scrollerRef} onScroll={measure} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {children}
             </div>
-            {hasMore.start && <Edge side={isRtl ? 'right' : 'left'} />}
-            {hasMore.end && <Edge side={isRtl ? 'left' : 'right'} />}
+            {hint.overflowing && <ArrowSlot visible={hint.end} Arrow={EndArrow} />}
         </div>
     );
 }
 
-// Fade + arrow pointing toward the hidden content on that physical side.
-function Edge({ side }) {
-    const isLeft = side === 'left';
-    const Arrow = isLeft ? ChevronLeft : ChevronRight;
+// The slot keeps its width while overflowing, so the strip never jumps as the arrow comes and goes.
+function ArrowSlot({ visible, Arrow }) {
     return (
-        <div
-            aria-hidden="true"
-            className={`pointer-events-none absolute inset-y-0 flex w-9 items-center ${isLeft ? 'left-0 justify-start' : 'right-0 justify-end'}`}
-            style={{ background: `linear-gradient(to ${isLeft ? 'right' : 'left'}, var(--background), transparent)` }}
-        >
-            <Arrow size={16} className="animate-pulse text-muted-foreground" />
-        </div>
+        <span aria-hidden="true" className="flex w-5 shrink-0 items-center justify-center text-muted-foreground" style={{ opacity: visible ? 1 : 0 }}>
+            <Arrow size={16} className={visible ? 'animate-pulse' : undefined} />
+        </span>
     );
 }
