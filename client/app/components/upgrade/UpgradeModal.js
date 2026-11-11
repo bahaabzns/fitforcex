@@ -1,18 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import '@/app/landing.css';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import api from '@/lib/axios';
 import Modal from '@/app/components/Modal';
-import LandingPricing from '@/app/components/LandingPricing';
 import ManualPaymentPanel from '@/app/components/ManualPaymentPanel';
 import GatewayPaymentPending from '@/app/components/GatewayPaymentPending';
 import PaymentMethodPicker, { isWalletPhoneValid } from '@/app/components/PaymentMethodPicker';
 import { pickLocalized } from '@/lib/utils';
 import { flattenVariations, pickBestFit } from '@/lib/upgradeFit';
 import { trackUpgradeEvent } from '@/lib/upgradeTracking';
+import UpgradePlanCard, { selectableVariations } from './UpgradePlanCards';
 
 const DEFAULT_PAYMENT_METHOD = 'card';
+
+// The dialog itself wears the landing page's look: `lp` brings its colours, fonts and buttons
+// (landing.css), `lp-embed` drops its full-page sizing, `dark` makes the app's own controls
+// (close button, payment method picker) light-on-dark to match.
+const DIALOG_CLASS = 'lp lp-embed dark max-w-6xl';
+
+// Latin digits in both languages, matching the landing page and checkout.
+const formatNumber = (value) => Number(value).toLocaleString('en-US');
 
 function headingFor(reason, limit, t) {
     if (reason === 'client_limit') return { title: t('limitTitle', { limit }), subtitle: t('limitSubtitle') };
@@ -20,24 +29,20 @@ function headingFor(reason, limit, t) {
     return { title: t('modalTitle'), subtitle: t('defaultSubtitle') };
 }
 
-function formatPrice(variation) {
-    return `${Number(variation.price_monthly).toLocaleString('en-EG')} ${variation.currency}`;
-}
-
 // Step 2: what they're about to pay for, and how.
-function PaymentStep({ choice, locale, t, method, onMethodChange, walletPhone, onWalletPhoneChange, showMethods, onShowMethods, error, tBilling }) {
+function PaymentStep({ choice, locale, t, tBilling, method, onMethodChange, walletPhone, onWalletPhoneChange, showMethods, onShowMethods, error }) {
     const planName = pickLocalized(locale, choice.plan.display_name, choice.plan.display_name_ar);
     const sizeLabel = pickLocalized(locale, choice.variation.label_en, choice.variation.label_ar);
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-primary bg-primary/5 p-3">
+            <div className="lp-glass lp-glass--blue flex items-center justify-between gap-3 p-4">
                 <div className="flex min-w-0 flex-col">
-                    <span className="text-sm font-semibold text-foreground">{planName}</span>
-                    <span className="text-xs text-muted-foreground">{sizeLabel}</span>
+                    <span className="lp-display text-base">{planName}</span>
+                    <span className="text-sm" style={{ color: 'var(--lp-text-3)' }}>{sizeLabel}</span>
                 </div>
-                <span className="text-end text-sm font-semibold tabular-nums text-foreground">
-                    {formatPrice(choice.variation)}
-                    <span className="block text-[11px] font-normal text-muted-foreground">{t('perMonth')}</span>
+                <span className="text-end">
+                    <span className="lp-display text-xl">{formatNumber(choice.variation.price_monthly)}</span>
+                    <span className="block text-xs" style={{ color: 'var(--lp-text-3)' }}>{choice.variation.currency} / {t('perMonth')}</span>
                 </span>
             </div>
 
@@ -51,30 +56,34 @@ function PaymentStep({ choice, locale, t, method, onMethodChange, walletPhone, o
                 <button
                     type="button"
                     onClick={onShowMethods}
-                    className="self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    className="self-start text-sm underline underline-offset-4"
+                    style={{ color: 'var(--lp-text-2)' }}
                 >
                     {t('changeMethod')}
                 </button>
             )}
 
             {error && (
-                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                <p className="rounded-lg border px-3 py-2 text-sm" style={{ color: 'var(--lp-red)', borderColor: 'rgba(255,156,156,0.35)', background: 'rgba(255,156,156,0.08)' }}>{error}</p>
             )}
         </div>
     );
 }
 
-// Plan comparison identical to the landing page pricing section (same cards, same size dropdown),
-// with the best fit for the coach's client count pre-selected; picking a plan moves straight to
-// payment. Checkout (create-invoice) and the manual / Fawry / wallet result panels are the
-// subscription page's own, so payment behaves the same wherever the coach starts from.
+// Plan comparison in the landing page's pricing design, with the best fit for the coach's client
+// count pre-selected; picking a plan moves straight to payment. Checkout (create-invoice) and the
+// manual / Fawry / wallet result panels are the subscription page's own, so payment behaves the
+// same wherever the coach starts from.
 export default function UpgradeModal({ open, onClose, onPaid, source, reason, limit, subscription, isOwner }) {
     const t = useTranslations('upgrade');
+    const tPricing = useTranslations('lp.pricing');
     const tBilling = useTranslations('billing');
     const locale = useLocale();
 
-    const [plans, setPlans] = useState(null);
-    const [choice, setChoice] = useState(null); // { plan, variation } once a plan card was picked
+    const [plans, setPlans] = useState(null); // null = loading
+    const [loadFailed, setLoadFailed] = useState(false);
+    const [picked, setPicked] = useState({}); // planId -> variationId the coach moved the slider to
+    const [choice, setChoice] = useState(null); // { plan, variation } once a plan card was chosen
     const [method, setMethod] = useState(DEFAULT_PAYMENT_METHOD);
     const [showMethods, setShowMethods] = useState(false);
     const [walletPhone, setWalletPhone] = useState('');
@@ -83,14 +92,28 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
     const [manualPayment, setManualPayment] = useState(null);
     const [gatewayPending, setGatewayPending] = useState(null);
 
+    // Plans are fetched when the modal first opens, not on every page load.
+    useEffect(() => {
+        if (!open || !isOwner || plans) return;
+        let cancelled = false;
+        api.get('/api/plans')
+            .then(res => { if (!cancelled) setPlans(res.data); })
+            .catch(() => { if (!cancelled) setLoadFailed(true); });
+        return () => { cancelled = true; };
+    }, [open, isOwner, plans]);
+
     const clientCount = subscription?.clientCount ?? 0;
     const currentVariationId = subscription?.variationId ?? null;
 
+    // Plans that still have at least one size the coach can move to.
+    const offers = useMemo(() => (plans ?? [])
+        .map(plan => ({ plan, variations: selectableVariations(plan, clientCount) }))
+        .filter(offer => offer.variations.length > 0), [plans, clientCount]);
+
     const recommended = useMemo(() => {
-        if (!plans) return null;
-        const best = pickBestFit(flattenVariations(plans), { clientCount, currentVariationId });
+        const best = pickBestFit(flattenVariations(offers.map(offer => ({ ...offer.plan, variations: offer.variations }))), { clientCount, currentVariationId });
         return best ? { planId: best.planId, variationId: best.variationId } : null;
-    }, [plans, clientCount, currentVariationId]);
+    }, [offers, clientCount, currentVariationId]);
 
     function resetAndClose() {
         setChoice(null);
@@ -101,10 +124,8 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
         onClose();
     }
 
-    function handleChoosePlan(planId, variationId, plan) {
-        const variation = (plan.variations ?? []).find(v => v.id === variationId);
-        if (!variation || !(Number(variation.price_monthly) > 0)) return; // the free card is not an upgrade
-        trackUpgradeEvent({ eventType: 'plan_selected', source, planId, variationId });
+    function handleChoosePlan(plan, variation) {
+        trackUpgradeEvent({ eventType: 'plan_selected', source, planId: plan.id, variationId: variation.id });
         setError('');
         setChoice({ plan, variation });
     }
@@ -144,10 +165,42 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
 
     const { title, subtitle } = headingFor(reason, limit, t);
     const awaitingPayment = Boolean(manualPayment || gatewayPending);
-    const onPlansStep = isOwner && !choice;
+    const onPlansStep = isOwner && !choice && !awaitingPayment;
+
+    function renderPlans() {
+        if (loadFailed) return <p className="text-sm" style={{ color: 'var(--lp-red)' }}>{t('loadFailed')}</p>;
+        if (!plans) return <div className="lp-plans" aria-busy="true">{[1, 2, 3].map(n => <div key={n} className="lp-skeleton" />)}</div>;
+        if (offers.length === 0) return <p className="text-sm" style={{ color: 'var(--lp-text-2)' }}>{t('noPlans')}</p>;
+
+        return (
+            <div className="lp-plans">
+                {offers.map(({ plan, variations }) => {
+                    const isRecommended = recommended?.planId === plan.id;
+                    const selectedId = picked[plan.id] ?? (isRecommended ? recommended.variationId : null);
+                    const variation = variations.find(v => v.id === selectedId) ?? variations[0];
+                    return (
+                        <UpgradePlanCard
+                            key={plan.id}
+                            plan={plan}
+                            variations={variations}
+                            variation={variation}
+                            onPickVariation={(planId, variationId) => setPicked(current => ({ ...current, [planId]: variationId }))}
+                            isRecommended={isRecommended}
+                            isCurrent={variation.id === currentVariationId}
+                            onChoose={handleChoosePlan}
+                            t={tPricing}
+                            tUpgrade={t}
+                            locale={locale}
+                            format={formatNumber}
+                        />
+                    );
+                })}
+            </div>
+        );
+    }
 
     function renderBody() {
-        if (!isOwner) return <p className="text-sm text-muted-foreground">{t('ownerOnly')}</p>;
+        if (!isOwner) return <p className="text-sm" style={{ color: 'var(--lp-text-2)' }}>{t('ownerOnly')}</p>;
         if (manualPayment) return <ManualPaymentPanel info={manualPayment} t={tBilling} />;
         if (gatewayPending) return <GatewayPaymentPending {...gatewayPending} onPaid={onPaid} t={tBilling} />;
         if (choice) {
@@ -161,42 +214,19 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
                 />
             );
         }
-        return (
-            <LandingPricing
-                isInline
-                currentPlanId={subscription?.planId}
-                recommended={recommended}
-                onPlansLoaded={setPlans}
-                onCtaClick={handleChoosePlan}
-            />
-        );
+        return renderPlans();
     }
 
     function renderFooter() {
         if (awaitingPayment) {
-            return (
-                <button type="button" onClick={resetAndClose} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-                    {tBilling('done')}
-                </button>
-            );
+            return <button type="button" onClick={resetAndClose} className="lp-btn lp-btn--primary">{tBilling('done')}</button>;
         }
         if (choice) {
             return (
                 <div className="flex items-center justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={() => { setChoice(null); setError(''); }}
-                        className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary"
-                    >
-                        {t('back')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handlePay}
-                        disabled={paying}
-                        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-40"
-                    >
-                        {paying ? tBilling('processing') : t('upgradeFor', { price: formatPrice(choice.variation) })}
+                    <button type="button" onClick={() => { setChoice(null); setError(''); }} className="lp-btn lp-btn--glass">{t('back')}</button>
+                    <button type="button" onClick={handlePay} disabled={paying} className="lp-btn lp-btn--primary" style={paying ? { opacity: 0.5 } : undefined}>
+                        {paying ? tBilling('processing') : t('upgradeFor', { price: `${formatNumber(choice.variation.price_monthly)} ${choice.variation.currency}` })}
                     </button>
                 </div>
             );
@@ -209,12 +239,12 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
             open={open}
             onClose={resetAndClose}
             title={title}
-            size="xl"
+            dialogClassName={DIALOG_CLASS}
             sheetOnMobile
             footer={renderFooter()}
         >
-            <div className="flex flex-col gap-4">
-                {onPlansStep && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+            <div className="flex flex-col gap-5">
+                {onPlansStep && <p style={{ color: 'var(--lp-text-2)' }}>{subtitle}</p>}
                 {renderBody()}
             </div>
         </Modal>

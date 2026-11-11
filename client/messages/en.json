@@ -3781,6 +3781,7 @@
     "lockIncludedIn": "Included in: {plans}",
     "lockHigherPlan": "Available on a higher plan.",
     "lockSeePlans": "See plans",
-    "back": "Back"
+    "back": "Back",
+    "currentPlan": "Your current plan"
   }
 }
