@@ -991,7 +991,8 @@ html:not(.dark) .lp.lp-embed {
 }
 /* Landing rules that hard-code white, re-pointed at the theme tokens (same look in dark). */
 .lp-embed .lp-glass { box-shadow: inset 0 1px 0 var(--lp-glass-top), var(--lp-shadow); }
-.lp-embed .lp-glass--blue { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(47, 169, 255, 0.12), 0 24px 80px -20px rgba(47, 169, 255, 0.35); }
+/* A tighter glow than the landing page's: the popup's scrolling body clips anything that spills past it. */
+.lp-embed .lp-glass--blue { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(47, 169, 255, 0.12), 0 10px 32px -10px rgba(47, 169, 255, 0.4); }
 .lp-embed .lp-btn--glass { color: var(--lp-text); border-color: var(--lp-line-strong); }
 .lp-embed .lp-btn--glass:hover { background: var(--lp-hover); }
 .lp-embed .lp-plan__badge { color: var(--lp-text); }
