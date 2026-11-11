@@ -12,6 +12,7 @@ import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
 import { getEffectiveLimits, getWorkspaceUsageCounts } from '../../lib/seatLimits';
 import { getWorkspaceAccessStatus } from '../../middleware/subscriptionAccessGate';
 import { z } from 'zod';
+import { CAPABILITY_KEYS, getCapabilityState, getPlansWithCapability } from '../../lib/planCapabilities';
 import {
     UPGRADE_SOURCES, CLIENT_EVENT_TYPES, sanitizeReturnTo, recordUpgradeEvent, recordUpgradeEventSafely,
     recordPaidUpgradeEvent, findCheckoutReturnTo,
@@ -49,6 +50,16 @@ export async function handleCallback(req: Request, res: Response) {
 </body></html>`);
 }
 
+// Which plan-gated features this workspace can use right now, and which plans include each —
+// powers the lock icons and their "included in …" explainer.
+async function getFeatureAccess(workspaceId: string) {
+    const entries = await Promise.all(CAPABILITY_KEYS.map(async key => {
+        const [state, plans] = await Promise.all([getCapabilityState(workspaceId, key), getPlansWithCapability(key)]);
+        return [key, { unlocked: state.effective, expired: state.expired && state.planHas, plans }] as const;
+    }));
+    return Object.fromEntries(entries);
+}
+
 export async function getSubscription(req: Request, res: Response, next: NextFunction) {
     try {
         const sub = await prisma.workspace_subscriptions.findUnique({
@@ -68,7 +79,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
         const expiresAt     = sub.expires_at ? new Date(sub.expires_at) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
 
-        const [payments, addons, effectiveLimits, accessStatus, usageCounts] = await Promise.all([
+        const [payments, addons, effectiveLimits, accessStatus, usageCounts, featureAccess] = await Promise.all([
             prisma.workspace_payments.findMany({
                 where: { workspace_id: req.user!.workspaceId },
                 select: {
@@ -89,6 +100,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             getEffectiveLimits(req.user!.workspaceId),
             getWorkspaceAccessStatus(req.user!.workspaceId),
             getWorkspaceUsageCounts(req.user!.workspaceId),
+            getFeatureAccess(req.user!.workspaceId),
         ]);
 
         const plan      = sub.plans;
@@ -125,6 +137,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 expiresAt:      sub.expires_at,
                 daysRemaining,
             },
+            featureAccess,
             addons: addons.map(a => ({
                 id:           a.id,
                 label:        a.addons?.label ?? `+${a.units} ${a.dimension}`,
