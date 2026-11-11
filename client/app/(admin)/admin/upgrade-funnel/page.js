@@ -29,12 +29,12 @@ const TABLE_COLUMNS = 'grid-cols-[minmax(200px,1.6fr)_repeat(6,minmax(90px,1fr))
 const formatPercent = (value) => (value === null || value === undefined ? '—' : `${value}%`);
 
 function buildInsights(report) {
-    const rankable = report.bySource.filter(row => row.coachesClicked >= MIN_CLICKS_TO_RANK_A_BUTTON && row.clickToPaidPercent !== null);
+    const rankable = report.bySource.filter(row => row.coachesReached >= MIN_CLICKS_TO_RANK_A_BUTTON && row.reachedToPaidPercent !== null);
     const insights = [];
 
-    const best = [...rankable].sort((a, b) => b.clickToPaidPercent - a.clickToPaidPercent)[0];
+    const best = [...rankable].sort((a, b) => b.reachedToPaidPercent - a.reachedToPaidPercent)[0];
     if (best && best.coachesPaid > 0) {
-        insights.push(`${SOURCE_LABELS[best.source]} converts best: ${best.coachesPaid} of ${best.coachesClicked} coaches who clicked it paid (${best.clickToPaidPercent}%).`);
+        insights.push(`${SOURCE_LABELS[best.source]} converts best: ${best.coachesPaid} of ${best.coachesReached} coaches who reached it paid (${best.reachedToPaidPercent}%).`);
     }
 
     const leaky = [...rankable]
@@ -120,7 +120,7 @@ export default function AdminUpgradeFunnelPage() {
                         <div>
                             <h2 className="text-sm font-semibold text-foreground">Button by button</h2>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                                A payment counts for the button that opened checkout, even if the coach paid later. Click-to-paid = coaches who paid ÷ coaches who clicked.
+                                A payment counts for the button that opened checkout, even if the coach paid later. Reached = coaches who clicked the button, or who saw the limit popup (it opens by itself). Reached → paid = coaches who paid ÷ coaches reached.
                             </p>
                         </div>
                         <div className="overflow-x-auto rounded-xl border border-border">
@@ -129,22 +129,22 @@ export default function AdminUpgradeFunnelPage() {
                                     <span>Button</span>
                                     <span>Shown</span>
                                     <span>Clicks</span>
-                                    <span>Coaches clicked</span>
+                                    <span>Coaches reached</span>
                                     <span>Plan picked</span>
                                     <span>Checkout</span>
                                     <span>Paid</span>
-                                    <span>Click → paid</span>
+                                    <span>Reached → paid</span>
                                 </div>
                                 {report.bySource.map((row, index) => (
                                     <div key={row.source} className={`grid ${TABLE_COLUMNS} items-center gap-4 px-4 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
                                         <span className="text-sm font-medium text-foreground">{SOURCE_LABELS[row.source] ?? row.source}</span>
                                         <span className="text-sm text-foreground">{row.shown}</span>
                                         <span className="text-sm text-foreground">{row.clicks}</span>
-                                        <span className="text-sm text-foreground">{row.coachesClicked}</span>
+                                        <span className="text-sm text-foreground">{row.coachesReached}</span>
                                         <span className="text-sm text-foreground">{row.plansSelected}</span>
                                         <span className="text-sm text-foreground">{row.checkoutsStarted}</span>
                                         <span className="text-sm font-semibold text-foreground">{row.coachesPaid}</span>
-                                        <span className="text-sm font-semibold text-foreground">{formatPercent(row.clickToPaidPercent)}</span>
+                                        <span className="text-sm font-semibold text-foreground">{formatPercent(row.reachedToPaidPercent)}</span>
                                     </div>
                                 ))}
                             </div>

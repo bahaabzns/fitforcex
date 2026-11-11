@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { UPGRADE_SOURCES } from '../billing/upgradeEvents.service';
+import { UPGRADE_SOURCES, AUTO_OPEN_SOURCES } from '../billing/upgradeEvents.service';
 
 const ALL_TIME_DAYS = 0;
 const ALLOWED_WINDOWS_DAYS = [7, 30, 90, ALL_TIME_DAYS];
@@ -11,6 +11,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 interface SourceCountsRow {
     source:             string;
     shown:              bigint;
+    coaches_shown:      bigint;
     clicks:             bigint;
     coaches_clicked:    bigint;
     plans_selected:     bigint;
@@ -41,6 +42,7 @@ export async function getUpgradeFunnel(req: Request, res: Response, next: NextFu
         const rows = await prisma.$queryRaw<SourceCountsRow[]>(Prisma.sql`
             SELECT source,
                    COUNT(*) FILTER (WHERE event_type = 'shown')                         AS shown,
+                   COUNT(DISTINCT workspace_id) FILTER (WHERE event_type = 'shown')     AS coaches_shown,
                    COUNT(*) FILTER (WHERE event_type = 'click')                         AS clicks,
                    COUNT(DISTINCT workspace_id) FILTER (WHERE event_type = 'click')     AS coaches_clicked,
                    COUNT(*) FILTER (WHERE event_type = 'plan_selected')                 AS plans_selected,
@@ -56,6 +58,8 @@ export async function getUpgradeFunnel(req: Request, res: Response, next: NextFu
             const row = countsBySource.get(source);
             const coachesClicked = Number(row?.coaches_clicked ?? 0);
             const coachesPaid = Number(row?.coaches_paid ?? 0);
+            // Buttons are measured from the click; auto-opening popups from the moment they appeared.
+            const coachesReached = AUTO_OPEN_SOURCES.includes(source) ? Number(row?.coaches_shown ?? 0) : coachesClicked;
             return {
                 source,
                 shown:             Number(row?.shown ?? 0),
@@ -64,8 +68,9 @@ export async function getUpgradeFunnel(req: Request, res: Response, next: NextFu
                 plansSelected:     Number(row?.plans_selected ?? 0),
                 checkoutsStarted:  Number(row?.checkouts_started ?? 0),
                 coachesPaid,
-                // Share of coaches who clicked this button and went on to pay through it.
-                clickToPaidPercent: percentOrNull(coachesPaid, coachesClicked),
+                coachesReached,
+                // Share of coaches who reached this prompt and went on to pay through it.
+                reachedToPaidPercent: percentOrNull(coachesPaid, coachesReached),
             };
         }).sort((a, b) => b.coachesPaid - a.coachesPaid || b.clicks - a.clicks);
 

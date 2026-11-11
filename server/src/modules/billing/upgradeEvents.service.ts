@@ -8,6 +8,10 @@ export const UPGRADE_SOURCES = [
 ] as const;
 export type UpgradeSource = (typeof UPGRADE_SOURCES)[number];
 
+// Surfaces that open on their own when the coach hits a limit. There is no "click" for them, so
+// the admin report measures them from "shown" instead.
+export const AUTO_OPEN_SOURCES: readonly UpgradeSource[] = ['limit_popup'];
+
 // Steps a client may report itself; checkout_started and paid are written by the server only,
 // so they can't be forged to inflate conversion.
 export const CLIENT_EVENT_TYPES = ['shown', 'click', 'plan_selected'] as const;
