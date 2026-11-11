@@ -1978,6 +1978,7 @@
     "loadFailed": "Could not load this plan — please try again."
   },
   "common": {
+    "more": "More",
     "comingSoon": "Coming soon",
     "ownerOnlyMessage": "This section is only available to the workspace owner.",
     "show": "Show",

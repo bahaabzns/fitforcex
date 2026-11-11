@@ -15,6 +15,8 @@ import { sortByPriority, priorityAccentClass, groupNotifications, FILTER_KEYS, f
 import { getDateLabel } from "@/utils/date";
 import { getInitials } from "@/utils/initials";
 import api from "@/lib/axios";
+import AppModal from "@/app/components/Modal";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const UNREAD_POLL_MS = 15000;
 const LIST_LIMIT     = 15;
@@ -199,6 +201,8 @@ export default function NotificationBell() {
     // (not read during render — keeps the component render-pure).
     const [now, setNow]         = useState(0);
     const panelRef = useRef(null);
+    // Phones get a bottom sheet instead of a dropdown.
+    const isPhone = useMediaQuery('(max-width: 639px)');
 
     const fetchUnread = useCallback(() => {
         api.get('/api/notifications/unread-count')
@@ -215,12 +219,14 @@ export default function NotificationBell() {
 
     // Outside-click close (mirrors the Sidebar workspace-switcher pattern).
     useEffect(() => {
+        // The sheet lives in a portal, so on a phone the modal handles outside taps itself.
+        if (isPhone) return;
         function handler(e) {
             if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
         }
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, []);
+    }, [isPhone]);
 
     const fetchList = useCallback(() => {
         setLoading(true);
@@ -271,29 +277,10 @@ export default function NotificationBell() {
         }
     };
 
-    return (
-        <div className="relative" ref={panelRef}>
-            <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                onClick={toggleOpen}
-                title={t('title')}
-                aria-label={t('title')}
-                className="relative text-muted-foreground hover:text-foreground"
-            >
-                <Bell size={16} />
-                {unread > 0 && (
-                    <span className="absolute -top-0.5 -inset-e-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
-                        {unread > 99 ? '99+' : unread}
-                    </span>
-                )}
-            </Button>
-
-            {open && (
-                <div className="absolute inset-e-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+    const panelBody = (
+        <>
                     <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
-                        <span className="text-sm font-semibold text-foreground">{t('title')}</span>
+                        <span className={isPhone ? 'sr-only' : 'text-sm font-semibold text-foreground'}>{t('title')}</span>
                         {unread > 0 && (
                             <button
                                 onClick={markAllRead}
@@ -422,8 +409,37 @@ export default function NotificationBell() {
                             </>
                         )}
                     </div>
+        </>
+    );
+
+    return (
+        <div className="relative" ref={panelRef}>
+            <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                onClick={toggleOpen}
+                title={t('title')}
+                aria-label={t('title')}
+                className="relative text-muted-foreground hover:text-foreground"
+            >
+                <Bell size={16} />
+                {unread > 0 && (
+                    <span className="absolute -top-0.5 -inset-e-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                        {unread > 99 ? '99+' : unread}
+                    </span>
+                )}
+            </Button>
+
+            {open && !isPhone && (
+                <div className="absolute inset-e-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                    {panelBody}
                 </div>
             )}
+            {/* On a phone the same panel opens as a bottom sheet instead of a dropdown. */}
+            <AppModal open={open && isPhone} onClose={() => setOpen(false)} title={t('title')} sheetOnMobile>
+                {panelBody}
+            </AppModal>
         </div>
     );
 }
