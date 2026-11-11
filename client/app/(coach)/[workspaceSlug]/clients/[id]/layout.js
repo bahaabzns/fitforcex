@@ -77,6 +77,7 @@ export default function ClientLayout({ children }) {
     // Fetched only for the tab title (distinguishes clients across many open tabs) —
     // the tab pages each fetch the full client record themselves as needed.
     const [clientCode, setClientCode] = useState(null);
+    const [clientName, setClientName] = useState('');
     const [isDemoClient, setIsDemoClient] = useState(false);
     useEffect(() => {
         let cancelled = false;
@@ -84,6 +85,7 @@ export default function ClientLayout({ children }) {
             .then(res => {
                 if (cancelled) return;
                 setClientCode(res.data?.code ?? res.data?.client_code ?? null);
+                setClientName(`${res.data?.fname ?? ''} ${res.data?.lname ?? ''}`.trim());
                 setIsDemoClient(!!res.data?.is_demo);
             })
             .catch(() => {});
@@ -149,6 +151,18 @@ export default function ClientLayout({ children }) {
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full min-w-0">
+            {/* Who this page is about: code and name on their own line above the tabs, so they have the
+                full width (the top bar is crowded on phones) and stay visible when the header is hidden. */}
+            {(clientCode || clientName) && (
+                <div className="mb-3 flex min-w-0 shrink-0 items-center gap-2.5 sm:mb-4">
+                    {clientCode && (
+                        <span dir="ltr" className="shrink-0 rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
+                            #{clientCode}
+                        </span>
+                    )}
+                    {clientName && <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">{clientName}</h1>}
+                </div>
+            )}
             <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
                 {/* Tabs scroll inside their own box so a narrow viewport never widens the page */}
                 <div className="min-w-0 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

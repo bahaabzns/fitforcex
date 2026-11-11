@@ -42,7 +42,7 @@ import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import { TutorialsProvider } from "@/app/contexts/tutorials";
 
-function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
+function getPageInfo(pathname, { slug, tNav } = {}) {
     const p = pathname;
     const base = `/${slug}`;
 
@@ -54,7 +54,6 @@ function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
 
     if (p.includes('/clients')) {
         const crumbs = [{ label: tNav('clients'), href: `${base}/clients` }];
-        if (clientLabel) crumbs.push({ label: clientLabel, href: `${base}/clients/${clientId}` });
         return { icon: <Users size={15} />, crumbs };
     }
 
@@ -154,7 +153,6 @@ function WorkspaceContent({ children }) {
     // Phone width: only upgrade, getting started and notifications stay in the top bar.
     const isCompactHeader = useMediaQuery("(max-width: 767px)");
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [clientLabel, setClientLabel] = useState(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const router = useRouter();
     const { workspaceSlug } = useParams();
@@ -165,7 +163,7 @@ function WorkspaceContent({ children }) {
     const clientIdMatch = pathname.match(/\/clients\/([^/]+)/);
     const clientId = clientIdMatch ? clientIdMatch[1] : null;
 
-    const { icon, crumbs } = getPageInfo(pathname, { slug: workspaceSlug, clientId, clientLabel, tNav });
+    const { icon, crumbs } = getPageInfo(pathname, { slug: workspaceSlug, tNav });
 
     const breadcrumbInteractive = pathname.includes('/clients');
 
@@ -213,16 +211,6 @@ function WorkspaceContent({ children }) {
         setMobileSidebarOpen(false);
     }, [pathname]);
 
-    useEffect(() => {
-        if (!clientId) { setClientLabel(null); return; }
-        api.get(`/api/clients/${clientId}`)
-            .then(res => {
-                const c = res.data;
-                setClientLabel(`#${c.code ?? c.client_code} ${c.fname} ${c.lname}`);
-            })
-            .catch(() => setClientLabel(null));
-    }, [clientId]);
-
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center bg-background">
@@ -262,7 +250,9 @@ function WorkspaceContent({ children }) {
                                 )}
                                 {crumbs.map((crumb, i) => {
                                     const isLast = i === crumbs.length - 1;
-                                    const isLink = !isLast && breadcrumbInteractive;
+                                    // On a client's page the "Clients" crumb is the way back to the list (the client's
+                                    // own code and name are the title of the page itself).
+                                    const isLink = (!isLast || Boolean(clientId)) && breadcrumbInteractive;
                                     return (
                                         <span key={i} className="flex items-center gap-1.5">
                                             {i > 0 && <ChevronRight size={13} className="text-muted-foreground" />}
