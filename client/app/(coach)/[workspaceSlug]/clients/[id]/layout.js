@@ -151,10 +151,10 @@ export default function ClientLayout({ children }) {
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full min-w-0">
-            {/* Who this page is about: code and name on their own line above the tabs, so they have the
-                full width (the top bar is crowded on phones) and stay visible when the header is hidden. */}
+            {/* Phones only: the code and name get their own line above the tabs, since the top bar is too
+                crowded for them. From md up they are the breadcrumb in the top bar. */}
             {(clientCode || clientName) && (
-                <h1 className="mb-3 flex min-w-0 shrink-0 items-baseline gap-2.5 text-lg font-semibold text-foreground sm:mb-4">
+                <h1 className="mb-3 flex min-w-0 shrink-0 items-baseline gap-2.5 text-lg font-semibold text-foreground md:hidden">
                     {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
                     {clientName && <span className="min-w-0 truncate">{clientName}</span>}
                 </h1>
