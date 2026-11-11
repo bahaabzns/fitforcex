@@ -921,6 +921,50 @@ export async function getBillingDiscounts(_req: Request, res: Response, next: Ne
     }
 }
 
+// The key is what plan links and checkout URLs refer to, so it must be a stable lowercase slug.
+const PERIOD_KEY_PATTERN = /^[a-z0-9_]{2,40}$/;
+const MAX_DISCOUNT_PERCENT = 100;
+
+export async function createBillingDiscount(req: Request, res: Response, next: NextFunction) {
+    const { period_key, label, label_ar, save_label, save_label_ar, discount_percent, months, sort_order, is_active } = req.body as Record<string, unknown>;
+
+    const periodKey = typeof period_key === 'string' ? period_key.trim().toLowerCase() : '';
+    const labelText = typeof label === 'string' ? label.trim() : '';
+    const monthsCount = months === undefined ? 1 : Number(months);
+    const percent = discount_percent === undefined ? 0 : Number(discount_percent);
+
+    if (!PERIOD_KEY_PATTERN.test(periodKey)) return res.status(400).json({ message: 'Key must be 2–40 lowercase letters, numbers or underscores (e.g. "yearly")' });
+    if (!labelText) return res.status(400).json({ message: 'Label is required' });
+    if (!Number.isInteger(monthsCount) || monthsCount < 1) return res.status(400).json({ message: 'Months must be a whole number of at least 1' });
+    if (!Number.isInteger(percent) || percent < 0 || percent > MAX_DISCOUNT_PERCENT) return res.status(400).json({ message: 'Discount must be a whole number from 0 to 100' });
+
+    const optionalText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+    try {
+        const last = await prisma.billing_discounts.aggregate({ _max: { sort_order: true } });
+        const created = await prisma.billing_discounts.create({
+            data: {
+                id:               createId(),
+                period_key:       periodKey,
+                label:            labelText,
+                label_ar:         optionalText(label_ar),
+                save_label:       optionalText(save_label),
+                save_label_ar:    optionalText(save_label_ar),
+                discount_percent: percent,
+                months:           monthsCount,
+                sort_order:       typeof sort_order === 'number' ? sort_order : (last._max.sort_order ?? 0) + 1,
+                is_active:        typeof is_active === 'boolean' ? is_active : true,
+            },
+        });
+        res.status(201).json(created);
+    } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+            return res.status(409).json({ message: `A billing period with the key "${periodKey}" already exists` });
+        }
+        next(err);
+    }
+}
+
 export async function updateBillingDiscount(req: Request, res: Response, next: NextFunction) {
     const { label, label_ar, save_label, save_label_ar, discount_percent, months, sort_order, is_active } = req.body as Record<string, unknown>;
     try {

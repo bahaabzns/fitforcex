@@ -290,6 +290,34 @@ router.post('/workspaces/:id/archive',        adminAuthMiddleware, adminControll
  *     responses:
  *       200:
  *         description: Array of billing discounts
+ *   post:
+ *     summary: Create a billing period (e.g. yearly, 12 months, 20% off)
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [period_key, label]
+ *             properties:
+ *               period_key:       { type: string, description: "Unique lowercase key, 2-40 chars of a-z 0-9 _" }
+ *               label:            { type: string }
+ *               label_ar:         { type: string, nullable: true }
+ *               save_label:       { type: string, nullable: true }
+ *               save_label_ar:    { type: string, nullable: true }
+ *               discount_percent: { type: integer, minimum: 0, maximum: 100, default: 0 }
+ *               months:           { type: integer, minimum: 1, default: 1 }
+ *               is_active:        { type: boolean, default: true }
+ *     responses:
+ *       201:
+ *         description: Billing period created
+ *       400:
+ *         description: Invalid key, label, months or discount
+ *       409:
+ *         description: A period with this key already exists
  *
  * /admin/billing-discounts/{id}:
  *   put:
@@ -324,6 +352,7 @@ router.put('/plans/:id',           adminAuthMiddleware, adminController.updatePl
 router.delete('/plans/:id',        adminAuthMiddleware, adminController.deletePlan);
 
 router.get('/billing-discounts',       adminAuthMiddleware, adminController.getBillingDiscounts);
+router.post('/billing-discounts',      adminAuthMiddleware, adminController.createBillingDiscount);
 router.put('/billing-discounts/:id',   adminAuthMiddleware, adminController.updateBillingDiscount);
 
 /**
