@@ -11,8 +11,10 @@ const LEVEL_BAR_CLASS = {
     full: 'bg-destructive',
 };
 
-// "2/3 free clients used" with a bar and an Upgrade link. Quiet by default; the bar changes
-// colour as the coach nears the limit, and paid plans only get the link when nearly full.
+const CARD_CLASS = 'mx-3 mb-2 flex flex-col gap-1.5 rounded-lg border border-border bg-card/50 px-3 py-2';
+
+// "2/3 free clients used" with a bar. Quiet by default; the bar changes colour as the coach nears
+// the limit. Free plans (and paid plans at 80%+) turn the whole card into the Upgrade button.
 export default function UsageMeter() {
     const t = useTranslations('upgrade');
     const { subscription, isOwner, openUpgrade } = useUpgrade();
@@ -23,22 +25,14 @@ export default function UsageMeter() {
     const { used, limit, ratio, level, showUpgradeLink } = state.meter;
     const label = t(state.isFree ? 'clientsUsedFree' : 'clientsUsed', { used, limit });
 
-    return (
-        <div className="mx-3 mb-2 flex flex-col gap-1.5 rounded-lg border border-border bg-card/50 px-3 py-2" data-guide="usage-meter">
-            <div className="flex items-center justify-between gap-2">
+    const content = (
+        <>
+            <div className="flex w-full items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">{label}</span>
-                {showUpgradeLink && (
-                    <button
-                        type="button"
-                        onClick={() => openUpgrade({ source: UPGRADE_SOURCE.SIDEBAR_METER, reason: level === 'full' ? 'client_limit' : 'default', limit })}
-                        className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
-                    >
-                        {t('meterUpgrade')}
-                    </button>
-                )}
+                {showUpgradeLink && <span className="text-xs font-semibold text-primary">{t('meterUpgrade')}</span>}
             </div>
             <div
-                className="h-1.5 overflow-hidden rounded-full bg-secondary"
+                className="h-1.5 w-full overflow-hidden rounded-full bg-secondary"
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={limit}
@@ -47,6 +41,19 @@ export default function UsageMeter() {
             >
                 <div className={`h-full rounded-full transition-all ${LEVEL_BAR_CLASS[level]}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
             </div>
-        </div>
+        </>
+    );
+
+    if (!showUpgradeLink) return <div className={CARD_CLASS} data-guide="usage-meter">{content}</div>;
+
+    return (
+        <button
+            type="button"
+            onClick={() => openUpgrade({ source: UPGRADE_SOURCE.SIDEBAR_METER, reason: level === 'full' ? 'client_limit' : 'default', limit })}
+            className={`${CARD_CLASS} w-[calc(100%-1.5rem)] cursor-pointer text-start transition-colors hover:border-primary/50 hover:bg-primary/5`}
+            data-guide="usage-meter"
+        >
+            {content}
+        </button>
     );
 }

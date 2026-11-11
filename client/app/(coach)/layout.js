@@ -36,6 +36,7 @@ import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBan
 import UpgradeProvider from "@/app/components/upgrade/UpgradeProvider";
 import UpgradeButton from "@/app/components/upgrade/UpgradeButton";
 import PlanEndingBanner from "@/app/components/upgrade/PlanEndingBanner";
+import HeaderMoreMenu from "@/app/components/HeaderMoreMenu";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
@@ -150,6 +151,8 @@ function WorkspaceContent({ children }) {
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const isMobileSidebar = useMediaQuery("(max-width: 1023px)");
+    // Phone width: only upgrade, getting started and notifications stay in the top bar.
+    const isCompactHeader = useMediaQuery("(max-width: 767px)");
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [clientLabel, setClientLabel] = useState(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -240,7 +243,7 @@ function WorkspaceContent({ children }) {
                 <SubscriptionReadOnlyBanner />
                 <PlanEndingBanner />
                 {!headerCollapsed && (
-                    <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
+                    <header className="flex items-center gap-2 md:gap-3 p-3 md:p-4 border-b border-border shrink-0">
                         <Button
                             isIconOnly
                             size="sm"
@@ -253,7 +256,7 @@ function WorkspaceContent({ children }) {
                         </Button>
 
                         {crumbs.length > 0 && (
-                            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
+                            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
                                 {icon && (
                                     <span className={crumbs.length === 1 ? "text-foreground" : "text-muted-foreground"}>{icon}</span>
                                 )}
@@ -273,7 +276,7 @@ function WorkspaceContent({ children }) {
                                             ) : (
                                                 <span
                                                     aria-current={isLast ? "page" : undefined}
-                                                    className={isLast ? "font-medium text-foreground" : "text-muted-foreground"}
+                                                    className={isLast ? "truncate font-medium text-foreground" : "text-muted-foreground"}
                                                 >
                                                     {crumb.label}
                                                 </span>
@@ -286,21 +289,31 @@ function WorkspaceContent({ children }) {
 
                         <div className="ms-auto flex items-center gap-1">
                             <UpgradeButton />
-                            <NewFeatureTooltip
-                                featureKey="feedback_entry_hint"
-                                active
-                                message={tInsights('hint')}
-                                dismissLabel={tInsights('hintDismiss')}
-                                badgeLabel={tInsights('newFeature')}
-                                onTriggerClick={() => setFeedbackOpen(true)}
-                                triggerClassName="button button--icon-only button--sm button--ghost inline-flex!"
-                            >
-                                <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
-                            </NewFeatureTooltip>
-                            <GettingStartedButton />
-                            <NotificationBell />
-                            <ThemeToggle />
-                            <LanguageSwitcher />
+                            {isCompactHeader ? (
+                                <>
+                                    <GettingStartedButton />
+                                    <NotificationBell />
+                                    <HeaderMoreMenu onFeedback={() => setFeedbackOpen(true)} />
+                                </>
+                            ) : (
+                                <>
+                                    <NewFeatureTooltip
+                                        featureKey="feedback_entry_hint"
+                                        active
+                                        message={tInsights('hint')}
+                                        dismissLabel={tInsights('hintDismiss')}
+                                        badgeLabel={tInsights('newFeature')}
+                                        onTriggerClick={() => setFeedbackOpen(true)}
+                                        triggerClassName="button button--icon-only button--sm button--ghost inline-flex!"
+                                    >
+                                        <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
+                                    </NewFeatureTooltip>
+                                    <GettingStartedButton />
+                                    <NotificationBell />
+                                    <ThemeToggle />
+                                    <LanguageSwitcher />
+                                </>
+                            )}
                         </div>
                     </header>
                 )}
