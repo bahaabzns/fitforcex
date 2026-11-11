@@ -34,6 +34,8 @@ import GettingStartedProvider from "@/app/components/gettingStarted/GettingStart
 import Celebration from "@/app/components/gettingStarted/Celebration";
 import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
 import UpgradeProvider from "@/app/components/upgrade/UpgradeProvider";
+import UpgradeButton from "@/app/components/upgrade/UpgradeButton";
+import PlanEndingBanner from "@/app/components/upgrade/PlanEndingBanner";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
@@ -236,6 +238,7 @@ function WorkspaceContent({ children }) {
             />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
                 <SubscriptionReadOnlyBanner />
+                <PlanEndingBanner />
                 {!headerCollapsed && (
                     <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
                         <Button
@@ -282,6 +285,7 @@ function WorkspaceContent({ children }) {
                         )}
 
                         <div className="ms-auto flex items-center gap-1">
+                            <UpgradeButton />
                             <NewFeatureTooltip
                                 featureKey="feedback_entry_hint"
                                 active

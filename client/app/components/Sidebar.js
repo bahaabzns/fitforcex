@@ -36,6 +36,7 @@ import { Separator } from "@heroui/react/separator";
 import { Modal } from "@heroui/react/modal";
 import { Drawer } from "@heroui/react/drawer";
 import { useTranslations, useLocale } from "next-intl";
+import UsageMeter from "@/app/components/upgrade/UsageMeter";
 
 const navLink = (active) =>
     `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-start transition-colors duration-150 ${
@@ -428,6 +429,8 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                     </li>
                 </ul>
             </nav>
+
+            {!collapsed && <UsageMeter />}
 
             <Separator className="bg-border" />
 

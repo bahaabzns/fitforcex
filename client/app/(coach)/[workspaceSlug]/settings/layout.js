@@ -8,6 +8,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Tabs } from "@heroui/react/tabs";
 import { Separator } from "@heroui/react/separator";
 import SettingsPageHeader from "./_components/SettingsPageHeader";
+import LockedFeatureIcon from "@/app/components/upgrade/LockedFeatureIcon";
 
 const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "branding", "pdf", "advanced"];
 
@@ -133,6 +134,7 @@ export default function SettingsLayout({ children, params }) {
                                 {canManageBranding && (
                                     <Tabs.Tab id="branding">
                                         {tNav("branding")}
+                                        <LockedFeatureIcon featureKey="custom_branding" />
                                         <Tabs.Indicator />
                                     </Tabs.Tab>
                                 )}

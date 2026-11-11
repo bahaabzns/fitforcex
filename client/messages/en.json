@@ -3769,6 +3769,17 @@
     "renewButton": "Renew",
     "clientsUsed": "{used}/{limit} clients used",
     "clientsUsedFree": "{used}/{limit} free clients used",
-    "backToWork": "Payment confirmed. Taking you back…"
+    "backToWork": "Payment confirmed. Taking you back…",
+    "endingBanner": "Your plan ends in {count} days.",
+    "lastDayBanner": "Your plan ends within a day.",
+    "expiredBanner": "Your plan has expired. Renew to keep making changes.",
+    "bannerClose": "Close",
+    "meterUpgrade": "Upgrade",
+    "lockAria": "Locked feature: {feature}",
+    "lockBrandingTitle": "Custom branding",
+    "lockBrandingBody": "Show your logo, colors and banners on your clients' portal and app.",
+    "lockIncludedIn": "Included in: {plans}",
+    "lockHigherPlan": "Available on a higher plan.",
+    "lockSeePlans": "See plans"
   }
 }

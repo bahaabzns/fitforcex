@@ -3769,6 +3769,17 @@
     "renewButton": "تجديد",
     "clientsUsed": "{used}/{limit} عملاء مستخدمون",
     "clientsUsedFree": "{used}/{limit} عملاء مجانيون مستخدمون",
-    "backToWork": "تم تأكيد الدفع. جارٍ إعادتك…"
+    "backToWork": "تم تأكيد الدفع. جارٍ إعادتك…",
+    "endingBanner": "تنتهي خطتك بعد {count} أيام.",
+    "lastDayBanner": "تنتهي خطتك خلال يوم.",
+    "expiredBanner": "انتهت صلاحية خطتك. جدّد للاستمرار في التعديل.",
+    "bannerClose": "إغلاق",
+    "meterUpgrade": "ترقية",
+    "lockAria": "ميزة مقفلة: {feature}",
+    "lockBrandingTitle": "الهوية البصرية المخصصة",
+    "lockBrandingBody": "اعرض شعارك وألوانك ولافتاتك في بوابة عملائك وتطبيقهم.",
+    "lockIncludedIn": "متوفرة في: {plans}",
+    "lockHigherPlan": "متوفرة في خطة أعلى.",
+    "lockSeePlans": "عرض الخطط"
   }
 }
