@@ -18,9 +18,8 @@ import PlanPicker from './PlanPicker';
 const DEFAULT_PAYMENT_METHOD = 'card';
 
 // The dialog itself wears the landing page's look: `lp` brings its colours, fonts and buttons
-// (landing.css), `lp-embed` drops its full-page sizing, `dark` makes the app's own controls
-// (close button, payment method picker) light-on-dark to match.
-const DIALOG_CLASS = 'lp lp-embed dark max-w-6xl';
+// (landing.css) and `lp-embed` drops its full-page sizing and follows the app's light/dark theme.
+const DIALOG_CLASS = 'lp lp-embed max-w-6xl';
 
 // Latin digits in both languages, matching the landing page and checkout.
 const formatNumber = (value) => Number(value).toLocaleString('en-US');

@@ -3783,6 +3783,11 @@
     "lockSeePlans": "See plans",
     "back": "Back",
     "currentPlan": "Your current plan",
-    "fullPlansLink": "See all plans and details"
+    "fullPlansLink": "See all plans and details",
+    "addonsTitle": "Add-ons",
+    "addonBuy": "Buy",
+    "addonMaxReached": "Max reached",
+    "addonBought": "{owned}/{max} bought",
+    "addonActiveSince": "(active since {date})"
   }
 }

@@ -10,6 +10,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Separator } from "@heroui/react/separator";
 import { Download } from "lucide-react";
 import PlanPicker from "@/app/components/upgrade/PlanPicker";
+import AddonCard from "@/app/components/upgrade/AddonCard";
 import DataTable from "@/app/components/DataTable";
 import ManualPaymentPanel from "@/app/components/ManualPaymentPanel";
 import PaymentMethodPicker, { isWalletPhoneValid } from "@/app/components/PaymentMethodPicker";
@@ -40,6 +41,7 @@ export default function SubscriptionPage() {
     const tNav = useTranslations("nav");
     const locale = useLocale();
     const tPlans = useTranslations("subscriptionPlans");
+    const tUpgrade = useTranslations("upgrade");
     const tHistory = useTranslations("paymentHistory");
     usePageTitle(tNav("subscription"));
     const [data, setData] = useState(null);
@@ -284,35 +286,21 @@ export default function SubscriptionPage() {
             {error && <ErrorMsg msg={error} />}
 
             {availableAddons.length > 0 && (
-                <div className="flex flex-col gap-3">
-                    <h2 className="text-lg font-semibold text-foreground">Add-ons</h2>
+                <div className="lp lp-embed rounded-3xl p-5 sm:p-6 flex flex-col gap-5">
+                    <h2 className="text-xl">{tUpgrade("addonsTitle")}</h2>
                     {data?.addons?.length > 0 && (
-                        <div className="flex flex-col gap-1.5 mb-1">
+                        <ul className="flex flex-col gap-1.5">
                             {data.addons.map(a => (
-                                <p key={a.id} className="text-sm text-muted-foreground">
-                                    ✓ {pickLocalized(locale, a.label, a.labelAr)} <span className="text-xs">(active since {formatDate(a.purchasedAt)})</span>
-                                </p>
+                                <li key={a.id} className="text-sm" style={{ color: "var(--lp-text-2)" }}>
+                                    ✓ {pickLocalized(locale, a.label, a.labelAr)}{" "}
+                                    <span className="text-xs" style={{ color: "var(--lp-text-3)" }}>{tUpgrade("addonActiveSince", { date: formatDate(a.purchasedAt) })}</span>
+                                </li>
                             ))}
-                        </div>
+                        </ul>
                     )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="lp-plans lp-plans--addons">
                         {availableAddons.map(a => (
-                            <div key={a.id} className="rounded-lg border border-border bg-secondary/20 px-4 py-3 flex flex-col gap-2">
-                                <div>
-                                    <p className="text-sm font-semibold text-foreground">{pickLocalized(locale, a.label, a.labelAr)}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {Number(a.priceMonthly).toLocaleString()} {a.currency} / mo
-                                        {a.maxUnits != null && ` · ${a.unitsOwned}/${a.maxUnits} bought`}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handleBuyAddon(a.id)}
-                                    disabled={a.atCap || buyingAddon === a.id}
-                                    className="button button--outline button--sm self-start disabled:opacity-40 disabled:pointer-events-none"
-                                >
-                                    {buyingAddon === a.id ? "…" : a.atCap ? "Max reached" : "Buy"}
-                                </button>
-                            </div>
+                            <AddonCard key={a.id} addon={a} isBuying={buyingAddon === a.id} onBuy={handleBuyAddon} />
                         ))}
                     </div>
                 </div>

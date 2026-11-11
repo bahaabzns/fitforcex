@@ -958,3 +958,43 @@
 .lp-embed .lp-plan { padding: 22px; gap: 16px; }
 .lp-embed .lp-plan__amount { font-size: 2.4rem; }
 .lp-embed .lp-plan__badge[aria-hidden="true"] { display: none; }
+.lp-embed .lp-plans--addons { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+
+/* The embedded cards follow the app theme: dark is the landing look, light swaps the palette.
+   The app marks dark mode with a "dark" class on the page (next-themes). */
+.lp.lp-embed {
+  --lp-line-strong: rgba(255, 255, 255, 0.28);
+  --lp-hover: rgba(255, 255, 255, 0.09);
+  --lp-track: rgba(255, 255, 255, 0.16);
+  --lp-shimmer-a: rgba(255, 255, 255, 0.03);
+  --lp-shimmer-b: rgba(255, 255, 255, 0.07);
+  --lp-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.6);
+}
+html:not(.dark) .lp.lp-embed {
+  --lp-bg: #ffffff;
+  --lp-blue: #0a7fd1;
+  --lp-on-blue: #ffffff;
+  --lp-text: #0b1220;
+  --lp-text-2: #354158;
+  --lp-text-3: #566179;
+  --lp-muted: #66718a;
+  --lp-red: #c0392b;
+  --lp-glass: rgba(15, 23, 42, 0.03);
+  --lp-glass-border: rgba(15, 23, 42, 0.12);
+  --lp-glass-top: rgba(255, 255, 255, 0.9);
+  --lp-line-strong: rgba(15, 23, 42, 0.22);
+  --lp-hover: rgba(15, 23, 42, 0.06);
+  --lp-track: rgba(15, 23, 42, 0.14);
+  --lp-shimmer-a: rgba(15, 23, 42, 0.04);
+  --lp-shimmer-b: rgba(15, 23, 42, 0.09);
+  --lp-shadow: 0 16px 40px -28px rgba(15, 23, 42, 0.35);
+}
+/* Landing rules that hard-code white, re-pointed at the theme tokens (same look in dark). */
+.lp-embed .lp-glass { box-shadow: inset 0 1px 0 var(--lp-glass-top), var(--lp-shadow); }
+.lp-embed .lp-glass--blue { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(47, 169, 255, 0.12), 0 24px 80px -20px rgba(47, 169, 255, 0.35); }
+.lp-embed .lp-btn--glass { color: var(--lp-text); border-color: var(--lp-line-strong); }
+.lp-embed .lp-btn--glass:hover { background: var(--lp-hover); }
+.lp-embed .lp-plan__badge { color: var(--lp-text); }
+.lp-embed .lp-range__head strong { color: var(--lp-text); }
+.lp-embed .lp-range input[type="range"] { --track: var(--lp-track); }
+.lp-embed .lp-skeleton { background: linear-gradient(100deg, var(--lp-shimmer-a) 30%, var(--lp-shimmer-b) 50%, var(--lp-shimmer-a) 70%); background-size: 200% 100%; }

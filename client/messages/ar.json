@@ -3783,6 +3783,11 @@
     "lockSeePlans": "عرض الخطط",
     "back": "رجوع",
     "currentPlan": "خطتك الحالية",
-    "fullPlansLink": "عرض كل الخطط والتفاصيل"
+    "fullPlansLink": "عرض كل الخطط والتفاصيل",
+    "addonsTitle": "الإضافات",
+    "addonBuy": "شراء",
+    "addonMaxReached": "وصلت للحد الأقصى",
+    "addonBought": "تم شراء {owned}/{max}",
+    "addonActiveSince": "(مفعّلة منذ {date})"
   }
 }
