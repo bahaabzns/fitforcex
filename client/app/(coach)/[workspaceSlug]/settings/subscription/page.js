@@ -275,7 +275,7 @@ export default function SubscriptionPage() {
 
             {/* Same plan cards as the landing page pricing section (and the upgrade popup). The card
                 for the coach's current size stays clickable as a renewal. */}
-            <div className="lp lp-embed rounded-3xl p-5 sm:p-6">
+            <div className="lp lp-embed lp-embed--bare">
                 <PlanPicker
                     subscription={subscription}
                     renewLabel={t("renewNow")}
