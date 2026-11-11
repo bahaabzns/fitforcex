@@ -86,8 +86,11 @@ function VariationDropdown({ variations, selectedId, onSelect, locale, t, isInli
     );
 }
 
-export default function LandingPricing({ onCtaClick, currentPlanId, isInline = false }) {
+// `recommended` ({ planId, variationId }) pre-selects that size on its plan card and tags the card
+// "Best fit" — used by the upgrade popup. `onPlansLoaded` hands the fetched plans to the caller.
+export default function LandingPricing({ onCtaClick, currentPlanId, isInline = false, recommended = null, onPlansLoaded }) {
     const t = useTranslations("landing.pricing");
+    const tUpgrade = useTranslations("upgrade");
     const tNav = useTranslations("landing.nav");
     const tHero = useTranslations("landing.hero");
     const locale = useLocale();
@@ -109,6 +112,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
         ])
         .then(([plansData, discountsData]) => {
             setPlans(plansData);
+            onPlansLoaded?.(plansData);
             setDiscounts(discountsData);
             setSelectedPeriod(discountsData[0] ?? null);
             // Initialise each plan's dropdown to its default variation (or the first one).
@@ -174,7 +178,10 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                         <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${isInline ? "items-stretch" : "items-center"}`}>
                             {plans.map((plan) => {
                                 const variations = Array.isArray(plan.variations) ? plan.variations : [];
-                                const selectedVariationId = selectedVariations[plan.id] ?? variations.find(v => v.is_default)?.id ?? variations[0]?.id;
+                                const isRecommended = recommended?.planId === plan.id;
+                                const selectedVariationId = selectedVariations[plan.id]
+                                    ?? (isRecommended ? recommended.variationId : null)
+                                    ?? variations.find(v => v.is_default)?.id ?? variations[0]?.id;
                                 const variation  = variations.find(v => v.id === selectedVariationId) ?? variations[0] ?? null;
 
                                 const periodKey  = selectedPeriod?.period_key;
@@ -210,7 +217,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                           border: "1px solid oklch(0.72 0.18 249 / 0.5)",
                                                           boxShadow: "0 0 0 1px oklch(0.72 0.18 249 / 0.15), 0 24px 60px rgba(0,0,0,0.4), 0 0 50px oklch(0.72 0.18 249 / 0.12)",
                                                       }
-                                                    : isCurrentPlan
+                                                    : (isCurrentPlan || isRecommended)
                                                         ? {
                                                               border: "1px solid oklch(0.72 0.18 249 / 0.35)",
                                                               background: "oklch(0.72 0.18 249 / 0.04)",
@@ -228,8 +235,11 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                 }}
                                             />
                                             <Card.Header className="flex flex-col gap-3 pb-0">
-                                                {plan.is_popular && (
-                                                    <Chip color="accent" size="sm" className="self-start">{t("mostPopular")}</Chip>
+                                                {(plan.is_popular || isRecommended) && (
+                                                    <div className="flex items-center gap-2 self-start">
+                                                        {plan.is_popular && <Chip color="accent" size="sm">{t("mostPopular")}</Chip>}
+                                                        {isRecommended && <Chip color="success" size="sm">{tUpgrade("bestFit")}</Chip>}
+                                                    </div>
                                                 )}
                                                 <div className="flex flex-col gap-1">
                                                     <h3 className="text-xl font-bold text-foreground">{displayName}</h3>

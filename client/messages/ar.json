@@ -3780,6 +3780,7 @@
     "lockBrandingBody": "اعرض شعارك وألوانك ولافتاتك في بوابة عملائك وتطبيقهم.",
     "lockIncludedIn": "متوفرة في: {plans}",
     "lockHigherPlan": "متوفرة في خطة أعلى.",
-    "lockSeePlans": "عرض الخطط"
+    "lockSeePlans": "عرض الخطط",
+    "back": "رجوع"
   }
 }

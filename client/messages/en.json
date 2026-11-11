@@ -3780,6 +3780,7 @@
     "lockBrandingBody": "Show your logo, colors and banners on your clients' portal and app.",
     "lockIncludedIn": "Included in: {plans}",
     "lockHigherPlan": "Available on a higher plan.",
-    "lockSeePlans": "See plans"
+    "lockSeePlans": "See plans",
+    "back": "Back"
   }
 }

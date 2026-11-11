@@ -35,10 +35,3 @@ export function pickBestFit(options, { clientCount, currentVariationId }) {
     const hasRoom = bySizeThenPrice.find(option => capacityOf(option) > clientCount);
     return hasRoom ?? bySizeThenPrice[bySizeThenPrice.length - 1];
 }
-
-/** Options to list in the modal: every paid variation except the current one, smallest first. */
-export function listUpgradeOptions(options, currentVariationId) {
-    return options
-        .filter(option => option.price > 0 && option.variationId !== currentVariationId)
-        .sort((a, b) => capacityOf(a) - capacityOf(b) || a.price - b.price);
-}
