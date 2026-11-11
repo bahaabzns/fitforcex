@@ -199,7 +199,7 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
             sheetOnMobile={isPhone}
             footer={renderFooter()}
         >
-            <div className="flex flex-col gap-5 px-2 pb-8">
+            <div className="flex flex-col gap-5 px-4 pb-8">
                 {onPlansStep && <p style={{ color: 'var(--lp-text-2)' }}>{subtitle}</p>}
                 {renderBody()}
             </div>
