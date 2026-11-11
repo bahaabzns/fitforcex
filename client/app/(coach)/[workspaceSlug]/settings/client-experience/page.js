@@ -176,11 +176,11 @@ export default function ClientExperiencePage() {
 
             {isPolicyDirty && isOwner && (
                 <div className="sticky bottom-4 z-10 self-center w-full max-w-2xl">
-                    <Card className="flex-row items-center justify-between gap-4 px-4 py-3 shadow-lg border border-border bg-card">
+                    <Card className="flex-col items-stretch gap-3 px-4 py-3 shadow-lg border border-border bg-card sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                         <span className="text-sm text-foreground">
                             {tPolicy("stickyBar.modifiedCount", { count: modifiedCount })}
                         </span>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center justify-end gap-2 shrink-0">
                             <Button size="sm" variant="ghost" isDisabled={policySaving} onClick={handleDiscardPolicies}>
                                 {tPolicy("stickyBar.discard")}
                             </Button>
