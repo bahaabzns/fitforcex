@@ -6,6 +6,7 @@ import { PageHeaderActionsContext } from "@/app/contexts/pageHeaderActions";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
 import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, NotebookText, ChevronUp, ChevronDown } from 'lucide-react';
+import ScrollHint from "@/app/components/ScrollHint";
 import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
@@ -162,8 +163,9 @@ export default function ClientLayout({ children }) {
                 </h1>
             )}
             <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
-                {/* Tabs scroll inside their own box so a narrow viewport never widens the page */}
-                <div className="min-w-0 max-w-full max-md:flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* Tabs scroll inside their own box so a narrow viewport never widens the page; the fade
+                    and arrow show which side still has tabs off-screen. */}
+                <ScrollHint className="max-w-full max-md:flex-1">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -185,7 +187,7 @@ export default function ClientLayout({ children }) {
                         </TabList>
                     </TabListContainer>
                 </TabsRoot>
-                </div>
+                </ScrollHint>
                 {/* Right beside the tabs on phones; from md up it moves to the far end, after the page actions. */}
                 <button
                     onClick={() => setHeaderCollapsed(v => !v)}
