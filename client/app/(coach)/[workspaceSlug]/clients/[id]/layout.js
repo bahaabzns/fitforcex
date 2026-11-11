@@ -154,14 +154,10 @@ export default function ClientLayout({ children }) {
             {/* Who this page is about: code and name on their own line above the tabs, so they have the
                 full width (the top bar is crowded on phones) and stay visible when the header is hidden. */}
             {(clientCode || clientName) && (
-                <div className="mb-3 flex min-w-0 shrink-0 items-center gap-2.5 sm:mb-4">
-                    {clientCode && (
-                        <span dir="ltr" className="shrink-0 rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
-                            #{clientCode}
-                        </span>
-                    )}
-                    {clientName && <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">{clientName}</h1>}
-                </div>
+                <h1 className="mb-3 flex min-w-0 shrink-0 items-baseline gap-2.5 text-lg font-semibold text-foreground sm:mb-4">
+                    {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
+                    {clientName && <span className="min-w-0 truncate">{clientName}</span>}
+                </h1>
             )}
             <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
                 {/* Tabs scroll inside their own box so a narrow viewport never widens the page */}
