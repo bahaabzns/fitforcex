@@ -545,18 +545,21 @@ export default function ClientOverviewPage({ clientId, readOnly = false }) {
               <span>#{client.code ?? client.client_code} — {client.fname} {client.lname}</span>
               {client.is_archived && <Chip size="sm" variant="soft" color="default">{t('statusArchived')}</Chip>}
             </h1>
+            {/* Phones: the buttons share one full-width row, each taking half. */}
             {readOnly ? null : client.is_archived ? (
-              <Button onClick={handleRestore} variant="primary" size="sm" isDisabled={restoring}>
-                <RotateCcw size={15} />
-                {restoring ? t('restoring') : t('restoreClient')}
-              </Button>
+              <div className="flex w-full gap-2 md:w-auto">
+                <Button onClick={handleRestore} variant="primary" size="sm" isDisabled={restoring} className="flex-1 md:flex-none">
+                  <RotateCcw size={15} />
+                  {restoring ? t('restoring') : t('restoreClient')}
+                </Button>
+              </div>
             ) : (
-              <>
-                <Button onClick={openEdit} variant="primary" size="sm">{tCommon('edit')}</Button>
-                <Button onClick={() => setShowArchiveModal(true)} className="bg-destructive/10 hover:bg-destructive/20 text-destructive" size="sm">
+              <div className="flex w-full gap-2 md:w-auto">
+                <Button onClick={openEdit} variant="primary" size="sm" className="flex-1 md:flex-none">{tCommon('edit')}</Button>
+                <Button onClick={() => setShowArchiveModal(true)} className="flex-1 md:flex-none bg-destructive/10 hover:bg-destructive/20 text-destructive" size="sm">
                   <Archive size={15} />{t('archiveAction')}
                 </Button>
-              </>
+              </div>
             )}
           </div>
 
