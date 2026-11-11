@@ -9,7 +9,7 @@ import { prisma } from '../../lib/prisma';
 import pool from '../../db';
 import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
 import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
-import { getEffectiveLimits } from '../../lib/seatLimits';
+import { getEffectiveLimits, getWorkspaceUsageCounts } from '../../lib/seatLimits';
 import { getWorkspaceAccessStatus } from '../../middleware/subscriptionAccessGate';
 import { z } from 'zod';
 import {
@@ -68,7 +68,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
         const expiresAt     = sub.expires_at ? new Date(sub.expires_at) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
 
-        const [payments, addons, effectiveLimits, accessStatus] = await Promise.all([
+        const [payments, addons, effectiveLimits, accessStatus, usageCounts] = await Promise.all([
             prisma.workspace_payments.findMany({
                 where: { workspace_id: req.user!.workspaceId },
                 select: {
@@ -88,6 +88,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             }),
             getEffectiveLimits(req.user!.workspaceId),
             getWorkspaceAccessStatus(req.user!.workspaceId),
+            getWorkspaceUsageCounts(req.user!.workspaceId),
         ]);
 
         const plan      = sub.plans;
@@ -117,6 +118,8 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 durationDays:   plan.duration_days,
                 maxClients:     effectiveLimits.maxClients,
                 maxTeamSeats:   effectiveLimits.maxTeamSeats,
+                // Real (non-demo, non-deleted) clients — what the sidebar meter and best-fit plan use.
+                clientCount:    usageCounts.clientCount,
                 trialDays:      plan.trial_days,
                 startsAt:       sub.starts_at,
                 expiresAt:      sub.expires_at,

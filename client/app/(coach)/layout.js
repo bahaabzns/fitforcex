@@ -33,6 +33,7 @@ import GuideProvider from "@/app/components/guide/GuideProvider";
 import GettingStartedProvider from "@/app/components/gettingStarted/GettingStartedProvider";
 import Celebration from "@/app/components/gettingStarted/Celebration";
 import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
+import UpgradeProvider from "@/app/components/upgrade/UpgradeProvider";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
@@ -328,7 +329,9 @@ export default function WorkspaceLayout({ children }) {
             <TutorialsProvider>
                 <GettingStartedProvider>
                     <GuideProvider>
-                        <WorkspaceContent>{children}</WorkspaceContent>
+                        <UpgradeProvider>
+                            <WorkspaceContent>{children}</WorkspaceContent>
+                        </UpgradeProvider>
                         <Celebration />
                     </GuideProvider>
                 </GettingStartedProvider>

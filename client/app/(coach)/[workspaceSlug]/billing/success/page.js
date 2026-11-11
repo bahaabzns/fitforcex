@@ -14,6 +14,9 @@ const STATUS_TITLES = {
     failed: "Payment Failed",
 };
 
+// Long enough to read "Payment confirmed", short enough not to feel like a detour.
+const RETURN_DELAY_MS = 1500;
+
 export default function BillingSuccessPage() {
     const { workspaceSlug } = useParams();
     const router            = useRouter();
@@ -38,6 +41,12 @@ export default function BillingSuccessPage() {
 
                 if (res.data.status === "paid") {
                     setStatus("confirmed");
+                    if (res.data.returnTo) {
+                        // Started from an upgrade button: put the coach back where they were (the
+                        // server only ever stores a same-workspace relative path).
+                        setTimeout(() => router.replace(res.data.returnTo), RETURN_DELAY_MS);
+                        return;
+                    }
                     // The dashboard shows the "payment confirmed" modal for this id.
                     router.replace(`/${workspaceSlug}/dashboard?payment_confirmed=${encodeURIComponent(paymentId)}`);
                 } else if (res.data.status === "failed") {
@@ -86,10 +95,10 @@ export default function BillingSuccessPage() {
                             )}
                         </div>
                         <Link
-                            href={`/${workspaceSlug}/dashboard`}
+                            href={detail?.returnTo ?? `/${workspaceSlug}/dashboard`}
                             className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors text-center"
                         >
-                            Go to Dashboard
+                            {detail?.returnTo ? "Taking you back…" : "Go to Dashboard"}
                         </Link>
                     </>
                 )}

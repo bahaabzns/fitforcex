@@ -3748,5 +3748,27 @@
         "How do I pay, and can I cancel anytime?"
       ]
     }
+  },
+  "upgrade": {
+    "modalTitle": "Upgrade your plan",
+    "defaultSubtitle": "Pick a plan and pay. You'll come straight back to what you were doing.",
+    "limitTitle": "You've used all {limit} client slots",
+    "limitSubtitle": "Move to a bigger plan to keep adding clients.",
+    "expiredTitle": "Your plan has expired",
+    "expiredSubtitle": "Renew to make changes again. Your data is safe.",
+    "bestFit": "Best fit",
+    "perMonth": "/ month",
+    "noPlans": "No plans are available right now. Please try again shortly.",
+    "loadFailed": "Couldn't load plans. Please try again.",
+    "ownerOnly": "Only the workspace owner can upgrade. Ask the owner to upgrade this workspace.",
+    "changeMethod": "Change payment method",
+    "payingWith": "Paying by {method}",
+    "methodCard": "card",
+    "upgradeFor": "Upgrade · {price}",
+    "upgradeButton": "Upgrade",
+    "renewButton": "Renew",
+    "clientsUsed": "{used}/{limit} clients used",
+    "clientsUsedFree": "{used}/{limit} free clients used",
+    "backToWork": "Payment confirmed. Taking you back…"
   }
 }
