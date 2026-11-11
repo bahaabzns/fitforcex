@@ -231,13 +231,14 @@ export default function SubscriptionPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            <div className="flex flex-row gap-4">
+            {/* Title first, plan card under it on phones; side by side from md up. */}
+            <div className="flex flex-col gap-4 md:flex-row">
                 <div className="flex-1">
                     <SettingsPageHeader title={tNav("subscription")} description={tPlans("pageSubtitle")} />
                 </div>
 
                 {/* Current plan banner */}
-                <div className={`rounded-lg border px-4 py-3 flex items-center gap-4 flex-wrap self-start ${
+                <div className={`rounded-lg border px-4 py-3 flex items-center gap-x-4 gap-y-2 flex-wrap md:self-start ${
                     isExpired ? "border-destructive/30 bg-destructive/5" :
                     isExpiring ? "border-orange-500/30 bg-orange-500/5" :
                     "border-border bg-secondary/30"
