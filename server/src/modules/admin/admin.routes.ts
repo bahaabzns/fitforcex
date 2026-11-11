@@ -7,6 +7,7 @@ import * as libraryController from './defaultLibraries.controller';
 import * as templateController from './adminFormTemplates.controller';
 import * as tutorialsController from './tutorials.controller';
 import * as conversionsController from './conversions.controller';
+import * as upgradeFunnelController from './upgradeFunnel.controller';
 import * as demoClientReportController from './demoClientReport.controller';
 import * as followUpsController from './followUps.controller';
 import insightsAdminRouter from '../insights/insightsAdmin.routes';
@@ -476,6 +477,20 @@ router.put('/trial-settings',   adminAuthMiddleware, adminController.updateTrial
  *         description: Coaches on trial or paid, with first visit, sessions, days to trial/paid and first source (null = unknown)
  */
 router.get('/conversions',                 adminAuthMiddleware, conversionsController.getConversions);
+
+/**
+ * @openapi
+ * /admin/upgrade-funnel:
+ *   get:
+ *     summary: Upgrade button performance — shown, clicked, checkout started and paid per button
+ *     tags: [Admin]
+ *     parameters:
+ *       - { in: query, name: days, schema: { type: integer, enum: [7, 30, 90, 0], default: 30 }, description: "Window in days; 0 = all time" }
+ *     responses:
+ *       200:
+ *         description: Per-source funnel counts, click-to-paid percentage and totals
+ */
+router.get('/upgrade-funnel',              adminAuthMiddleware, upgradeFunnelController.getUpgradeFunnel);
 
 /**
  * @openapi

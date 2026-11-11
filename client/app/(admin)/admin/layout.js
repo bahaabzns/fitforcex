@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileText, LogOut, Inbox, MessageCircleQuestion, Map, HelpCircle, Megaphone, TrendingUp, MessageCircle, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, FileText, LogOut, Inbox, MessageCircleQuestion, Map, HelpCircle, Megaphone, TrendingUp, MessageCircle, Sparkles, MousePointerClick } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { Avatar } from '@heroui/react/avatar';
@@ -19,6 +19,7 @@ const NAV = [
     { href: '/plans',      label: 'Plans',       icon: Package },
     { href: '/payments',   label: 'Payments',    icon: CreditCard },
     { href: '/conversions', label: 'Conversions', icon: TrendingUp },
+    { href: '/upgrade-funnel', label: 'Upgrade buttons', icon: MousePointerClick },
     { href: '/follow-ups', label: 'Follow-ups', icon: MessageCircle },
     { href: '/demo-client', label: 'Demo client', icon: Sparkles },
     { href: '/tutorials',  label: 'Tutorials',   icon: HelpCircle },
