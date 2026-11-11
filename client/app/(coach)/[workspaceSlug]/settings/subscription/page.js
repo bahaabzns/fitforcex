@@ -150,9 +150,11 @@ export default function SubscriptionPage() {
             label: t("columnPlan"),
             sortable: true,
             render: (row) => (
-                <div className="flex flex-col gap-0.5">
+                // whitespace-normal: the mobile list truncates single-line cells, which cut long plan names off-screen.
+                <div className="flex flex-col gap-0.5 whitespace-normal break-words">
                     <span className="font-medium text-foreground">
-                        {row.plan_display}{row.variation_label ? ` · ${row.variation_label}` : ""}
+                        {pickLocalized(locale, row.plan_display, row.plan_display_ar)}
+                        {row.variation_label ? ` · ${pickLocalized(locale, row.variation_label, row.variation_label_ar)}` : ""}
                     </span>
                     <span className="text-xs text-muted-foreground">{t("columnDays", { count: row.duration_days })}</span>
                 </div>
