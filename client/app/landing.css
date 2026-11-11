@@ -1001,3 +1001,7 @@ html:not(.dark) .lp.lp-embed {
 .lp-embed .lp-skeleton { background: linear-gradient(100deg, var(--lp-shimmer-a) 30%, var(--lp-shimmer-b) 50%, var(--lp-shimmer-a) 70%); background-size: 200% 100%; }
 /* No container card: the cards sit directly on the page (the wrapper only supplies the colour tokens). */
 .lp.lp-embed.lp-embed--bare { background: transparent; border: 0; padding: 0; border-radius: 0; }
+/* On the dashboard's own pages the cards use the dashboard fonts, not the landing page's. */
+.lp.lp-embed--bare, .lp.lp-embed--bare h1, .lp.lp-embed--bare h2, .lp.lp-embed--bare h3,
+.lp.lp-embed--bare .lp-display, .lp.lp-embed--bare .lp-plan__amount { font-family: inherit; }
+.lp.lp-embed--bare { line-height: inherit; }
