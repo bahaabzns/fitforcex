@@ -111,6 +111,8 @@ export default function ClientLayout({ children }) {
     const [pageHeaderActions, setPageHeaderActions] = useState(null);
 
     const isDirty = nutritionDirty || trainingDirty;
+    // Without this the empty actions box would still take a row (and a gap) on phones.
+    const hasHeaderActions = Boolean(isDemoClient || (isTraining && trainingHeaderActions) || (isNutrition && nutritionHeaderActions) || (isOther && pageHeaderActions));
 
     // Intercept in-app link clicks that would navigate OUTSIDE the client area.
     // Tab-to-tab clicks (href starts with /clients/${id}) are allowed through freely.
@@ -161,7 +163,7 @@ export default function ClientLayout({ children }) {
             )}
             <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
                 {/* Tabs scroll inside their own box so a narrow viewport never widens the page */}
-                <div className="min-w-0 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="min-w-0 max-w-full max-md:flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -184,20 +186,23 @@ export default function ClientLayout({ children }) {
                     </TabListContainer>
                 </TabsRoot>
                 </div>
-                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full max-md:w-full max-md:ms-0 max-md:flex-nowrap">
-                    {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
-                    {isTraining && trainingHeaderActions}
-                    {isNutrition && nutritionHeaderActions}
-                    {isOther && pageHeaderActions}
-                    <button
-                        onClick={() => setHeaderCollapsed(v => !v)}
-                        title={headerCollapsed ? 'Show header' : 'Hide header'}
-                        aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
-                        className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0"
-                    >
-                        {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                    </button>
-                </div>
+                {/* Right beside the tabs on phones; from md up it moves to the far end, after the page actions. */}
+                <button
+                    onClick={() => setHeaderCollapsed(v => !v)}
+                    title={headerCollapsed ? 'Show header' : 'Hide header'}
+                    aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
+                    className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0 md:order-last"
+                >
+                    {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                </button>
+                {hasHeaderActions && (
+                    <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full max-md:w-full max-md:ms-0 max-md:flex-nowrap">
+                        {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
+                        {isTraining && trainingHeaderActions}
+                        {isNutrition && nutritionHeaderActions}
+                        {isOther && pageHeaderActions}
+                    </div>
+                )}
             </div>
 
             <div className="flex-1 min-h-0 min-w-0">
