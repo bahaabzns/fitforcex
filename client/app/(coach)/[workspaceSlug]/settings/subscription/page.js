@@ -287,7 +287,7 @@ export default function SubscriptionPage() {
             {error && <ErrorMsg msg={error} />}
 
             {availableAddons.length > 0 && (
-                <div className="lp lp-embed rounded-3xl p-5 sm:p-6 flex flex-col gap-5">
+                <div className="lp lp-embed lp-embed--bare flex flex-col gap-5">
                     <h2 className="text-xl">{tUpgrade("addonsTitle")}</h2>
                     {data?.addons?.length > 0 && (
                         <ul className="flex flex-col gap-1.5">
