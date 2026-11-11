@@ -1,6 +1,7 @@
 'use client';
 
 import { TriangleAlert } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useUpgrade } from '@/app/components/upgrade/UpgradeProvider';
 import { UPGRADE_SOURCE } from '@/lib/upgradeTracking';
 
@@ -13,6 +14,7 @@ import { UPGRADE_SOURCE } from '@/lib/upgradeTracking';
  * data and therefore no banner.
  */
 export default function SubscriptionReadOnlyBanner() {
+    const t = useTranslations('upgrade');
     const { subscription, openUpgrade } = useUpgrade();
 
     if (!subscription?.isReadOnly) return null;
@@ -20,13 +22,13 @@ export default function SubscriptionReadOnlyBanner() {
     return (
         <div className="flex items-center gap-2.5 px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-sm text-amber-600 dark:text-amber-400 shrink-0">
             <TriangleAlert size={15} className="shrink-0" />
-            <span>Your subscription has expired — you can still view everything, but changes are disabled until you renew.</span>
+            <span>{t('readOnlyBanner')}</span>
             <button
                 type="button"
                 onClick={() => openUpgrade({ source: UPGRADE_SOURCE.EXPIRY_BANNER, reason: 'expired' })}
                 className="ms-auto font-semibold underline underline-offset-2 shrink-0"
             >
-                Renew now
+                {t('renewNow')}
             </button>
         </div>
     );

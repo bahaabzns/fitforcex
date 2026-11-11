@@ -3788,6 +3788,8 @@
     "addonBuy": "شراء",
     "addonMaxReached": "وصلت للحد الأقصى",
     "addonBought": "تم شراء {owned}/{max}",
-    "addonActiveSince": "(مفعّلة منذ {date})"
+    "addonActiveSince": "(مفعّلة منذ {date})",
+    "readOnlyBanner": "انتهى اشتراكك — يمكنك الاطلاع على كل شيء، لكن التعديلات معطّلة حتى تجدد الاشتراك.",
+    "renewNow": "جدّد الآن"
   }
 }

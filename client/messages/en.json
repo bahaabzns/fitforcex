@@ -3788,6 +3788,8 @@
     "addonBuy": "Buy",
     "addonMaxReached": "Max reached",
     "addonBought": "{owned}/{max} bought",
-    "addonActiveSince": "(active since {date})"
+    "addonActiveSince": "(active since {date})",
+    "readOnlyBanner": "Your subscription has expired — you can still view everything, but changes are disabled until you renew.",
+    "renewNow": "Renew now"
   }
 }
