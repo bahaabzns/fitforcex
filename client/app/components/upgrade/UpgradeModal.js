@@ -1,17 +1,19 @@
 'use client';
 
 import '@/app/landing.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useParams, usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import api from '@/lib/axios';
 import Modal from '@/app/components/Modal';
 import ManualPaymentPanel from '@/app/components/ManualPaymentPanel';
 import GatewayPaymentPending from '@/app/components/GatewayPaymentPending';
 import PaymentMethodPicker, { isWalletPhoneValid } from '@/app/components/PaymentMethodPicker';
 import { pickLocalized } from '@/lib/utils';
-import { flattenVariations, pickBestFit } from '@/lib/upgradeFit';
 import { trackUpgradeEvent } from '@/lib/upgradeTracking';
-import UpgradePlanCard, { selectableVariations } from './UpgradePlanCards';
+import PlanPicker from './PlanPicker';
 
 const DEFAULT_PAYMENT_METHOD = 'card';
 
@@ -76,13 +78,13 @@ function PaymentStep({ choice, locale, t, tBilling, method, onMethodChange, wall
 // same wherever the coach starts from.
 export default function UpgradeModal({ open, onClose, onPaid, source, reason, limit, subscription, isOwner }) {
     const t = useTranslations('upgrade');
-    const tPricing = useTranslations('lp.pricing');
     const tBilling = useTranslations('billing');
     const locale = useLocale();
+    const { workspaceSlug } = useParams();
+    const pathname = usePathname();
+    // A bottom sheet on phones; a centred dialog everywhere else.
+    const isPhone = useMediaQuery('(max-width: 639px)');
 
-    const [plans, setPlans] = useState(null); // null = loading
-    const [loadFailed, setLoadFailed] = useState(false);
-    const [picked, setPicked] = useState({}); // planId -> variationId the coach moved the slider to
     const [choice, setChoice] = useState(null); // { plan, variation } once a plan card was chosen
     const [method, setMethod] = useState(DEFAULT_PAYMENT_METHOD);
     const [showMethods, setShowMethods] = useState(false);
@@ -92,28 +94,7 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
     const [manualPayment, setManualPayment] = useState(null);
     const [gatewayPending, setGatewayPending] = useState(null);
 
-    // Plans are fetched when the modal first opens, not on every page load.
-    useEffect(() => {
-        if (!open || !isOwner || plans) return;
-        let cancelled = false;
-        api.get('/api/plans')
-            .then(res => { if (!cancelled) setPlans(res.data); })
-            .catch(() => { if (!cancelled) setLoadFailed(true); });
-        return () => { cancelled = true; };
-    }, [open, isOwner, plans]);
-
-    const clientCount = subscription?.clientCount ?? 0;
-    const currentVariationId = subscription?.variationId ?? null;
-
-    // Plans that still have at least one size the coach can move to.
-    const offers = useMemo(() => (plans ?? [])
-        .map(plan => ({ plan, variations: selectableVariations(plan, clientCount) }))
-        .filter(offer => offer.variations.length > 0), [plans, clientCount]);
-
-    const recommended = useMemo(() => {
-        const best = pickBestFit(flattenVariations(offers.map(offer => ({ ...offer.plan, variations: offer.variations }))), { clientCount, currentVariationId });
-        return best ? { planId: best.planId, variationId: best.variationId } : null;
-    }, [offers, clientCount, currentVariationId]);
+    const subscriptionPath = `/${workspaceSlug}/settings/subscription`;
 
     function resetAndClose() {
         setChoice(null);
@@ -167,38 +148,6 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
     const awaitingPayment = Boolean(manualPayment || gatewayPending);
     const onPlansStep = isOwner && !choice && !awaitingPayment;
 
-    function renderPlans() {
-        if (loadFailed) return <p className="text-sm" style={{ color: 'var(--lp-red)' }}>{t('loadFailed')}</p>;
-        if (!plans) return <div className="lp-plans" aria-busy="true">{[1, 2, 3].map(n => <div key={n} className="lp-skeleton" />)}</div>;
-        if (offers.length === 0) return <p className="text-sm" style={{ color: 'var(--lp-text-2)' }}>{t('noPlans')}</p>;
-
-        return (
-            <div className="lp-plans">
-                {offers.map(({ plan, variations }) => {
-                    const isRecommended = recommended?.planId === plan.id;
-                    const selectedId = picked[plan.id] ?? (isRecommended ? recommended.variationId : null);
-                    const variation = variations.find(v => v.id === selectedId) ?? variations[0];
-                    return (
-                        <UpgradePlanCard
-                            key={plan.id}
-                            plan={plan}
-                            variations={variations}
-                            variation={variation}
-                            onPickVariation={(planId, variationId) => setPicked(current => ({ ...current, [planId]: variationId }))}
-                            isRecommended={isRecommended}
-                            isCurrent={variation.id === currentVariationId}
-                            onChoose={handleChoosePlan}
-                            t={tPricing}
-                            tUpgrade={t}
-                            locale={locale}
-                            format={formatNumber}
-                        />
-                    );
-                })}
-            </div>
-        );
-    }
-
     function renderBody() {
         if (!isOwner) return <p className="text-sm" style={{ color: 'var(--lp-text-2)' }}>{t('ownerOnly')}</p>;
         if (manualPayment) return <ManualPaymentPanel info={manualPayment} t={tBilling} />;
@@ -214,7 +163,7 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
                 />
             );
         }
-        return renderPlans();
+        return <PlanPicker subscription={subscription} onChoose={handleChoosePlan} />;
     }
 
     function renderFooter() {
@@ -231,6 +180,14 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
                 </div>
             );
         }
+        // Plans step: a way out to the full subscription page (hidden when already on it).
+        if (onPlansStep && pathname !== subscriptionPath) {
+            return (
+                <Link href={subscriptionPath} onClick={resetAndClose} className="text-sm font-semibold underline underline-offset-4" style={{ color: 'var(--lp-blue)' }}>
+                    {t('fullPlansLink')}
+                </Link>
+            );
+        }
         return null;
     }
 
@@ -240,7 +197,7 @@ export default function UpgradeModal({ open, onClose, onPaid, source, reason, li
             onClose={resetAndClose}
             title={title}
             dialogClassName={DIALOG_CLASS}
-            sheetOnMobile
+            sheetOnMobile={isPhone}
             footer={renderFooter()}
         >
             <div className="flex flex-col gap-5">

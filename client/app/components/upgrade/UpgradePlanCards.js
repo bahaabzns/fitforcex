@@ -25,7 +25,7 @@ function ClientsLabel({ label, count }) {
     return <>{before}<b>{count}</b>{after}</>;
 }
 
-export default function UpgradePlanCard({ plan, variations, variation, onPickVariation, isRecommended, isCurrent, onChoose, t, tUpgrade, locale, format }) {
+export default function UpgradePlanCard({ plan, variations, variation, onPickVariation, isRecommended, isCurrent, renewLabel = null, onChoose, t, tUpgrade, locale, format }) {
     const sliderId = useId();
     const variationIndex = Math.max(0, variations.findIndex(v => v.id === variation.id));
     const sliderPercent = variations.length > 1 ? (variationIndex / (variations.length - 1)) * 100 : 0;
@@ -85,12 +85,12 @@ export default function UpgradePlanCard({ plan, variations, variation, onPickVar
             <div className="lp-plan__actions">
                 <button
                     type="button"
-                    disabled={isCurrent}
+                    disabled={isCurrent && !renewLabel}
                     onClick={() => onChoose(plan, variation)}
                     className={`lp-btn lp-btn--full ${isRecommended ? 'lp-btn--primary' : 'lp-btn--glass'}`}
-                    style={isCurrent ? { opacity: 0.5, cursor: 'default' } : undefined}
+                    style={isCurrent && !renewLabel ? { opacity: 0.5, cursor: 'default' } : undefined}
                 >
-                    {isCurrent ? tUpgrade('currentPlan') : t('choose')}
+                    {isCurrent ? (renewLabel ?? tUpgrade('currentPlan')) : t('choose')}
                 </button>
             </div>
         </article>

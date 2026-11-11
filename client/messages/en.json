@@ -3782,6 +3782,7 @@
     "lockHigherPlan": "Available on a higher plan.",
     "lockSeePlans": "See plans",
     "back": "Back",
-    "currentPlan": "Your current plan"
+    "currentPlan": "Your current plan",
+    "fullPlansLink": "See all plans and details"
   }
 }

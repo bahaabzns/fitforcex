@@ -9,7 +9,7 @@ import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Separator } from "@heroui/react/separator";
 import { Download } from "lucide-react";
-import LandingPricing from "@/app/components/LandingPricing";
+import PlanPicker from "@/app/components/upgrade/PlanPicker";
 import DataTable from "@/app/components/DataTable";
 import ManualPaymentPanel from "@/app/components/ManualPaymentPanel";
 import PaymentMethodPicker, { isWalletPhoneValid } from "@/app/components/PaymentMethodPicker";
@@ -271,11 +271,15 @@ export default function SubscriptionPage() {
                 dismissUrlPrefix="/api/insights/prompts"
             />
 
-            <LandingPricing
-                isInline={true}
-                currentPlanId={subscription?.planId}
-                onCtaClick={(planId, variationId) => setMethodChoice({ planId, variationId })}
-            />
+            {/* Same plan cards as the landing page pricing section (and the upgrade popup). The card
+                for the coach's current size stays clickable as a renewal. */}
+            <div className="lp lp-embed rounded-3xl p-5 sm:p-6">
+                <PlanPicker
+                    subscription={subscription}
+                    renewLabel={t("renewNow")}
+                    onChoose={(plan, variation) => setMethodChoice({ planId: plan.id, variationId: variation.id })}
+                />
+            </div>
 
             {error && <ErrorMsg msg={error} />}
 

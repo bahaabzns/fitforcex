@@ -3782,6 +3782,7 @@
     "lockHigherPlan": "متوفرة في خطة أعلى.",
     "lockSeePlans": "عرض الخطط",
     "back": "رجوع",
-    "currentPlan": "خطتك الحالية"
+    "currentPlan": "خطتك الحالية",
+    "fullPlansLink": "عرض كل الخطط والتفاصيل"
   }
 }
