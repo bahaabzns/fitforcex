@@ -25,6 +25,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import AnnouncementCard from "@/app/components/AnnouncementCard";
 import OperationsTab from "@/app/components/operations/OperationsTab";
+import FinanceDashboard from "@/app/components/finance/FinanceDashboard";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -66,10 +67,17 @@ export default function DashboardPage() {
     // same rule (owner/manager see the team, trainer/nutritionist their own row). Everyone else keeps
     // the client overview. null = role not known yet, so neither view flashes before the other.
     const [canSeeOperations, setCanSeeOperations] = useState(null);
+    // The Finance section is for the owner and anyone granted finance read access — the same rule the
+    // server applies to the transactions it is built from.
+    const [canSeeFinance, setCanSeeFinance] = useState(false);
     useEffect(() => {
         api.get('/api/auth/me')
-            .then(res => setCanSeeOperations(OPERATIONS_ROLES.includes(res.data.currentWorkspace?.role)))
-            .catch(() => setCanSeeOperations(false));
+            .then(res => {
+                const workspace = res.data.currentWorkspace;
+                setCanSeeOperations(OPERATIONS_ROLES.includes(workspace?.role));
+                setCanSeeFinance(workspace?.role === 'owner' || workspace?.permissions?.finance?.read === true);
+            })
+            .catch(() => { setCanSeeOperations(false); setCanSeeFinance(false); });
     }, []);
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");
@@ -188,6 +196,8 @@ export default function DashboardPage() {
                 respondUrlPrefix="/api/insights/prompts"
                 dismissUrlPrefix="/api/insights/prompts"
             />
+
+            {canSeeFinance && <FinanceDashboard />}
 
             {canSeeOperations === null && <Skeleton className="h-64 rounded-xl" />}
 

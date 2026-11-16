@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { CheckCircle2, Coins, CreditCard, Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, Coins, CreditCard, Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import ErrorState from "@/app/components/ErrorState";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
 import { StatCard } from "@/app/components/operations/KpiTrendCards";
 import { dailySeries, weekOverWeekDelta } from "@/lib/transactionTrends";
+import { DISPLAY_CURRENCIES, convertAmount as convert } from "@/lib/currency";
+import NumberWithUnit from "@/app/components/NumberWithUnit";
 import ScrollHint from "@/app/components/ScrollHint";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
@@ -23,8 +27,6 @@ import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightB
 import DemoBadge from "@/app/components/demo/DemoBadge";
 
 // --- HELPERS ---
-const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
-const DISPLAY_CURRENCIES = Object.keys(EXCHANGE_RATES);
 
 function statusColor(status) {
     switch (status) {
@@ -45,13 +47,10 @@ function subStatusColor(s) {
     }
 }
 
-function convert(amount, fromCurrency, toCurrency) {
-    if (fromCurrency === toCurrency) return amount;
-    return (amount * (EXCHANGE_RATES[fromCurrency] || 1)) / (EXCHANGE_RATES[toCurrency] || 1);
-}
 
 function parseTransactionDate(dateStr) { return new Date(dateStr); }
 
+const TRENDS_OPEN_KEY = "ffx_transactions_trends_open";
 const TREND_GREEN = "#22c55e";
 const TREND_RED = "#ef4444";
 const TREND_BLUE = "#3b82f6";
@@ -80,6 +79,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const { workspaceSlug } = useParams();
     const { formatDate } = useDateFormatter();
     const fmtDate = (d) => formatDate(d) || "—";
     const STATUS_LABELS = { completed: t('completed'), refunded: t('refunded') };
@@ -90,6 +90,16 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
     };
     const [filteredRows, setFilteredRows] = useState(transactions);
     const [displayCurrency, setDisplayCurrency] = useState("EGP");
+    // The detailed trend cards are secondary here (the Finance dashboard is the main view): collapsed to
+    // one line by default, and the choice is remembered in this browser.
+    const [showTrends, setShowTrends] = useState(() => {
+        try { return window.localStorage.getItem(TRENDS_OPEN_KEY) === "1"; } catch { return false; }
+    });
+    function toggleTrends() {
+        const next = !showTrends;
+        setShowTrends(next);
+        try { window.localStorage.setItem(TRENDS_OPEN_KEY, next ? "1" : "0"); } catch { /* the choice just won't be remembered */ }
+    }
 
     const packageVariations = [...new Set([...allPackageVariations, ...transactions.map(tx => tx.packageVariation).filter(Boolean)])];
     const paymentMethods    = [...new Set([...allPaymentMethods,    ...transactions.map(tx => tx.paymentMethod).filter(Boolean)])];
@@ -316,7 +326,30 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                 </Select>
             </div>
 
+            {/* One slim line of totals; the full trend cards open on request. */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5">
+                {[["completed", t('completed'), totalCompleted], ["refunded", t('refunded'), totalRefunded]].map(([key, label, total]) => (
+                    <div key={key} className="flex items-baseline gap-2">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <span className="text-sm font-semibold tabular-nums text-foreground"><NumberWithUnit value={`${Math.round(total).toLocaleString()} ${displayCurrency}`} /></span>
+                    </div>
+                ))}
+                <div className="ms-auto flex items-center gap-4">
+                    <Link href={`/${workspaceSlug}/dashboard`} className="text-xs font-medium text-primary hover:underline">{t('openFinanceDashboard')}</Link>
+                    <button
+                        type="button"
+                        onClick={toggleTrends}
+                        aria-expanded={showTrends}
+                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                        {showTrends ? t('hideTrends') : t('showTrends')}
+                        <ChevronDown size={14} className={`transition-transform ${showTrends ? "rotate-180" : ""}`} aria-hidden="true" />
+                    </button>
+                </div>
+            </div>
+
             {/* Summary cards: the figure, how it moved against the week before, and a two-week trend line. */}
+            {showTrends && (
             <div className="flex flex-col gap-5">
                 <MetricGroup title={t('kpiTotals')}>
                     {metricCard({ key: "completed", icon: CheckCircle2, label: t('completed'), rows: completedRows, valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "up", color: TREND_GREEN })}
@@ -341,6 +374,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                     </MetricGroup>
                 )}
             </div>
+            )}
 
             <DataTable
                 columns={columns}
