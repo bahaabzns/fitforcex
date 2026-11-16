@@ -288,7 +288,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         const exportVisible = !!selectedPlan?.id;
         onHeaderActionsChange(
             <div className="flex items-center gap-2">
-                <Button variant="outline" aria-label={t('viewFoodDiary')} title={t('viewFoodDiary')} className="max-md:min-w-0 max-md:px-2.5" onClick={() => setFoodDiaryModalOpen(true)}>
+                <Button variant="outline" aria-label={t('viewFoodDiary')} title={t('viewFoodDiary')} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0" onClick={() => setFoodDiaryModalOpen(true)}>
                     <BookOpen size={16} className="md:hidden" aria-hidden="true" />
                     <span className="max-md:hidden">{t('viewFoodDiary')}</span>
                 </Button>
@@ -335,7 +335,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
-                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:min-w-0 max-md:px-2.5"
+                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                         aria-label={t('saveAll')} title={t('saveAll')}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
                         <SaveAll size={16} className="md:hidden" aria-hidden="true" />
@@ -343,7 +343,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                     </Button>
                 )}
                 {savePlanVisible && (
-                    <Button variant="primary" isDisabled={isSaving} data-guide="plan-save" className="max-md:min-w-0 max-md:px-2.5"
+                    <Button variant="primary" isDisabled={isSaving} data-guide="plan-save" className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                         aria-label={t('savePlan')} title={t('savePlan')}
                         onClick={() => {
                             // Package Lifecycle §12.5: only prompt when the plan being
@@ -363,7 +363,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                         isDisabled={isSaving || activating}
                         onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
                         aria-label={t('activate')} title={t('activate')}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:min-w-0 max-md:px-2.5"
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                     >
                         <Power size={16} className="md:hidden" aria-hidden="true" />
                         <span className="max-md:hidden">{activating ? t('activating') : t('activate')}</span>

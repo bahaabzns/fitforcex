@@ -297,7 +297,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
-                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:min-w-0 max-md:px-2.5"
+                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                         aria-label={t('saveAll')} title={t('saveAll')}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
                         <SaveAll size={16} className="md:hidden" aria-hidden="true" />
@@ -305,7 +305,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     </Button>
                 )}
                 {savePlanVisible && (
-                    <Button variant="primary" isDisabled={isSaving} className="max-md:min-w-0 max-md:px-2.5"
+                    <Button variant="primary" isDisabled={isSaving} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                         aria-label={t('savePlan')} title={t('savePlan')}
                         onClick={() => {
                             if (actionsRef.current.selectedPlanStatus === "active") {
@@ -323,7 +323,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                         isDisabled={isSaving || activating}
                         onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
                         aria-label={t('activate')} title={t('activate')}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:min-w-0 max-md:px-2.5"
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                     >
                         <Power size={16} className="md:hidden" aria-hidden="true" />
                         <span className="max-md:hidden">{activating ? t('activating') : t('activate')}</span>
