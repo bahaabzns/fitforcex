@@ -963,3 +963,15 @@
 /* A modal whose content is short (the getting-started checklist): keep it scrollable but never draw the scrollbar. */
 .ff-no-scrollbar .modal__body { scrollbar-width: none; }
 .ff-no-scrollbar .modal__body::-webkit-scrollbar { display: none; }
+
+/* HeroUI's vertical (secondary) tab list draws its line and its active marker on the physical left. In
+   right-to-left the list sits at the right edge of the page, so they move to the right to mirror English
+   (Settings and the dashboard's view list). */
+[dir="rtl"] .tabs--secondary > .tabs__list-container > .tabs__list[data-orientation="vertical"] {
+  border-left-width: 0;
+  border-right: 1px solid var(--color-border);
+}
+[dir="rtl"] .tabs--secondary[data-orientation="vertical"] > .tabs__list-container .tabs__indicator {
+  left: auto;
+  right: 0;
+}
