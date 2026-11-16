@@ -1060,7 +1060,8 @@ export default function DataTable({
                                                     <button
                                                         key={col.key}
                                                         className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between gap-2 ${sortKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
-                                                        onClick={() => handleSortChange({ column: col.key })}
+                                                        // Picking a column closes the menu; otherwise its full-screen layer stays up and swallows the next tap.
+                                                        onClick={() => { handleSortChange({ column: col.key }); setSortMenuOpen(false); }}
                                                     >
                                                         {col.label}
                                                         {sortKey === col.key && (sortDirection === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
