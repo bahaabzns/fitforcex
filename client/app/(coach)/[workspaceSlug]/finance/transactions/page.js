@@ -1,27 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { CheckCircle2, ChevronDown, Coins, CreditCard, Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
+import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import ErrorState from "@/app/components/ErrorState";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
-import { StatCard } from "@/app/components/operations/KpiTrendCards";
-import { dailySeries, weekOverWeekDelta } from "@/lib/transactionTrends";
-import { DISPLAY_CURRENCIES, convertAmount as convert } from "@/lib/currency";
-import NumberWithUnit from "@/app/components/NumberWithUnit";
-import ScrollHint from "@/app/components/ScrollHint";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
-import { Select } from "@heroui/react/select";
-import { ListBox } from "@heroui/react/list-box";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import DemoBadge from "@/app/components/demo/DemoBadge";
@@ -50,27 +41,6 @@ function subStatusColor(s) {
 
 function parseTransactionDate(dateStr) { return new Date(dateStr); }
 
-const TRENDS_OPEN_KEY = "ffx_transactions_trends_open";
-const TREND_GREEN = "#22c55e";
-const TREND_RED = "#ef4444";
-const TREND_BLUE = "#3b82f6";
-const TREND_AMBER = "#f59e0b";
-
-// A titled row of stat cards. Phones: one row of fixed-width cards that scrolls sideways and snaps
-// card by card, with the arrow-and-fade hint when more cards are off-screen. From sm up: a grid
-// (two across, four on wide screens) that fits without scrolling.
-function MetricGroup({ title, children }) {
-    return (
-        <section className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
-            <ScrollHint scrollerClassName="snap-x snap-mandatory">
-                <div className="flex w-max gap-2.5 *:w-44 *:shrink-0 *:snap-start sm:grid sm:w-full sm:grid-cols-2 sm:gap-4 sm:*:w-auto sm:*:min-w-0 xl:grid-cols-4">
-                    {children}
-                </div>
-            </ScrollHint>
-        </section>
-    );
-}
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 
 
@@ -79,7 +49,6 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
-    const { workspaceSlug } = useParams();
     const { formatDate } = useDateFormatter();
     const fmtDate = (d) => formatDate(d) || "—";
     const STATUS_LABELS = { completed: t('completed'), refunded: t('refunded') };
@@ -88,66 +57,8 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
         Frozen: t('statusFrozen'), 'Pre-start': t('statusPreStart'),
         Refunded: t('statusRefunded'),
     };
-    const [filteredRows, setFilteredRows] = useState(transactions);
-    const [displayCurrency, setDisplayCurrency] = useState("EGP");
-    // The detailed trend cards are secondary here (the Finance dashboard is the main view): collapsed to
-    // one line by default, and the choice is remembered in this browser.
-    const [showTrends, setShowTrends] = useState(() => {
-        try { return window.localStorage.getItem(TRENDS_OPEN_KEY) === "1"; } catch { return false; }
-    });
-    function toggleTrends() {
-        const next = !showTrends;
-        setShowTrends(next);
-        try { window.localStorage.setItem(TRENDS_OPEN_KEY, next ? "1" : "0"); } catch { /* the choice just won't be remembered */ }
-    }
-
     const packageVariations = [...new Set([...allPackageVariations, ...transactions.map(tx => tx.packageVariation).filter(Boolean)])];
     const paymentMethods    = [...new Set([...allPaymentMethods,    ...transactions.map(tx => tx.paymentMethod).filter(Boolean)])];
-
-    function convertedSum(rows) {
-        return rows.reduce((sum, tx) => sum + convert(tx.amount, tx.currency, displayCurrency), 0);
-    }
-
-    // Demo-client sample payments are listed (labelled "Demo") but never added into any money total.
-    const realRows = filteredRows.filter(tx => !tx.isDemo);
-    const totalCompleted = convertedSum(realRows.filter(tx => tx.status === "completed"));
-    const totalRefunded  = convertedSum(realRows.filter(tx => tx.status === "refunded"));
-
-    const byPaymentMethod = {};
-    for (const tx of realRows) {
-        if (!byPaymentMethod[tx.paymentMethod]) byPaymentMethod[tx.paymentMethod] = 0;
-        byPaymentMethod[tx.paymentMethod] += convert(tx.amount, tx.currency, displayCurrency);
-    }
-
-    const byCurrency = {};
-    for (const tx of realRows) {
-        if (!byCurrency[tx.currency]) byCurrency[tx.currency] = 0;
-        byCurrency[tx.currency] += tx.amount;
-    }
-
-    const completedRows = realRows.filter(tx => tx.status === "completed");
-    const refundedRows = realRows.filter(tx => tx.status === "refunded");
-    const inDisplayCurrency = (tx) => convert(tx.amount, tx.currency, displayCurrency);
-    const dayLabel = (date) => new Date(`${date}T12:00:00`).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
-
-    // One summary card: the rows' total, its change against the week before, and a two-week daily trend.
-    function metricCard({ key, icon, label, rows, valueOf, unit, goodDirection, color }) {
-        const points = dailySeries(rows, valueOf);
-        const total = rows.reduce((sum, tx) => sum + valueOf(tx), 0);
-        return (
-            <StatCard
-                key={key}
-                icon={icon}
-                label={label}
-                value={`${Math.round(total).toLocaleString()} ${unit}`}
-                caption={t('kpiPaymentsCount', { count: rows.length })}
-                delta={weekOverWeekDelta(points)} goodDirection={goodDirection}
-                series={points.map(point => ({ label: dayLabel(point.date), value: Math.round(point.value) }))}
-                color={color}
-                formatValue={(value) => `${value.toLocaleString()} ${unit}`}
-            />
-        );
-    }
 
     const columns = [
         {
@@ -298,91 +209,12 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
 
     return (
         <>
-            {/* Currency selector */}
-            <div className="flex items-center gap-3">
-                <span className="text-muted-foreground text-xs font-medium uppercase">{t('displayCurrency')}</span>
-                <Select
-                    variant="secondary"
-                    aria-label={t('displayCurrency')}
-                    value={displayCurrency}
-                    onChange={(key) => setDisplayCurrency(String(key))}
-                    className="w-28"
-                >
-                    <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                    </Select.Trigger>
-                    {/* sheet-popover: a dropdown on desktop, a bottom sheet on phones (see globals.css). */}
-                    <Select.Popover className="sheet-popover">
-                        <ListBox>
-                            {DISPLAY_CURRENCIES.map(c => (
-                                <ListBox.Item key={c} id={c} textValue={c}>
-                                    {c}
-                                    <ListBox.ItemIndicator />
-                                </ListBox.Item>
-                            ))}
-                        </ListBox>
-                    </Select.Popover>
-                </Select>
-            </div>
-
-            {/* One slim line of totals; the full trend cards open on request. */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5">
-                {[["completed", t('completed'), totalCompleted], ["refunded", t('refunded'), totalRefunded]].map(([key, label, total]) => (
-                    <div key={key} className="flex items-baseline gap-2">
-                        <span className="text-xs text-muted-foreground">{label}</span>
-                        <span className="text-sm font-semibold tabular-nums text-foreground"><NumberWithUnit value={`${Math.round(total).toLocaleString()} ${displayCurrency}`} /></span>
-                    </div>
-                ))}
-                <div className="ms-auto flex items-center gap-4">
-                    <Link href={`/${workspaceSlug}/dashboard`} className="text-xs font-medium text-primary hover:underline">{t('openFinanceDashboard')}</Link>
-                    <button
-                        type="button"
-                        onClick={toggleTrends}
-                        aria-expanded={showTrends}
-                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                        {showTrends ? t('hideTrends') : t('showTrends')}
-                        <ChevronDown size={14} className={`transition-transform ${showTrends ? "rotate-180" : ""}`} aria-hidden="true" />
-                    </button>
-                </div>
-            </div>
-
-            {/* Summary cards: the figure, how it moved against the week before, and a two-week trend line. */}
-            {showTrends && (
-            <div className="flex flex-col gap-5">
-                <MetricGroup title={t('kpiTotals')}>
-                    {metricCard({ key: "completed", icon: CheckCircle2, label: t('completed'), rows: completedRows, valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "up", color: TREND_GREEN })}
-                    {metricCard({ key: "refunded", icon: RotateCcw, label: t('refunded'), rows: refundedRows, valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "down", color: TREND_RED })}
-                </MetricGroup>
-
-                {Object.keys(byPaymentMethod).length > 0 && (
-                    <MetricGroup title={t('kpiByMethod')}>
-                        {Object.keys(byPaymentMethod).map(method => metricCard({
-                            key: method, icon: CreditCard, label: method, rows: realRows.filter(tx => tx.paymentMethod === method),
-                            valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "up", color: TREND_BLUE,
-                        }))}
-                    </MetricGroup>
-                )}
-
-                {Object.keys(byCurrency).length > 0 && (
-                    <MetricGroup title={t('kpiByCurrency')}>
-                        {Object.keys(byCurrency).map(currency => metricCard({
-                            key: currency, icon: Coins, label: currency, rows: realRows.filter(tx => tx.currency === currency),
-                            valueOf: (tx) => tx.amount, unit: currency, goodDirection: "up", color: TREND_AMBER,
-                        }))}
-                    </MetricGroup>
-                )}
-            </div>
-            )}
-
             <DataTable
                 columns={columns}
                 data={transactions}
                 rowKey="id"
                 mobileListView
                 dateParser={parseTransactionDate}
-                onFilteredDataChange={setFilteredRows}
                 quickSearch={{ fields: ["clientName", "packageVariation"], placeholder: t('searchPlaceholder') }}
                 toolbarEnd={toolbarEnd}
             />
