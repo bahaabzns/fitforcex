@@ -162,9 +162,9 @@ export default function ClientLayout({ children }) {
                 {(clientCode || clientName || hasHeaderActions) && (
                     <div className="flex min-w-0 items-center justify-between gap-3 md:contents">
                         {(clientCode || clientName) && (
-                            <h1 className="flex min-w-0 flex-1 items-baseline gap-2.5 text-lg font-semibold text-foreground md:hidden">
+                            <h1 className="flex min-w-0 flex-1 items-start gap-2.5 text-lg font-semibold leading-snug text-foreground md:hidden">
                                 {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
-                                {clientName && <span className="min-w-0 truncate">{clientName}</span>}
+                                {clientName && <span className="min-w-0 line-clamp-2 break-words">{clientName}</span>}
                             </h1>
                         )}
                         {hasHeaderActions && (
