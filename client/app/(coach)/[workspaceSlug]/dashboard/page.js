@@ -39,6 +39,8 @@ const STATUS_CHIP = {
 };
 
 const OPERATIONS_ROLES = ['owner', 'manager', 'trainer', 'nutritionist'];
+// Only these see the whole team; the others see just their own workload.
+const TEAM_LEAD_ROLES = ['owner', 'manager'];
 
 export default function DashboardPage() {
     const { formatDate } = useDateFormatter();
@@ -72,26 +74,29 @@ export default function DashboardPage() {
     // The Finance section is for the owner and anyone granted finance read access — the same rule the
     // server applies to the transactions it is built from.
     const [canSeeFinance, setCanSeeFinance] = useState(false);
+    const [canSeeTeam, setCanSeeTeam] = useState(false);
     useEffect(() => {
         api.get('/api/auth/me')
             .then(res => {
                 const workspace = res.data.currentWorkspace;
                 setCanSeeOperations(OPERATIONS_ROLES.includes(workspace?.role));
                 setCanSeeFinance(workspace?.role === 'owner' || workspace?.permissions?.finance?.read === true);
+                setCanSeeTeam(TEAM_LEAD_ROLES.includes(workspace?.role));
             })
             .catch(() => { setCanSeeOperations(false); setCanSeeFinance(false); });
     }, []);
 
     // The dashboard is split into views, listed in a sticky column on the left (a strip on phones) like the
     // Settings tabs. Which views exist depends on what the person may see; the choice lives in ?view= so a
-    // refresh or a shared link lands on the same view.
+    // refresh or a shared link lands on the same view. Someone who can see neither finance nor workload gets
+    // no list, just the client overview.
     const isPhone = useMediaQuery("(max-width: 767px)");
     const [requestedView, setRequestedView] = useState(() => (
         typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('view')
     ));
     const views = canSeeOperations === null
         ? []
-        : [canSeeFinance && 'finance', canSeeOperations && 'team', 'clients'].filter(Boolean);
+        : [canSeeFinance && 'finance', canSeeOperations && 'workload', canSeeOperations && canSeeTeam && 'queue', canSeeOperations && 'trends'].filter(Boolean);
     const activeView = views.includes(requestedView) ? requestedView : views[0];
 
     function selectView(key) {
@@ -179,7 +184,7 @@ export default function DashboardPage() {
 
     const { fname, stats, recentClients } = data;
 
-    const viewLabels = { finance: t('navFinance'), team: t('navTeam'), clients: t('navClients') };
+    const viewLabels = { finance: t('navFinance'), workload: t('navWorkload'), queue: t('navQueue'), trends: t('navTrends') };
     const viewTabs = (
         <Tabs
             orientation={isPhone ? "horizontal" : "vertical"}
@@ -256,9 +261,9 @@ export default function DashboardPage() {
                 <div className="flex min-w-0 flex-1 flex-col gap-6">
             {activeView === 'finance' && <FinanceDashboard />}
 
-            {activeView === 'team' && <OperationsTab />}
+            {['workload', 'queue', 'trends'].includes(activeView) && <OperationsTab part={activeView} />}
 
-            {activeView === 'clients' && (<>
+            {views.length === 0 && (<>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4">

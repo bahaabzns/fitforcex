@@ -251,7 +251,12 @@ function SelfView({ data, onOpen }) {
     );
 }
 
-export default function OperationsTab() {
+// One slice of the Team workload dashboard, so the page can show it as separate views:
+//   "workload" - how full the team is right now (status card and the headline cards)
+//   "queue"    - what is waiting, and who has what (where daily limits are edited)
+//   "trends"   - the period-based charts: requests per day, plans finished, service level
+// All three share one instance, so switching between them keeps the loaded numbers.
+export default function OperationsTab({ part = "workload" }) {
     const t = useTranslations("operations");
     const router = useRouter();
     const { workspaceSlug } = useParams();
@@ -327,12 +332,34 @@ export default function OperationsTab() {
         );
     }
 
+    // The one period filter, pinned to the top while the page scrolls so the period can be changed from anywhere.
+    // Instead of a border, the bar is solid at the top and fades out downward, so scrolling content dissolves
+    // under it. The fade ignores the pointer (so it never blocks what is underneath); only the controls row takes
+    // clicks. The page padding is cancelled so the bar spans edge to edge, and the negative bottom margin gives
+    // back the room the fade adds. --dash-sticky-offset keeps it below the dashboard's view strip on a phone.
+    const periodBar = (
+        <div className="sticky top-[var(--dash-sticky-offset,0px)] z-40 -mx-4 sm:-mx-8 -mb-4 sm:-mb-6 px-4 sm:px-8 pt-2 sm:pt-3 pb-5 sm:pb-8 bg-linear-to-b from-background from-65% to-transparent pointer-events-none">
+            <div className="flex items-center justify-between gap-3 pointer-events-auto">
+                <span className="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-foreground">
+                    {t("periodLabel")}
+                    <InfoTooltip text={t("periodNote")} />
+                </span>
+                <TrendRangeControls range={range} />
+            </div>
+        </div>
+    );
+
     if (data.scope === "self") {
         return (
             <div className="flex flex-col gap-5">
-                <SelfView data={data} onOpen={(extra) => openQueueWithFilters(router, workspaceSlug, extra)} />
-                <TrendRangeControls range={range} />
-                <FinishedPlans range={range} refreshToken={refreshToken} />
+                {part === "trends" ? (
+                    <>
+                        {periodBar}
+                        <FinishedPlans range={range} refreshToken={refreshToken} />
+                    </>
+                ) : (
+                    <SelfView data={data} onOpen={(extra) => openQueueWithFilters(router, workspaceSlug, extra)} />
+                )}
             </div>
         );
     }
@@ -348,25 +375,10 @@ export default function OperationsTab() {
         else openQueue({});
     }
 
-    return (
-        <div className="flex flex-col gap-6 sm:gap-8 min-w-0 max-w-full">
-            {/* The one period filter for the whole page. It stays pinned to the top while the page scrolls, so the
-                period can be changed from anywhere. Instead of a border, the bar is solid at the top and fades out
-                downward, so scrolling content dissolves under it. The fade itself ignores the pointer (so it never
-                blocks what is underneath); only the controls row takes clicks. The page padding is cancelled so the
-                bar spans edge to edge, and the negative bottom margin gives back the room the fade adds. */}
-            <div className="sticky top-[var(--dash-sticky-offset,0px)] z-40 -mx-4 sm:-mx-8 -mb-4 sm:-mb-6 px-4 sm:px-8 pt-2 sm:pt-3 pb-5 sm:pb-8 bg-linear-to-b from-background from-65% to-transparent pointer-events-none">
-                <div className="flex items-center justify-between gap-3 pointer-events-auto">
-                    <span className="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-foreground">
-                        {t("periodLabel")}
-                        <InfoTooltip text={t("periodNote")} />
-                    </span>
-                    <TrendRangeControls range={range} />
-                </div>
-            </div>
-
-            {/* First-time setup gets its own full-width row right under the period bar, so it is the first thing a new
-                coach sees; it disappears once at least one person has a daily limit. */}
+    const workloadView = (
+        <>
+            {/* First-time setup gets the first row, so it is the first thing a new coach sees; it disappears
+                once at least one person has a daily limit. */}
             {capacity.countedTrainers === 0 && (
                 <SetupGuide
                     hasUnsetMembers={data.notConfigured.length > 0}
@@ -375,94 +387,88 @@ export default function OperationsTab() {
                 />
             )}
 
-            {/* The summary (1/3) beside the requests chart (2/3); they stack on narrower screens. */}
-            <div className="grid grid-cols-1 *:min-w-0 gap-6 xl:grid-cols-3 items-stretch">
-                <div className="flex flex-col gap-5">
-                    <div className="flex-1 [&>*]:h-full">
-                        <WorkloadSummary
-                            summary={data}
-                            onAction={handleHintAction}
-                            onOpenHelp={() => setHelpOpen(true)}
-                            wrapStatus={(node) => tourAnchor(0, node)}
-                        />
-                    </div>
+            <WorkloadSummary
+                summary={data}
+                onAction={handleHintAction}
+                onOpenHelp={() => setHelpOpen(true)}
+                wrapStatus={(node) => tourAnchor(0, node)}
+            />
+
+            <Section first title={t("secNow")} description={t("secNowDesc")}>
+                <KpiTrendCards summary={data} refreshToken={refreshToken} />
+            </Section>
+        </>
+    );
+
+    const queueView = (
+        <>
+            {/* What is waiting: room, check-ins, what is coming, and how long clients have waited. */}
+            <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-foreground">{t("secWaiting")}</h3>
+                    <Button variant="secondary" size="sm" onClick={() => openQueue({})}>{t("viewInQueue")}</Button>
                 </div>
-                <div className="xl:col-span-2">
-                    <DemandTrendChart range={range} refreshToken={refreshToken} />
+                <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:gap-4 xl:grid-cols-4">
+                    <StatCard
+                        icon={Scale}
+                        label={gapIsShortfall ? t("kpiShortfall") : t("kpiSpare")}
+                        hint={gapIsShortfall ? t("kpiShortfallHint") : t("kpiSpareHint")}
+                        value={utilization.gap === null ? "—" : `${Math.abs(utilization.gap)} ${t("unitPlans")}`}
+                        hideDelta noChart
+                    />
+                    <StatCard
+                        icon={Eye}
+                        label={t("kpiReviewOnly")} hint={t("kpiReviewOnlyHint")}
+                        value={demand.reviewOnly} caption={t("kpiReviewOnlyCaption")}
+                        hideDelta noChart
+                    />
+                    <StatCard
+                        icon={Inbox}
+                        label={t("kpiIncoming")} hint={t("kpiIncomingHint")}
+                        value={demand.incoming} caption={t("kpiIncomingCaption")}
+                        hideDelta noChart
+                    />
+                    <StatCard
+                        icon={UserX}
+                        label={t("kpiUnassigned")} hint={t("kpiUnassignedHint")}
+                        value={demand.unassigned}
+                        hideDelta noChart
+                    />
+                    <StatCard
+                        icon={CalendarClock}
+                        label={t("agingOldest")} hint={t("agingHint")}
+                        value={aging.oldestSubmittedAt ? formatDate(aging.oldestSubmittedAt) : "—"}
+                        hideDelta noChart
+                    />
+                    <StatCard icon={Clock} label={t("agingOver1")} value={aging.over1d} hideDelta noChart />
+                    <StatCard icon={Clock} label={t("agingOver3")} value={aging.over3d} hideDelta noChart />
+                    <StatCard icon={Clock} label={t("agingOver7")} value={aging.over7d} hideDelta noChart />
                 </div>
             </div>
+            <TrainerTable
+                data={data}
+                mostRoomUserId={mostRoom?.userId}
+                onOpen={openQueue}
+                onEditCapacity={setEditingRow}
+                wrapTitle={(node) => tourAnchor(1, node)}
+            />
+        </>
+    );
 
-            <Section
-                first
-                title={t("secNow")}
-                description={t("secNowDesc")}
-            >
-                <KpiTrendCards summary={data} refreshToken={refreshToken} />
-
-                {/* Then what is waiting: room, check-ins, what is coming, and how long clients have waited. */}
-                <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold text-foreground">{t("secWaiting")}</h3>
-                        <Button variant="secondary" size="sm" onClick={() => openQueue({})}>{t("viewInQueue")}</Button>
-                    </div>
-                    <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:gap-4 xl:grid-cols-4">
-                        <StatCard
-                            icon={Scale}
-                            label={gapIsShortfall ? t("kpiShortfall") : t("kpiSpare")}
-                            hint={gapIsShortfall ? t("kpiShortfallHint") : t("kpiSpareHint")}
-                            value={utilization.gap === null ? "—" : `${Math.abs(utilization.gap)} ${t("unitPlans")}`}
-                            hideDelta noChart
-                        />
-                        <StatCard
-                            icon={Eye}
-                            label={t("kpiReviewOnly")} hint={t("kpiReviewOnlyHint")}
-                            value={demand.reviewOnly} caption={t("kpiReviewOnlyCaption")}
-                            hideDelta noChart
-                        />
-                        <StatCard
-                            icon={Inbox}
-                            label={t("kpiIncoming")} hint={t("kpiIncomingHint")}
-                            value={demand.incoming} caption={t("kpiIncomingCaption")}
-                            hideDelta noChart
-                        />
-                        <StatCard
-                            icon={UserX}
-                            label={t("kpiUnassigned")} hint={t("kpiUnassignedHint")}
-                            value={demand.unassigned}
-                            hideDelta noChart
-                        />
-                        <StatCard
-                            icon={CalendarClock}
-                            label={t("agingOldest")} hint={t("agingHint")}
-                            value={aging.oldestSubmittedAt ? formatDate(aging.oldestSubmittedAt) : "—"}
-                            hideDelta noChart
-                        />
-                        <StatCard icon={Clock} label={t("agingOver1")} value={aging.over1d} hideDelta noChart />
-                        <StatCard icon={Clock} label={t("agingOver3")} value={aging.over3d} hideDelta noChart />
-                        <StatCard icon={Clock} label={t("agingOver7")} value={aging.over7d} hideDelta noChart />
-                    </div>
-                </div>
-                <TrainerTable
-                    data={data}
-                    mostRoomUserId={mostRoom?.userId}
-                    onOpen={openQueue}
-                    onEditCapacity={setEditingRow}
-                    wrapTitle={(node) => tourAnchor(1, node)}
-                />
-            </Section>
-
-            <Section
-                title={t("secTime")}
-                description={t("secTimeDesc")}
-            >
+    const trendsView = (
+        <>
+            {periodBar}
+            <DemandTrendChart range={range} refreshToken={refreshToken} />
+            <Section title={t("secTime")} description={t("secTimeDesc")}>
                 <FinishedPlans range={range} refreshToken={refreshToken} />
             </Section>
+            <ServiceLevelPanel range={range} refreshToken={refreshToken} />
+        </>
+    );
 
-            <ServiceLevelPanel
-               
-                range={range}
-                refreshToken={refreshToken}
-            />
+    return (
+        <div className="flex flex-col gap-6 sm:gap-8 min-w-0 max-w-full">
+            {part === "queue" ? queueView : part === "trends" ? trendsView : workloadView}
 
             {editingRow && (
                 <CapacityEditModal
