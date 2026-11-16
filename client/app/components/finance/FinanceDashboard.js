@@ -283,7 +283,7 @@ export default function FinanceDashboard() {
                 pointer and only the controls take clicks. The page padding is cancelled so it spans edge to edge,
                 and the negative bottom margin gives back the room the fade adds. It stays pinned while the Finance
                 section scrolls past, then Team workload's own bar takes over. */}
-            <div className="sticky top-[var(--dash-sticky-offset,0px)] z-40 -mx-4 sm:-mx-8 -mb-4 sm:-mb-6 px-4 sm:px-8 pt-2 sm:pt-3 pb-5 sm:pb-8 bg-linear-to-b from-background from-65% to-transparent pointer-events-none">
+            <div className="sticky top-[var(--dash-sticky-offset,0px)] z-40 -mx-4 sm:-mx-8 -mb-4 sm:-mb-6 px-4 sm:px-8 pt-1 sm:pt-3 pb-5 sm:pb-8 bg-linear-to-b from-background from-65% to-transparent pointer-events-none">
                 <div className="flex items-center justify-between gap-3 pointer-events-auto">
                     <span className="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-foreground">
                         {t("periodLabel")}

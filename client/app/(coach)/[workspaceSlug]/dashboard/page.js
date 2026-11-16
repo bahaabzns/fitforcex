@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -98,6 +98,19 @@ export default function DashboardPage() {
         ? []
         : [canSeeFinance && 'finance', canSeeOperations && 'workload', canSeeOperations && canSeeTeam && 'queue', canSeeOperations && 'trends'].filter(Boolean);
     const activeView = views.includes(requestedView) ? requestedView : views[0];
+
+    // On a phone the view strip is pinned at the top and the pinned period bars sit directly under it, so the
+    // bars need the strip's real height (it is not a fixed number: fonts and wrapping change it).
+    const viewStripRef = useRef(null);
+    const [viewStripHeight, setViewStripHeight] = useState(0);
+    const hasViewStrip = views.length > 1;
+    useEffect(() => {
+        const strip = viewStripRef.current;
+        if (!strip) return undefined;
+        const observer = new ResizeObserver(() => setViewStripHeight(strip.offsetHeight));
+        observer.observe(strip);
+        return () => observer.disconnect();
+    }, [hasViewStrip, isPhone]);
 
     function selectView(key) {
         setRequestedView(key);
@@ -248,10 +261,14 @@ export default function DashboardPage() {
                 <Skeleton className="h-64 rounded-xl" />
             ) : (
             // --dash-sticky-offset: on a phone the view strip is pinned at the top, so the pinned period bars
-            // inside the views sit just below it.
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8 [--dash-sticky-offset:3rem] md:[--dash-sticky-offset:0px]">
+            // inside the views sit just below it (its measured height); on a larger screen there is no strip to clear.
+            <div
+                className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8"
+                style={{ '--dash-sticky-offset': isPhone && hasViewStrip ? `${viewStripHeight}px` : '0px' }}
+            >
                 {views.length > 1 && (
                     <nav
+                        ref={viewStripRef}
                         aria-label={t('navLabel')}
                         className="max-md:sticky max-md:top-0 max-md:z-50 max-md:-mx-4 max-md:border-b max-md:border-border max-md:bg-background max-md:px-4 md:sticky md:top-4 md:z-10 md:w-55 md:shrink-0 md:self-start"
                     >
