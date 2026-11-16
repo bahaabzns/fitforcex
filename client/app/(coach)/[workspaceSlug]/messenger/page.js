@@ -6,6 +6,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import api from "@/lib/axios";
+import FlyoutPanel from "@/app/components/FlyoutPanel";
 import { getSocket } from "@/lib/socket";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
@@ -33,6 +34,18 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMobilePanels } from "@/hooks/useMobilePanels";
 import { useSheetUi } from "@/hooks/useSheetUi";
+
+// A filter field's options: inline inside the bottom sheet (no room beside the row), otherwise a panel
+// that opens beside it and flips to whichever side has room.
+function OptionsPanel({ inline, children }) {
+    if (inline) return <div className="mt-1 p-1 flex flex-col">{children}</div>;
+    return (
+        <FlyoutPanel className="z-30 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+            {children}
+        </FlyoutPanel>
+    );
+}
+
 
 // Real-time sync now comes from the `new_message` socket event (see the effect
 // below); this is only the safety net for a missed/dropped event, so it can be
@@ -539,9 +552,7 @@ export default function MessengerPage() {
 
                                                 {pendingFilterKey === field.key && (
                                                     // Inside a bottom sheet there's no room beside the row, so options expand inline.
-                                                    <div className={isMobile
-                                                        ? "mt-1 p-1 flex flex-col"
-                                                        : "absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56"}>
+                                                    <OptionsPanel inline={isMobile}>
                                                         <div className={`flex flex-col gap-0.5 max-h-48 overflow-y-auto ${scrollbarCls}`}>
                                                             {field.options.map(option => (
                                                                 <label
@@ -563,7 +574,7 @@ export default function MessengerPage() {
                                                                 </label>
                                                             ))}
                                                         </div>
-                                                    </div>
+                                                    </OptionsPanel>
                                                 )}
                                             </div>
                                         ))}

@@ -7,6 +7,7 @@ import Modal, { ModalFooter } from "@/app/components/Modal";
 import EmptyState from "@/app/components/EmptyState";
 import { FieldLabel } from "@/app/components/Field";
 import api from "@/lib/axios";
+import FlyoutPanel from "@/app/components/FlyoutPanel";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
 import { Table } from "@heroui/react/table";
@@ -423,7 +424,7 @@ export default function PaymentMethodsPage() {
                                     <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
                                 </button>
                                 {pendingFilterKey === "status" && (
-                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-0.5 min-w-44">
+                                    <FlyoutPanel className="z-30 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-0.5 min-w-44">
                                         {[["active", t('active')], ["inactive", t('inactive')]].map(([value, label]) => (
                                             <label key={value} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none">
                                                 <input
@@ -435,7 +436,7 @@ export default function PaymentMethodsPage() {
                                                 {label}
                                             </label>
                                         ))}
-                                    </div>
+                                    </FlyoutPanel>
                                 )}
                             </div>
                         </div>

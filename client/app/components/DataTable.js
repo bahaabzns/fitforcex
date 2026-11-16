@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from 'lucide-react';
+import FlyoutPanel from '@/app/components/FlyoutPanel';
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Pagination } from "@heroui/react/pagination";
@@ -634,13 +635,13 @@ export default function DataTable({
                                             </button>
 
                                             {pendingColKey === col.key && pendingValue !== null && (
-                                                // Below `sm`, the side flyout (ltr:left-full) has nowhere to
-                                                // open into without running off-screen, so it drops to a
-                                                // stacked, full-width panel under the button instead —
-                                                // exactly the space the column list itself already occupies.
-                                                <div className="static mt-2 w-full sm:absolute sm:z-60 sm:mt-0 sm:ltr:left-full sm:rtl:right-full sm:top-0 sm:ltr:ml-1 sm:rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 sm:w-auto sm:min-w-56">
+                                                // Below `sm` there is no room beside the menu, so the panel is stacked,
+                                                // full-width, under the button (max-sm:static). From `sm` up FlyoutPanel
+                                                // opens it beside the row and flips it to whichever side has room — the
+                                                // menu sits at the toolbar's end edge, where the default side often doesn't.
+                                                <FlyoutPanel className="z-60 max-sm:static max-sm:ms-0 max-sm:mt-2 max-sm:w-full bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 sm:min-w-56">
                                                     {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
-                                                </div>
+                                                </FlyoutPanel>
                                             )}
                                         </div>
                                     ))}
