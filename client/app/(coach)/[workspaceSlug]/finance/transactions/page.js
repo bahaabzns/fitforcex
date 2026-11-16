@@ -14,6 +14,8 @@ import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import DemoBadge from "@/app/components/demo/DemoBadge";
@@ -239,29 +241,46 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
     return (
         <>
             {/* Currency selector */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
                 <span className="text-muted-foreground text-xs font-medium uppercase">{t('displayCurrency')}</span>
-                <select
+                <Select
+                    variant="secondary"
+                    aria-label={t('displayCurrency')}
                     value={displayCurrency}
-                    onChange={(e) => setDisplayCurrency(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                    onChange={(key) => setDisplayCurrency(String(key))}
+                    className="w-28"
                 >
-                    {DISPLAY_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                    <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                    </Select.Trigger>
+                    {/* sheet-popover: a dropdown on desktop, a bottom sheet on phones (see globals.css). */}
+                    <Select.Popover className="sheet-popover">
+                        <ListBox>
+                            {DISPLAY_CURRENCIES.map(c => (
+                                <ListBox.Item key={c} id={c} textValue={c}>
+                                    {c}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                            ))}
+                        </ListBox>
+                    </Select.Popover>
+                </Select>
             </div>
 
             {/* KPI groups */}
-            <div className="flex flex-wrap gap-3 items-stretch">
-                <KpiCardGroup items={[
+            {/* One column on phones, two from md, three from xl — equal-width cards that line up. */}
+            <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <KpiCardGroup title={t('kpiTotals')} items={[
                     { key: "completed", label: t('completed'), value: Math.round(totalCompleted).toLocaleString(), unit: displayCurrency },
                     { key: "refunded", label: t('refunded'), value: Math.round(totalRefunded).toLocaleString(), unit: displayCurrency },
                 ]} />
 
-                <KpiCardGroup items={Object.entries(byPaymentMethod).map(([method, total]) => (
+                <KpiCardGroup title={t('kpiByMethod')} items={Object.entries(byPaymentMethod).map(([method, total]) => (
                     { key: method, label: method, value: Math.round(total).toLocaleString(), unit: displayCurrency }
                 ))} />
 
-                <KpiCardGroup items={Object.entries(byCurrency).map(([currency, total]) => (
+                <KpiCardGroup title={t('kpiByCurrency')} className="md:col-span-2 xl:col-span-1" items={Object.entries(byCurrency).map(([currency, total]) => (
                     { key: currency, label: currency, value: total.toLocaleString(), unit: currency }
                 ))} />
             </div>
