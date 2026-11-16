@@ -26,6 +26,8 @@ import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner
 import AnnouncementCard from "@/app/components/AnnouncementCard";
 import OperationsTab from "@/app/components/operations/OperationsTab";
 import FinanceDashboard from "@/app/components/finance/FinanceDashboard";
+import ScrollHint from "@/app/components/ScrollHint";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -79,6 +81,25 @@ export default function DashboardPage() {
             })
             .catch(() => { setCanSeeOperations(false); setCanSeeFinance(false); });
     }, []);
+
+    // The dashboard is split into views, listed in a sticky column on the left (a strip on phones) like the
+    // Settings tabs. Which views exist depends on what the person may see; the choice lives in ?view= so a
+    // refresh or a shared link lands on the same view.
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const [requestedView, setRequestedView] = useState(() => (
+        typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('view')
+    ));
+    const views = canSeeOperations === null
+        ? []
+        : [canSeeFinance && 'finance', canSeeOperations && 'team', 'clients'].filter(Boolean);
+    const activeView = views.includes(requestedView) ? requestedView : views[0];
+
+    function selectView(key) {
+        setRequestedView(key);
+        const params = new URLSearchParams(window.location.search);
+        params.set('view', key);
+        window.history.replaceState(null, '', `/${workspaceSlug}/dashboard?${params.toString()}`);
+    }
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");
 
@@ -158,6 +179,27 @@ export default function DashboardPage() {
 
     const { fname, stats, recentClients } = data;
 
+    const viewLabels = { finance: t('navFinance'), team: t('navTeam'), clients: t('navClients') };
+    const viewTabs = (
+        <Tabs
+            orientation={isPhone ? "horizontal" : "vertical"}
+            variant="secondary"
+            selectedKey={activeView}
+            onSelectionChange={(key) => selectView(String(key))}
+        >
+            <Tabs.ListContainer>
+                <Tabs.List aria-label={t('navLabel')} className="max-md:w-max">
+                    {views.map((key) => (
+                        <Tabs.Tab key={key} id={key}>
+                            {viewLabels[key]}
+                            <Tabs.Indicator />
+                        </Tabs.Tab>
+                    ))}
+                </Tabs.List>
+            </Tabs.ListContainer>
+        </Tabs>
+    );
+
     return (
         <div className="p-4 sm:p-8 flex flex-col gap-6">
             {showWelcome && (
@@ -197,13 +239,26 @@ export default function DashboardPage() {
                 dismissUrlPrefix="/api/insights/prompts"
             />
 
-            {canSeeFinance && <FinanceDashboard />}
+            {canSeeOperations === null ? (
+                <Skeleton className="h-64 rounded-xl" />
+            ) : (
+            // --dash-sticky-offset: on a phone the view strip is pinned at the top, so the pinned period bars
+            // inside the views sit just below it.
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8 [--dash-sticky-offset:3rem] md:[--dash-sticky-offset:0px]">
+                {views.length > 1 && (
+                    <nav
+                        aria-label={t('navLabel')}
+                        className="max-md:sticky max-md:top-0 max-md:z-50 max-md:-mx-4 max-md:border-b max-md:border-border max-md:bg-background max-md:px-4 md:sticky md:top-4 md:z-10 md:w-55 md:shrink-0 md:self-start"
+                    >
+                        {isPhone ? <ScrollHint>{viewTabs}</ScrollHint> : viewTabs}
+                    </nav>
+                )}
+                <div className="flex min-w-0 flex-1 flex-col gap-6">
+            {activeView === 'finance' && <FinanceDashboard />}
 
-            {canSeeOperations === null && <Skeleton className="h-64 rounded-xl" />}
+            {activeView === 'team' && <OperationsTab />}
 
-            {canSeeOperations === true && <OperationsTab />}
-
-            {canSeeOperations === false && (<>
+            {activeView === 'clients' && (<>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4">
@@ -369,6 +424,9 @@ export default function DashboardPage() {
                 )}
             </div>
             </>)}
+                </div>
+            </div>
+            )}
         </div>
     );
 }
