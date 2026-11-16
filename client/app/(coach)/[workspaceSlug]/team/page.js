@@ -7,7 +7,10 @@ import api from "@/lib/axios";
 import { normalizeEmail } from "@/lib/normalizeEmail";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
+import DataTable from "@/app/components/DataTable";
 import EmptyState from "@/app/components/EmptyState";
+import StickySideTabs from "@/app/components/StickySideTabs";
+import { StatCard } from "@/app/components/operations/KpiTrendCards";
 import { FieldLabel } from "@/app/components/Field";
 import { Alert } from "@heroui/react/alert";
 import { Avatar } from "@heroui/react/avatar";
@@ -19,7 +22,6 @@ import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Switch } from "@heroui/react/switch";
-import { Tabs } from "@heroui/react/tabs";
 import { TextField } from "@heroui/react/textfield";
 import {
     Users2, UserPlus, Mail, ChevronDown,
@@ -59,20 +61,6 @@ function UpgradeBanner({ message }) {
                 <Alert.Description>{t("upgradeContactUs")}</Alert.Description>
             </Alert.Content>
         </Alert>
-    );
-}
-
-// Same bar as the utilization bars on the dashboard: a thin track with a coloured fill.
-function SeatUsageBar({ used, max }) {
-    const pct = Math.min(100, Math.round((used / max) * 100));
-    const barColor = pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-primary";
-    return (
-        <div className="flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-default/60" role="presentation">
-                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-            </div>
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{used} / {max}</span>
-        </div>
     );
 }
 
@@ -151,23 +139,6 @@ function RowList({ children }) {
     return (
         <Card className="rounded-xl">
             <Card.Content className="divide-y divide-border p-0">{children}</Card.Content>
-        </Card>
-    );
-}
-
-function StatTile({ icon: Icon, label, tone = "default", children }) {
-    const warn = tone === "warning";
-    return (
-        <Card className={`rounded-xl ${warn ? "border border-amber-500/30" : ""}`}>
-            <Card.Content className="flex items-center gap-3 p-4">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${warn ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary"}`}>
-                    <Icon size={17} aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                    {children}
-                </div>
-            </Card.Content>
         </Card>
     );
 }
@@ -428,32 +399,103 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
 
     const inviteRoles = isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"];
 
+    // How full the seats are, for the seats card's bar (same thresholds as the dashboard's utilization bars).
+    const seatsPercent = maxSeats ? Math.min(100, Math.round((seatsUsed / maxSeats) * 100)) : 0;
+    const seatsBarColor = seatsPercent >= 100 ? "#ef4444" : seatsPercent >= 80 ? "#f59e0b" : "var(--color-primary)";
+
+    // The team as one table: the owner first, then everyone else. Each column renders its own cell, so the
+    // permissions rules (who can change a role, remove someone, edit a limit) stay exactly as they were.
+    const ownerRow = workspace?.owner_fname
+        ? { id: "__owner__", kind: "owner", user_id: workspace.owner_id, fname: workspace.owner_fname, lname: workspace.owner_lname, email: workspace.owner_email, role: "owner" }
+        : null;
+    const tableRows = [...(ownerRow ? [ownerRow] : []), ...members.map(member => ({ ...member, kind: "member" }))];
+
+    const columns = [
+        {
+            key: "name", label: t("colMember"), sortable: true, cardPriority: "primary",
+            sortValue: (row) => `${row.fname} ${row.lname}`.toLowerCase(),
+            render: (row) => (
+                <div className="flex min-w-0 items-center gap-3">
+                    <MemberAvatar fname={row.fname} lname={row.lname} />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                            {row.fname} {row.lname}
+                            {row.user_id === myUserId && <span className="ms-1.5 text-[10px] font-normal text-muted-foreground">{t("youLabel")}</span>}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "role", label: t("roleLabel"), sortable: true, cardPriority: "primary",
+            sortValue: (row) => row.role,
+            render: (row) => (row.kind === "member" && canChangeRole(row) ? (
+                <RoleSelect
+                    value={row.role} onChange={(role) => handleRoleChange(row.id, role)}
+                    roles={isOwner ? ROLES : ["trainer", "assistant"]} labels={ROLE_LABELS}
+                    isDisabled={updatingRole === row.id} ariaLabel={t("roleLabel")} className="w-36"
+                />
+            ) : <RoleBadge role={row.role} />),
+        },
+        ...(canEditCapacity ? [{
+            key: "capacity", label: tOps("colCapacity"), cardPriority: "secondary",
+            render: (row) => {
+                if (row.kind === "owner") {
+                    return <CapacityButton value={ownerCapacity} daysOff={ownerDaysOff} onClick={() => setEditingCapacity({ kind: "owner" })} />;
+                }
+                if (!CAPACITY_ROLES.includes(row.role)) return <span className="text-muted-foreground">—</span>;
+                return <CapacityButton value={row.daily_plan_capacity} daysOff={row.days_off} onClick={() => setEditingCapacity({ kind: "member", member: row })} />;
+            },
+        }] : []),
+        {
+            key: "_actions", label: "", cardPriority: "secondary",
+            render: (row) => (row.kind !== "member" ? null : (
+                <div className="flex items-center justify-end gap-1">
+                    {isOwner && (
+                        <Button
+                            isIconOnly size="sm" variant="ghost"
+                            onPress={() => setEditingPerms(row)}
+                            aria-label={t("editPermissions")} title={t("editPermissions")}
+                        >
+                            <SlidersHorizontal size={15} aria-hidden="true" />
+                        </Button>
+                    )}
+                    {canRemoveMember(row) && (
+                        <Button
+                            isIconOnly size="sm" variant="ghost"
+                            onPress={() => setConfirmRemove(row)}
+                            isDisabled={removingId === row.id}
+                            aria-label={t("removeTitle")} title={t("removeTitle")}
+                            className="text-destructive"
+                        >
+                            <Trash2 size={15} aria-hidden="true" />
+                        </Button>
+                    )}
+                </div>
+            )),
+        },
+    ];
+
     return (
         <div className="flex flex-col gap-6">
-            {/* Workspace stats */}
+            {/* Workspace figures, as the same metric cards the dashboard uses */}
             {workspace && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <StatTile icon={Building2} label={t("statPlan")}>
-                        <p className="truncate text-sm font-semibold text-foreground">{workspace.plan_display_name ?? workspace.plan_name}</p>
-                    </StatTile>
-                    <StatTile icon={Users2} label={t("statSeats")} tone={atSeatLimit || noSeats ? "warning" : "default"}>
-                        {maxSeats === null ? (
-                            <p className="text-sm font-semibold text-foreground">{workspace.member_count} <span className="font-normal text-muted-foreground">{t("statUnlimited")}</span></p>
-                        ) : noSeats ? (
-                            <p className="text-sm font-semibold text-amber-600">{t("statFreeSeats")}</p>
-                        ) : (
-                            <div className="flex flex-col gap-1.5">
-                                <p className="text-sm font-semibold text-foreground">
-                                    {t("statSeatsUsed", { count: seatsUsed })}
-                                    <span className="font-normal text-muted-foreground"> {t("statSeatsOf", { count: maxSeats })}</span>
-                                </p>
-                                <SeatUsageBar used={seatsUsed} max={maxSeats} />
-                            </div>
-                        )}
-                    </StatTile>
-                    <StatTile icon={Users2} label={t("statClients")}>
-                        <p className="text-sm font-semibold tabular-nums text-foreground">{workspace.client_count}</p>
-                    </StatTile>
+                <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:gap-4 xl:grid-cols-4">
+                    <StatCard
+                        icon={Building2} label={t("statPlan")}
+                        value={workspace.plan_display_name ?? workspace.plan_name}
+                        hideDelta noChart
+                    />
+                    <StatCard
+                        icon={Users2} label={t("statSeats")}
+                        value={noSeats ? "0" : String(maxSeats === null ? workspace.member_count : seatsUsed)}
+                        caption={maxSeats === null ? t("statUnlimited") : noSeats ? t("statFreeSeats") : t("statSeatsOf", { count: maxSeats })}
+                        bar={maxSeats && !noSeats ? { value: seatsPercent, color: seatsBarColor, label: t("statSeatsUsed", { count: seatsUsed }) } : null}
+                        hideDelta noChart
+                    />
+                    <StatCard icon={Users2} label={t("statClients")} value={workspace.client_count} hideDelta noChart />
+                    <StatCard icon={Mail} label={t("tabInvitations")} value={pendingCount ?? 0} hideDelta noChart />
                 </div>
             )}
 
@@ -521,88 +563,14 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                 )
             )}
 
-            {/* Members list */}
-            <RowList>
-                {workspace?.owner_fname && (
-                    <PersonRow
-                        avatar={<MemberAvatar fname={workspace.owner_fname} lname={workspace.owner_lname} />}
-                        title={<>
-                            {workspace.owner_fname} {workspace.owner_lname}
-                            {workspace.owner_id === me?.userId && (
-                                <span className="ms-1.5 text-[10px] font-normal text-muted-foreground">{t("youLabel")}</span>
-                            )}
-                        </>}
-                        subtitle={workspace.owner_email}
-                    >
-                        {canEditCapacity && (
-                            <CapacityButton value={ownerCapacity} daysOff={ownerDaysOff} onClick={() => setEditingCapacity({ kind: "owner" })} />
-                        )}
-                        <RoleBadge role="owner" />
-                    </PersonRow>
-                )}
-
-                {members.length === 0 && (
-                    <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t("noMembers")}</p>
-                )}
-
-                {members.map(member => {
-                    const roleChangeAllowed = canChangeRole(member);
-                    const removeAllowed = canRemoveMember(member);
-                    return (
-                        <PersonRow
-                            key={member.id}
-                            avatar={<MemberAvatar fname={member.fname} lname={member.lname} />}
-                            title={<>
-                                {member.fname} {member.lname}
-                                {member.user_id === myUserId && (
-                                    <span className="ms-1.5 text-[10px] font-normal text-muted-foreground">{t("youLabel")}</span>
-                                )}
-                            </>}
-                            subtitle={member.email}
-                        >
-                            {canEditCapacity && CAPACITY_ROLES.includes(member.role) && (
-                                <CapacityButton
-                                    value={member.daily_plan_capacity}
-                                    daysOff={member.days_off}
-                                    onClick={() => setEditingCapacity({ kind: "member", member })}
-                                />
-                            )}
-
-                            {roleChangeAllowed ? (
-                                <RoleSelect
-                                    value={member.role} onChange={(role) => handleRoleChange(member.id, role)}
-                                    roles={isOwner ? ROLES : ["trainer", "assistant"]} labels={ROLE_LABELS}
-                                    isDisabled={updatingRole === member.id} ariaLabel={t("roleLabel")} className="w-36"
-                                />
-                            ) : (
-                                <RoleBadge role={member.role} />
-                            )}
-
-                            {isOwner && (
-                                <Button
-                                    isIconOnly size="sm" variant="ghost"
-                                    onPress={() => setEditingPerms(member)}
-                                    aria-label={t("editPermissions")} title={t("editPermissions")}
-                                >
-                                    <SlidersHorizontal size={15} aria-hidden="true" />
-                                </Button>
-                            )}
-
-                            {removeAllowed && (
-                                <Button
-                                    isIconOnly size="sm" variant="ghost"
-                                    onPress={() => setConfirmRemove(member)}
-                                    isDisabled={removingId === member.id}
-                                    aria-label={t("removeTitle")} title={t("removeTitle")}
-                                    className="text-destructive"
-                                >
-                                    <Trash2 size={15} aria-hidden="true" />
-                                </Button>
-                            )}
-                        </PersonRow>
-                    );
-                })}
-            </RowList>
+            {/* The team, as a table */}
+            <DataTable
+                columns={columns}
+                data={tableRows}
+                rowKey="id"
+                mobileListView
+                quickSearch={{ fields: ["fname", "lname", "email"], placeholder: t("searchMembers") }}
+            />
 
             {/* Confirm remove modal */}
             <Modal
@@ -882,9 +850,10 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 // A tab label with an optional count chip (pending invitations).
+// A navigation label with an optional count chip (pending invitations).
 function TabLabel({ icon: Icon, children, count = 0 }) {
     return (
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center justify-center gap-1.5">
             <Icon size={14} aria-hidden="true" />
             {children}
             {count > 0 && <Chip size="sm" color="accent">{count}</Chip>}
@@ -991,51 +960,45 @@ export default function TeamPage() {
                 dismissUrlPrefix="/api/insights/prompts"
             />
 
-            {/* Tabs */}
-            <Tabs selectedKey={tab} onSelectionChange={(key) => setTab(String(key))} variant="secondary">
-                <Tabs.ListContainer>
-                    <Tabs.List aria-label={t("pageTitle")}>
-                        <Tabs.Tab id="members">
-                            <TabLabel icon={Users2}>{t("tabMembers")}</TabLabel>
-                            <Tabs.Indicator />
-                        </Tabs.Tab>
-                        <Tabs.Tab id="invitations">
-                            <TabLabel icon={Mail} count={pendingOutgoing}>{t("tabInvitations")}</TabLabel>
-                            <Tabs.Indicator />
-                        </Tabs.Tab>
-                        <Tabs.Tab id="mine">
-                            <TabLabel icon={CheckCircle2} count={pendingIncoming}>{t("tabMyInvitations")}</TabLabel>
-                            <Tabs.Indicator />
-                        </Tabs.Tab>
-                    </Tabs.List>
-                </Tabs.ListContainer>
-            </Tabs>
-
-            {/* Tab content */}
-            {tab === "members" && (
-                <MembersTab
-                    workspace={workspace}
-                    members={members}
-                    setMembers={setMembers}
-                    me={me}
-                    pendingCount={invitations.length}
+            {/* The list on the left is the same one the dashboard uses; the content follows it. */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
+                <StickySideTabs
+                    ariaLabel={t("pageTitle")}
+                    selectedKey={tab}
+                    onSelectionChange={setTab}
+                    items={[
+                        { id: "members", label: <TabLabel icon={Users2}>{t("tabMembers")}</TabLabel> },
+                        { id: "invitations", label: <TabLabel icon={Mail} count={pendingOutgoing}>{t("tabInvitations")}</TabLabel> },
+                        { id: "mine", label: <TabLabel icon={CheckCircle2} count={pendingIncoming}>{t("tabMyInvitations")}</TabLabel> },
+                    ]}
                 />
-            )}
-            {tab === "invitations" && (
-                <InvitationsTab
-                    workspace={workspace}
-                    invitations={invitations}
-                    setInvitations={setInvitations}
-                    me={me}
-                />
-            )}
-            {tab === "mine" && (
-                <MyInvitationsTab
-                    myInvitations={myInvitations}
-                    setMyInvitations={setMyInvitations}
-                    setMe={setMe}
-                />
-            )}
+                <div className="flex min-w-0 flex-1 flex-col gap-6">
+                    {tab === "members" && (
+                        <MembersTab
+                            workspace={workspace}
+                            members={members}
+                            setMembers={setMembers}
+                            me={me}
+                            pendingCount={invitations.length}
+                        />
+                    )}
+                    {tab === "invitations" && (
+                        <InvitationsTab
+                            workspace={workspace}
+                            invitations={invitations}
+                            setInvitations={setInvitations}
+                            me={me}
+                        />
+                    )}
+                    {tab === "mine" && (
+                        <MyInvitationsTab
+                            myInvitations={myInvitations}
+                            setMyInvitations={setMyInvitations}
+                            setMe={setMe}
+                        />
+                    )}
+                </div>
+            </div>
 
             <CreateWorkspaceModal
                 open={showNewWs}

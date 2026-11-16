@@ -26,7 +26,7 @@ import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner
 import AnnouncementCard from "@/app/components/AnnouncementCard";
 import OperationsTab from "@/app/components/operations/OperationsTab";
 import FinanceDashboard from "@/app/components/finance/FinanceDashboard";
-import ScrollHint from "@/app/components/ScrollHint";
+import StickySideTabs from "@/app/components/StickySideTabs";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const STATUS_CHIP = {
@@ -198,25 +198,6 @@ export default function DashboardPage() {
     const { fname, stats, recentClients } = data;
 
     const viewLabels = { finance: t('navFinance'), workload: t('navWorkload'), queue: t('navQueue'), trends: t('navTrends') };
-    const viewTabs = (
-        <Tabs
-            orientation={isPhone ? "horizontal" : "vertical"}
-            variant="secondary"
-            selectedKey={activeView}
-            onSelectionChange={(key) => selectView(String(key))}
-        >
-            <Tabs.ListContainer>
-                <Tabs.List aria-label={t('navLabel')} className="max-md:w-max">
-                    {views.map((key) => (
-                        <Tabs.Tab key={key} id={key}>
-                            {viewLabels[key]}
-                            <Tabs.Indicator />
-                        </Tabs.Tab>
-                    ))}
-                </Tabs.List>
-            </Tabs.ListContainer>
-        </Tabs>
-    );
 
     return (
         <div className="p-4 sm:p-8 flex flex-col gap-6">
@@ -267,13 +248,13 @@ export default function DashboardPage() {
                 style={{ '--dash-sticky-offset': isPhone && hasViewStrip ? `${viewStripHeight}px` : '0px' }}
             >
                 {views.length > 1 && (
-                    <nav
-                        ref={viewStripRef}
-                        aria-label={t('navLabel')}
-                        className="max-md:sticky max-md:top-0 max-md:z-50 max-md:-mx-4 max-md:border-b max-md:border-border max-md:bg-background max-md:px-4 md:sticky md:top-4 md:z-10 md:w-55 md:shrink-0 md:self-start"
-                    >
-                        {isPhone ? <ScrollHint>{viewTabs}</ScrollHint> : viewTabs}
-                    </nav>
+                    <StickySideTabs
+                        navRef={viewStripRef}
+                        ariaLabel={t('navLabel')}
+                        items={views.map((key) => ({ id: key, label: viewLabels[key] }))}
+                        selectedKey={activeView}
+                        onSelectionChange={selectView}
+                    />
                 )}
                 <div className="flex min-w-0 flex-1 flex-col gap-6">
             {activeView === 'finance' && <FinanceDashboard />}

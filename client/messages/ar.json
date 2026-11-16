@@ -1862,6 +1862,8 @@
     "pageSubtitle": "إدارة الأعضاء والدعوات لمساحة العمل.",
     "newWorkspace": "مساحة عمل جديدة",
     "tabMembers": "الأعضاء",
+    "colMember": "العضو",
+    "searchMembers": "ابحث عن عضو…",
     "tabInvitations": "الدعوات",
     "tabMyInvitations": "دعواتي",
     "statPlan": "الخطة",

@@ -1862,6 +1862,8 @@
     "pageSubtitle": "Manage members and invitations for your workspace.",
     "newWorkspace": "New Workspace",
     "tabMembers": "Members",
+    "colMember": "Member",
+    "searchMembers": "Search members…",
     "tabInvitations": "Invitations",
     "tabMyInvitations": "My Invitations",
     "statPlan": "Plan",
