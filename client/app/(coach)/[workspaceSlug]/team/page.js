@@ -7,15 +7,22 @@ import api from "@/lib/axios";
 import { normalizeEmail } from "@/lib/normalizeEmail";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
+import EmptyState from "@/app/components/EmptyState";
 import { FieldLabel } from "@/app/components/Field";
-import { Button } from "@heroui/react/button";
-import { Skeleton } from "@heroui/react/skeleton";
-import { Chip } from "@heroui/react/chip";
+import { Alert } from "@heroui/react/alert";
 import { Avatar } from "@heroui/react/avatar";
-import { TextField } from "@heroui/react/textfield";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
 import { Input } from "@heroui/react/input";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
+import { Skeleton } from "@heroui/react/skeleton";
+import { Switch } from "@heroui/react/switch";
+import { Tabs } from "@heroui/react/tabs";
+import { TextField } from "@heroui/react/textfield";
 import {
-    Users2, UserPlus, Mail,
+    Users2, UserPlus, Mail, ChevronDown,
     Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
 } from 'lucide-react';
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -25,41 +32,46 @@ import { formatDaysOff } from "@/app/components/operations/weekdays";
 
 const ROLES = ["manager", "trainer", "assistant"];
 
-const ROLE_META_CLS = {
-    owner:     "bg-yellow-500/15 text-yellow-600 border border-yellow-500/20",
-    manager:   "bg-accent/15 text-accent border border-accent/20",
-    trainer:   "bg-green-500/15 text-green-600 border border-green-500/20",
-    assistant: "bg-secondary text-muted-foreground border border-border",
-};
+// Chip colours per role: the owner stands out, the rest follow the app's status colours.
+const ROLE_CHIP_COLOR = { owner: "warning", manager: "accent", trainer: "success", assistant: "default" };
 
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+// ── Small shared pieces ───────────────────────────────────────────────────────
 
-// ── Upgrade CTA ───────────────────────────────────────────────────────────────
+function StatusAlert({ status, children }) {
+    if (!children) return null;
+    return (
+        <Alert status={status}>
+            <Alert.Indicator />
+            <Alert.Content>
+                <Alert.Description>{children}</Alert.Description>
+            </Alert.Content>
+        </Alert>
+    );
+}
 
 function UpgradeBanner({ message }) {
     const t = useTranslations("team");
     return (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-            <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-amber-600">{message}</p>
-                <p className="text-xs text-amber-600/70 mt-0.5">
-                    {t("upgradeContactUs")}
-                </p>
-            </div>
-        </div>
+        <Alert status="warning">
+            <Alert.Indicator />
+            <Alert.Content>
+                <Alert.Title>{message}</Alert.Title>
+                <Alert.Description>{t("upgradeContactUs")}</Alert.Description>
+            </Alert.Content>
+        </Alert>
     );
 }
 
+// Same bar as the utilization bars on the dashboard: a thin track with a coloured fill.
 function SeatUsageBar({ used, max }) {
     const pct = Math.min(100, Math.round((used / max) * 100));
-    const barColor = pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-400" : "bg-primary";
+    const barColor = pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-primary";
     return (
         <div className="flex items-center gap-3">
-            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-default/60" role="presentation">
                 <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
             </div>
-            <span className="text-xs text-muted-foreground shrink-0">{used} / {max}</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{used} / {max}</span>
         </div>
     );
 }
@@ -72,9 +84,8 @@ function RoleBadge({ role }) {
         trainer: t("roleTrainer"),
         assistant: t("roleAssistant"),
     };
-    const cls = ROLE_META_CLS[role] ?? "bg-secondary text-muted-foreground border border-border";
     return (
-        <Chip size="sm" className={cls}>
+        <Chip size="sm" variant="soft" color={ROLE_CHIP_COLOR[role] ?? "default"}>
             {ROLE_LABELS[role] ?? role}
         </Chip>
     );
@@ -83,29 +94,81 @@ function RoleBadge({ role }) {
 function MemberAvatar({ fname, lname }) {
     const initials = `${fname?.[0] ?? ""}${lname?.[0] ?? ""}`.toUpperCase() || "?";
     return (
-        <Avatar className="w-8 h-8 shrink-0">
-            <Avatar.Fallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</Avatar.Fallback>
+        <Avatar size="sm" color="primary" className="shrink-0">
+            <Avatar.Fallback>{initials}</Avatar.Fallback>
         </Avatar>
     );
 }
 
-function TabButton({ active, onClick, children, badge }) {
+// The role picker: HeroUI's select, which opens as a bottom sheet on phones (see globals.css).
+function RoleSelect({ value, onChange, roles, labels, isDisabled = false, ariaLabel, className = "w-36" }) {
     return (
-        <button
-            onClick={onClick}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
-                active
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+        <Select
+            variant="secondary"
+            aria-label={ariaLabel}
+            value={value}
+            onChange={(key) => onChange(String(key))}
+            isDisabled={isDisabled}
+            className={className}
         >
-            {children}
-            {badge > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold leading-none">
-                    {badge}
+            <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover className="sheet-popover">
+                <ListBox>
+                    {roles.map((role) => (
+                        <ListBox.Item key={role} id={role} textValue={labels[role] ?? role}>
+                            {labels[role] ?? role}
+                            <ListBox.ItemIndicator />
+                        </ListBox.Item>
+                    ))}
+                </ListBox>
+            </Select.Popover>
+        </Select>
+    );
+}
+
+// One person in a list: avatar, name and email on the start side, their controls after. On a narrow screen
+// the controls wrap under the name instead of squeezing it.
+function PersonRow({ avatar, title, subtitle, children }) {
+    return (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-default/30">
+            <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
+                {avatar}
+                <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+                </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">{children}</div>
+        </div>
+    );
+}
+
+// A bordered list of rows in one card, separated by thin lines.
+function RowList({ children }) {
+    return (
+        <Card className="rounded-xl">
+            <Card.Content className="divide-y divide-border p-0">{children}</Card.Content>
+        </Card>
+    );
+}
+
+function StatTile({ icon: Icon, label, tone = "default", children }) {
+    const warn = tone === "warning";
+    return (
+        <Card className={`rounded-xl ${warn ? "border border-amber-500/30" : ""}`}>
+            <Card.Content className="flex items-center gap-3 p-4">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${warn ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary"}`}>
+                    <Icon size={17} aria-hidden="true" />
                 </span>
-            )}
-        </button>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                    {children}
+                </div>
+            </Card.Content>
+        </Card>
     );
 }
 
@@ -176,8 +239,8 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
                     {t("permRole")} <span className="font-medium capitalize">{member.role}</span> · {t("permRoleHint")}
                 </p>
 
-                <div className="rounded-lg border border-border overflow-hidden">
-                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-0 px-3 py-2 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="overflow-hidden rounded-xl border border-border">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-0 bg-default/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         <span>{t("permModule")}</span>
                         {ACTIONS.map(a => (
                             <span key={a} className="w-14 text-center capitalize">{ACTION_LABELS[a]}</span>
@@ -191,36 +254,33 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
                         >
                             <span className="text-sm font-medium text-foreground">{MODULE_LABELS[mod] ?? mod}</span>
                             {ACTIONS.map(action => (
-                                <div key={action} className="w-14 flex justify-center">
-                                    <button
-                                        onClick={() => toggle(mod, action)}
-                                        className={`w-8 h-4 rounded-full transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                                            perms[mod][action] ? "bg-primary" : "bg-secondary border border-border"
-                                        }`}
-                                        title={`${action} ${mod}`}
+                                <div key={action} className="flex w-14 justify-center">
+                                    <Switch
+                                        size="sm"
+                                        isSelected={perms[mod][action]}
+                                        onChange={() => toggle(mod, action)}
+                                        aria-label={`${ACTION_LABELS[action]} ${MODULE_LABELS[mod] ?? mod}`}
                                     >
-                                        <span
-                                            className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
-                                                perms[mod][action] ? "translate-x-4" : "translate-x-0.5"
-                                            }`}
-                                        />
-                                    </button>
+                                        <Switch.Control>
+                                            <Switch.Thumb />
+                                        </Switch.Control>
+                                    </Switch>
                                 </div>
                             ))}
                         </div>
                     ))}
                 </div>
 
-                {error && <p className="text-sm text-red-500">{error}</p>}
+                <StatusAlert status="danger">{error}</StatusAlert>
 
-                <div className="flex gap-2 justify-end pt-1">
+                <ModalFooter>
                     <Button variant="ghost" onClick={onClose}>
                         {t("cancel")}
                     </Button>
                     <Button onClick={handleSave} isDisabled={saving} variant="primary">
                         {saving ? t("permSaving") : t("permSave")}
                     </Button>
-                </div>
+                </ModalFooter>
             </div>
         </Modal>
     );
@@ -236,20 +296,18 @@ function CapacityButton({ value, daysOff, onClick }) {
     const tOps = useTranslations("operations");
     const locale = useLocale();
     const daysOffText = formatDaysOff(locale, daysOff);
+    const isUnset = value === null || value === undefined;
     return (
-        <button
-            type="button"
-            onClick={onClick}
+        <Button
+            variant="outline"
+            size="sm"
+            onPress={onClick}
             title={tOps("editCapacity")}
-            className={`text-xs px-2 py-1 rounded-md border whitespace-nowrap transition-colors cursor-pointer hover:bg-default/40 ${
-                value === null || value === undefined
-                    ? "border-dashed border-border text-muted-foreground"
-                    : "border-border text-foreground"
-            }`}
+            className={`h-auto min-h-8 flex-col items-center gap-0 py-1 ${isUnset ? "border-dashed text-muted-foreground" : ""}`}
         >
-            {value === null || value === undefined ? tOps("setCapacity") : tOps("capacityPerDay", { count: value })}
-            {daysOffText && <span className="block text-[10px] text-muted-foreground">{tOps("daysOffShort", { days: daysOffText })}</span>}
-        </button>
+            {isUnset ? tOps("setCapacity") : tOps("capacityPerDay", { count: value })}
+            {daysOffText && <span className="text-[10px] font-normal text-muted-foreground">{tOps("daysOffShort", { days: daysOffText })}</span>}
+        </Button>
     );
 }
 
@@ -368,44 +426,34 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
         ? t("upgradeFreeSeats")
         : t("upgradeSeatLimit", { count: maxSeats });
 
+    const inviteRoles = isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"];
+
     return (
         <div className="flex flex-col gap-6">
             {/* Workspace stats */}
             {workspace && (
-                <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border">
-                        <Building2 size={15} className="text-muted-foreground" />
-                        <div>
-                            <p className="text-xs text-muted-foreground">{t("statPlan")}</p>
-                            <p className="text-sm font-medium text-foreground">{workspace.plan_display_name ?? workspace.plan_name}</p>
-                        </div>
-                    </div>
-                    <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${atSeatLimit || noSeats ? "bg-amber-500/5 border-amber-500/30" : "bg-secondary/50 border-border"}`}>
-                        <Users2 size={15} className={atSeatLimit || noSeats ? "text-amber-500" : "text-muted-foreground"} />
-                        <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">{t("statSeats")}</p>
-                            {maxSeats === null ? (
-                                <p className="text-sm font-medium text-foreground">{workspace.member_count} <span className="text-muted-foreground font-normal">{t("statUnlimited")}</span></p>
-                            ) : noSeats ? (
-                                <p className="text-sm font-medium text-amber-700">{t("statFreeSeats")}</p>
-                            ) : (
-                                <div className="flex flex-col gap-1 min-w-32">
-                                    <p className="text-sm font-medium text-foreground">
-                                        {t("statSeatsUsed", { count: seatsUsed })}
-                                        <span className="text-muted-foreground font-normal"> {t("statSeatsOf", { count: maxSeats })}</span>
-                                    </p>
-                                    <SeatUsageBar used={seatsUsed} max={maxSeats} />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border">
-                        <Users2 size={15} className="text-muted-foreground" />
-                        <div>
-                            <p className="text-xs text-muted-foreground">{t("statClients")}</p>
-                            <p className="text-sm font-medium text-foreground">{workspace.client_count}</p>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <StatTile icon={Building2} label={t("statPlan")}>
+                        <p className="truncate text-sm font-semibold text-foreground">{workspace.plan_display_name ?? workspace.plan_name}</p>
+                    </StatTile>
+                    <StatTile icon={Users2} label={t("statSeats")} tone={atSeatLimit || noSeats ? "warning" : "default"}>
+                        {maxSeats === null ? (
+                            <p className="text-sm font-semibold text-foreground">{workspace.member_count} <span className="font-normal text-muted-foreground">{t("statUnlimited")}</span></p>
+                        ) : noSeats ? (
+                            <p className="text-sm font-semibold text-amber-600">{t("statFreeSeats")}</p>
+                        ) : (
+                            <div className="flex flex-col gap-1.5">
+                                <p className="text-sm font-semibold text-foreground">
+                                    {t("statSeatsUsed", { count: seatsUsed })}
+                                    <span className="font-normal text-muted-foreground"> {t("statSeatsOf", { count: maxSeats })}</span>
+                                </p>
+                                <SeatUsageBar used={seatsUsed} max={maxSeats} />
+                            </div>
+                        )}
+                    </StatTile>
+                    <StatTile icon={Users2} label={t("statClients")}>
+                        <p className="text-sm font-semibold tabular-nums text-foreground">{workspace.client_count}</p>
+                    </StatTile>
                 </div>
             )}
 
@@ -414,123 +462,104 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                 (noSeats || atSeatLimit) ? (
                     <UpgradeBanner message={upgradeBannerMessage} />
                 ) : (
-                    <div className="rounded-lg border border-border">
-                        <button
-                            onClick={() => { setShowInviteForm(o => !o); setInviteError(""); setInviteSuccess(""); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-default transition-colors rounded-lg cursor-pointer"
-                        >
-                            <UserPlus size={15} className="text-muted-foreground" />
-                            <span className="flex-1 text-left">{t("inviteTeamMember")}</span>
-                            <span className={`text-muted-foreground text-xs transition-transform ${showInviteForm ? 'rotate-180' : ''}`}>▾</span>
-                        </button>
+                    <Card className="rounded-xl">
+                        <Card.Content className="p-0">
+                            <button
+                                type="button"
+                                onClick={() => { setShowInviteForm(o => !o); setInviteError(""); setInviteSuccess(""); }}
+                                aria-expanded={showInviteForm}
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-4 py-3 text-start text-sm font-medium text-foreground transition-colors hover:bg-default/40"
+                            >
+                                <UserPlus size={16} className="text-muted-foreground" aria-hidden="true" />
+                                <span className="flex-1">{t("inviteTeamMember")}</span>
+                                <ChevronDown size={16} className={`text-muted-foreground transition-transform ${showInviteForm ? "rotate-180" : ""}`} aria-hidden="true" />
+                            </button>
 
-                        {showInviteForm && (
-                            <form onSubmit={handleInvite} className="px-4 pb-4 flex flex-col gap-3 border-t border-border pt-4">
-                                {inviteError && (
-                                    inviteError.toLowerCase().includes("seat") || inviteError.toLowerCase().includes("plan") ? (
-                                        <UpgradeBanner message={inviteError} />
-                                    ) : (
-                                        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                                            {inviteError}
-                                        </p>
-                                    )
-                                )}
-                                {inviteSuccess && (
-                                    <p className="text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
-                                        <CheckCircle2 size={14} /> {inviteSuccess}
-                                    </p>
-                                )}
-                                <div className="flex gap-3">
-                                    <div className="flex-1">
-                                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t("emailLabel")}</label>
-                                        <input
-                                            type="email"
-                                            placeholder={t("emailPlaceholder")}
-                                            value={inviteEmail}
-                                            onChange={e => setInviteEmail(e.target.value)}
-                                            className={inputCls}
-                                            required
-                                            autoFocus
-                                        />
+                            {showInviteForm && (
+                                <form onSubmit={handleInvite} className="flex flex-col gap-4 border-t border-border px-4 pb-4 pt-4">
+                                    {inviteError && (
+                                        inviteError.toLowerCase().includes("seat") || inviteError.toLowerCase().includes("plan")
+                                            ? <UpgradeBanner message={inviteError} />
+                                            : <StatusAlert status="danger">{inviteError}</StatusAlert>
+                                    )}
+                                    <StatusAlert status="success">{inviteSuccess}</StatusAlert>
+
+                                    <div className="flex flex-col gap-4 sm:flex-row">
+                                        <div className="flex flex-1 flex-col gap-1.5">
+                                            <FieldLabel required>{t("emailLabel")}</FieldLabel>
+                                            <TextField variant="secondary" fullWidth isRequired aria-label={t("emailLabel")} value={inviteEmail} onChange={setInviteEmail}>
+                                                <Input type="email" placeholder={t("emailPlaceholder")} autoFocus />
+                                            </TextField>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 sm:w-44">
+                                            <FieldLabel>{t("roleLabel")}</FieldLabel>
+                                            <RoleSelect
+                                                value={inviteRole} onChange={setInviteRole}
+                                                roles={inviteRoles} labels={ROLE_LABELS}
+                                                ariaLabel={t("roleLabel")} className="w-full"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="w-36">
-                                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t("roleLabel")}</label>
-                                        <select
-                                            value={inviteRole}
-                                            onChange={e => setInviteRole(e.target.value)}
-                                            className={inputCls}
-                                        >
-                                            {(isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"]).map(r => (
-                                                <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
-                                            ))}
-                                        </select>
+                                    <div className="flex flex-col gap-1.5">
+                                        <FieldLabel>{t("messageLabel")}</FieldLabel>
+                                        <TextField variant="secondary" fullWidth aria-label={t("messageLabel")} value={inviteMessage} onChange={setInviteMessage}>
+                                            <Input type="text" placeholder={t("messagePlaceholder")} />
+                                        </TextField>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted-foreground font-medium block mb-1">{t("messageLabel")}</label>
-                                    <input
-                                        type="text"
-                                        placeholder={t("messagePlaceholder")}
-                                        value={inviteMessage}
-                                        onChange={e => setInviteMessage(e.target.value)}
-                                        className={inputCls}
-                                    />
-                                </div>
-                                <Button
-                                    type="submit"
-                                    isDisabled={inviting || !inviteEmail.trim()}
-                                    variant="primary"
-                                    className="self-start"
-                                >
-                                    {inviting ? t("sending") : t("sendInvitation")}
-                                </Button>
-                            </form>
-                        )}
-                    </div>
+                                    <Button
+                                        type="submit"
+                                        isDisabled={inviting || !inviteEmail.trim()}
+                                        variant="primary"
+                                        className="self-start"
+                                    >
+                                        {inviting ? t("sending") : t("sendInvitation")}
+                                    </Button>
+                                </form>
+                            )}
+                        </Card.Content>
+                    </Card>
                 )
             )}
 
             {/* Members list */}
-            <div className="flex flex-col gap-0 rounded-lg border border-border overflow-hidden">
+            <RowList>
                 {workspace?.owner_fname && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0">
-                        <MemberAvatar fname={workspace.owner_fname} lname={workspace.owner_lname} />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">
-                                {workspace.owner_fname} {workspace.owner_lname}
-                                {workspace.owner_id === me?.userId && (
-                                    <span className="ml-1.5 text-[10px] text-muted-foreground">{t("youLabel")}</span>
-                                )}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
-                        </div>
+                    <PersonRow
+                        avatar={<MemberAvatar fname={workspace.owner_fname} lname={workspace.owner_lname} />}
+                        title={<>
+                            {workspace.owner_fname} {workspace.owner_lname}
+                            {workspace.owner_id === me?.userId && (
+                                <span className="ms-1.5 text-[10px] font-normal text-muted-foreground">{t("youLabel")}</span>
+                            )}
+                        </>}
+                        subtitle={workspace.owner_email}
+                    >
                         {canEditCapacity && (
                             <CapacityButton value={ownerCapacity} daysOff={ownerDaysOff} onClick={() => setEditingCapacity({ kind: "owner" })} />
                         )}
                         <RoleBadge role="owner" />
-                    </div>
+                    </PersonRow>
                 )}
 
                 {members.length === 0 && (
-                    <p className="px-4 py-6 text-sm text-muted-foreground text-center">{t("noMembers")}</p>
+                    <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t("noMembers")}</p>
                 )}
 
                 {members.map(member => {
                     const roleChangeAllowed = canChangeRole(member);
                     const removeAllowed = canRemoveMember(member);
                     return (
-                        <div key={member.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-default/30 transition-colors">
-                            <MemberAvatar fname={member.fname} lname={member.lname} />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">
-                                    {member.fname} {member.lname}
-                                    {member.user_id === myUserId && (
-                                        <span className="ml-1.5 text-[10px] text-muted-foreground">{t("youLabel")}</span>
-                                    )}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                            </div>
-
+                        <PersonRow
+                            key={member.id}
+                            avatar={<MemberAvatar fname={member.fname} lname={member.lname} />}
+                            title={<>
+                                {member.fname} {member.lname}
+                                {member.user_id === myUserId && (
+                                    <span className="ms-1.5 text-[10px] font-normal text-muted-foreground">{t("youLabel")}</span>
+                                )}
+                            </>}
+                            subtitle={member.email}
+                        >
                             {canEditCapacity && CAPACITY_ROLES.includes(member.role) && (
                                 <CapacityButton
                                     value={member.daily_plan_capacity}
@@ -540,46 +569,40 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                             )}
 
                             {roleChangeAllowed ? (
-                                <select
-                                    value={member.role}
-                                    onChange={e => handleRoleChange(member.id, e.target.value)}
-                                    disabled={updatingRole === member.id}
-                                    className="text-xs px-2 py-1 rounded-md border border-input bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-60 cursor-pointer"
-                                >
-                                    {(isOwner ? ROLES : ["trainer", "assistant"]).map(r => (
-                                        <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
-                                    ))}
-                                </select>
+                                <RoleSelect
+                                    value={member.role} onChange={(role) => handleRoleChange(member.id, role)}
+                                    roles={isOwner ? ROLES : ["trainer", "assistant"]} labels={ROLE_LABELS}
+                                    isDisabled={updatingRole === member.id} ariaLabel={t("roleLabel")} className="w-36"
+                                />
                             ) : (
                                 <RoleBadge role={member.role} />
                             )}
 
                             {isOwner && (
-                                <button
-                                    onClick={() => setEditingPerms(member)}
-                                    title={t("editPermissions")}
-                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                <Button
+                                    isIconOnly size="sm" variant="ghost"
+                                    onPress={() => setEditingPerms(member)}
+                                    aria-label={t("editPermissions")} title={t("editPermissions")}
                                 >
-                                    <SlidersHorizontal size={14} />
-                                </button>
+                                    <SlidersHorizontal size={15} aria-hidden="true" />
+                                </Button>
                             )}
 
-                            {removeAllowed ? (
-                                <button
-                                    onClick={() => setConfirmRemove(member)}
-                                    disabled={removingId === member.id}
-                                    title={t("removeTitle")}
-                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
+                            {removeAllowed && (
+                                <Button
+                                    isIconOnly size="sm" variant="ghost"
+                                    onPress={() => setConfirmRemove(member)}
+                                    isDisabled={removingId === member.id}
+                                    aria-label={t("removeTitle")} title={t("removeTitle")}
+                                    className="text-destructive"
                                 >
-                                    <Trash2 size={14} />
-                                </button>
-                            ) : (
-                                <div className="w-7" />
+                                    <Trash2 size={15} aria-hidden="true" />
+                                </Button>
                             )}
-                        </div>
+                        </PersonRow>
                     );
                 })}
-            </div>
+            </RowList>
 
             {/* Confirm remove modal */}
             <Modal
@@ -591,18 +614,18 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     <p className="text-sm text-foreground">
                         {t("removeConfirm", { name: `${confirmRemove?.fname} ${confirmRemove?.lname}` })}
                     </p>
-                    <div className="flex gap-2 justify-end">
+                    <ModalFooter>
                         <Button variant="ghost" onClick={() => setConfirmRemove(null)}>
                             {t("cancel")}
                         </Button>
                         <Button
+                            variant="danger"
                             onClick={() => handleRemove(confirmRemove.id)}
                             isDisabled={removingId === confirmRemove?.id}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             {removingId === confirmRemove?.id ? t("removing") : t("remove")}
                         </Button>
-                    </div>
+                    </ModalFooter>
                 </div>
             </Modal>
 
@@ -672,41 +695,37 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
     }
 
     if (invitations.length === 0) {
-        return (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <Mail size={32} className="text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">{t("noPendingInvitations")}</p>
-            </div>
-        );
+        return <EmptyState variant="firstTime" icon={Mail} title={t("noPendingInvitations")} />;
     }
 
     return (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <RowList>
             {invitations.map(inv => (
-                <div key={inv.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-default/30 transition-colors">
-                    <MemberAvatar fname={inv.fname} lname={inv.lname} />
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{inv.fname} {inv.lname}</p>
-                        <p className="text-xs text-muted-foreground truncate">{inv.email}</p>
-                    </div>
+                <PersonRow
+                    key={inv.id}
+                    avatar={<MemberAvatar fname={inv.fname} lname={inv.lname} />}
+                    title={`${inv.fname} ${inv.lname}`}
+                    subtitle={inv.email}
+                >
                     <RoleBadge role={inv.role} />
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                        <Clock size={11} />
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                        <Clock size={12} aria-hidden="true" />
                         {formatDate(inv.created_at)}
-                    </div>
+                    </span>
                     {canManage && (
-                        <button
-                            onClick={() => handleCancel(inv.id)}
-                            disabled={cancellingId === inv.id}
-                            title={t("cancelInvitation")}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
+                        <Button
+                            isIconOnly size="sm" variant="ghost"
+                            onPress={() => handleCancel(inv.id)}
+                            isDisabled={cancellingId === inv.id}
+                            aria-label={t("cancelInvitation")} title={t("cancelInvitation")}
+                            className="text-destructive"
                         >
-                            <XCircle size={14} />
-                        </button>
+                            <XCircle size={15} aria-hidden="true" />
+                        </Button>
                     )}
-                </div>
+                </PersonRow>
             ))}
-        </div>
+        </RowList>
     );
 }
 
@@ -747,52 +766,49 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
     }
 
     if (myInvitations.length === 0) {
-        return (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <CheckCircle2 size={32} className="text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">{t("noMyInvitations")}</p>
-            </div>
-        );
+        return <EmptyState variant="firstTime" icon={CheckCircle2} title={t("noMyInvitations")} />;
     }
 
     return (
         <div className="flex flex-col gap-3">
             {myInvitations.map(inv => (
-                <div key={inv.id} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <Building2 size={16} className="text-primary" />
+                <Card key={inv.id} className="rounded-xl">
+                    <Card.Content className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Building2 size={17} aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-foreground">{inv.workspace.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("invitedBy", { inviter: `${inv.invitedBy.fname} ${inv.invitedBy.lname}` })} · {t("invitedAs")}{" "}
+                                    <span className="font-medium capitalize">{inv.role}</span>
+                                </p>
+                                {inv.message && (
+                                    <p className="mt-0.5 text-xs italic text-foreground/70">&ldquo;{inv.message}&rdquo;</p>
+                                )}
+                            </div>
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">{inv.workspace.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                                {t("invitedBy", { inviter: `${inv.invitedBy.fname} ${inv.invitedBy.lname}` })} · {t("invitedAs")}{" "}
-                                <span className="font-medium capitalize">{inv.role}</span>
-                            </p>
-                            {inv.message && (
-                                <p className="text-xs text-foreground/70 mt-0.5 italic">&ldquo;{inv.message}&rdquo;</p>
-                            )}
+                        <div className="flex shrink-0 items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDecline(inv.id)}
+                                isDisabled={respondingId === inv.id}
+                            >
+                                {t("decline")}
+                            </Button>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleAccept(inv)}
+                                isDisabled={respondingId === inv.id}
+                            >
+                                {respondingId === inv.id ? "…" : t("accept")}
+                            </Button>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDecline(inv.id)}
-                            isDisabled={respondingId === inv.id}
-                        >
-                            {t("decline")}
-                        </Button>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => handleAccept(inv)}
-                            isDisabled={respondingId === inv.id}
-                        >
-                            {respondingId === inv.id ? "…" : t("accept")}
-                        </Button>
-                    </div>
-                </div>
+                    </Card.Content>
+                </Card>
             ))}
         </div>
     );
@@ -829,11 +845,7 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
         <Modal open={open} onClose={() => { reset(); onClose(); }} title={t("createWorkspaceTitle")}>
             <div className="flex flex-col gap-3">
                 <form onSubmit={handleCreate} className="flex flex-col gap-5 px-1 py-1">
-                    {error && (
-                        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                            {error}
-                        </p>
-                    )}
+                    <StatusAlert status="danger">{error}</StatusAlert>
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel required>{t("workspaceNameLabel")}</FieldLabel>
                         <TextField variant="secondary" fullWidth isRequired aria-label={t("workspaceNameLabel")} value={name} onChange={setName}>
@@ -847,7 +859,7 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                         <TextField variant="secondary" fullWidth aria-label={t("slugLabel")} value={slug} onChange={setSlug}>
                             <Input type="text" placeholder={t("slugPlaceholder")} />
                         </TextField>
-                        <p className="text-xs text-muted-foreground mt-1">{t("slugHint")}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{t("slugHint")}</p>
                     </div>
                     <ModalFooter>
                         <Button type="button" variant="ghost" onClick={() => { reset(); onClose(); }}>
@@ -861,13 +873,24 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                             {creating ? t("creating") : t("createWorkspace")}
                         </Button>
                     </ModalFooter>
-                    </form>
+                </form>
             </div>
         </Modal>
     );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+
+// A tab label with an optional count chip (pending invitations).
+function TabLabel({ icon: Icon, children, count = 0 }) {
+    return (
+        <span className="flex items-center gap-1.5">
+            <Icon size={14} aria-hidden="true" />
+            {children}
+            {count > 0 && <Chip size="sm" color="accent">{count}</Chip>}
+        </span>
+    );
+}
 
 export default function TeamPage() {
     const t = useTranslations("team");
@@ -932,11 +955,11 @@ export default function TeamPage() {
 
     if (loading) {
         return (
-            <div className="p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-6">{t("pageTitle")}</h1>
-                <div className="space-y-3">
+            <div className="p-4 sm:p-8">
+                <h1 className="mb-6 text-3xl font-bold text-foreground">{t("pageTitle")}</h1>
+                <div className="flex flex-col gap-3">
                     {[1, 2, 3].map(i => (
-                        <Skeleton key={i} className="h-14 rounded-lg" />
+                        <Skeleton key={i} className="h-14 rounded-xl" />
                     ))}
                 </div>
             </div>
@@ -944,12 +967,12 @@ export default function TeamPage() {
     }
 
     return (
-        <div className="p-8 max-w-3xl flex flex-col gap-6">
+        <div className="flex flex-col gap-6 p-4 sm:p-8">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">{t("pageTitle")}</h1>
-                    <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t("pageSubtitle")}</p>
                 </div>
                 <Button
                     onClick={() => setShowNewWs(true)}
@@ -969,19 +992,24 @@ export default function TeamPage() {
             />
 
             {/* Tabs */}
-            <div className="border-b border-border -mb-2">
-                <div className="flex gap-0">
-                    <TabButton active={tab === "members"} onClick={() => setTab("members")}>
-                        <Users2 size={14} /> {t("tabMembers")}
-                    </TabButton>
-                    <TabButton active={tab === "invitations"} onClick={() => setTab("invitations")} badge={pendingOutgoing}>
-                        <Mail size={14} /> {t("tabInvitations")}
-                    </TabButton>
-                    <TabButton active={tab === "mine"} onClick={() => setTab("mine")} badge={pendingIncoming}>
-                        <CheckCircle2 size={14} /> {t("tabMyInvitations")}
-                    </TabButton>
-                </div>
-            </div>
+            <Tabs selectedKey={tab} onSelectionChange={(key) => setTab(String(key))} variant="secondary">
+                <Tabs.ListContainer>
+                    <Tabs.List aria-label={t("pageTitle")}>
+                        <Tabs.Tab id="members">
+                            <TabLabel icon={Users2}>{t("tabMembers")}</TabLabel>
+                            <Tabs.Indicator />
+                        </Tabs.Tab>
+                        <Tabs.Tab id="invitations">
+                            <TabLabel icon={Mail} count={pendingOutgoing}>{t("tabInvitations")}</TabLabel>
+                            <Tabs.Indicator />
+                        </Tabs.Tab>
+                        <Tabs.Tab id="mine">
+                            <TabLabel icon={CheckCircle2} count={pendingIncoming}>{t("tabMyInvitations")}</TabLabel>
+                            <Tabs.Indicator />
+                        </Tabs.Tab>
+                    </Tabs.List>
+                </Tabs.ListContainer>
+            </Tabs>
 
             {/* Tab content */}
             {tab === "members" && (
