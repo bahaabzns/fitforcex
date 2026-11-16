@@ -9,6 +9,7 @@ import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
 import { StatCard } from "@/app/components/operations/KpiTrendCards";
 import { dailySeries, weekOverWeekDelta } from "@/lib/transactionTrends";
+import ScrollHint from "@/app/components/ScrollHint";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
@@ -56,12 +57,18 @@ const TREND_RED = "#ef4444";
 const TREND_BLUE = "#3b82f6";
 const TREND_AMBER = "#f59e0b";
 
-// A titled row of stat cards: two across on phones, four on wide screens.
+// A titled row of stat cards. Phones: one row of fixed-width cards that scrolls sideways and snaps
+// card by card, with the arrow-and-fade hint when more cards are off-screen. From sm up: a grid
+// (two across, four on wide screens) that fits without scrolling.
 function MetricGroup({ title, children }) {
     return (
-        <section className="flex flex-col gap-2">
+        <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
-            <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:gap-4 xl:grid-cols-4">{children}</div>
+            <ScrollHint scrollerClassName="snap-x snap-mandatory">
+                <div className="flex w-max gap-2.5 *:w-44 *:shrink-0 *:snap-start sm:grid sm:w-full sm:grid-cols-2 sm:gap-4 sm:*:w-auto sm:*:min-w-0 xl:grid-cols-4">
+                    {children}
+                </div>
+            </ScrollHint>
         </section>
     );
 }

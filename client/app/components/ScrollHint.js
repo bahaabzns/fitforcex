@@ -19,7 +19,7 @@ const NOTHING_HIDDEN = { overflowing: false, start: false, end: false };
 //
 // The scroll shadow is a mask on the strip itself: at each edge that has more to scroll to, the tabs
 // fade to transparent, so it works on any background with no colour to match.
-export default function ScrollHint({ children, className = '' }) {
+export default function ScrollHint({ children, className = '', scrollerClassName = '' }) {
     const outerRef = useRef(null);
     const scrollerRef = useRef(null);
     const isRtl = useLocale() === 'ar';
@@ -76,7 +76,7 @@ export default function ScrollHint({ children, className = '' }) {
             <div
                 ref={scrollerRef}
                 onScroll={measure}
-                className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className={`min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${scrollerClassName}`}
                 style={{ maskImage: mask, WebkitMaskImage: mask }}
             >
                 {children}
