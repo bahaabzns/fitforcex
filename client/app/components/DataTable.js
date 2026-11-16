@@ -34,6 +34,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 //   onSelectionChange — (newSet) => void
 //   renderExpandedRow — (row) => <tr>...</tr> | null
 //   renderMobileExpanded — (row) => JSX
+//   renderMobileRow — (row) => JSX, mobileListView only: replaces the generic "label: value" lines of a
+//                phone row with the page's own layout (the selection checkbox is still drawn by the table).
 //   scrollable — boolean
 //   defaultSort / defaultSortDirection
 //   emptyState — first-time (no data at all) config: { icon, title, description, action }.
@@ -222,6 +224,7 @@ export default function DataTable({
     onSelectionChange,
     renderExpandedRow,
     renderMobileExpanded,
+    renderMobileRow,
     scrollable,
     defaultSort,
     defaultSortDirection,
@@ -1100,6 +1103,7 @@ export default function DataTable({
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
+                                            {renderMobileRow ? renderMobileRow(row) : (<>
                                             {primaryCols.map(col => (
                                                 <div key={col.key} className="flex items-baseline gap-2 mb-1 last:mb-0">
                                                     <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
@@ -1118,6 +1122,7 @@ export default function DataTable({
                                                     ))}
                                                 </div>
                                             )}
+                                            </>)}
                                         </div>
                                         {renderMobileExpanded && renderMobileExpanded(row)}
                                     </div>

@@ -17,6 +17,7 @@ import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { getInitials } from "@/utils/initials";
+import { useSheetUi } from "@/hooks/useSheetUi";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import AnswerBody from "@/app/components/forms/AnswerBody";
 import Modal from "@/app/components/Modal";
@@ -145,6 +146,8 @@ export default function PlansQueueTable({
     const t = useTranslations('plansQueue');
     const locale = useLocale();
     const { formatDateTime } = useDateFormatter();
+    // On a phone the assignee and label pickers (and the dialogs) open as bottom sheets.
+    useSheetUi();
     const [submissions, setSubmissions] = useState(initialSubmissions);
     const [marking, setMarking] = useState(false);
     // Per-row assignee overrides applied on top of the server data (id → { assignedTo, assignedToName }).
@@ -951,6 +954,47 @@ export default function PlansQueueTable({
         },
     ];
 
+
+    // A phone row, grouped instead of one "label: value" line per column: who and what on top (with the status),
+    // the form and its tags, the two dates side by side, the action buttons, then who has it and its label.
+    // It reuses the table's own cells, so every control behaves exactly as it does on a wide screen.
+    function renderMobileRow(row) {
+        const cell = (key) => columns.find((column) => column.key === key);
+        const statusCell = cell("status");
+        const actionTakenCell = cell("actionTakenAt");
+        const fieldLabel = (text) => <p className="mb-0.5 text-[11px] font-medium text-muted-foreground">{text}</p>;
+
+        return (
+            <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">{cell("clientName").render(row)}</div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                        {statusCell?.render(row)}
+                        <span className="font-mono text-xs text-muted-foreground">#{row.clientCode ?? "-"}</span>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    {cell("formTitle_en").render(row)}
+                    {row.clientPackage && <div className="flex">{cell("clientPackage").render(row)}</div>}
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                    <div>{fieldLabel(t('submitted'))}{cell("submittedAt").render(row)}</div>
+                    <div>{fieldLabel(t('requestedScheduled'))}{cell("requestedAt").render(row)}</div>
+                    {actionTakenCell && <div>{fieldLabel(t('actionTaken'))}{actionTakenCell.render(row)}</div>}
+                </div>
+
+                <div className="flex items-center">{cell("actions").render(row)}</div>
+
+                <div className="grid grid-cols-2 gap-3 border-t border-border pt-2">
+                    <div className="min-w-0">{fieldLabel(t('assigned'))}{cell("assignedTo").render(row)}</div>
+                    <div className="min-w-0">{fieldLabel(t('label'))}{cell("label").render(row)}</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         // A real element, not a Fragment — this component is sometimes rendered
         // inside a parent flex container (Submission History's gap-10 wrapper);
@@ -1018,6 +1062,7 @@ export default function PlansQueueTable({
                 }}
                 selectable
                 mobileListView
+                renderMobileRow={renderMobileRow}
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
                 onFilteredDataChange={setFilteredItems}
