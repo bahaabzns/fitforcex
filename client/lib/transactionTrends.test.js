@@ -25,6 +25,12 @@ describe("dailySeries", () => {
         expect(series[12].value).toBe(0);
     });
 
+    it("uses the transaction date over the recorded date when there is one", () => {
+        const series = dailySeries([{ date: daysAgo(3), createdAt: daysAgo(0), amount: 40 }], amountOf, { now: NOW });
+        expect(series[10].value).toBe(40);
+        expect(series[13].value).toBe(0);
+    });
+
     it("ignores rows outside the window and rows without a usable date", () => {
         const rows = [
             { createdAt: daysAgo(20), amount: 999 },

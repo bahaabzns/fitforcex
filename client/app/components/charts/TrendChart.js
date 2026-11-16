@@ -32,10 +32,10 @@ function useElementWidth() {
 
 /**
  * Line chart for change over time. `labels` are the x positions; each series has one value per label.
- * A hairline crosshair snaps to the nearest week and one tooltip lists every series at that point.
+ * A hairline crosshair snaps to the nearest point (`unit`: what one point is, week by default) and one tooltip lists every series at that point.
  * Arrow keys move it, so the readout isn't pointer-only.
  */
-export default function TrendChart({ labels, series, formatLabel = String, emptyText = 'Nothing to show yet.' }) {
+export default function TrendChart({ labels, series, formatLabel = String, emptyText = 'Nothing to show yet.', unit = 'week' }) {
     const [wrapperRef, width] = useElementWidth();
     const [activeIndex, setActiveIndex] = useState(null);
 
@@ -88,7 +88,7 @@ export default function TrendChart({ labels, series, formatLabel = String, empty
                     height={HEIGHT_PX}
                     role="img"
                     tabIndex={0}
-                    aria-label={`Trend over ${labels.length} weeks: ${series.map(item => item.label).join(' and ')}. Use the arrow keys to read each week.`}
+                    aria-label={`Trend over ${labels.length} ${unit}s: ${series.map(item => item.label).join(' and ')}. Use the arrow keys to read each ${unit}.`}
                     onPointerMove={event => setActiveIndex(nearestIndex(event.clientX))}
                     onPointerLeave={() => setActiveIndex(null)}
                     onKeyDown={onKeyDown}

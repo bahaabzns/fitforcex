@@ -16,7 +16,7 @@ const STATUS_COLOR = { healthy: "#22c55e", tight: "#f59e0b", overloaded: "#ef444
 
 const TONE_CLASS = { good: "text-green-500", bad: "text-red-500", neutral: "text-muted-foreground" };
 
-function DeltaLine({ delta, goodDirection }) {
+function DeltaLine({ delta, goodDirection, label }) {
     const t = useTranslations("operations");
     if (!delta) return <p className="text-xs text-muted-foreground">{t("kpiNoHistory")}</p>;
     const Arrow = delta.direction === "up" ? ArrowUp : delta.direction === "down" ? ArrowDown : Minus;
@@ -28,7 +28,7 @@ function DeltaLine({ delta, goodDirection }) {
                 <Arrow size={12} aria-hidden="true" />
                 {delta.direction === "flat" ? t("kpiNoChange") : amount}
             </span>
-            {t("kpiVsLastWeek")}
+            {label ?? t("kpiVsLastWeek")}
         </p>
     );
 }
@@ -36,7 +36,8 @@ function DeltaLine({ delta, goodDirection }) {
 // One stat card: icon and label, a big value, an optional "vs last week" change, and an optional mini chart.
 // `series` undefined shows a loading placeholder, `noChart` leaves the chart out entirely, and `hideDelta`
 // drops the change line (for numbers with no history to compare against).
-export function StatCard({ icon: Icon, label, hint, value, caption, delta, goodDirection, series, color, formatValue, hideDelta = false, noChart = false, bar = null }) {
+// `deltaLabel` replaces the default "vs last week" wording when the change is against another period.
+export function StatCard({ icon: Icon, label, hint, value, caption, delta, deltaLabel, goodDirection, series, color, formatValue, hideDelta = false, noChart = false, bar = null }) {
     return (
         <Card className="rounded-xl">
             <Card.Content className="p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
@@ -47,7 +48,7 @@ export function StatCard({ icon: Icon, label, hint, value, caption, delta, goodD
                 </div>
                 <div className="flex flex-col gap-1.5">
                     <p className="text-xl sm:text-3xl font-bold text-foreground tabular-nums leading-none tracking-tight"><NumberWithUnit value={value} /></p>
-                    {!hideDelta && <DeltaLine delta={delta} goodDirection={goodDirection} />}
+                    {!hideDelta && <DeltaLine delta={delta} goodDirection={goodDirection} label={deltaLabel} />}
                     {caption && <p className="text-xs text-muted-foreground">{caption}</p>}
                 </div>
                 {/* Under the numbers, full width: the cards sit two across, so there is no room beside them. */}

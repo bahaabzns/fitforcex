@@ -15,17 +15,17 @@ export function dayKey(date) {
 
 /**
  * One point per day for the last `days` days (oldest first, ending today): the sum of `valueOf(row)`
- * over the rows created that day. Days with nothing are 0, so the line is continuous. Rows outside the
- * window or without a usable date are ignored.
+ * over the rows dated that day (the transaction date, else when it was recorded). Days with nothing are 0,
+ * so the line is continuous. Rows outside the window or without a usable date are ignored.
  */
-export function dailySeries(rows, valueOf, { days = TREND_DAYS, now = new Date() } = {}) {
+export function dailySeries(rows, valueOf, { days = TREND_DAYS, now = new Date(), dateOf = (row) => row.date ?? row.createdAt } = {}) {
     const totals = new Map();
     for (let back = days - 1; back >= 0; back -= 1) {
         const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
         totals.set(dayKey(day), 0);
     }
     for (const row of rows) {
-        const created = new Date(row.createdAt);
+        const created = new Date(dateOf(row));
         if (Number.isNaN(created.getTime())) continue;
         const key = dayKey(created);
         if (totals.has(key)) totals.set(key, totals.get(key) + valueOf(row));
