@@ -3802,7 +3802,7 @@
   },
   "financeDashboard": {
     "title": "Finance",
-    "subtitle": "Sales, payments and refunds at a glance.",
+    "subtitle": "Sales, payments and refunds for the period you pick.",
     "rangeLabel": "Time range",
     "currencyLabel": "Display currency",
     "kpiSales": "Total sales",
@@ -3829,6 +3829,14 @@
     "emptyBody": "Record a payment on the Transactions page and your sales will show up here.",
     "viewTransactions": "View all transactions",
     "loadError": "Could not load the financial figures. Please try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "secSources": "Where sales come from",
+    "secSourcesDesc": "Completed payments in the period, by payment method, package and currency.",
+    "rangeTooLong": "Pick a range of up to {max} days.",
+    "salesTotalLabel": "Total sales over {days, plural, one {# day} other {# days}}",
+    "showPrevious": "Show the previous period on the chart",
+    "salesOverTimeInfo": "Each point is one day of completed payments. The grey line is the same days of the period right before.",
+    "shareOfSales": "{percent}% of sales",
+    "byCurrencyHint": "Ranked by value in the display currency. The note under each name is the exact amount in that currency."
   }
 }
