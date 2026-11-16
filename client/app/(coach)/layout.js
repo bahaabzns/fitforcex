@@ -258,29 +258,33 @@ function WorkspaceContent({ children }) {
                         </Button>
 
                         {crumbs.length > 0 && (
-                            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+                            // flex-1 + overflow-hidden: the trail takes only the room the action buttons leave, so a long
+                            // trail is clipped (labels truncate) instead of running underneath them. On a phone only the
+                            // current page is shown, the parents being what makes a trail long.
+                            <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm">
                                 {icon && (
-                                    <span className={crumbs.length === 1 ? "text-foreground" : "text-muted-foreground"}>{icon}</span>
+                                    <span className={`shrink-0 ${crumbs.length === 1 || isCompactHeader ? "text-foreground" : "text-muted-foreground"}`}>{icon}</span>
                                 )}
                                 {crumbs.map((crumb, i) => {
                                     const isLast = i === crumbs.length - 1;
+                                    if (isCompactHeader && !isLast) return null;
                                     // On a phone's client page the "Clients" crumb is the last one but still the way
                                     // back to the list (the client's name is the page's own title line there).
                                     const isLink = (!isLast || (isCompactHeader && Boolean(clientId))) && breadcrumbInteractive;
                                     return (
-                                        <span key={i} className="flex items-center gap-1.5">
-                                            {i > 0 && <ChevronRight size={13} className="text-muted-foreground" />}
+                                        <span key={i} className="flex min-w-0 items-center gap-1.5">
+                                            {i > 0 && !isCompactHeader && <ChevronRight size={13} className="shrink-0 text-muted-foreground" />}
                                             {isLink ? (
                                                 <Link
                                                     href={crumb.href}
-                                                    className="text-muted-foreground underline-offset-4 transition-colors hover:underline"
+                                                    className="truncate text-muted-foreground underline-offset-4 transition-colors hover:underline"
                                                 >
                                                     {crumb.label}
                                                 </Link>
                                             ) : (
                                                 <span
                                                     aria-current={isLast ? "page" : undefined}
-                                                    className={isLast ? "truncate font-medium text-foreground" : "text-muted-foreground"}
+                                                    className={isLast ? "truncate font-medium text-foreground" : "truncate text-muted-foreground"}
                                                 >
                                                     {crumb.label}
                                                 </span>
@@ -291,7 +295,7 @@ function WorkspaceContent({ children }) {
                             </nav>
                         )}
 
-                        <div className="ms-auto flex items-center gap-1">
+                        <div className="ms-auto flex shrink-0 items-center gap-1">
                             <UpgradeButton />
                             {isCompactHeader ? (
                                 <>
