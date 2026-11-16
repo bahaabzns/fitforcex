@@ -24,8 +24,8 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Switch } from "@heroui/react/switch";
 import { TextField } from "@heroui/react/textfield";
 import {
-    Users2, UserPlus, Mail, ChevronDown,
-    Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
+    Users2, UserPlus, Mail,
+    Trash2, Clock, CheckCircle2, XCircle, Building2, SlidersHorizontal,
 } from 'lucide-react';
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
@@ -257,6 +257,114 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
     );
 }
 
+// ── Invite dialog ─────────────────────────────────────────────────────────────
+
+// Inviting someone: opened by the page's "Invite team member" button. When the plan has no free seat the
+// dialog says so instead of offering the form.
+function InviteMemberModal({ open, onClose, workspace, me, pendingCount, onInvited }) {
+    const t = useTranslations("team");
+    const isOwner = me?.currentWorkspace?.role === "owner";
+
+    const maxSeats = workspace?.max_team_seats ?? null;
+    const seatsUsed = parseInt(workspace?.member_count ?? 0) + (pendingCount ?? 0);
+    const noSeats = maxSeats === 0;
+    const atSeatLimit = maxSeats !== null && seatsUsed >= maxSeats;
+
+    const ROLE_LABELS = {
+        manager: t("roleManager"),
+        trainer: t("roleTrainer"),
+        assistant: t("roleAssistant"),
+    };
+    const roles = isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"];
+
+    const [email, setEmail] = useState("");
+    const [role, setRole] = useState("trainer");
+    const [message, setMessage] = useState("");
+    const [inviting, setInviting] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+
+    function close() {
+        setError("");
+        setSuccess("");
+        onClose();
+    }
+
+    async function handleInvite(e) {
+        e.preventDefault();
+        setError("");
+        setSuccess("");
+        setInviting(true);
+        try {
+            const normalizedEmail = normalizeEmail(email);
+            await api.post(`/api/workspaces/${workspace.id}/invitations`, {
+                email: normalizedEmail,
+                role,
+                message: message.trim() || undefined,
+            });
+            setSuccess(t("inviteSent", { email: normalizedEmail }));
+            setEmail("");
+            setMessage("");
+            onInvited?.();
+        } catch (err) {
+            setError(err.response?.data?.message || t("inviteFailed"));
+        } finally {
+            setInviting(false);
+        }
+    }
+
+    return (
+        <Modal open={open} onClose={close} title={t("inviteTeamMember")}>
+            {noSeats || atSeatLimit ? (
+                <div className="flex flex-col gap-4">
+                    <UpgradeBanner message={noSeats ? t("upgradeFreeSeats") : t("upgradeSeatLimit", { count: maxSeats })} />
+                    <ModalFooter>
+                        <Button variant="ghost" onClick={close}>{t("cancel")}</Button>
+                    </ModalFooter>
+                </div>
+            ) : (
+                <form onSubmit={handleInvite} className="flex flex-col gap-4">
+                    {error && (
+                        error.toLowerCase().includes("seat") || error.toLowerCase().includes("plan")
+                            ? <UpgradeBanner message={error} />
+                            : <StatusAlert status="danger">{error}</StatusAlert>
+                    )}
+                    <StatusAlert status="success">{success}</StatusAlert>
+
+                    <div className="flex flex-col gap-4 sm:flex-row">
+                        <div className="flex flex-1 flex-col gap-1.5">
+                            <FieldLabel required>{t("emailLabel")}</FieldLabel>
+                            <TextField variant="secondary" fullWidth isRequired aria-label={t("emailLabel")} value={email} onChange={setEmail}>
+                                <Input type="email" placeholder={t("emailPlaceholder")} autoFocus />
+                            </TextField>
+                        </div>
+                        <div className="flex flex-col gap-1.5 sm:w-44">
+                            <FieldLabel>{t("roleLabel")}</FieldLabel>
+                            <RoleSelect
+                                value={role} onChange={setRole}
+                                roles={roles} labels={ROLE_LABELS}
+                                ariaLabel={t("roleLabel")} className="w-full"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t("messageLabel")}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t("messageLabel")} value={message} onChange={setMessage}>
+                            <Input type="text" placeholder={t("messagePlaceholder")} />
+                        </TextField>
+                    </div>
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={close}>{t("cancel")}</Button>
+                        <Button type="submit" variant="primary" isDisabled={inviting || !email.trim()}>
+                            {inviting ? t("sending") : t("sendInvitation")}
+                        </Button>
+                    </ModalFooter>
+                </form>
+            )}
+        </Modal>
+    );
+}
+
 // ── Members Tab ───────────────────────────────────────────────────────────────
 
 // Roles whose daily plan capacity counts toward the Operations dashboard
@@ -292,21 +400,12 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
     const maxSeats = workspace?.max_team_seats ?? null;
     const seatsUsed = parseInt(workspace?.member_count ?? 0) + (pendingCount ?? 0);
     const noSeats = maxSeats === 0;
-    const atSeatLimit = maxSeats !== null && seatsUsed >= maxSeats;
 
     const ROLE_LABELS = {
         manager: t("roleManager"),
         trainer: t("roleTrainer"),
         assistant: t("roleAssistant"),
     };
-
-    const [showInviteForm, setShowInviteForm] = useState(false);
-    const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState("trainer");
-    const [inviteMessage, setInviteMessage] = useState("");
-    const [inviting, setInviting] = useState(false);
-    const [inviteError, setInviteError] = useState("");
-    const [inviteSuccess, setInviteSuccess] = useState("");
 
     const [updatingRole, setUpdatingRole] = useState(null);
     const [removingId, setRemovingId] = useState(null);
@@ -327,28 +426,6 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
     }, [canEditCapacity]);
 
     const wsId = workspace?.id;
-
-    async function handleInvite(e) {
-        e.preventDefault();
-        setInviteError("");
-        setInviteSuccess("");
-        setInviting(true);
-        try {
-            const normalizedEmail = normalizeEmail(inviteEmail);
-            await api.post(`/api/workspaces/${wsId}/invitations`, {
-                email: normalizedEmail,
-                role: inviteRole,
-                message: inviteMessage.trim() || undefined,
-            });
-            setInviteSuccess(t("inviteSent", { email: normalizedEmail }));
-            setInviteEmail("");
-            setInviteMessage("");
-        } catch (err) {
-            setInviteError(err.response?.data?.message || t("inviteFailed"));
-        } finally {
-            setInviting(false);
-        }
-    }
 
     async function handleRoleChange(memberId, newRole) {
         setUpdatingRole(memberId);
@@ -392,12 +469,6 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
         if (member.role === "manager") return false;
         return true;
     }
-
-    const upgradeBannerMessage = noSeats
-        ? t("upgradeFreeSeats")
-        : t("upgradeSeatLimit", { count: maxSeats });
-
-    const inviteRoles = isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"];
 
     // How full the seats are, for the seats card's bar (same thresholds as the dashboard's utilization bars).
     const seatsPercent = maxSeats ? Math.min(100, Math.round((seatsUsed / maxSeats) * 100)) : 0;
@@ -481,86 +552,24 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
         <div className="flex flex-col gap-6">
             {/* Workspace figures, as the same metric cards the dashboard uses */}
             {workspace && (
-                <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:gap-4 xl:grid-cols-4">
+                <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:grid-cols-4 sm:gap-3">
                     <StatCard
+                        compact
                         icon={Building2} label={t("statPlan")}
                         value={workspace.plan_display_name ?? workspace.plan_name}
                         hideDelta noChart
                     />
                     <StatCard
+                        compact
                         icon={Users2} label={t("statSeats")}
                         value={noSeats ? "0" : String(maxSeats === null ? workspace.member_count : seatsUsed)}
                         caption={maxSeats === null ? t("statUnlimited") : noSeats ? t("statFreeSeats") : t("statSeatsOf", { count: maxSeats })}
                         bar={maxSeats && !noSeats ? { value: seatsPercent, color: seatsBarColor, label: t("statSeatsUsed", { count: seatsUsed }) } : null}
                         hideDelta noChart
                     />
-                    <StatCard icon={Users2} label={t("statClients")} value={workspace.client_count} hideDelta noChart />
-                    <StatCard icon={Mail} label={t("tabInvitations")} value={pendingCount ?? 0} hideDelta noChart />
+                    <StatCard compact icon={Users2} label={t("statClients")} value={workspace.client_count} hideDelta noChart />
+                    <StatCard compact icon={Mail} label={t("tabInvitations")} value={pendingCount ?? 0} hideDelta noChart />
                 </div>
-            )}
-
-            {/* Invite section */}
-            {canManage && (
-                (noSeats || atSeatLimit) ? (
-                    <UpgradeBanner message={upgradeBannerMessage} />
-                ) : (
-                    <Card className="rounded-xl">
-                        <Card.Content className="p-0">
-                            <button
-                                type="button"
-                                onClick={() => { setShowInviteForm(o => !o); setInviteError(""); setInviteSuccess(""); }}
-                                aria-expanded={showInviteForm}
-                                className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-4 py-3 text-start text-sm font-medium text-foreground transition-colors hover:bg-default/40"
-                            >
-                                <UserPlus size={16} className="text-muted-foreground" aria-hidden="true" />
-                                <span className="flex-1">{t("inviteTeamMember")}</span>
-                                <ChevronDown size={16} className={`text-muted-foreground transition-transform ${showInviteForm ? "rotate-180" : ""}`} aria-hidden="true" />
-                            </button>
-
-                            {showInviteForm && (
-                                <form onSubmit={handleInvite} className="flex flex-col gap-4 border-t border-border px-4 pb-4 pt-4">
-                                    {inviteError && (
-                                        inviteError.toLowerCase().includes("seat") || inviteError.toLowerCase().includes("plan")
-                                            ? <UpgradeBanner message={inviteError} />
-                                            : <StatusAlert status="danger">{inviteError}</StatusAlert>
-                                    )}
-                                    <StatusAlert status="success">{inviteSuccess}</StatusAlert>
-
-                                    <div className="flex flex-col gap-4 sm:flex-row">
-                                        <div className="flex flex-1 flex-col gap-1.5">
-                                            <FieldLabel required>{t("emailLabel")}</FieldLabel>
-                                            <TextField variant="secondary" fullWidth isRequired aria-label={t("emailLabel")} value={inviteEmail} onChange={setInviteEmail}>
-                                                <Input type="email" placeholder={t("emailPlaceholder")} autoFocus />
-                                            </TextField>
-                                        </div>
-                                        <div className="flex flex-col gap-1.5 sm:w-44">
-                                            <FieldLabel>{t("roleLabel")}</FieldLabel>
-                                            <RoleSelect
-                                                value={inviteRole} onChange={setInviteRole}
-                                                roles={inviteRoles} labels={ROLE_LABELS}
-                                                ariaLabel={t("roleLabel")} className="w-full"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <FieldLabel>{t("messageLabel")}</FieldLabel>
-                                        <TextField variant="secondary" fullWidth aria-label={t("messageLabel")} value={inviteMessage} onChange={setInviteMessage}>
-                                            <Input type="text" placeholder={t("messagePlaceholder")} />
-                                        </TextField>
-                                    </div>
-                                    <Button
-                                        type="submit"
-                                        isDisabled={inviting || !inviteEmail.trim()}
-                                        variant="primary"
-                                        className="self-start"
-                                    >
-                                        {inviting ? t("sending") : t("sendInvitation")}
-                                    </Button>
-                                </form>
-                            )}
-                        </Card.Content>
-                    </Card>
-                )
             )}
 
             {/* The team, as a table */}
@@ -876,6 +885,7 @@ export default function TeamPage() {
     const [myInvitations, setMyInvitations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showNewWs, setShowNewWs] = useState(false);
+    const [showInvite, setShowInvite] = useState(false);
 
     useEffect(() => {
         if (searchParams.get("action") === "new-workspace") {
@@ -920,6 +930,7 @@ export default function TeamPage() {
     }
 
     const pendingOutgoing = invitations.length;
+    const canInvite = me?.currentWorkspace?.role === "owner" || me?.currentWorkspace?.permissions?.team?.write === true;
     const pendingIncoming = myInvitations.length;
 
     if (loading) {
@@ -943,14 +954,12 @@ export default function TeamPage() {
                     <h1 className="text-3xl font-bold text-foreground">{t("pageTitle")}</h1>
                     <p className="mt-1 text-sm text-muted-foreground">{t("pageSubtitle")}</p>
                 </div>
-                <Button
-                    onClick={() => setShowNewWs(true)}
-                    variant="outline"
-                    size="sm"
-                >
-                    <Plus size={14} />
-                    {t("newWorkspace")}
-                </Button>
+                {canInvite && (
+                    <Button onClick={() => setShowInvite(true)} variant="primary" size="sm">
+                        <UserPlus size={14} aria-hidden="true" />
+                        {t("inviteTeamMember")}
+                    </Button>
+                )}
             </div>
 
             <TriggerInsightBanner
@@ -999,6 +1008,15 @@ export default function TeamPage() {
                     )}
                 </div>
             </div>
+
+            <InviteMemberModal
+                open={showInvite}
+                onClose={() => setShowInvite(false)}
+                workspace={workspace}
+                me={me}
+                pendingCount={invitations.length}
+                onInvited={load}
+            />
 
             <CreateWorkspaceModal
                 open={showNewWs}

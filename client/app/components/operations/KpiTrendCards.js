@@ -37,17 +37,19 @@ function DeltaLine({ delta, goodDirection, label }) {
 // `series` undefined shows a loading placeholder, `noChart` leaves the chart out entirely, and `hideDelta`
 // drops the change line (for numbers with no history to compare against).
 // `deltaLabel` replaces the default "vs last week" wording when the change is against another period.
-export function StatCard({ icon: Icon, label, hint, value, caption, delta, deltaLabel, goodDirection, series, color, formatValue, hideDelta = false, noChart = false, bar = null }) {
+// `compact` is for a row of plain figures (no trend line): tighter padding, a smaller figure, and the progress
+// bar sits right under the numbers instead of being pushed to a fixed-height slot at the bottom.
+export function StatCard({ icon: Icon, label, hint, value, caption, delta, deltaLabel, goodDirection, series, color, formatValue, hideDelta = false, noChart = false, bar = null, compact = false }) {
     return (
         <Card className="rounded-xl">
-            <Card.Content className="p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
+            <Card.Content className={compact ? "p-3 flex flex-col gap-1.5" : "p-3 sm:p-5 flex flex-col gap-2 sm:gap-3"}>
                 <div className="flex items-center gap-2 text-muted-foreground min-w-0">
                     <Icon size={16} className="shrink-0" aria-hidden="true" />
                     <span className="text-xs sm:text-sm font-medium leading-tight sm:truncate">{label}</span>
                     {hint && <InfoTooltip text={hint} />}
                 </div>
-                <div className="flex flex-col gap-1.5">
-                    <p className="text-xl sm:text-3xl font-bold text-foreground tabular-nums leading-none tracking-tight"><NumberWithUnit value={value} /></p>
+                <div className={compact ? "flex flex-col gap-1" : "flex flex-col gap-1.5"}>
+                    <p className={`${compact ? "text-xl" : "text-xl sm:text-3xl"} font-bold text-foreground tabular-nums leading-none tracking-tight`}><NumberWithUnit value={value} /></p>
                     {!hideDelta && <DeltaLine delta={delta} goodDirection={goodDirection} label={deltaLabel} />}
                     {caption && <p className="text-xs text-muted-foreground">{caption}</p>}
                 </div>
@@ -55,7 +57,7 @@ export function StatCard({ icon: Icon, label, hint, value, caption, delta, delta
                 {/* `bar` ({ value: 0-100, color, label }) is a progress bar for numbers with no daily history; the
                     visual always sits at the bottom of the card so a row of cards lines up. */}
                 {bar ? (
-                    <div className="mt-auto h-14 flex flex-col justify-end gap-1.5">
+                    <div className={compact ? "mt-0.5 flex flex-col gap-1" : "mt-auto h-14 flex flex-col justify-end gap-1.5"}>
                         <div className="h-2 rounded-full bg-default/60 overflow-hidden" role="presentation">
                             <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, bar.value))}%`, backgroundColor: bar.color }} />
                         </div>
