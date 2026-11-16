@@ -3830,6 +3830,8 @@
     "showPrevious": "Show the previous period on the chart",
     "salesOverTimeInfo": "Each point is one day of completed payments. The grey line is the same days of the period right before.",
     "shareOfSales": "{percent}% of sales",
-    "byCurrencyHint": "Ranked by value in the display currency. The note under each name is the exact amount in that currency."
+    "byCurrencyHint": "Ranked by value in the display currency. The note under each name is the exact amount in that currency.",
+    "periodLabel": "Period",
+    "periodNote": "Applies to every figure and chart in Finance, and to the comparison with the period right before it."
   }
 }
