@@ -154,19 +154,33 @@ export default function ClientLayout({ children }) {
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full min-w-0">
-            {/* Phones: a two-row grid — the client's code and name with the page actions beside them, then the
-                tabs with the collapse button. From md up it is one flex row (tabs, actions, collapse) and the
-                code and name live in the top bar breadcrumb instead. */}
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0 md:flex md:flex-wrap">
-                {(clientCode || clientName) && (
-                    <h1 className="col-start-1 row-start-1 flex min-w-0 items-baseline gap-2.5 text-lg font-semibold text-foreground md:hidden">
-                        {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
-                        {clientName && <span className="min-w-0 truncate">{clientName}</span>}
-                    </h1>
+            {/* Phones: two rows — the client's code and name with the page actions beside them (the actions
+                wrap inside a capped area, so many buttons never squeeze the name or the tabs), then the tabs
+                with the collapse button. From md up the wrappers vanish (display: contents) and everything is
+                one row — tabs, actions, collapse button — with the code and name in the top bar breadcrumb. */}
+            <div className="mb-4 sm:mb-6 flex shrink-0 min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+                {(clientCode || clientName || hasHeaderActions) && (
+                    <div className="flex min-w-0 items-center justify-between gap-3 md:contents">
+                        {(clientCode || clientName) && (
+                            <h1 className="flex min-w-0 flex-1 items-baseline gap-2.5 text-lg font-semibold text-foreground md:hidden">
+                                {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
+                                {clientName && <span className="min-w-0 truncate">{clientName}</span>}
+                            </h1>
+                        )}
+                        {hasHeaderActions && (
+                            <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-2 md:order-2 md:ms-auto md:max-w-full">
+                                {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
+                                {isTraining && trainingHeaderActions}
+                                {isNutrition && nutritionHeaderActions}
+                                {isOther && pageHeaderActions}
+                            </div>
+                        )}
+                    </div>
                 )}
-                {/* Tabs scroll inside their own box so a narrow viewport never widens the page; the fade
-                    and arrow show which side still has tabs off-screen. */}
-                <ScrollHint className="col-start-1 row-start-2 max-w-full">
+                <div className="flex min-w-0 items-center gap-3 md:contents">
+                    {/* Tabs scroll inside their own box so a narrow viewport never widens the page; the fade
+                        and arrow show which side still has tabs off-screen. */}
+                    <ScrollHint className="max-w-full flex-1 md:order-1 md:flex-none">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -188,24 +202,16 @@ export default function ClientLayout({ children }) {
                         </TabList>
                     </TabListContainer>
                 </TabsRoot>
-                </ScrollHint>
-                {/* Right beside the tabs on phones; from md up it moves to the far end, after the page actions. */}
-                <button
-                    onClick={() => setHeaderCollapsed(v => !v)}
-                    title={headerCollapsed ? 'Show header' : 'Hide header'}
-                    aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
-                    className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0 col-start-2 row-start-2 md:order-last"
-                >
-                    {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                </button>
-                {hasHeaderActions && (
-                    <div className="col-start-2 row-start-1 flex items-center justify-end gap-2 min-w-0 md:ms-auto md:max-w-full md:flex-wrap">
-                        {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
-                        {isTraining && trainingHeaderActions}
-                        {isNutrition && nutritionHeaderActions}
-                        {isOther && pageHeaderActions}
-                    </div>
-                )}
+                    </ScrollHint>
+                    <button
+                        onClick={() => setHeaderCollapsed(v => !v)}
+                        title={headerCollapsed ? 'Show header' : 'Hide header'}
+                        aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
+                        className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0 md:order-3"
+                    >
+                        {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 min-h-0 min-w-0">
