@@ -339,7 +339,7 @@ function InviteMemberModal({ open, onClose, workspace, me, pendingCount, onInvit
                             </TextField>
                         </div>
                         <div className="flex flex-col gap-1.5 sm:w-44">
-                            <FieldLabel>{t("roleLabel")}</FieldLabel>
+                            <FieldLabel required>{t("roleLabel")}</FieldLabel>
                             <RoleSelect
                                 value={role} onChange={setRole}
                                 roles={roles} labels={ROLE_LABELS}
