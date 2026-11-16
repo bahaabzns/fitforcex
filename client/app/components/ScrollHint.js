@@ -25,9 +25,8 @@ export default function ScrollHint({ children, className = '' }) {
         if (!outer || !scroller) return;
 
         // Judged against the outer box (not the scroller) so adding the slots cannot flip the answer.
-        const content = scroller.firstElementChild;
-        const contentWidth = content ? content.offsetWidth : scroller.scrollWidth;
-        const overflowing = contentWidth > outer.clientWidth + EDGE_TOLERANCE_PX;
+        // scrollWidth counts content that spills out of a wrapper that is itself only as wide as the bar.
+        const overflowing = scroller.scrollWidth > outer.clientWidth + EDGE_TOLERANCE_PX;
 
         // scrollLeft is negative in right-to-left layouts; only the distance from the start matters.
         const distanceFromStart = Math.abs(scroller.scrollLeft);
@@ -48,7 +47,12 @@ export default function ScrollHint({ children, className = '' }) {
         const observer = new ResizeObserver(measure);
         observer.observe(outer);
         observer.observe(scroller);
-        if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+        // The tab list can be wider than its wrapper, so watch the first two levels of content.
+        const wrapper = scroller.firstElementChild;
+        if (wrapper) {
+            observer.observe(wrapper);
+            if (wrapper.firstElementChild) observer.observe(wrapper.firstElementChild);
+        }
         return () => observer.disconnect();
     }, [measure]);
 
