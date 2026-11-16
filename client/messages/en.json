@@ -1671,6 +1671,7 @@
     "kpiTotals": "Totals",
     "kpiByMethod": "By payment method",
     "kpiByCurrency": "By original currency",
+    "kpiPaymentsCount": "{count, plural, one {# payment} other {# payments}}",
     "completed": "Completed",
     "refunded": "Refunded",
     "colId": "#",

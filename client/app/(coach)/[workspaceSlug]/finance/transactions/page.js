@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
+import { CheckCircle2, Coins, CreditCard, Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import ErrorState from "@/app/components/ErrorState";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
-import KpiCardGroup from "@/app/components/KpiCardGroup";
+import { StatCard } from "@/app/components/operations/KpiTrendCards";
+import { dailySeries, weekOverWeekDelta } from "@/lib/transactionTrends";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
@@ -49,6 +50,21 @@ function convert(amount, fromCurrency, toCurrency) {
 }
 
 function parseTransactionDate(dateStr) { return new Date(dateStr); }
+
+const TREND_GREEN = "#22c55e";
+const TREND_RED = "#ef4444";
+const TREND_BLUE = "#3b82f6";
+const TREND_AMBER = "#f59e0b";
+
+// A titled row of stat cards: two across on phones, four on wide screens.
+function MetricGroup({ title, children }) {
+    return (
+        <section className="flex flex-col gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+            <div className="grid grid-cols-2 *:min-w-0 gap-2.5 sm:gap-4 xl:grid-cols-4">{children}</div>
+        </section>
+    );
+}
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 
 
@@ -56,6 +72,7 @@ function todayStr() { return new Date().toISOString().split("T")[0]; }
 function TransactionsTable({ transactions, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
+    const locale = useLocale();
     const { formatDate } = useDateFormatter();
     const fmtDate = (d) => formatDate(d) || "—";
     const STATUS_LABELS = { completed: t('completed'), refunded: t('refunded') };
@@ -89,6 +106,30 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
     for (const tx of realRows) {
         if (!byCurrency[tx.currency]) byCurrency[tx.currency] = 0;
         byCurrency[tx.currency] += tx.amount;
+    }
+
+    const completedRows = realRows.filter(tx => tx.status === "completed");
+    const refundedRows = realRows.filter(tx => tx.status === "refunded");
+    const inDisplayCurrency = (tx) => convert(tx.amount, tx.currency, displayCurrency);
+    const dayLabel = (date) => new Date(`${date}T12:00:00`).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
+
+    // One summary card: the rows' total, its change against the week before, and a two-week daily trend.
+    function metricCard({ key, icon, label, rows, valueOf, unit, goodDirection, color }) {
+        const points = dailySeries(rows, valueOf);
+        const total = rows.reduce((sum, tx) => sum + valueOf(tx), 0);
+        return (
+            <StatCard
+                key={key}
+                icon={icon}
+                label={label}
+                value={`${Math.round(total).toLocaleString()} ${unit}`}
+                caption={t('kpiPaymentsCount', { count: rows.length })}
+                delta={weekOverWeekDelta(points)} goodDirection={goodDirection}
+                series={points.map(point => ({ label: dayLabel(point.date), value: Math.round(point.value) }))}
+                color={color}
+                formatValue={(value) => `${value.toLocaleString()} ${unit}`}
+            />
+        );
     }
 
     const columns = [
@@ -268,21 +309,30 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                 </Select>
             </div>
 
-            {/* KPI groups */}
-            {/* One column on phones, two from md, three from xl — equal-width cards that line up. */}
-            <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <KpiCardGroup title={t('kpiTotals')} items={[
-                    { key: "completed", label: t('completed'), value: Math.round(totalCompleted).toLocaleString(), unit: displayCurrency },
-                    { key: "refunded", label: t('refunded'), value: Math.round(totalRefunded).toLocaleString(), unit: displayCurrency },
-                ]} />
+            {/* Summary cards: the figure, how it moved against the week before, and a two-week trend line. */}
+            <div className="flex flex-col gap-5">
+                <MetricGroup title={t('kpiTotals')}>
+                    {metricCard({ key: "completed", icon: CheckCircle2, label: t('completed'), rows: completedRows, valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "up", color: TREND_GREEN })}
+                    {metricCard({ key: "refunded", icon: RotateCcw, label: t('refunded'), rows: refundedRows, valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "down", color: TREND_RED })}
+                </MetricGroup>
 
-                <KpiCardGroup title={t('kpiByMethod')} items={Object.entries(byPaymentMethod).map(([method, total]) => (
-                    { key: method, label: method, value: Math.round(total).toLocaleString(), unit: displayCurrency }
-                ))} />
+                {Object.keys(byPaymentMethod).length > 0 && (
+                    <MetricGroup title={t('kpiByMethod')}>
+                        {Object.keys(byPaymentMethod).map(method => metricCard({
+                            key: method, icon: CreditCard, label: method, rows: realRows.filter(tx => tx.paymentMethod === method),
+                            valueOf: inDisplayCurrency, unit: displayCurrency, goodDirection: "up", color: TREND_BLUE,
+                        }))}
+                    </MetricGroup>
+                )}
 
-                <KpiCardGroup title={t('kpiByCurrency')} className="md:col-span-2 xl:col-span-1" items={Object.entries(byCurrency).map(([currency, total]) => (
-                    { key: currency, label: currency, value: total.toLocaleString(), unit: currency }
-                ))} />
+                {Object.keys(byCurrency).length > 0 && (
+                    <MetricGroup title={t('kpiByCurrency')}>
+                        {Object.keys(byCurrency).map(currency => metricCard({
+                            key: currency, icon: Coins, label: currency, rows: realRows.filter(tx => tx.currency === currency),
+                            valueOf: (tx) => tx.amount, unit: currency, goodDirection: "up", color: TREND_AMBER,
+                        }))}
+                    </MetricGroup>
+                )}
             </div>
 
             <DataTable
