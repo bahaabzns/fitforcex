@@ -520,7 +520,8 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
             },
         }] : []),
         {
-            key: "_actions", label: "", cardPriority: "secondary",
+            // Always visible: these are the main things you do to a person, so they are not hidden until hover.
+            key: "_actions", label: "", cardPriority: "secondary", alwaysVisibleActions: true,
             render: (row) => (row.kind !== "member" ? null : (
                 <div className="flex items-center justify-end gap-1">
                     {isOwner && (
