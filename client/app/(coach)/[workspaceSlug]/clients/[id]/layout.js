@@ -165,7 +165,7 @@ export default function ClientLayout({ children }) {
             <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
                 {/* Tabs scroll inside their own box so a narrow viewport never widens the page; the fade
                     and arrow show which side still has tabs off-screen. */}
-                <ScrollHint className="max-w-full max-md:flex-1" shadowColor="var(--color-default)">
+                <ScrollHint className="max-w-full max-md:flex-1">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}

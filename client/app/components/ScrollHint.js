@@ -7,6 +7,9 @@ import { useLocale } from 'next-intl';
 // Browsers differ by a pixel or two at the ends of a scroll range.
 const EDGE_TOLERANCE_PX = 2;
 
+// How far in from an edge the tabs fade out.
+const FADE_WIDTH_PX = 28;
+
 const NOTHING_HIDDEN = { overflowing: false, start: false, end: false };
 
 // A sideways-scrolling strip (tab bars) that tells people there is more. When the content does not
@@ -14,9 +17,9 @@ const NOTHING_HIDDEN = { overflowing: false, start: false, end: false };
 // and its arrow shows while that side still has hidden content. Direction-aware: in Arabic the
 // start of the strip is on the right.
 //
-// `shadowColor` is the background the strip sits on: the content fades into it at each edge that
-// has more to scroll to (a scroll shadow), so tabs dissolve under the arrow instead of being cut.
-export default function ScrollHint({ children, className = '', shadowColor = 'var(--background)' }) {
+// The scroll shadow is a mask on the strip itself: at each edge that has more to scroll to, the tabs
+// fade to transparent, so it works on any background with no colour to match.
+export default function ScrollHint({ children, className = '' }) {
     const outerRef = useRef(null);
     const scrollerRef = useRef(null);
     const isRtl = useLocale() === 'ar';
@@ -59,37 +62,27 @@ export default function ScrollHint({ children, className = '', shadowColor = 'va
         return () => observer.disconnect();
     }, [measure]);
 
+    // Physical sides: the start of the strip is on the right in Arabic.
+    const fadeLeft = isRtl ? hint.end : hint.start;
+    const fadeRight = isRtl ? hint.start : hint.end;
+    const mask = `linear-gradient(to right, transparent 0, #000 ${fadeLeft ? FADE_WIDTH_PX : 0}px, #000 calc(100% - ${fadeRight ? FADE_WIDTH_PX : 0}px), transparent 100%)`;
+
     const StartArrow = isRtl ? ChevronRight : ChevronLeft;
     const EndArrow = isRtl ? ChevronLeft : ChevronRight;
 
     return (
         <div ref={outerRef} className={`flex min-w-0 items-center ${className}`}>
             {hint.overflowing && <ArrowSlot visible={hint.start} Arrow={StartArrow} />}
-            <div className="relative min-w-0 flex-1">
-                <div ref={scrollerRef} onScroll={measure} className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {children}
-                </div>
-                <EdgeShadow side={isRtl ? 'right' : 'left'} visible={hint.start} color={shadowColor} />
-                <EdgeShadow side={isRtl ? 'left' : 'right'} visible={hint.end} color={shadowColor} />
+            <div
+                ref={scrollerRef}
+                onScroll={measure}
+                className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                style={{ maskImage: mask, WebkitMaskImage: mask }}
+            >
+                {children}
             </div>
             {hint.overflowing && <ArrowSlot visible={hint.end} Arrow={EndArrow} />}
         </div>
-    );
-}
-
-// Fades from the strip's background to transparent, with the outer corners rounded like a pill.
-function EdgeShadow({ side, visible, color }) {
-    const isLeft = side === 'left';
-    return (
-        <span
-            aria-hidden="true"
-            className={`pointer-events-none absolute inset-y-0 w-8 transition-opacity duration-200 ${isLeft ? 'left-0' : 'right-0'}`}
-            style={{
-                opacity: visible ? 1 : 0,
-                background: `linear-gradient(to ${isLeft ? 'right' : 'left'}, ${color} 20%, transparent)`,
-                borderRadius: isLeft ? '9999px 0 0 9999px' : '0 9999px 9999px 0',
-            }}
-        />
     );
 }
 
