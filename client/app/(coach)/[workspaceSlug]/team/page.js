@@ -316,14 +316,14 @@ function InviteMemberModal({ open, onClose, workspace, me, pendingCount, onInvit
     return (
         <Modal open={open} onClose={close} title={t("inviteTeamMember")}>
             {noSeats || atSeatLimit ? (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 p-1.5">
                     <UpgradeBanner message={noSeats ? t("upgradeFreeSeats") : t("upgradeSeatLimit", { count: maxSeats })} />
                     <ModalFooter>
                         <Button variant="ghost" onClick={close}>{t("cancel")}</Button>
                     </ModalFooter>
                 </div>
             ) : (
-                <form onSubmit={handleInvite} className="flex flex-col gap-4">
+                <form onSubmit={handleInvite} className="flex flex-col gap-4 p-1.5">
                     {error && (
                         error.toLowerCase().includes("seat") || error.toLowerCase().includes("plan")
                             ? <UpgradeBanner message={error} />
