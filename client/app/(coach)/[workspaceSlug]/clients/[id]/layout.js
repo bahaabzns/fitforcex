@@ -154,18 +154,19 @@ export default function ClientLayout({ children }) {
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full min-w-0">
-            {/* Phones only: the code and name get their own line above the tabs, since the top bar is too
-                crowded for them. From md up they are the breadcrumb in the top bar. */}
-            {(clientCode || clientName) && (
-                <h1 className="mb-3 flex min-w-0 shrink-0 items-baseline gap-2.5 text-lg font-semibold text-foreground md:hidden">
-                    {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
-                    {clientName && <span className="min-w-0 truncate">{clientName}</span>}
-                </h1>
-            )}
-            <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
+            {/* Phones: a two-row grid — the client's code and name with the page actions beside them, then the
+                tabs with the collapse button. From md up it is one flex row (tabs, actions, collapse) and the
+                code and name live in the top bar breadcrumb instead. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0 md:flex md:flex-wrap">
+                {(clientCode || clientName) && (
+                    <h1 className="col-start-1 row-start-1 flex min-w-0 items-baseline gap-2.5 text-lg font-semibold text-foreground md:hidden">
+                        {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
+                        {clientName && <span className="min-w-0 truncate">{clientName}</span>}
+                    </h1>
+                )}
                 {/* Tabs scroll inside their own box so a narrow viewport never widens the page; the fade
                     and arrow show which side still has tabs off-screen. */}
-                <ScrollHint className="max-w-full max-md:flex-1">
+                <ScrollHint className="col-start-1 row-start-2 max-w-full">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -193,12 +194,12 @@ export default function ClientLayout({ children }) {
                     onClick={() => setHeaderCollapsed(v => !v)}
                     title={headerCollapsed ? 'Show header' : 'Hide header'}
                     aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
-                    className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0 md:order-last"
+                    className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0 col-start-2 row-start-2 md:order-last"
                 >
                     {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                 </button>
                 {hasHeaderActions && (
-                    <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full max-md:w-full max-md:ms-0 max-md:flex-nowrap">
+                    <div className="col-start-2 row-start-1 flex items-center justify-end gap-2 min-w-0 md:ms-auto md:max-w-full md:flex-wrap">
                         {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
                         {isTraining && trainingHeaderActions}
                         {isNutrition && nutritionHeaderActions}
