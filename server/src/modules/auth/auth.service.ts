@@ -5,6 +5,7 @@ import { sendVerificationEmail } from '../../lib/email';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { normalizeEmail } from '../../utils/email';
+import { invalidateSession } from './sessionCache';
 
 // Thrown by assertEmailPhoneAvailable — controllers catch this and respond with
 // { status, message } instead of falling through to the generic error handler.
@@ -180,10 +181,13 @@ export async function createSession(userId: string, token: string): Promise<void
 }
 
 export async function revokeSession(token: string): Promise<void> {
+    const tokenHash = hashToken(token);
     await prisma.user_sessions.updateMany({
-        where: { token_hash: hashToken(token) },
+        where: { token_hash: tokenHash },
         data:  { revoked_at: new Date() },
     });
+    // After the write, so a request that races the revoke cannot re-cache the old row.
+    invalidateSession(tokenHash);
 }
 
 export async function storeAndSendVerificationCode(userId: string, email: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
+import { getCachedClientAccess } from '../modules/subscriptionPolicies/clientAccessCache';
 import type { PermissionKey } from '../utils/subscriptionPolicy';
 
 /**
@@ -14,7 +15,8 @@ export async function loadClientAccess(req: Request, res: Response, next: NextFu
         return;
     }
     try {
-        const effective = await getEffectiveAccessForClient(req.client.clientId, req.client.workspaceId);
+        const { clientId, workspaceId } = req.client;
+        const effective = await getCachedClientAccess(clientId, workspaceId, () => getEffectiveAccessForClient(clientId, workspaceId));
         req.clientAccess = effective;
         next();
     } catch (err) {

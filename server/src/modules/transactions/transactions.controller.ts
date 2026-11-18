@@ -6,6 +6,7 @@ import { makeUploader, createSignedUrl } from '../../lib/storage';
 import { uploadLimiter } from '../../middleware/rateLimit';
 import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
 import { prisma } from '../../lib/prisma';
+import { invalidateWorkspaceClientAccess } from '../subscriptionPolicies/clientAccessCache';
 import { mapRow, computePerTxStatuses, type TxDbRow } from '../../utils/transactionStatus';
 
 const VALID_STATUSES = ['completed', 'refunded'];
@@ -275,6 +276,7 @@ export async function createTransaction(req: Request, res: Response, next: NextF
         if (!tx) return res.status(500).json({ error: 'Failed to generate unique transaction code' });
 
         await syncClientPackage(tx.client_id, req.user!.workspaceId);
+        invalidateWorkspaceClientAccess(req.user!.workspaceId);
         res.status(201).json(mapRow(tx as unknown as TxDbRow));
     } catch (err) { next(err); }
 }
@@ -337,6 +339,7 @@ export async function updateTransaction(req: Request, res: Response, next: NextF
         });
 
         await syncClientPackage(updated.client_id, req.user!.workspaceId);
+        invalidateWorkspaceClientAccess(req.user!.workspaceId);
         res.json(mapRow(updated as unknown as TxDbRow));
     } catch (err) { next(err); }
 }
@@ -348,6 +351,7 @@ export async function deleteTransaction(req: Request, res: Response, next: NextF
             where: { id, workspace_id: req.user!.workspaceId },
         });
         if (deleted.count === 0) return res.status(404).json({ error: 'Transaction not found' });
+        invalidateWorkspaceClientAccess(req.user!.workspaceId);
         res.json({ deleted: id });
     } catch (err) { next(err); }
 }

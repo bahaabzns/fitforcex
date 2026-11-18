@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { invalidateWorkspaceClientAccess } from './clientAccessCache';
 import { computeSubscriptionDetails, type SubscriptionStatus } from '../../utils/subscriptionStatus';
 import {
     DEFAULT_EXPIRED_POLICY,
@@ -97,6 +98,7 @@ export async function saveGlobalPolicies(
 ): Promise<void> {
     await upsertPolicy(workspaceId, null, 'expired', policies.expired, policies.expired.grace_period_days);
     await upsertPolicy(workspaceId, null, 'frozen', policies.frozen, 0);
+    invalidateWorkspaceClientAccess(workspaceId);
 }
 
 /**
@@ -123,6 +125,7 @@ export async function savePackageOverrides(
             await upsertPolicy(workspaceId, packageId, 'frozen', overrides.frozen, 0);
         }
     }
+    invalidateWorkspaceClientAccess(workspaceId);
 }
 
 /** Records a coach policy edit or a system status transition. Best-effort: never throws into the caller. */
