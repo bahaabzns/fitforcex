@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import { attachmentUploader } from '../../lib/messageAttachments';
+import { heavyListGate } from '../../middleware/heavyRequestGate';
 import * as messengerController from './messenger.controller';
 
 const router = Router();
@@ -64,7 +65,7 @@ router.use(authMiddleware, subscriptionAccessGate);
  *         description: Not authenticated
  */
 router.get('/unread-count', messengerController.getUnreadCount);
-router.get('/threads', messengerController.getThreads);
+router.get('/threads', heavyListGate, messengerController.getThreads);
 router.post('/threads', messengerController.createThread);
 
 /**
