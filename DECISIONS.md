@@ -294,3 +294,30 @@ Significant choices: the question, what we picked, what we rejected, and why.
 - **Excluded from:** the client limit (`seatLimits`), dashboard, landing stats, operations/KPI/queue, admin + follow-up client counts, insight "first X" triggers and finance totals (rows are shown with a Demo badge, never summed).
 - **What we rejected:** A 50/50 A/B test (you chose to give it to everyone, so impact is read as before/after cohorts, which is weaker evidence). A shared global demo workspace (cannot be edited per coach, and "view in app" needs a real client login). Counting the demo toward the limit then refunding the slot (every counter would need the same exception anyway).
 - **Follow-ups:** see `DEBT.md` 2026-11-06 — Demo client.
+
+## 2026-11-18 — Slowness fix: cut repeated per-request work instead of (first) buying capacity
+
+- **Question:** "All pages slow in production" with no deploy since Nov 6. The server is a
+  single 1-vCPU VPS running API, web, Postgres and nginx; evenings saturate the core.
+  Upgrade the VPS, or remove wasted work first?
+- **Picked:** remove wasted work first (cheap, reversible, and needed either way), keep the
+  VPS upgrade as a separate decision. Changes: (1) 30 s in-process cache of a portal
+  client's effective access (`subscriptionPolicies/clientAccessCache.ts`) — every portal
+  request used to run about eight queries to recompute it; (2) 30 s in-process cache of the
+  coach session row (`auth/sessionCache.ts`); (3) `GET /messenger/unread-count` so the
+  sidebar stops downloading the whole threads list every 5 s; (4) visibility-aware polling
+  (`lib/visiblePolling.js`) and slower intervals for the portal nav badges and coach bells;
+  (5) Socket.IO reconnect backoff; (6) migration 113, indexes on five unindexed foreign keys.
+- **Staleness rules:** caches are cleared at once by every write that changes what they
+  answer (logout; freeze create/update/delete; archive/restore; any transaction write;
+  policy saves). The TTL (`CLIENT_ACCESS_CACHE_TTL_MS`, `SESSION_CACHE_TTL_MS`, 0 disables)
+  is the backstop for changes that bypass those paths, e.g. a plan activation moving a
+  client's first-activation date.
+- **Rejected:** a shared cache (Redis) — one API process, and a new moving part is not
+  justified; caching the whole `GET /messenger/threads` response — still does the heavy
+  work on a miss and hides the real problem (a poll that should be a COUNT); `CREATE INDEX
+  CONCURRENTLY` — tables are under 30k rows, so a plain index in the migration transaction
+  is milliseconds and leaves nothing half-built.
+- **Not changed here (needs the server owner's OK):** nginx has no `/socket.io/` route for
+  my.fitforce.app, so the coach app's socket client failed against Next.js (about 30 % of all
+  requests); pm2's 800 MB `max_memory_restart` restarts the API several times a day.

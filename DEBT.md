@@ -801,3 +801,19 @@ Format:
 **Why it matters:** (1) a broken step shows no arrow and nobody notices; (2) one cheap request per owner per 5 s; (3) a misleading table name; (4) a placeholder price could be mistaken for a real one; (5) feedback is delayed for new coaches.
 **Effort:** M (1: component tests), S (2), S (3: rename), S (4), S (5)
 **Priority:** M (1), L (2-5)
+
+## 2026-11-18 — In-process caches assume a single API process
+
+**Type:** Shortcut / Risk
+**What:** The portal access cache and the coach session cache live in the API process's memory. Writes clear them in the same process; other processes would only see a change after the TTL (30 s by default). Cache hits also skip a database check on revoked sessions for up to that long if a revoke happens outside `revokeSession`.
+**Why it matters:** The day the API runs as several processes (or behind a cluster), a logout or access change can take up to 30 s to apply on the other ones. Set the TTLs to 0, or move to a shared store, before scaling out.
+**Effort:** M (shared store or pub/sub invalidation)
+**Priority:** L (single instance today)
+
+## 2026-11-18 — Hot list endpoints still do work proportional to workspace size
+
+**Type:** Shortcut
+**What:** `GET /messenger/threads`, the clients list and similar endpoints return every client with per-row subqueries and recompute every client's subscription status from transactions, freezes and plans, with no pagination. The sidebar no longer polls the threads list, but the messenger page and chat widget still call it.
+**Why it matters:** Big workspaces stay slowest; cost grows with client count.
+**Effort:** M-L (pagination or a materialised status per client)
+**Priority:** M
