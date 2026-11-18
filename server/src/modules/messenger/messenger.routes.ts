@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import { attachmentUploader } from '../../lib/messageAttachments';
+import { heavyListGate } from '../../middleware/heavyRequestGate';
 import * as messengerController from './messenger.controller';
 
 const router = Router();
@@ -49,7 +50,22 @@ router.use(authMiddleware, subscriptionAccessGate);
  *             schema:
  *               $ref: '#/components/schemas/Thread'
  */
-router.get('/threads', messengerController.getThreads);
+/**
+ * @openapi
+ * /messenger/unread-count:
+ *   get:
+ *     summary: Total unread client messages in the workspace (sidebar badge)
+ *     tags: [Messenger]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ count: number }"
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/unread-count', messengerController.getUnreadCount);
+router.get('/threads', heavyListGate, messengerController.getThreads);
 router.post('/threads', messengerController.createThread);
 
 /**

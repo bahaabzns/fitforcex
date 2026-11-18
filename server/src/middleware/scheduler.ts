@@ -1,7 +1,8 @@
 import cron from 'node-cron';
 import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../lib/prisma';
-import { computeClientStatus, logSubscriptionAudit, getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
+import { logSubscriptionAudit, getEffectiveAccessForClient } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
+import { computeStatusesForClients } from '../lib/clientSubscriptionStatus';
 import { recordEvent, ownerRecipients } from '../lib/events';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
 import { normalizePostAction } from '../utils/postAction';
@@ -86,58 +87,90 @@ export function scheduleTrialExpiry(): void {
  * automatic Active→Expired / →Frozen transitions are logged. The read path stays
  * computed; this snapshot exists only for change detection. Cadence: 00:30 daily.
  */
+/**
+ * One pass of the daily snapshot sync: recomputes every client's status and records the ones that
+ * changed. Batched per workspace (three set-based queries per workspace instead of three per client:
+ * about 130 s of serial queries for 10,000 clients before). The snapshot tracks the subscription state
+ * itself, so clients are computed as non-archived, exactly as computeClientStatus always did, and the
+ * cache is bypassed so the nightly pass always reads live data. Exported so it can be tested directly.
+ */
+export async function runClientStatusSyncTick(): Promise<number> {
+    const clients = await prisma.clients.findMany({
+        where:  { workspace_id: { not: null } },
+        select: { id: true, workspace_id: true, subscription_status: true },
+    });
+
+    const clientsByWorkspace = new Map<string, typeof clients>();
+    for (const client of clients) {
+        if (!client.workspace_id) continue;
+        const group = clientsByWorkspace.get(client.workspace_id) ?? [];
+        group.push(client);
+        clientsByWorkspace.set(client.workspace_id, group);
+    }
+
+    let changed = 0;
+    for (const [workspaceId, workspaceClients] of clientsByWorkspace) {
+        let statuses: Record<string, string>;
+        try {
+            statuses = await computeStatusesForClients(
+                workspaceId,
+                workspaceClients.map((client) => ({ id: client.id, archived_at: null })),
+                { fresh: true },
+            );
+        } catch (err) {
+            console.error('[Scheduler] Status sync failed for workspace', workspaceId, err);
+            continue;
+        }
+
+        for (const client of workspaceClients) {
+            try {
+                const status = statuses[client.id];
+                if (status === client.subscription_status) continue;
+
+                await prisma.clients.update({
+                    where: { id: client.id },
+                    data:  { subscription_status: status },
+                });
+                await logSubscriptionAudit({
+                    workspaceId,
+                    clientId:    client.id,
+                    actorType:   'system',
+                    eventType:   'status.change',
+                    fromStatus:  client.subscription_status,
+                    toStatus:    status,
+                });
+
+                // Durable notification alongside the live-computed portal banner —
+                // so the coach has a paper trail and the client sees it even after
+                // the moment the banner would've caught their attention has passed.
+                const notice = STATUS_NOTIFICATION[status];
+                if (notice) {
+                    await recordEvent({
+                        workspaceId,
+                        type:        notice.type,
+                        importance:  status === 'Active' ? 'info' : 'alert',
+                        title:       notice.title,
+                        recipients:  [
+                            { type: 'client', id: client.id },
+                            ...await ownerRecipients(workspaceId),
+                        ],
+                        actor:  { type: 'system' },
+                        entity: { type: 'client', id: client.id },
+                    });
+                }
+                changed++;
+            } catch (err) {
+                console.error('[Scheduler] Status sync failed for client', client.id, err);
+            }
+        }
+    }
+    return changed;
+}
+
 export function scheduleClientStatusSync(): void {
     cron.schedule('30 0 * * *', async () => {
         try {
-            const clients = await prisma.clients.findMany({
-                where:  { workspace_id: { not: null } },
-                select: { id: true, workspace_id: true, subscription_status: true },
-            });
-
-            let changed = 0;
-            for (const client of clients) {
-                if (!client.workspace_id) continue;
-                try {
-                    const { status } = await computeClientStatus(client.id, client.workspace_id);
-                    if (status === client.subscription_status) continue;
-
-                    await prisma.clients.update({
-                        where: { id: client.id },
-                        data:  { subscription_status: status },
-                    });
-                    await logSubscriptionAudit({
-                        workspaceId: client.workspace_id,
-                        clientId:    client.id,
-                        actorType:   'system',
-                        eventType:   'status.change',
-                        fromStatus:  client.subscription_status,
-                        toStatus:    status,
-                    });
-
-                    // Durable notification alongside the live-computed portal banner —
-                    // so the coach has a paper trail and the client sees it even after
-                    // the moment the banner would've caught their attention has passed.
-                    const notice = STATUS_NOTIFICATION[status];
-                    if (notice) {
-                        await recordEvent({
-                            workspaceId: client.workspace_id,
-                            type:        notice.type,
-                            importance:  status === 'Active' ? 'info' : 'alert',
-                            title:       notice.title,
-                            recipients:  [
-                                { type: 'client', id: client.id },
-                                ...await ownerRecipients(client.workspace_id),
-                            ],
-                            actor:  { type: 'system' },
-                            entity: { type: 'client', id: client.id },
-                        });
-                    }
-
-                    changed++;
-                } catch (err) {
-                    console.error('[Scheduler] Status sync failed for client', client.id, err);
-                }
-            }
+            const changed = await runClientStatusSyncTick();
             if (changed > 0) {
                 console.info(`[Scheduler] Synced ${changed} client status change(s)`);
             }
@@ -146,7 +179,7 @@ export function scheduleClientStatusSync(): void {
         }
 
         // Isolated in its own try/catch so a failure here can't block the
-        // status-sync loop above, or vice versa.
+        // status-sync pass above, or vice versa.
         try {
             await runReviewDueCheckTick();
         } catch (err) {

@@ -178,9 +178,15 @@ app.get('/api/health', async (_req: Request, res: Response) => {
                 status:         'connected',
                 responseTimeMs: dbResponseTime,
             },
+            // rss minus heap is native memory (Prisma engine, zlib, sockets, buffers). The pm2
+            // memory-limit restarts happen while heapUsed stays small, so these separate "JS
+            // objects" from "native/external" growth when watching the process over time.
             memory: {
-                heapUsedMB:  Math.round(mem.heapUsed  / 1024 / 1024),
-                heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+                heapUsedMB:     Math.round(mem.heapUsed     / 1024 / 1024),
+                heapTotalMB:    Math.round(mem.heapTotal    / 1024 / 1024),
+                rssMB:          Math.round(mem.rss          / 1024 / 1024),
+                externalMB:     Math.round(mem.external     / 1024 / 1024),
+                arrayBuffersMB: Math.round(mem.arrayBuffers / 1024 / 1024),
             },
             version: process.env.npm_package_version ?? '1.0.0',
         });

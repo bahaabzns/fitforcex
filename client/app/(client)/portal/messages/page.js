@@ -14,6 +14,7 @@ import MessageRow from "@/app/components/MessageRow";
 import { useMessageReply } from "@/utils/useMessageReply";
 import EmptyState from "@/app/components/EmptyState";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 import { getDateLabel } from "@/utils/date";
 
@@ -80,7 +81,6 @@ export default function ClientMessagesPage() {
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
     const { replyingTo, startReply, cancelReply, highlightedId, jumpToMessage } = useMessageReply(messagesEndRef);
-    const pollRef = useRef(null);
     const prevMessageCountRef = useRef(0);
 
     const fetchMessages = useCallback(async () => {
@@ -94,10 +94,8 @@ export default function ClientMessagesPage() {
 
     useEffect(() => { fetchMessages().finally(() => setLoading(false)); }, [fetchMessages]);
 
-    useEffect(() => {
-        pollRef.current = setInterval(fetchMessages, POLL_INTERVAL_MS);
-        return () => clearInterval(pollRef.current);
-    }, [fetchMessages]);
+    // Initial load is handled above; this only keeps an open, visible chat fresh.
+    useVisiblePolling(fetchMessages, POLL_INTERVAL_MS, { immediate: false });
 
     useEffect(() => {
         // The 5s poll refetches and replaces `messages` with a new array even when

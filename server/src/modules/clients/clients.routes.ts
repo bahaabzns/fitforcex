@@ -4,6 +4,7 @@ import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import requireOwner from '../../middleware/requireOwner';
 import { observationAttachmentUploader } from '../../lib/observationAttachments';
+import { heavyClientListGate } from '../../middleware/heavyRequestGate';
 import * as clientsController from './clients.controller';
 
 const router = Router();
@@ -80,7 +81,7 @@ router.get('/limit-check', clientsController.checkClientLimitHandler);
  *       400:
  *         description: Validation error
  */
-router.get('/', clientsController.getClients);
+router.get('/', heavyClientListGate, clientsController.getClients);
 router.post('/', clientsController.createClient);
 
 /**
