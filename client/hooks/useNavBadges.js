@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { getSeenPlanKey, getSeenIds, planKey, NAV_BADGES_REFRESH_EVENT } from "@/lib/lastSeenStore";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 
-const POLL_MS = 15000;
+// Each tick makes four API calls (plans, training plan, forms, notifications), so this is
+// deliberately slow: the dots only hint at "something new" and refresh on every user action.
+const POLL_MS = 60000;
 // 'sent' is not a distinct state: the dispatcher cron (server scheduler.ts)
 // ticks a due 'pending' request over to 'sent' once it notices it — same
 // "awaiting the client" bucket as 'pending' (mirrors ACTIONABLE_STATUSES in
@@ -74,13 +77,13 @@ export function useNavBadges(access) {
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh() is async; its only setState call is after the awaited Promise.all, never synchronous during this effect
         refresh();
-        const interval = setInterval(refresh, POLL_MS);
         window.addEventListener(NAV_BADGES_REFRESH_EVENT, refresh);
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener(NAV_BADGES_REFRESH_EVENT, refresh);
-        };
+        return () => window.removeEventListener(NAV_BADGES_REFRESH_EVENT, refresh);
     }, [refresh]);
+
+    // The effect above already loads on mount and whenever `access` changes, and user
+    // actions fire NAV_BADGES_REFRESH_EVENT, so the timer only needs to catch changes made elsewhere.
+    useVisiblePolling(refresh, POLL_MS, { immediate: false });
 
     return badges;
 }

@@ -8,6 +8,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { MessageCircle, Minus, ExternalLink } from "lucide-react";
 import api from "@/lib/axios";
 import { getSocket } from "@/lib/socket";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import MessageList from "@/app/components/MessageList";
 import MessageComposer from "@/app/components/MessageComposer";
 import { useMessageReply } from "@/utils/useMessageReply";
@@ -63,10 +64,8 @@ export default function ClientChatWidget({ clientId }) {
 
     useEffect(() => { fetchRow(); }, [fetchRow]);
 
-    useEffect(() => {
-        const interval = setInterval(fetchRow, THREADS_POLL_MS);
-        return () => clearInterval(interval);
-    }, [fetchRow]);
+    // Safety-net refresh only while the tab is visible (the initial load is the effect above).
+    useVisiblePolling(fetchRow, THREADS_POLL_MS, { immediate: false });
 
     useEffect(() => {
         if (!threadId) return;

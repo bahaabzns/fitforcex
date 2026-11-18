@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import PortalLogo from "@/app/components/portal/PortalLogo";
 import { usePathname } from "next/navigation";
@@ -9,9 +9,12 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 import { useClientPortal } from "@/app/components/ClientPortalProvider";
 import { useNavBadges } from "@/hooks/useNavBadges";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import api from "@/lib/axios";
 
-const UNREAD_POLL_MS = 15000;
+// Only polled while the tab is visible (see useVisiblePolling); the bell does not need
+// to-the-second freshness.
+const UNREAD_POLL_MS = 30000;
 
 export default function ClientPortalNav() {
     const pathname = usePathname();
@@ -28,11 +31,7 @@ export default function ClientPortalNav() {
             .catch(() => {});
     }, []);
 
-    useEffect(() => {
-        fetchUnread();
-        const interval = setInterval(fetchUnread, UNREAD_POLL_MS);
-        return () => clearInterval(interval);
-    }, [fetchUnread]);
+    useVisiblePolling(fetchUnread, UNREAD_POLL_MS);
 
     const getInitials = (c) => {
         if (!c) return "?";
