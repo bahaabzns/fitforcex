@@ -16,6 +16,8 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import NoAccessState from "@/app/components/NoAccessState";
+import { isAccessDenied } from "@/lib/permissions";
 
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 
@@ -57,13 +59,18 @@ export default function PaymentMethodsPage() {
     const [formType, setFormType] = useState("cash");
     const [editingMethod, setEditingMethod] = useState(null); // { id, name, type } | null
     const [error, setError] = useState("");
+    const [accessDenied, setAccessDenied] = useState(false); // server answered 403: this role may not open Finance
 
     const searchRef = useRef(null);
 
     useEffect(() => {
         api.get("/api/payment-methods")
             .then(res => setMethods(res.data ?? []))
-            .catch(() => setMethods([]))
+            .catch((err) => {
+                // A 403 is a permission decision: say so instead of showing an empty list that reads as "none yet".
+                if (isAccessDenied(err)) setAccessDenied(true);
+                setMethods([]);
+            })
             .finally(() => setLoading(false));
     }, []);
 
@@ -312,6 +319,10 @@ export default function PaymentMethodsPage() {
                 </div>
             </div>
         );
+    }
+
+    if (accessDenied) {
+        return <NoAccessState />;
     }
 
     return (
