@@ -123,4 +123,51 @@ describe('TtlCache', () => {
         await expect(cache.getOrLoad('a', load)).resolves.toBe(2);
         expect(cache.size).toBe(0);
     });
+
+    describe('get / set / epoch (for callers that load their own batches)', () => {
+        it('returns what was set until the TTL passes', () => {
+            const clock = makeClock();
+            const cache = new TtlCache<string>({ ttlMs: 1000, maxEntries: 10, now: clock.now });
+
+            cache.set('a', 'value');
+            expect(cache.get('a')).toBe('value');
+
+            clock.advance(1000);
+            expect(cache.get('a')).toBeUndefined();
+        });
+
+        it('returns undefined for unknown keys', () => {
+            const cache = new TtlCache<string>({ ttlMs: 1000, maxEntries: 10 });
+            expect(cache.get('missing')).toBeUndefined();
+        });
+
+        it('drops a set() whose batch was loaded before an invalidation', () => {
+            const cache = new TtlCache<string>({ ttlMs: 1000, maxEntries: 10 });
+            const epochAtLoadStart = cache.epoch;
+
+            cache.delete('anything');                 // a write happened while the batch was loading
+            cache.set('a', 'stale', epochAtLoadStart);
+
+            expect(cache.get('a')).toBeUndefined();
+        });
+
+        it('keeps a set() whose batch started after the last invalidation', () => {
+            const cache = new TtlCache<string>({ ttlMs: 1000, maxEntries: 10 });
+            cache.delete('anything');
+            const epochAtLoadStart = cache.epoch;
+
+            cache.set('a', 'fresh', epochAtLoadStart);
+
+            expect(cache.get('a')).toBe('fresh');
+        });
+
+        it('does nothing when disabled (ttlMs 0)', () => {
+            const cache = new TtlCache<string>({ ttlMs: 0, maxEntries: 10 });
+
+            cache.set('a', 'value');
+
+            expect(cache.get('a')).toBeUndefined();
+            expect(cache.size).toBe(0);
+        });
+    });
 });

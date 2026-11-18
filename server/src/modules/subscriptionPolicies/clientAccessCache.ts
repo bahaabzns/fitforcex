@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { TtlCache } from '../../lib/ttlCache';
+import { invalidateClientStatus, invalidateWorkspaceClientStatuses } from '../../lib/clientStatusCache';
 import type { EffectiveAccess } from './subscriptionPolicies.service';
 
 // Every client-portal request recomputes the client's effective access (about eight
@@ -29,12 +30,16 @@ export function getCachedClientAccess(
     return cache.getOrLoad(cacheKey(workspaceId, clientId), loadAccess);
 }
 
+// Everything that changes what a client may do also changes (or may change) the live status that
+// lists and dashboards show, so both caches are cleared together from the same call sites.
 export function invalidateClientAccess(workspaceId: string, clientId: string): void {
     cache.delete(cacheKey(workspaceId, clientId));
+    invalidateClientStatus(workspaceId, clientId);
 }
 
-/** For workspace-wide changes (coach edits a subscription policy). */
+/** For workspace-wide changes (coach edits a subscription policy, any transaction write, plan activation). */
 export function invalidateWorkspaceClientAccess(workspaceId: string): void {
     const prefix = `${workspaceId}:`;
     cache.deleteWhere((key) => key.startsWith(prefix));
+    invalidateWorkspaceClientStatuses(workspaceId);
 }

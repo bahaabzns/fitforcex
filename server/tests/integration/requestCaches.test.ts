@@ -4,10 +4,13 @@
 //   - every coach action that should change what a caller can do takes effect at once.
 process.env.CLIENT_ACCESS_CACHE_TTL_MS = '30000';
 process.env.SESSION_CACHE_TTL_MS       = '30000';
+process.env.CLIENT_STATUS_CACHE_TTL_MS = '30000';
 
 import { request, createTestUser, createTestWorkspace, makeAuthCookie, makeClientCookie } from '../helpers/testServer';
 import { testPrisma } from '../helpers/testDb';
 import { createId } from '@paralleldrive/cuid2';
+import pool from '../../src/db';
+import { withTransaction, activateSinglePlan } from '../../src/lib/planEngine';
 
 const AUTHED_COACH_ENDPOINT   = '/api/subscription-policies';
 const PORTAL_ACCESS_ENDPOINT  = '/api/client-portal/access';
@@ -192,5 +195,95 @@ describe('Request caches (enabled)', () => {
             const after = await request.get(PORTAL_ACCESS_ENDPOINT).set('Cookie', portalCookie);
             expect(after.body.status).toBe('Active');
         });
+    });
+});
+
+describe('Client status cache (lists and dashboards, enabled)', () => {
+    let workspaceId: string;
+    let coachCookie: string;
+
+    beforeEach(async () => {
+        const user = await createTestUser();
+        const ws   = await createTestWorkspace(user.id);
+        workspaceId = ws.id;
+        coachCookie = await makeAuthCookie(user.id, ws.id, 'owner');
+    });
+
+    async function listedStatus(clientId: string): Promise<string | undefined> {
+        const res = await request.get('/api/clients?page=1&limit=50').set('Cookie', coachCookie);
+        expect(res.status).toBe(200);
+        return (res.body.data as Array<{ id: string; subscription_status: string }>).find((c) => c.id === clientId)?.subscription_status;
+    }
+
+    async function createBareClient() {
+        return testPrisma.clients.create({
+            data: { id: createId(), client_code: Math.floor(Math.random() * 90000) + 10000, fname: 'Status', lname: 'Client', email: `client-${createId()}@test.com`, workspace_id: workspaceId },
+        });
+    }
+
+    test('recording a payment through the API changes the listed status at once', async () => {
+        const client = await createBareClient();
+        expect(await listedStatus(client.id)).toBe('No Subscriptions');
+
+        const paid = await request.post('/api/transactions').set('Cookie', coachCookie).send({
+            clientId: client.id, clientName: 'Status Client', paymentMethod: 'cash', amount: 100, currency: 'EGP',
+            duration: 30, subscriptionStartDate: new Date().toISOString().slice(0, 10),
+        });
+        expect(paid.status).toBe(201);
+
+        expect(await listedStatus(client.id)).toBe('Active');
+    });
+
+    test('freezing through the API changes the listed status at once', async () => {
+        const client = await createActiveClient(workspaceId);
+        expect(await listedStatus(client.id)).toBe('Active');
+
+        await request.post(`/api/clients/${client.id}/freezes`).set('Cookie', coachCookie)
+            .send({ freezeStartDate: new Date().toISOString().slice(0, 10), freezeDurationDays: 7 });
+
+        expect(await listedStatus(client.id)).toBe('Frozen');
+    });
+
+    test('activating a first plan changes the listed status once the transaction commits', async () => {
+        const client = await createBareClient();
+        await testPrisma.transactions.create({
+            data: {
+                id: createId(), transaction_code: Math.floor(Math.random() * 90000) + 10000, workspace_id: workspaceId,
+                client_id: client.id, client_name: 'x', payment_method: 'cash', amount: 100, status: 'completed',
+                duration: 30, start_mode: 'on_first_plan',
+            },
+        });
+        const plan = await testPrisma.training_plans.create({ data: { id: createId(), name: 'Plan', client_id: client.id, workspace_id: workspaceId } });
+        expect(await listedStatus(client.id)).toBe('Pre-start');
+
+        await withTransaction(pool, (db) => activateSinglePlan({ db, tableName: 'training_plans', planId: plan.id, coachId: workspaceId }));
+
+        expect(await listedStatus(client.id)).toBe('Active');
+    });
+
+    test('a freeze inserted behind the API is only noticed after the TTL (proves the cache is on)', async () => {
+        const client = await createActiveClient(workspaceId);
+        expect(await listedStatus(client.id)).toBe('Active');
+
+        await testPrisma.subscription_freezes.create({
+            data: { id: createId(), client_id: client.id, freeze_start_date: new Date(), freeze_duration_days: 7 },
+        });
+
+        expect(await listedStatus(client.id)).toBe('Active');
+    });
+
+    test('statuses are cached per workspace, never shared between workspaces', async () => {
+        const mine = await createActiveClient(workspaceId);
+        expect(await listedStatus(mine.id)).toBe('Active');
+
+        const otherUser = await createTestUser();
+        const otherWs   = await createTestWorkspace(otherUser.id);
+        const other     = await createActiveClient(otherWs.id);
+        const otherCookie = await makeAuthCookie(otherUser.id, otherWs.id, 'owner');
+        const res = await request.get('/api/clients?page=1&limit=50').set('Cookie', otherCookie);
+
+        const ids = (res.body.data as Array<{ id: string }>).map((c) => c.id);
+        expect(ids).toEqual([other.id]);
+        expect(ids).not.toContain(mine.id);
     });
 });

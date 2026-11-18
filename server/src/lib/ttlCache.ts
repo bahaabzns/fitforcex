@@ -43,6 +43,28 @@ export class TtlCache<V> {
         return this.entries.size;
     }
 
+    /**
+     * Counts invalidations. Read it before a slow batch load and pass it to set(): a result that
+     * was loaded before an invalidation is then dropped instead of re-caching stale data.
+     */
+    get epoch(): number {
+        return this.invalidationCount;
+    }
+
+    /** Synchronous lookup for batch callers that load their own misses. */
+    get(key: string): V | undefined {
+        if (this.ttlMs <= 0) return undefined;
+        const cached = this.entries.get(key);
+        return cached && cached.expiresAt > this.now() ? cached.value : undefined;
+    }
+
+    /** Stores a value; ignored when disabled or when an invalidation happened after `loadedAtEpoch`. */
+    set(key: string, value: V, loadedAtEpoch?: number): void {
+        if (this.ttlMs <= 0) return;
+        if (loadedAtEpoch !== undefined && loadedAtEpoch !== this.invalidationCount) return;
+        this.store(key, value);
+    }
+
     async getOrLoad(key: string, load: () => Promise<V>): Promise<V> {
         if (this.ttlMs <= 0) return load();
 

@@ -17,6 +17,7 @@ export const env = {
     // Default off under test so existing tests see fresh data on every request.
     CLIENT_ACCESS_CACHE_TTL_MS: parseInt(process.env.CLIENT_ACCESS_CACHE_TTL_MS ?? (process.env.NODE_ENV === 'test' ? '0' : '30000'), 10),
     SESSION_CACHE_TTL_MS:       parseInt(process.env.SESSION_CACHE_TTL_MS ?? (process.env.NODE_ENV === 'test' ? '0' : '30000'), 10),
+    CLIENT_STATUS_CACHE_TTL_MS: parseInt(process.env.CLIENT_STATUS_CACHE_TTL_MS ?? (process.env.NODE_ENV === 'test' ? '0' : '30000'), 10),
 
     // Auth
     JWT_SECRET:           requireEnv('JWT_SECRET'),
