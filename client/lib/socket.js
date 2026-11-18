@@ -14,7 +14,14 @@ const DEMO_SOCKET = { on() {}, off() {}, emit() {}, connect() {}, disconnect() {
 export function getSocket() {
     if (isDemoFrame()) return DEMO_SOCKET;
     if (!socket) {
-        socket = io(process.env.NEXT_PUBLIC_API_URL, { withCredentials: true });
+        // Slow, capped reconnect backoff: the library default retries every 1-5s forever, and when the
+        // server is unreachable (or the proxy has no /socket.io route, as in prod before Nov 2026) every
+        // open tab turned that into a constant stream of failing requests (about 30% of all traffic).
+        socket = io(process.env.NEXT_PUBLIC_API_URL, {
+            withCredentials:     true,
+            reconnectionDelay:    5000,
+            reconnectionDelayMax: 60000,
+        });
     }
     return socket;
 }
