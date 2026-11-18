@@ -82,8 +82,13 @@ Way back: `sudo cp /root/<FILE>.bak-2026-11-18 /etc/nginx/sites-enabled/<FILE> &
 ## Step 3 — Swap file, memory limit and malloc setting (15 min, one API restart)
 
 The API restarts whenever it passes 800 MB (2-12 times a day), and each restart causes 502s and a slow warm-up.
-The machine has 2.4 GB free and no swap. This raises the limit, adds a safety net and trims native-memory
-fragmentation (the process holds about 70 MB of JavaScript heap but 400-900 MB total).
+The machine has 2.4 GB free and no swap. The process holds about 70 MB of live JavaScript data but 400-900 MB
+in total: V8 lets garbage build up before collecting (the machine has plenty of free RAM, so it never has to),
+and pm2 restarts on total RSS. In a local test on a 10,000-client workspace (six heavy list requests at once) the
+API's memory peaked at 882 MB uncapped, 497 MB with `--max-old-space-size=384` and 412 MB with `=256`, with no errors
+and the live heap steady at about 154 MB. So this step caps V8's heap (512 MB, safer than the tested 384), trims
+native-memory fragmentation, adds a swap safety net, and lowers pm2's limit to a level the capped process should
+not reach. If `heap out of memory` ever appears in the API log, raise the cap to 768.
 
 ```bash
 # 3a. 2 GB swap (safety net, rarely used)
@@ -93,21 +98,21 @@ echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf && sudo sysc
 free -m   # Swap: total should show 2047
 ```
 ```bash
-# 3b. as the pm2 owner (fitforcex): raise the limit, fewer glibc malloc arenas, restart the API once
-MALLOC_ARENA_MAX=2 pm2 restart fitforce-api --max-memory-restart 1400M --update-env
+# 3b. as the pm2 owner (fitforcex): cap V8's heap, fewer glibc malloc arenas, new pm2 limit, restart the API once
+MALLOC_ARENA_MAX=2 NODE_OPTIONS=--max-old-space-size=512 pm2 restart fitforce-api --max-memory-restart 1000M --update-env
 pm2 save
 pm2 describe fitforce-api | grep -iE "max memory|restarts|status"
 ```
 Also make it permanent in the ecosystem file that pm2 actually uses (the repo folder holds
 `ecosystem.config.cjs`, `.js` and `.bak`, so confirm which with `pm2 describe fitforce-api | grep -i "config\|script path"`):
-set `max_memory_restart: "1400M"` and `env: { MALLOC_ARENA_MAX: "2" }` for `fitforce-api`, otherwise a later
+set `max_memory_restart: "1000M"` and `env: { MALLOC_ARENA_MAX: "2", NODE_OPTIONS: "--max-old-space-size=512" }` for `fitforce-api`, otherwise a later
 `pm2 start <ecosystem>` silently goes back to 800 MB.
 
 Check: `curl -s https://api.fitforce.app/api/health` returns `healthy`; after the new API code is deployed (step 5) it
 also reports `rssMB`, `externalMB` and `arrayBuffersMB`, which show whether growth is JavaScript or native.
 Expect "restarted because it exceeds" lines in `~/.pm2/pm2.log` to drop from several a day to a few.
 
-Way back: `pm2 restart fitforce-api --max-memory-restart 800M --update-env && pm2 save`; `sudo swapoff /swapfile`.
+Way back: `NODE_OPTIONS= MALLOC_ARENA_MAX= pm2 restart fitforce-api --max-memory-restart 800M --update-env && pm2 save`; `sudo swapoff /swapfile`.
 
 ## Step 4 — Postgres: slow-query log (5 min, reload only) and optional cache size
 

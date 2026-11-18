@@ -810,10 +810,10 @@ Format:
 **Effort:** M (shared store or pub/sub invalidation)
 **Priority:** L (single instance today)
 
-## 2026-11-18 — Hot list endpoints still do work proportional to workspace size
+## 2026-11-18 — Full-list pages load every row (limit at about 10,000 clients)
 
 **Type:** Shortcut
-**What:** `GET /messenger/threads`, the clients list and similar endpoints return every client with per-row subqueries and recompute every client's subscription status from transactions, freezes and plans, with no pagination. The sidebar no longer polls the threads list, but the messenger page and chat widget still call it.
-**Why it matters:** Big workspaces stay slowest; cost grows with client count.
-**Effort:** M-L (pagination or a materialised status per client)
-**Priority:** M
+**What:** The Clients page loads `/clients?limit=10000` on open and again after every create, archive or restore; Finance loads `/transactions?limit=10000` and all clients; Messenger loads `/messenger/threads` (every client); the Plans queue loads every non-archived request. Search, filters and sorting then run in the browser. Measured on 10,000 clients: 0.5-1.5 s and 4-10 MB per load (server), about 1 s of Node CPU each, and a burst of several at once peaks the API's memory (mitigated by the heap cap and the request gate, not removed).
+**Why it matters:** Big workspaces stay the slowest and the likeliest to trigger memory restarts; cost grows with client count. Browsers also hold all rows in memory.
+**Effort:** L (server-side pagination, filtering and sorting per page, with UI changes; the status filter needs the status computed in SQL or kept per client)
+**Priority:** H for workspaces above a few thousand clients, M otherwise
