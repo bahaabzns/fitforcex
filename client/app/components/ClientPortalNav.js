@@ -74,6 +74,7 @@ export default function ClientPortalNav() {
                 <div className="flex justify-start">
                     <Link
                         href="/portal/profile"
+                        prefetch={false}
                         className={`rounded-full transition-opacity ${
                             isProfileActive
                                 ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -95,6 +96,7 @@ export default function ClientPortalNav() {
                 <div className="flex justify-end">
                     <Link
                         href="/portal/notifications"
+                        prefetch={false}
                         className={`relative p-2 rounded-xl transition-colors ${
                             isNotificationsActive
                                 ? "text-primary bg-sidebar-accent"
@@ -136,6 +138,9 @@ export default function ClientPortalNav() {
                                 <Link
                                     key={href}
                                     href={href}
+                                    // The nav is on every portal page; prefetching all 7 targets on each view
+                                    // multiplied server renders (the ?_rsc= request flood seen in prod logs).
+                                    prefetch={false}
                                     title={hasUnread ? tPortal('unreadTooltip', { label }) : label}
                                     className="flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 transition-transform duration-100 active:scale-95"
                                 >
