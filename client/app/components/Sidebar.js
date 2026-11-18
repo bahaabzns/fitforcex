@@ -8,7 +8,11 @@ import { buildPortalUrl } from "@/lib/coachSlug";
 import { demoPortalHref } from "@/lib/demoClient";
 import { useGettingStartedContext } from "@/app/components/gettingStarted/GettingStartedProvider";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
+
+// Only polled while the tab is visible; refreshes once more when the coach returns to the tab.
+const UNREAD_POLL_MS = 15000;
 import {
     LayoutDashboard,
     Users,
@@ -85,19 +89,16 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
             .catch(() => setUser(null));
     }, []);
 
-    useEffect(() => {
-        function fetchUnread() {
-            api.get('/api/messenger/threads')
-                .then(res => {
-                    const count = res.data.reduce((sum, t) => sum + (t.unread_count || 0), 0);
-                    setTotalUnread(count);
-                })
-                .catch(() => {});
-        }
-        fetchUnread();
-        const interval = setInterval(fetchUnread, 5000);
-        return () => clearInterval(interval);
+    // Badge total comes from a single COUNT endpoint. This used to download the whole
+    // GET /messenger/threads list (every client, with status maths) every 5 seconds on every
+    // coach page just to add up one number — the heaviest repeated call for big workspaces.
+    const fetchUnread = useCallback(() => {
+        api.get('/api/messenger/unread-count')
+            .then(res => setTotalUnread(res.data?.count ?? 0))
+            .catch(() => {});
     }, []);
+
+    useVisiblePolling(fetchUnread, UNREAD_POLL_MS);
 
     useEffect(() => {
         function handler(e) {

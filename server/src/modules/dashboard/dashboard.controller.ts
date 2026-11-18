@@ -6,7 +6,7 @@ export async function getDashboard(req: Request, res: Response, next: NextFuncti
     const wsId = req.user!.workspaceId;
     const userId = req.user!.userId;
     try {
-        const [user, allClients, pendingForms, clientDates] = await Promise.all([
+        const [user, allClients, pendingForms] = await Promise.all([
             prisma.users.findUnique({
                 where: { id: userId },
                 select: { fname: true, lname: true, email: true },
@@ -17,12 +17,11 @@ export async function getDashboard(req: Request, res: Response, next: NextFuncti
                 orderBy: { created_at: 'desc' },
             }),
             prisma.form_requests.count({ where: { workspace_id: wsId, status: 'pending' } }),
-            prisma.clients.findMany({
-                where: { workspace_id: wsId, is_demo: false, created_at: { not: null } },
-                select: { created_at: true },
-                orderBy: { created_at: 'asc' },
-            }),
         ]);
+        // Signup dates come from the same rows (oldest first) instead of a second query over every client.
+        const clientDates = allClients
+            .filter((c): c is typeof c & { created_at: Date } => c.created_at !== null)
+            .reverse();
 
         // The demo client is left out of these stats on purpose (it is a sample, not a real client).
         // Status is computed live, not read from clients.subscription_status — that

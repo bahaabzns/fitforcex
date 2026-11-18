@@ -294,3 +294,55 @@ Significant choices: the question, what we picked, what we rejected, and why.
 - **Excluded from:** the client limit (`seatLimits`), dashboard, landing stats, operations/KPI/queue, admin + follow-up client counts, insight "first X" triggers and finance totals (rows are shown with a Demo badge, never summed).
 - **What we rejected:** A 50/50 A/B test (you chose to give it to everyone, so impact is read as before/after cohorts, which is weaker evidence). A shared global demo workspace (cannot be edited per coach, and "view in app" needs a real client login). Counting the demo toward the limit then refunding the slot (every counter would need the same exception anyway).
 - **Follow-ups:** see `DEBT.md` 2026-11-06 — Demo client.
+
+## 2026-11-18 — Slowness fix: cut repeated per-request work instead of (first) buying capacity
+
+- **Question:** "All pages slow in production" with no deploy since Nov 6. The server is a
+  single 1-vCPU VPS running API, web, Postgres and nginx; evenings saturate the core.
+  Upgrade the VPS, or remove wasted work first?
+- **Picked:** remove wasted work first (cheap, reversible, and needed either way), keep the
+  VPS upgrade as a separate decision. Changes: (1) 30 s in-process cache of a portal
+  client's effective access (`subscriptionPolicies/clientAccessCache.ts`) — every portal
+  request used to run about eight queries to recompute it; (2) 30 s in-process cache of the
+  coach session row (`auth/sessionCache.ts`); (3) `GET /messenger/unread-count` so the
+  sidebar stops downloading the whole threads list every 5 s; (4) visibility-aware polling
+  (`lib/visiblePolling.js`) and slower intervals for the portal nav badges and coach bells;
+  (5) Socket.IO reconnect backoff; (6) migration 113, indexes on five unindexed foreign keys.
+- **Staleness rules:** caches are cleared at once by every write that changes what they
+  answer (logout; freeze create/update/delete; archive/restore; any transaction write;
+  policy saves). The TTL (`CLIENT_ACCESS_CACHE_TTL_MS`, `SESSION_CACHE_TTL_MS`, 0 disables)
+  is the backstop for changes that bypass those paths, e.g. a plan activation moving a
+  client's first-activation date.
+- **Rejected:** a shared cache (Redis) — one API process, and a new moving part is not
+  justified; caching the whole `GET /messenger/threads` response — still does the heavy
+  work on a miss and hides the real problem (a poll that should be a COUNT); `CREATE INDEX
+  CONCURRENTLY` — tables are under 30k rows, so a plain index in the migration transaction
+  is milliseconds and leaves nothing half-built.
+- **Not changed here (needs the server owner's OK):** nginx has no `/socket.io/` route for
+  my.fitforce.app, so the coach app's socket client failed against Next.js (about 30 % of all
+  requests); pm2's 800 MB `max_memory_restart` restarts the API several times a day.
+
+## 2026-11-18 — Big workspaces (10,000 clients): bulk statuses, a request gate and a V8 heap cap
+
+- **Question:** does a workspace with 10,000 clients work, and what gives way first? Measured locally (seeded
+  10k clients, 30k transactions, 50k messages, 20k form requests): everything answered 200, but the full-list
+  pages (Clients, Messenger, Plans queue, Finance) take 0.5-1.5 s and 4-10 MB each, the nightly status sync
+  would have run about 130 s of serial queries, and six heavy requests at once pushed the API to 914 MB (above
+  pm2's 800 MB restart limit) even though the live heap stayed near 154 MB.
+- **Picked:** (1) `computeStatusesForClients` fetches the whole workspace with three set-based raw queries from
+  1,000 clients up (Prisma spent about a second on a 10,000-id IN list; the database itself needs about 22 ms)
+  and keeps per-client results for 30 s (`CLIENT_STATUS_CACHE_TTL_MS`, 0 disables), cleared by every write that
+  changes a status, including plan activation, which is cleared only after its transaction commits;
+  (2) the nightly snapshot sync runs per workspace through that function (130 s -> 0.6 s steady state);
+  (3) the dashboard reads signup dates from the rows it already loads; (4) the queue response no longer carries
+  the unused duplicate `answers` map; (5) a shared gate (`heavyRequestGate.ts`) lets 2 heavy list requests run at a
+  time and queues the rest, in order, dropping callers that disconnect while waiting; (6) production runs the API
+  with `--max-old-space-size=512`: capping V8's heap took the peak from 882 MB to 497 MB (384 MB cap) or 412 MB
+  (256 MB cap) with no errors, because pm2 restarts on total RSS and V8 otherwise lets garbage pile up.
+- **Rejected:** reading the clients list through raw `pg` instead of Prisma (3.5x faster for wide rows, but it
+  changes column types and touches the whole mapper: left for the pagination work); a Redis cache (single
+  process); raising only the pm2 limit (hides the growth instead of bounding it).
+- **Not done:** server-side pagination, filtering and sorting for the Clients, Finance, Messenger and Plans queue
+  pages. Those pages load every row and filter in the browser; this is the real limit at 10,000 clients (see
+  DEBT.md, 2026-11-18). Local timings are noisy (single samples swung 2x between runs on a shared dev machine),
+  so only the large effects above should be trusted.

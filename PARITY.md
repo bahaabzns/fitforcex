@@ -23,6 +23,7 @@ Move a line to **Ported** when mobile catches up, with the mobile commit sha.
 ---
 
 ## Pending
+- [ ] 2026-11-18 — a350d7cc — client portal polling (web) — the web portal nav badges/unread count/messages page now poll only while the tab is visible (unread 30 s, badges 60 s, chat 5 s while open) and the bottom nav no longer prefetches pages; mobile `messages_page.dart` still polls every 5 s with no pause when the app is backgrounded (the OS normally suspends timers, so low priority) and shares the same API, so it benefits from the new server-side access/session caches without any change — consider pausing its timer on `AppLifecycleState.paused`, then prune at triage
 - [ ] 2026-11-06 — 69ca4a2a — client portal login (web) — the login page fills the demo client's email/password when opened with demo_email/demo_password (only for the reserved @fitforce.demo address) and the slug-subdomain redirect now keeps the query string; the nutrition builder panels only gained data-guide attributes (coach web only); the mobile app login has no equivalent and nothing to port — prune at triage
 - [ ] 2026-10-30 — 4d06ca4 — TODO(area) — "refactor: extract shared MessageList from Messenger page" touched: client/utils/messengerThread.js — fill in what changed and why it matters for mobile
 - [ ] 2026-10-30 — 0de907b — messenger replies (client portal chat) — clients can reply to a specific message (quote on the bubble, preview above the input, tap-to-jump); mobile messages page was ported in the same commit (swipe, long-press menu, quote) — prune at triage

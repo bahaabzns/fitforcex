@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { env } from '../config/env';
 import { hashToken } from '../modules/auth/auth.service';
+import { getCachedSession } from '../modules/auth/sessionCache';
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
     const token = req.cookies.token;
@@ -14,9 +15,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     try {
         const decoded = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload;
 
-        const session = await prisma.user_sessions.findUnique({
-            where: { token_hash: hashToken(token) },
-        });
+        const tokenHash = hashToken(token);
+        const session = await getCachedSession(tokenHash, () =>
+            prisma.user_sessions.findUnique({
+                where:  { token_hash: tokenHash },
+                select: { revoked_at: true, expires_at: true },
+            }),
+        );
         if (!session || session.revoked_at || session.expires_at < new Date()) {
             res.status(401).json({ message: 'Session expired or revoked' });
             return;

@@ -424,3 +424,25 @@ export async function updateThreadStatus(req: Request, res: Response, next: Next
         res.json(thread);
     } catch (err) { next(err); }
 }
+
+/**
+ * Total unread client messages across the workspace — what the sidebar badge shows.
+ * One COUNT instead of GET /threads, which returns every client with their latest
+ * message and recomputes every client's subscription status (cost grows with workspace
+ * size) and was being polled for this single number. Same definition of "unread" as
+ * getThreads' per-thread unread_count, summed.
+ */
+export async function getUnreadCount(req: Request, res: Response, next: NextFunction) {
+    try {
+        const rows = await prisma.$queryRaw<{ count: number }[]>`
+            SELECT COUNT(*)::int AS count
+            FROM messages m
+            JOIN threads t ON t.id = m.thread_id
+            WHERE t.workspace_id = ${req.user!.workspaceId}
+              AND m.sender_type = 'client'
+              AND m.read_by_team_at IS NULL
+              AND m.deleted_at IS NULL
+        `;
+        res.json({ count: rows[0]?.count ?? 0 });
+    } catch (err) { next(err); }
+}
