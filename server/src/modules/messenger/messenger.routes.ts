@@ -49,6 +49,21 @@ router.use(authMiddleware, subscriptionAccessGate);
  *             schema:
  *               $ref: '#/components/schemas/Thread'
  */
+/**
+ * @openapi
+ * /messenger/unread-count:
+ *   get:
+ *     summary: Total unread client messages in the workspace (sidebar badge)
+ *     tags: [Messenger]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ count: number }"
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/unread-count', messengerController.getUnreadCount);
 router.get('/threads', messengerController.getThreads);
 router.post('/threads', messengerController.createThread);
 
