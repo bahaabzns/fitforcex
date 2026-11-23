@@ -10,6 +10,8 @@ import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions 
 import { fetchAndParseGoogleForm, parseGoogleFormHtml } from './googleFormsImport';
 import { attachEditHistory } from '../../utils/formResponseHistory';
 import { normalizePostAction } from '../../utils/postAction';
+import { needActionSql, parseQueueQuery } from './queueQuery';
+import { buildQueueItems, enrichResponsesWithQuestionInfo, getQueueSummary, listQueueIds, listQueuePage, queueRowSelect } from './queueList.service';
 import { DEMO_EVENT, ensureWaitingDemoCheckIn, recordDemoEvent, recordDemoEventIfSeen } from '../demoClient/demoClient.service';
 
 export { normalizePostAction };
@@ -848,39 +850,6 @@ export async function createRequests(req: Request, res: Response, next: NextFunc
 }
 
 type RequestRow = Record<string, unknown>;
-type ResponseRow = { question_id: string | null; answer: string | null };
-
-// Coach Portal answer viewer (Phase 3) — the viewer used to guess whether an
-// answer was an image by regex-sniffing the URL string, which mis-renders
-// any non-image attachment whose URL happens to look like one and silently
-// falls back to plain text for anything that doesn't. Rendering must be
-// decided by the question's type, never the answer's content, so every
-// response returned to the coach carries its question's `type` and (for
-// metric-typed questions) the linked metric's `type` ("number" | "image").
-async function enrichResponsesWithQuestionInfo<T extends ResponseRow>(responses: T[]) {
-    const questions = await prisma.form_version_questions.findMany({
-        where:  { id: { in: responses.map((r) => r.question_id).filter((id): id is string => id !== null) } },
-        select: { id: true, label_en: true, label_ar: true, type: true, order_index: true, metric_id: true },
-    });
-    const metricIds = questions.map((q) => q.metric_id).filter((id): id is string => id !== null);
-    const metrics = metricIds.length > 0
-        ? await prisma.metrics.findMany({ where: { id: { in: metricIds } }, select: { id: true, type: true } })
-        : [];
-    const metricTypeMap = new Map(metrics.map((m) => [m.id, m.type]));
-    // Excludes the question's own `id` from the merged value — callers that
-    // also select a response `id` (to look up edit history by response,
-    // not by question) would otherwise have it silently clobbered by the
-    // question's id below.
-    const questionMap = new Map(questions.map((q) => {
-        const { id: _questionId, ...questionInfo } = q;
-        return [q.id, { ...questionInfo, metric_type: q.metric_id ? (metricTypeMap.get(q.metric_id) ?? null) : null }];
-    }));
-
-    return responses
-        .map((r) => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
-        .sort((a, b) => ((a as { order_index?: number }).order_index ?? 0) - ((b as { order_index?: number }).order_index ?? 0));
-}
-
 export async function getRequestsByClient(req: Request, res: Response, next: NextFunction) {
     try {
         await activateDueScheduledRequests(req.user!.workspaceId);
@@ -941,157 +910,80 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
     }
 }
 
-// The row's current auto-assign rule, if any (see the LEFT JOIN in getQueue).
-function autoAssignFields(row: Record<string, unknown>) {
-    const agentName = `${row.auto_assign_fname ?? ''} ${row.auto_assign_lname ?? ''}`.trim();
-    return {
-        autoAssignRuleId:    (row.auto_assign_rule_id as string | null) ?? null,
-        autoAssignAgentName: row.auto_assign_rule_id ? (agentName || null) : null,
-    };
-}
-
-// Statuses that are NOT "need action": awaiting/scheduled (nothing submitted yet) and reviewed (done). Anything
-// else — in practice 'submitted' — is need-action, exactly as the row mapping in getQueue decides. Kept as
-// literals in the SQL (not bind params) so the planner can match the partial index in migration 114.
-const QUEUE_NON_ACTION_STATUSES = ['pending', 'scheduled', 'sent', 'reviewed'] as const;
-const QUEUE_NON_ACTION_SQL_LIST = QUEUE_NON_ACTION_STATUSES.map((status) => `'${status}'`).join(', ');
-
-// ?view=need-action keeps only rows the coach still has to act on (plus ?includeId=<id>, the row they just
-// finished, so the page can still play its completion animation). The default (no view) is every active row.
-function queueViewFilter(req: Request) {
+// Legacy full-list filter: ?view=need-action keeps only rows the coach still has to act on (plus ?includeId=<id>,
+// the row they just finished). Callers that want paging use ?page= instead, which has its own filters.
+function legacyViewFilter(req: Request) {
     if (req.query.view !== 'need-action') return Prisma.sql`TRUE`;
-    const needAction = Prisma.sql`(fr.status IS NULL OR fr.status NOT IN (${Prisma.raw(QUEUE_NON_ACTION_SQL_LIST)}))`;
     const includeId = typeof req.query.includeId === 'string' ? req.query.includeId : '';
-    return includeId ? Prisma.sql`(${needAction} OR fr.id = ${includeId})` : needAction;
+    return includeId ? Prisma.sql`(${needActionSql} OR fr.id = ${includeId})` : needActionSql;
 }
 
+// Two shapes, chosen by ?page=:
+//  - with ?page=, one page of rows: { items, total, page, pageSize, includedItem }, already searched, filtered
+//    and sorted on the server (see queueQuery.ts for the parameters). Answers are never included.
+//  - without it, the whole active list as a plain array (older callers; ?answers=lazy skips the answers).
 export async function getQueue(req: Request, res: Response, next: NextFunction) {
     try {
-        await ensureWaitingDemoCheckIn(req.user!.workspaceId);
-        void recordDemoEvent(req.user!.workspaceId, DEMO_EVENT.QUEUE_OPENED);
-        await activateDueScheduledRequests(req.user!.workspaceId);
-
+        const { workspaceId } = req.user!;
         // Archived submissions are hidden from the active queue by default;
         // ?archived=true flips to the archived view (see archiveQueue below).
         const wantsArchived = req.query.archived === 'true';
-        const archivedFilter = wantsArchived
-            ? Prisma.sql`fr.archived_at IS NOT NULL`
-            : Prisma.sql`fr.archived_at IS NULL`;
+
+        const isPaged = req.query.page !== undefined;
+        const parsedQuery = isPaged ? parseQueueQuery(req.query) : null;
+        if (parsedQuery && !parsedQuery.ok) return res.status(400).json({ error: parsedQuery.error });
+
+        // Housekeeping that belongs to "the coach opened the queue", not to every page turn or filter change:
+        // on a big workspace the scheduled-request sweep alone touches every row of the workspace.
+        if (!parsedQuery || parsedQuery.value.page === 1) {
+            await ensureWaitingDemoCheckIn(workspaceId);
+            void recordDemoEvent(workspaceId, DEMO_EVENT.QUEUE_OPENED);
+            await activateDueScheduledRequests(workspaceId);
+        }
+
+        if (parsedQuery?.ok) {
+            const includeId = typeof req.query.includeId === 'string' && req.query.includeId ? req.query.includeId : null;
+            return res.json(await listQueuePage({ workspaceId, archived: wantsArchived, query: parsedQuery.value, includeId }));
+        }
+
         // ?answers=lazy: rows carry only `responseCount`; the answers themselves are fetched per row when the
         // coach opens the preview (getQueueItemResponses). Answers are ~90% of this response's bytes.
         const lazyAnswers = req.query.answers === 'lazy';
-        const responseCountColumn = lazyAnswers
-            ? Prisma.sql`(SELECT COUNT(*)::int FROM form_responses fresp WHERE fresp.request_id = fr.id) AS response_count,`
-            : Prisma.empty;
-
+        const archivedFilter = wantsArchived
+            ? Prisma.sql`fr.archived_at IS NOT NULL`
+            : Prisma.sql`fr.archived_at IS NULL`;
         const rows = await prisma.$queryRaw<RequestRow[]>`
-            SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
-                   fr.scheduled_at, fr.post_action, fr.action_taken_at, fr.assigned_to,
-                   fr.archived_at, fr.label_id,
-                   f.title_en AS form_title_en, f.title_ar AS form_title_ar,
-                   f.form_type, f.post_action AS form_post_action,
-                   c.id AS client_id, c.client_code, c.fname, c.lname, c.email, c.is_demo AS client_is_demo,
-                   au.fname AS assignee_fname, au.lname AS assignee_lname,
-                   c.current_package AS client_package,
-                   pql.name AS label_name, pql.color AS label_color,
-                   caa.id AS auto_assign_rule_id, aau.fname AS auto_assign_fname, aau.lname AS auto_assign_lname,
-                   ${responseCountColumn}
-                   NULL::text AS subscription_status
-            FROM form_requests fr
-            JOIN forms f ON f.id = fr.form_id
-            JOIN clients c ON c.id = fr.client_id
-            LEFT JOIN users au ON au.id = fr.assigned_to
-            LEFT JOIN plans_queue_labels pql ON pql.id = fr.label_id
-            -- At most one current rule per client + plan type (partial unique index), so this never duplicates a row.
-            LEFT JOIN client_auto_assign caa ON caa.workspace_id = fr.workspace_id AND caa.client_id = fr.client_id
-                   AND caa.plan_type = COALESCE(NULLIF(fr.post_action, ''), f.post_action) AND caa.disabled_at IS NULL
-            LEFT JOIN users aau ON aau.id = caa.agent_user_id
-            WHERE fr.workspace_id = ${req.user!.workspaceId}
+            ${queueRowSelect(lazyAnswers)}
+            WHERE fr.workspace_id = ${workspaceId}
               AND ${archivedFilter}
-              AND ${queueViewFilter(req)}
+              AND ${legacyViewFilter(req)}
             ORDER BY fr.requested_at DESC
         `;
+        res.json(await buildQueueItems(rows, lazyAnswers));
+    } catch (err) {
+        next(err);
+    }
+}
 
-        // Batched, not per-row: firing one findMany() per queue row (the old
-        // approach) meant a workspace with N submitted/reviewed requests opened
-        // N+ concurrent Prisma queries on every page load — fine at small scale,
-        // but it exhausted the connection pool once historical data pushed the
-        // queue past a few dozen rows (a production incident, not hypothetical).
-        const answerableIds = rows
-            .filter((row) => row.status !== 'pending' && row.status !== 'scheduled' && row.status !== 'sent')
-            .map((row) => row.id as string);
+// Counts and filter options the page can no longer work out itself now that it only holds one page of rows.
+export async function getQueueSummaryHandler(req: Request, res: Response, next: NextFunction) {
+    try {
+        const view = req.query.view === 'need-action' ? 'need-action' : 'all';
+        res.json(await getQueueSummary({ workspaceId: req.user!.workspaceId, view }));
+    } catch (err) {
+        next(err);
+    }
+}
 
-        const allResponses = answerableIds.length > 0 && !lazyAnswers
-            ? await prisma.form_responses.findMany({
-                where:  { request_id: { in: answerableIds } },
-                select: { request_id: true, question_id: true, answer: true },
-            })
-            : [];
-        // Forms Versioning Phase 3 — join against form_version_questions, the
-        // immutable snapshot each response actually belongs to, so a historical
-        // answer always renders under the label/type it was originally asked with,
-        // regardless of later form edits.
-        const enrichedResponses = await enrichResponsesWithQuestionInfo(allResponses);
-
-        const responsesByRequestId = new Map<string, typeof enrichedResponses>();
-        for (const r of enrichedResponses) {
-            const list = responsesByRequestId.get(r.request_id as string) ?? [];
-            list.push(r);
-            responsesByRequestId.set(r.request_id as string, list);
-        }
-
-        const queueItems = rows.map((row) => {
-            if (row.status === 'pending' || row.status === 'scheduled' || row.status === 'sent') {
-                return {
-                    id: row.id, clientId: row.client_id, clientCode: row.client_code,
-                    clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email, isDemo: row.client_is_demo === true,
-                    clientPackage: row.client_package, subscriptionStatus: row.subscription_status,
-                    formId: row.form_id, formTitle_en: row.form_title_en, formTitle_ar: row.form_title_ar,
-                    formType: row.form_type || 'check-in',
-                    postAction: normalizePostAction(row.post_action || row.form_post_action),
-                    requestedAt: row.requested_at, scheduledAt: row.scheduled_at, submittedAt: null, actionTakenAt: null,
-                    // 'sent' means the scheduler dispatched it to the client but nothing has
-                    // come back yet — same "awaiting" bucket as pending, not a distinct status
-                    // the frontend needs to know about.
-                    status: row.status === 'scheduled' ? 'scheduled' : 'awaiting',
-                    assignedTo: row.assigned_to ?? null,
-                    assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
-                    labelId: row.label_id ?? null,
-                    labelName: row.label_name ?? null,
-                    labelColor: row.label_color ?? null,
-                    ...autoAssignFields(row),
-                    responses: [], responseCount: 0,
-                    isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
-                };
-            }
-
-            // `responses` already carries every answer (with its question id); nothing reads a separate
-            // `answers` map, so it is no longer sent (it duplicated every answer in the payload).
-            const requestResponses = responsesByRequestId.get(row.id as string) ?? [];
-
-            return {
-                id: row.id, clientId: row.client_id, clientCode: row.client_code,
-                clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email, isDemo: row.client_is_demo === true,
-                clientPackage: row.client_package, subscriptionStatus: row.subscription_status,
-                formId: row.form_id, formTitle_en: row.form_title_en, formTitle_ar: row.form_title_ar,
-                formType: row.form_type || 'check-in',
-                postAction: normalizePostAction(row.post_action || row.form_post_action),
-                requestedAt: row.requested_at, scheduledAt: row.scheduled_at,
-                submittedAt: row.submitted_at, actionTakenAt: row.action_taken_at,
-                status: row.status === 'reviewed' ? 'action-done' : 'need-action',
-                assignedTo: row.assigned_to ?? null,
-                assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
-                labelId: row.label_id ?? null,
-                labelName: row.label_name ?? null,
-                labelColor: row.label_color ?? null,
-                ...autoAssignFields(row),
-                responses: requestResponses,
-                responseCount: lazyAnswers ? Number(row.response_count ?? 0) : requestResponses.length,
-                isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
-            };
-        });
-
-        res.json(queueItems);
+// Every row matching the same search/filters as the list (id + status + post action only), so "select all
+// matching" can span pages. Stops at QUEUE_SELECT_ALL_LIMIT and says so.
+export async function getQueueIds(req: Request, res: Response, next: NextFunction) {
+    try {
+        const parsedQuery = parseQueueQuery(req.query);
+        if (!parsedQuery.ok) return res.status(400).json({ error: parsedQuery.error });
+        res.json(await listQueueIds({
+            workspaceId: req.user!.workspaceId, archived: req.query.archived === 'true', query: parsedQuery.value,
+        }));
     } catch (err) {
         next(err);
     }
