@@ -6,6 +6,7 @@ import { PageHeaderActionsContext } from "@/app/contexts/pageHeaderActions";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
 import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, NotebookText, ChevronUp, ChevronDown } from 'lucide-react';
+import ScrollHint from "@/app/components/ScrollHint";
 import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
@@ -77,6 +78,7 @@ export default function ClientLayout({ children }) {
     // Fetched only for the tab title (distinguishes clients across many open tabs) —
     // the tab pages each fetch the full client record themselves as needed.
     const [clientCode, setClientCode] = useState(null);
+    const [clientName, setClientName] = useState('');
     const [isDemoClient, setIsDemoClient] = useState(false);
     useEffect(() => {
         let cancelled = false;
@@ -84,6 +86,7 @@ export default function ClientLayout({ children }) {
             .then(res => {
                 if (cancelled) return;
                 setClientCode(res.data?.code ?? res.data?.client_code ?? null);
+                setClientName(`${res.data?.fname ?? ''} ${res.data?.lname ?? ''}`.trim());
                 setIsDemoClient(!!res.data?.is_demo);
             })
             .catch(() => {});
@@ -109,6 +112,8 @@ export default function ClientLayout({ children }) {
     const [pageHeaderActions, setPageHeaderActions] = useState(null);
 
     const isDirty = nutritionDirty || trainingDirty;
+    // Without this the empty actions box would still take a row (and a gap) on phones.
+    const hasHeaderActions = Boolean(isDemoClient || (isTraining && trainingHeaderActions) || (isNutrition && nutritionHeaderActions) || (isOther && pageHeaderActions));
 
     // Intercept in-app link clicks that would navigate OUTSIDE the client area.
     // Tab-to-tab clicks (href starts with /clients/${id}) are allowed through freely.
@@ -149,9 +154,33 @@ export default function ClientLayout({ children }) {
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full min-w-0">
-            <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6 shrink-0 min-w-0">
-                {/* Tabs scroll inside their own box so a narrow viewport never widens the page */}
-                <div className="min-w-0 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* Phones: two rows — the client's code and name with the page actions beside them (the actions
+                wrap inside a capped area, so many buttons never squeeze the name or the tabs), then the tabs
+                with the collapse button. From md up the wrappers vanish (display: contents) and everything is
+                one row — tabs, actions, collapse button — with the code and name in the top bar breadcrumb. */}
+            <div className="mb-4 sm:mb-6 flex shrink-0 min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+                {(clientCode || clientName || hasHeaderActions) && (
+                    <div className="flex min-w-0 items-center justify-between gap-3 md:contents">
+                        {(clientCode || clientName) && (
+                            <h1 className="flex min-w-0 flex-1 items-start gap-2.5 text-lg font-semibold leading-snug text-foreground md:hidden">
+                                {clientCode && <span dir="ltr" className="shrink-0 tabular-nums">#{clientCode}</span>}
+                                {clientName && <span className="min-w-0 line-clamp-2 break-words">{clientName}</span>}
+                            </h1>
+                        )}
+                        {hasHeaderActions && (
+                            <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-2 md:order-2 md:ms-auto md:max-w-full">
+                                {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
+                                {isTraining && trainingHeaderActions}
+                                {isNutrition && nutritionHeaderActions}
+                                {isOther && pageHeaderActions}
+                            </div>
+                        )}
+                    </div>
+                )}
+                <div className="flex min-w-0 items-center gap-3 md:contents">
+                    {/* Tabs scroll inside their own box so a narrow viewport never widens the page; the fade
+                        and arrow show which side still has tabs off-screen. */}
+                    <ScrollHint className="max-w-full flex-1 md:order-1 md:flex-none">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -173,17 +202,12 @@ export default function ClientLayout({ children }) {
                         </TabList>
                     </TabListContainer>
                 </TabsRoot>
-                </div>
-                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full max-md:w-full max-md:ms-0 max-md:flex-nowrap">
-                    {isDemoClient && <DemoClientActions workspaceSlug={workspaceSlug} />}
-                    {isTraining && trainingHeaderActions}
-                    {isNutrition && nutritionHeaderActions}
-                    {isOther && pageHeaderActions}
+                    </ScrollHint>
                     <button
                         onClick={() => setHeaderCollapsed(v => !v)}
                         title={headerCollapsed ? 'Show header' : 'Hide header'}
                         aria-label={headerCollapsed ? 'Show header' : 'Hide header'}
-                        className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0"
+                        className="p-2 rounded-full border border-foreground/30 bg-default text-foreground shadow-sm hover:bg-default/70 hover:border-foreground/50 transition-colors shrink-0 md:order-3"
                     >
                         {headerCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                     </button>

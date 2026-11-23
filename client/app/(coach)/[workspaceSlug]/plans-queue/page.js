@@ -6,8 +6,10 @@ import api from "@/lib/axios";
 import { useTranslations } from "next-intl";
 import { History, ListTodo } from "lucide-react";
 import { Button } from "@heroui/react/button";
+import AutoAssignMenu from "@/app/components/plansQueue/AutoAssignMenu";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
 import ArchivedSubmissionsTable from "@/app/components/plansQueue/ArchivedSubmissionsTable";
+import AutoAssignRulesModal from "@/app/components/plansQueue/AutoAssignRulesModal";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
@@ -25,6 +27,36 @@ export default function PlansQueuePage() {
     // Applying an existing label to a row stays available to anyone who can
     // see the queue at all, matching assignTo's 'forms' write gate.
     const [canManageLabels, setCanManageLabels] = useState(false);
+    // "Auto-assign next time" rules. Same owner/manager restriction as labels (server enforces it), so
+    // the one flag set from the role below also drives it. The page only keeps the rule COUNT (for the
+    // button) — each queue row carries its own rule, and the modal fetches its own pages — so nothing
+    // here grows with the number of rules.
+    const [autoAssignTotal, setAutoAssignTotal] = useState(0);
+    const [showAutoAssignRules, setShowAutoAssignRules] = useState(false);
+    // The "remember who I assign to" switch. Remembered per workspace in this browser, so a manager who works
+    // that way doesn't have to re-enable it every visit. Because it can now be on without the manager
+    // remembering, the header button and the bulk bar both say so while it is on. Safe to read storage in the
+    // initial state: the controls it drives only render after the queue has loaded, never in the server HTML.
+    const autoAssignStorageKey = `plansQueue:autoAssignOnAssign:${workspaceSlug}`;
+    const [autoAssignOnAssign, setAutoAssignOnAssignState] = useState(() => {
+        try {
+            return localStorage.getItem(autoAssignStorageKey) === "1";
+        } catch {
+            return false; // storage blocked (private window, site data cleared) — the switch just starts off
+        }
+    });
+    function setAutoAssignOnAssign(isOn) {
+        setAutoAssignOnAssignState(isOn);
+        try {
+            if (isOn) localStorage.setItem(autoAssignStorageKey, "1");
+            else localStorage.removeItem(autoAssignStorageKey);
+        } catch {
+            // not remembered this time; the switch still works for this visit
+        }
+    }
+    // Instant badge updates between reloads: `${clientId}:${planType}` -> { id, agentName } | null. Wins over
+    // what the queue row came with (rows are a one-time snapshot).
+    const [autoRuleOverrides, setAutoRuleOverrides] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [showHistory, setShowHistory] = useState(false);
@@ -156,6 +188,42 @@ export default function PlansQueuePage() {
     // imperative function.
     const [labelsReloadToken, setLabelsReloadToken] = useState(0);
     function refreshLabels() { setLabelsReloadToken((n) => n + 1); }
+    // Same shape as the labels loader above: a token-driven effect shared by Main and History. pageSize=1
+    // because only the total is wanted here.
+    const [autoAssignReloadToken, setAutoAssignReloadToken] = useState(0);
+    function refreshAutoAssignCount() { setAutoAssignReloadToken((n) => n + 1); }
+    useEffect(() => {
+        async function loadAutoAssignCount() {
+            try {
+                const res = await api.get("/api/forms/queue/auto-assign", { params: { pageSize: 1 } });
+                // Rules, not clients: the list is one row per client, but the button counts the rules themselves.
+                setAutoAssignTotal(res.data?.totalRules ?? 0);
+            } catch {
+                // optional UI — leave the existing count on failure
+            }
+        }
+        loadAutoAssignCount();
+    }, [autoAssignReloadToken]);
+
+    function applyAutoRuleOverrides(entries) {
+        setAutoRuleOverrides((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+    }
+
+    // Rules edited from the modal (agent changed, or turned off): update those rows' badges now, no reload.
+    // Each entry is ["clientId:planType", { id, agentName } | null].
+    function handleRulesChanged(entries) {
+        applyAutoRuleOverrides(entries);
+        refreshAutoAssignCount();
+    }
+
+    // "Turn off all matching" can touch thousands of rows, so reload the queue (remounts the table with
+    // fresh rows) instead of patching badges one by one.
+    function handleRulesTurnedOffInBulk() {
+        setAutoRuleOverrides({});
+        refreshAutoAssignCount();
+        setQueueReloadToken((n) => n + 1);
+    }
+
     useEffect(() => {
         async function loadLabels() {
             try {
@@ -296,14 +364,25 @@ export default function PlansQueuePage() {
     }
 
     const historyToggle = (
-        <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowHistory((prev) => !prev)}
-        >
-            {showHistory ? <ListTodo className="w-4 h-4" /> : <History className="w-4 h-4" />}
-            <span>{showHistory ? t('backToQueue') : t('submissionHistory')}</span>
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+            {(canManageLabels || autoAssignTotal > 0) && (
+                <AutoAssignMenu
+                    total={autoAssignTotal}
+                    canManage={canManageLabels}
+                    isOn={autoAssignOnAssign}
+                    onIsOnChange={setAutoAssignOnAssign}
+                    onOpenRules={() => setShowAutoAssignRules(true)}
+                />
+            )}
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHistory((prev) => !prev)}
+            >
+                {showHistory ? <ListTodo className="w-4 h-4" /> : <History className="w-4 h-4" />}
+                <span>{showHistory ? t('backToQueue') : t('submissionHistory')}</span>
+            </Button>
+        </div>
     );
 
     return (
@@ -324,6 +403,11 @@ export default function PlansQueuePage() {
                         labels={labels}
                         canManageLabels={canManageLabels}
                         onLabelsChange={refreshLabels}
+                        autoAssignOnAssign={autoAssignOnAssign}
+                        autoRuleOverrides={autoRuleOverrides}
+                        onAutoRuleOverrides={applyAutoRuleOverrides}
+                        canManageAutoAssign={canManageLabels}
+                        onAutoAssignChange={refreshAutoAssignCount}
                         title={t('historyTitle')}
                         description={t('historyDescription')}
                         headerAction={historyToggle}
@@ -352,6 +436,11 @@ export default function PlansQueuePage() {
                     labels={labels}
                     canManageLabels={canManageLabels}
                     onLabelsChange={refreshLabels}
+                    autoAssignOnAssign={autoAssignOnAssign}
+                    autoRuleOverrides={autoRuleOverrides}
+                    onAutoRuleOverrides={applyAutoRuleOverrides}
+                    canManageAutoAssign={canManageLabels}
+                    onAutoAssignChange={refreshAutoAssignCount}
                     hideStatusColumn
                     hideActionTakenColumn
                     headerAction={historyToggle}
@@ -360,6 +449,14 @@ export default function PlansQueuePage() {
                     onCompletionDone={handleCompletionDone}
                 />
             )}
+            <AutoAssignRulesModal
+                open={showAutoAssignRules}
+                onClose={() => setShowAutoAssignRules(false)}
+                members={members}
+                canManage={canManageLabels}
+                onRulesChanged={handleRulesChanged}
+                onTurnedOffInBulk={handleRulesTurnedOffInBulk}
+            />
         </div>
     );
 }

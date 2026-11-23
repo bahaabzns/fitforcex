@@ -22,6 +22,10 @@ function startsInsideHorizontalScroller(target, boundary) {
     return false;
 }
 
+function keepContainerUnscrolled(e) {
+    if (e.currentTarget.scrollLeft !== 0) e.currentTarget.scrollLeft = 0;
+}
+
 /**
  * One-panel-per-screen navigation for the builder pages on phones, animated
  * like a story reel: the panels sit side by side in a track that follows the
@@ -105,6 +109,10 @@ export function useMobilePanels({ isMobile, maxStep }) {
             onTouchMove: handleTouchMove,
             onTouchEnd: handleTouchEnd,
             onTouchCancel: handleTouchEnd,
+            // The track slides with transforms, never by scrolling. But focusing a field in an off-screen
+            // panel (e.g. the name of a freshly loaded plan) makes the browser scroll this clipped box
+            // sideways to reveal it — on top of the slide, leaving a blank gap and half a panel. Undo it.
+            onScroll: keepContainerUnscrolled,
             // Let the browser own vertical scrolling; horizontal belongs to the track.
             style: { touchAction: "pan-y", columnGap: PANEL_GAP_PX },
         },

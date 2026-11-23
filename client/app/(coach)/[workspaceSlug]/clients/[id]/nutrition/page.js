@@ -16,7 +16,7 @@ import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
 import FoodDiaryAdherenceModal from "@/app/components/nutrition/FoodDiaryAdherenceModal";
 import ConfigureActivationModal from "@/app/components/ConfigureActivationModal";
 import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Power, Save, SaveAll } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
@@ -287,8 +287,8 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         const activateVisible = selectedPlan && selectedPlan.status !== "active";
         const exportVisible = !!selectedPlan?.id;
         onHeaderActionsChange(
-            <div className="flex items-center gap-2 max-md:flex-1 max-md:min-w-0">
-                <Button variant="outline" aria-label={t('viewFoodDiary')} title={t('viewFoodDiary')} className="max-md:min-w-0 max-md:px-2.5" onClick={() => setFoodDiaryModalOpen(true)}>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" aria-label={t('viewFoodDiary')} title={t('viewFoodDiary')} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0" onClick={() => setFoodDiaryModalOpen(true)}>
                     <BookOpen size={16} className="md:hidden" aria-hidden="true" />
                     <span className="max-md:hidden">{t('viewFoodDiary')}</span>
                 </Button>
@@ -335,13 +335,16 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
-                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:flex-1 max-md:min-w-0"
+                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
+                        aria-label={t('saveAll')} title={t('saveAll')}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
-                        {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}
+                        <SaveAll size={16} className="md:hidden" aria-hidden="true" />
+                        <span className="max-md:hidden">{isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}</span>
                     </Button>
                 )}
                 {savePlanVisible && (
-                    <Button variant="primary" isDisabled={isSaving} data-guide="plan-save" className="max-md:flex-1 max-md:min-w-0"
+                    <Button variant="primary" isDisabled={isSaving} data-guide="plan-save" className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
+                        aria-label={t('savePlan')} title={t('savePlan')}
                         onClick={() => {
                             // Package Lifecycle §12.5: only prompt when the plan being
                             // saved is currently active -- a draft save is unaffected.
@@ -351,16 +354,19 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                             }
                             actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId);
                         }}>
-                        {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
+                        <Save size={16} className="md:hidden" aria-hidden="true" />
+                        <span className="max-md:hidden">{isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}</span>
                     </Button>
                 )}
                 {activateVisible && (
                     <Button
                         isDisabled={isSaving || activating}
                         onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:flex-1 max-md:min-w-0"
+                        aria-label={t('activate')} title={t('activate')}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                     >
-                        {activating ? t('activating') : t('activate')}
+                        <Power size={16} className="md:hidden" aria-hidden="true" />
+                        <span className="max-md:hidden">{activating ? t('activating') : t('activate')}</span>
                     </Button>
                 )}
             </div>

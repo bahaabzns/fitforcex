@@ -9,6 +9,7 @@ import { attachmentUploaderFor, isValidAttachmentCategory } from '../../lib/form
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { recordEvent, teamRecipients } from '../../lib/events';
+import { autoAssignSubmittedRequest } from '../forms/autoAssign.service';
 import { DEMO_EVENT, recordDemoEvent } from '../demoClient/demoClient.service';
 import {
     summarizeLog,
@@ -785,14 +786,22 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
             }),
         ]);
 
+        // The submission is saved. If nobody is assigned yet, apply the manager's "auto-assign next time"
+        // rule — best-effort: it never throws, and on any problem the request simply stays unassigned.
+        const autoAssignedTo = request.assigned_to
+            ? null
+            : await autoAssignSubmittedRequest(req.client!.workspaceId, request.id);
+        const reviewerId = request.assigned_to ?? autoAssignedTo;
+
         // Notify the assigned reviewer if one is set, otherwise the whole team.
         await recordEvent({
             workspaceId: req.client!.workspaceId,
             type:        'checkin.submitted',
             importance:  'actionable',
             title:       'A client submitted a check-in',
-            recipients:  request.assigned_to
-                ? [{ type: 'user', id: request.assigned_to }]
+            body:        autoAssignedTo ? 'Auto-assigned to you' : undefined,
+            recipients:  reviewerId
+                ? [{ type: 'user', id: reviewerId }]
                 : await teamRecipients(req.client!.workspaceId),
             actor:       { type: 'client', id: req.client!.clientId },
             entity:      { type: 'form_request', id: request.id },

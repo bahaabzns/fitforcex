@@ -503,7 +503,14 @@ function PlanModal({ plan, onClose, onSaved, addons, capabilityOptions }) {
     );
 }
 
+const BLANK_BILLING_PERIOD = { period_key: '', label: '', label_ar: '', save_label: '', save_label_ar: '', discount_percent: 0, months: 1, is_active: true };
+
+// Edits an existing billing period, or — when `discount` has no id — creates a new one (the key
+// is typed once here and can't change afterwards, since plans and checkout links refer to it).
 function BillingDiscountEditRow({ discount, onSave, onCancel }) {
+    const isNew = !discount.id;
+    const [periodKey, setPeriodKey] = useState(discount.period_key);
+    const [error, setError] = useState('');
     const [form, setForm] = useState({
         label:            discount.label,
         label_ar:         discount.label_ar ?? '',
@@ -519,14 +526,20 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
 
     async function handleSave() {
         setSaving(true);
+        setError('');
+        const payload = {
+            ...form,
+            save_label:    form.save_label.trim() || null,
+            label_ar:      form.label_ar.trim() || null,
+            save_label_ar: form.save_label_ar.trim() || null,
+        };
         try {
-            const res = await api.put(`/api/admin/billing-discounts/${discount.id}`, {
-                ...form,
-                save_label:    form.save_label.trim() || null,
-                label_ar:      form.label_ar.trim() || null,
-                save_label_ar: form.save_label_ar.trim() || null,
-            });
+            const res = isNew
+                ? await api.post('/api/admin/billing-discounts', { ...payload, period_key: periodKey })
+                : await api.put(`/api/admin/billing-discounts/${discount.id}`, payload);
             onSave(res.data);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Could not save this billing period. Please try again.');
         } finally {
             setSaving(false);
         }
@@ -537,7 +550,12 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
     return (
         <div className="flex flex-col gap-2 px-4 py-2.5 border-t border-border bg-secondary/20">
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 items-center">
-                <span className="text-sm font-mono text-muted-foreground">{discount.period_key}</span>
+                {isNew ? (
+                    <input value={periodKey} onChange={e => setPeriodKey(e.target.value)} dir="ltr"
+                        className={`${INPUT_SM} font-mono`} placeholder="Key, e.g. yearly" aria-label="Period key" />
+                ) : (
+                    <span className="text-sm font-mono text-muted-foreground">{discount.period_key}</span>
+                )}
                 <input value={form.label} onChange={e => set('label', e.target.value)}
                     className={`${INPUT_SM} w-28`} placeholder="Label" />
                 <input value={form.save_label} onChange={e => set('save_label', e.target.value)}
@@ -568,6 +586,7 @@ function BillingDiscountEditRow({ discount, onSave, onCancel }) {
                 <input value={form.save_label_ar} onChange={e => set('save_label_ar', e.target.value)} dir="rtl"
                     className={`${INPUT_SM} w-24`} placeholder="تسمية التوفير" />
             </div>
+            {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
     );
 }
@@ -800,6 +819,7 @@ export default function AdminPlansPage() {
     const [discounts, setDiscounts] = useState([]);
     const [discountsLoading, setDiscountsLoading] = useState(true);
     const [editingDiscount, setEditingDiscount] = useState(null);
+    const [addingDiscount, setAddingDiscount] = useState(false);
 
     const [addons, setAddons] = useState([]);
     const [addonsLoading, setAddonsLoading] = useState(true);
@@ -965,11 +985,17 @@ export default function AdminPlansPage() {
 
             {/* ── Billing Periods ── */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="px-4 py-3 bg-secondary/50 border-b border-border">
-                    <h2 className="text-sm font-semibold text-foreground">Billing Periods</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        Discounts applied to the base monthly price for each billing cycle.
-                    </p>
+                <div className="flex items-center justify-between px-4 py-3 bg-secondary/50 border-b border-border">
+                    <div>
+                        <h2 className="text-sm font-semibold text-foreground">Billing Periods</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Discounts applied to the base monthly price for each billing cycle.
+                        </p>
+                    </div>
+                    <Button variant="ghost" isDisabled={addingDiscount} onClick={() => { setEditingDiscount(null); setAddingDiscount(true); }}>
+                        <Plus size={14} className="mr-1.5" />
+                        New billing period
+                    </Button>
                 </div>
 
                 <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2 bg-secondary/30 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1015,6 +1041,14 @@ export default function AdminPlansPage() {
                                 </div>
                               </div>
                     ))
+                )}
+
+                {addingDiscount && (
+                    <BillingDiscountEditRow
+                        discount={BLANK_BILLING_PERIOD}
+                        onSave={created => { setDiscounts(ds => [...ds, created]); setAddingDiscount(false); }}
+                        onCancel={() => setAddingDiscount(false)}
+                    />
                 )}
             </div>
 

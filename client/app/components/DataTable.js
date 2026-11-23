@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from 'lucide-react';
+import FlyoutPanel from '@/app/components/FlyoutPanel';
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Pagination } from "@heroui/react/pagination";
@@ -33,6 +34,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 //   onSelectionChange — (newSet) => void
 //   renderExpandedRow — (row) => <tr>...</tr> | null
 //   renderMobileExpanded — (row) => JSX
+//   renderMobileRow — (row) => JSX, mobileListView only: replaces the generic "label: value" lines of a
+//                phone row with the page's own layout (the selection checkbox is still drawn by the table).
 //   scrollable — boolean
 //   defaultSort / defaultSortDirection
 //   emptyState — first-time (no data at all) config: { icon, title, description, action }.
@@ -221,6 +224,7 @@ export default function DataTable({
     onSelectionChange,
     renderExpandedRow,
     renderMobileExpanded,
+    renderMobileRow,
     scrollable,
     defaultSort,
     defaultSortDirection,
@@ -634,13 +638,13 @@ export default function DataTable({
                                             </button>
 
                                             {pendingColKey === col.key && pendingValue !== null && (
-                                                // Below `sm`, the side flyout (ltr:left-full) has nowhere to
-                                                // open into without running off-screen, so it drops to a
-                                                // stacked, full-width panel under the button instead —
-                                                // exactly the space the column list itself already occupies.
-                                                <div className="static mt-2 w-full sm:absolute sm:z-60 sm:mt-0 sm:ltr:left-full sm:rtl:right-full sm:top-0 sm:ltr:ml-1 sm:rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 sm:w-auto sm:min-w-56">
+                                                // Below `sm` there is no room beside the menu, so the panel is stacked,
+                                                // full-width, under the button (max-sm:static). From `sm` up FlyoutPanel
+                                                // opens it beside the row and flips it to whichever side has room — the
+                                                // menu sits at the toolbar's end edge, where the default side often doesn't.
+                                                <FlyoutPanel className="z-60 max-sm:static max-sm:ms-0 max-sm:mt-2 max-sm:w-full bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 sm:min-w-56">
                                                     {renderFilterFields(col, pendingValue, (next) => { setPendingValue(next); upsertFilter(col.key, next); })}
-                                                </div>
+                                                </FlyoutPanel>
                                             )}
                                         </div>
                                     ))}
@@ -1056,7 +1060,8 @@ export default function DataTable({
                                                     <button
                                                         key={col.key}
                                                         className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between gap-2 ${sortKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
-                                                        onClick={() => handleSortChange({ column: col.key })}
+                                                        // Picking a column closes the menu; otherwise its full-screen layer stays up and swallows the next tap.
+                                                        onClick={() => { handleSortChange({ column: col.key }); setSortMenuOpen(false); }}
                                                     >
                                                         {col.label}
                                                         {sortKey === col.key && (sortDirection === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
@@ -1099,6 +1104,7 @@ export default function DataTable({
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
+                                            {renderMobileRow ? renderMobileRow(row) : (<>
                                             {primaryCols.map(col => (
                                                 <div key={col.key} className="flex items-baseline gap-2 mb-1 last:mb-0">
                                                     <span className="text-muted-foreground text-xs font-medium shrink-0">{col.label}</span>
@@ -1117,6 +1123,7 @@ export default function DataTable({
                                                     ))}
                                                 </div>
                                             )}
+                                            </>)}
                                         </div>
                                         {renderMobileExpanded && renderMobileExpanded(row)}
                                     </div>

@@ -8,15 +8,23 @@ export const MAX_ASSIGN_LIMIT = MAX_ASSIGN_AT_ONCE;
 
 // Who can be handed plans from the dashboard: the owner, or an active member in a role that
 // produces plans. (Capacity is not required: the coach may be deliberately overriding it.)
-async function canReceivePlans(workspaceId: string, userId: string): Promise<boolean> {
-    const [owner, member] = await Promise.all([
-        prisma.workspaces.findFirst({ where: { id: workspaceId, owner_id: userId }, select: { id: true } }),
-        prisma.workspace_members.findFirst({
-            where: { workspace_id: workspaceId, user_id: userId, is_active: true, role: { in: [...CAPACITY_ROLES] } },
-            select: { id: true },
+// Batch form, so a list of rules can be checked in two queries instead of two per rule.
+export async function filterPlanReceivers(workspaceId: string, userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+    const [workspace, members] = await Promise.all([
+        prisma.workspaces.findFirst({ where: { id: workspaceId }, select: { owner_id: true } }),
+        prisma.workspace_members.findMany({
+            where: { workspace_id: workspaceId, user_id: { in: userIds }, is_active: true, role: { in: [...CAPACITY_ROLES] } },
+            select: { user_id: true },
         }),
     ]);
-    return !!(owner || member);
+    const receivers = new Set(members.map((member) => member.user_id));
+    if (workspace && userIds.includes(workspace.owner_id)) receivers.add(workspace.owner_id);
+    return receivers;
+}
+
+export async function canReceivePlans(workspaceId: string, userId: string): Promise<boolean> {
+    return (await filterPlanReceivers(workspaceId, [userId])).has(userId);
 }
 
 // Assigns up to `limit` of the oldest unassigned, plan-producing, needs-action requests to one person.

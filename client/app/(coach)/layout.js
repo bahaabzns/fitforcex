@@ -33,6 +33,10 @@ import GuideProvider from "@/app/components/guide/GuideProvider";
 import GettingStartedProvider from "@/app/components/gettingStarted/GettingStartedProvider";
 import Celebration from "@/app/components/gettingStarted/Celebration";
 import SubscriptionReadOnlyBanner from "@/app/components/SubscriptionReadOnlyBanner";
+import UpgradeProvider from "@/app/components/upgrade/UpgradeProvider";
+import UpgradeButton from "@/app/components/upgrade/UpgradeButton";
+import PlanEndingBanner from "@/app/components/upgrade/PlanEndingBanner";
+import HeaderMoreMenu from "@/app/components/HeaderMoreMenu";
 import NewFeatureTooltip from "@/app/components/NewFeatureTooltip";
 import TutorialButton from "@/app/components/TutorialButton";
 import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
@@ -147,6 +151,8 @@ function WorkspaceContent({ children }) {
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const isMobileSidebar = useMediaQuery("(max-width: 1023px)");
+    // Phone width: only upgrade, getting started and notifications stay in the top bar.
+    const isCompactHeader = useMediaQuery("(max-width: 767px)");
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [clientLabel, setClientLabel] = useState(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -159,7 +165,7 @@ function WorkspaceContent({ children }) {
     const clientIdMatch = pathname.match(/\/clients\/([^/]+)/);
     const clientId = clientIdMatch ? clientIdMatch[1] : null;
 
-    const { icon, crumbs } = getPageInfo(pathname, { slug: workspaceSlug, clientId, clientLabel, tNav });
+    const { icon, crumbs } = getPageInfo(pathname, { slug: workspaceSlug, clientId, clientLabel: isCompactHeader ? null : clientLabel, tNav });
 
     const breadcrumbInteractive = pathname.includes('/clients');
 
@@ -207,15 +213,17 @@ function WorkspaceContent({ children }) {
         setMobileSidebarOpen(false);
     }, [pathname]);
 
+    // The client's code and name are the breadcrumb on desktop; on a phone the client page shows
+    // them as its own title line above the tabs (the top bar is too crowded), so no fetch is needed.
     useEffect(() => {
-        if (!clientId) { setClientLabel(null); return; }
+        if (!clientId || isCompactHeader) { setClientLabel(null); return; }
         api.get(`/api/clients/${clientId}`)
             .then(res => {
                 const c = res.data;
                 setClientLabel(`#${c.code ?? c.client_code} ${c.fname} ${c.lname}`);
             })
             .catch(() => setClientLabel(null));
-    }, [clientId]);
+    }, [clientId, isCompactHeader]);
 
     if (loading) {
         return (
@@ -235,8 +243,9 @@ function WorkspaceContent({ children }) {
             />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
                 <SubscriptionReadOnlyBanner />
+                <PlanEndingBanner />
                 {!headerCollapsed && (
-                    <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
+                    <header className="flex items-center gap-2 md:gap-3 p-3 md:p-4 border-b border-border shrink-0">
                         <Button
                             isIconOnly
                             size="sm"
@@ -249,27 +258,33 @@ function WorkspaceContent({ children }) {
                         </Button>
 
                         {crumbs.length > 0 && (
-                            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
+                            // flex-1 + overflow-hidden: the trail takes only the room the action buttons leave, so a long
+                            // trail is clipped (labels truncate) instead of running underneath them. On a phone only the
+                            // current page is shown, the parents being what makes a trail long.
+                            <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm">
                                 {icon && (
-                                    <span className={crumbs.length === 1 ? "text-foreground" : "text-muted-foreground"}>{icon}</span>
+                                    <span className={`shrink-0 ${crumbs.length === 1 || isCompactHeader ? "text-foreground" : "text-muted-foreground"}`}>{icon}</span>
                                 )}
                                 {crumbs.map((crumb, i) => {
                                     const isLast = i === crumbs.length - 1;
-                                    const isLink = !isLast && breadcrumbInteractive;
+                                    if (isCompactHeader && !isLast) return null;
+                                    // On a phone's client page the "Clients" crumb is the last one but still the way
+                                    // back to the list (the client's name is the page's own title line there).
+                                    const isLink = (!isLast || (isCompactHeader && Boolean(clientId))) && breadcrumbInteractive;
                                     return (
-                                        <span key={i} className="flex items-center gap-1.5">
-                                            {i > 0 && <ChevronRight size={13} className="text-muted-foreground" />}
+                                        <span key={i} className="flex min-w-0 items-center gap-1.5">
+                                            {i > 0 && !isCompactHeader && <ChevronRight size={13} className="shrink-0 text-muted-foreground" />}
                                             {isLink ? (
                                                 <Link
                                                     href={crumb.href}
-                                                    className="text-muted-foreground underline-offset-4 transition-colors hover:underline"
+                                                    className="truncate text-muted-foreground underline-offset-4 transition-colors hover:underline"
                                                 >
                                                     {crumb.label}
                                                 </Link>
                                             ) : (
                                                 <span
                                                     aria-current={isLast ? "page" : undefined}
-                                                    className={isLast ? "font-medium text-foreground" : "text-muted-foreground"}
+                                                    className={isLast ? "truncate font-medium text-foreground" : "truncate text-muted-foreground"}
                                                 >
                                                     {crumb.label}
                                                 </span>
@@ -280,22 +295,33 @@ function WorkspaceContent({ children }) {
                             </nav>
                         )}
 
-                        <div className="ms-auto flex items-center gap-1">
-                            <NewFeatureTooltip
-                                featureKey="feedback_entry_hint"
-                                active
-                                message={tInsights('hint')}
-                                dismissLabel={tInsights('hintDismiss')}
-                                badgeLabel={tInsights('newFeature')}
-                                onTriggerClick={() => setFeedbackOpen(true)}
-                                triggerClassName="button button--icon-only button--sm button--ghost inline-flex!"
-                            >
-                                <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
-                            </NewFeatureTooltip>
-                            <GettingStartedButton />
-                            <NotificationBell />
-                            <ThemeToggle />
-                            <LanguageSwitcher />
+                        <div className="ms-auto flex shrink-0 items-center gap-1">
+                            <UpgradeButton />
+                            {isCompactHeader ? (
+                                <>
+                                    <GettingStartedButton />
+                                    <NotificationBell />
+                                    <HeaderMoreMenu onFeedback={() => setFeedbackOpen(true)} />
+                                </>
+                            ) : (
+                                <>
+                                    <NewFeatureTooltip
+                                        featureKey="feedback_entry_hint"
+                                        active
+                                        message={tInsights('hint')}
+                                        dismissLabel={tInsights('hintDismiss')}
+                                        badgeLabel={tInsights('newFeature')}
+                                        onTriggerClick={() => setFeedbackOpen(true)}
+                                        triggerClassName="button button--icon-only button--sm button--ghost inline-flex!"
+                                    >
+                                        <span title={tInsights('navLabel')}><MessageSquarePlus size={16} /></span>
+                                    </NewFeatureTooltip>
+                                    <GettingStartedButton />
+                                    <NotificationBell />
+                                    <ThemeToggle />
+                                    <LanguageSwitcher />
+                                </>
+                            )}
                         </div>
                     </header>
                 )}
@@ -328,7 +354,9 @@ export default function WorkspaceLayout({ children }) {
             <TutorialsProvider>
                 <GettingStartedProvider>
                     <GuideProvider>
-                        <WorkspaceContent>{children}</WorkspaceContent>
+                        <UpgradeProvider>
+                            <WorkspaceContent>{children}</WorkspaceContent>
+                        </UpgradeProvider>
                         <Celebration />
                     </GuideProvider>
                 </GettingStartedProvider>

@@ -10,6 +10,7 @@ import PackageFormsPicker from "@/app/components/PackageFormsPicker";
 import { FieldLabel } from "@/app/components/Field";
 import { isCompatibleCheckInForm } from "@/lib/formCompatibility";
 import api from "@/lib/axios";
+import FlyoutPanel from "@/app/components/FlyoutPanel";
 import { Button } from "@heroui/react/button";
 import { Table } from "@heroui/react/table";
 import { SearchField } from "@heroui/react/search-field";
@@ -1025,7 +1026,7 @@ export default function PackagesPage() {
                                     <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
                                 </button>
                                 {pendingFilterKey === "status" && (
-                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-0.5 min-w-44">
+                                    <FlyoutPanel className="z-30 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-0.5 min-w-44">
                                         {[["active", t('active')], ["inactive", t('inactive')]].map(([value, label]) => (
                                             <label key={value} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none">
                                                 <input
@@ -1037,7 +1038,7 @@ export default function PackagesPage() {
                                                 {label}
                                             </label>
                                         ))}
-                                    </div>
+                                    </FlyoutPanel>
                                 )}
                             </div>
                             {/* Duration */}
@@ -1050,11 +1051,11 @@ export default function PackagesPage() {
                                     <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
                                 </button>
                                 {pendingFilterKey === "duration" && (
-                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex items-center gap-2 min-w-56">
+                                    <FlyoutPanel className="z-30 bg-card border border-border rounded-xl shadow-md p-3 flex items-center gap-2 min-w-56">
                                         <input type="number" min="0" inputMode="numeric" placeholder={t('minLabel')} value={durationMin} onChange={(e) => setDurationMin(e.target.value)} className="w-full px-2 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                                         <span className="text-muted-foreground">–</span>
                                         <input type="number" min="0" inputMode="numeric" placeholder={t('maxLabel')} value={durationMax} onChange={(e) => setDurationMax(e.target.value)} className="w-full px-2 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                                    </div>
+                                    </FlyoutPanel>
                                 )}
                             </div>
                             {/* Price */}
@@ -1067,11 +1068,11 @@ export default function PackagesPage() {
                                     <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
                                 </button>
                                 {pendingFilterKey === "price" && (
-                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex items-center gap-2 min-w-56">
+                                    <FlyoutPanel className="z-30 bg-card border border-border rounded-xl shadow-md p-3 flex items-center gap-2 min-w-56">
                                         <input type="number" min="0" inputMode="decimal" placeholder={t('minLabel')} value={priceMin} onChange={(e) => setPriceMin(e.target.value)} className="w-full px-2 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                                         <span className="text-muted-foreground">–</span>
                                         <input type="number" min="0" inputMode="decimal" placeholder={t('maxLabel')} value={priceMax} onChange={(e) => setPriceMax(e.target.value)} className="w-full px-2 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                                    </div>
+                                    </FlyoutPanel>
                                 )}
                             </div>
                         </div>

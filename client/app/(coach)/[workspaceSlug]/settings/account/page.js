@@ -101,12 +101,12 @@ export default function AccountPage() {
                             <span className="font-medium text-foreground">{t("emailLabel")}: </span>{me?.email}
                         </div>
                         <form id="profile-name-form" onSubmit={handleSaveName} className="flex flex-col gap-4">
-                            <div className="flex gap-3">
-                                <TextField variant="secondary" className="flex-1" isRequired value={fname} onChange={setFname}>
+                            <div className="flex flex-col gap-3 sm:flex-row">
+                                <TextField variant="secondary" className="min-w-0 flex-1" isRequired value={fname} onChange={setFname}>
                                     <Label>{t("firstName")}</Label>
                                     <Input />
                                 </TextField>
-                                <TextField variant="secondary" className="flex-1" value={lname} onChange={setLname}>
+                                <TextField variant="secondary" className="min-w-0 flex-1" value={lname} onChange={setLname}>
                                     <Label>{t("lastName")}</Label>
                                     <Input />
                                 </TextField>

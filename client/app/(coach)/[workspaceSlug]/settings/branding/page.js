@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { DropZone, FileTrigger } from "react-aria-components";
@@ -10,6 +9,8 @@ import api from "@/lib/axios";
 import { Card } from "@heroui/react/card";
 import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
+import { useUpgrade } from "@/app/components/upgrade/UpgradeProvider";
+import { UPGRADE_SOURCE } from "@/lib/upgradeTracking";
 import { Switch } from "@heroui/react/switch";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
@@ -228,8 +229,9 @@ function PortalPreview({ draftPrimary, draftAccent, logoUrl, logoDarkUrl, welcom
     );
 }
 
-function LockedState({ eligibility, hasSavedBranding, slug }) {
+function LockedState({ eligibility, hasSavedBranding }) {
     const t = useTranslations("brandingSettings");
+    const { openUpgrade } = useUpgrade();
     const locale = useLocale();
     const planNames = (eligibility.plans ?? [])
         .map((p) => (locale === "ar" && p.display_name_ar) ? p.display_name_ar : p.display_name)
@@ -252,9 +254,9 @@ function LockedState({ eligibility, hasSavedBranding, slug }) {
                     </p>
                     {hasSavedBranding && <p className="text-sm text-foreground mt-2">{t("lockedPausedNote")}</p>}
                 </div>
-                <Link href={`/${slug}/settings/subscription`}>
-                    <Button variant="primary">{eligibility.expired && eligibility.planHas ? t("renewCta") : t("upgradeCta")}</Button>
-                </Link>
+                <Button variant="primary" onClick={() => openUpgrade({ source: UPGRADE_SOURCE.LOCK_BRANDING, reason: eligibility.expired && eligibility.planHas ? "expired" : "default" })}>
+                    {eligibility.expired && eligibility.planHas ? t("renewCta") : t("upgradeCta")}
+                </Button>
             </Card.Content>
         </Card>
     );
@@ -403,7 +405,7 @@ export default function BrandingSettingsPage() {
             <SettingsPageHeader title={t("title")} description={t("description")} />
 
             {!eligible && (
-                <LockedState eligibility={eligibility} hasSavedBranding={hasSavedBranding} slug={workspaceSlug} />
+                <LockedState eligibility={eligibility} hasSavedBranding={hasSavedBranding} />
             )}
 
             {actionError && (
