@@ -9,8 +9,14 @@ import { prisma } from '../../lib/prisma';
 import pool from '../../db';
 import { formatPlanVariationLabel } from '../../lib/planVariationLabel';
 import { checkVariationSwitchAllowed } from '../../lib/planVariationSwitch';
-import { getEffectiveLimits } from '../../lib/seatLimits';
+import { getEffectiveLimits, getWorkspaceUsageCounts } from '../../lib/seatLimits';
 import { getWorkspaceAccessStatus } from '../../middleware/subscriptionAccessGate';
+import { z } from 'zod';
+import { CAPABILITY_KEYS, getCapabilityState, getPlansWithCapability } from '../../lib/planCapabilities';
+import {
+    UPGRADE_SOURCES, CLIENT_EVENT_TYPES, sanitizeReturnTo, recordUpgradeEvent, recordUpgradeEventSafely,
+    recordPaidUpgradeEvent, findCheckoutReturnTo,
+} from './upgradeEvents.service';
 
 // Paymob's "Transaction Response Callback" — the browser-side redirect after a card payment,
 // fixed per integration in the Paymob dashboard (unlike Fawaterak's old per-request successUrl).
@@ -44,6 +50,16 @@ export async function handleCallback(req: Request, res: Response) {
 </body></html>`);
 }
 
+// Which plan-gated features this workspace can use right now, and which plans include each —
+// powers the lock icons and their "included in …" explainer.
+async function getFeatureAccess(workspaceId: string) {
+    const entries = await Promise.all(CAPABILITY_KEYS.map(async key => {
+        const [state, plans] = await Promise.all([getCapabilityState(workspaceId, key), getPlansWithCapability(key)]);
+        return [key, { unlocked: state.effective, expired: state.expired && state.planHas, plans }] as const;
+    }));
+    return Object.fromEntries(entries);
+}
+
 export async function getSubscription(req: Request, res: Response, next: NextFunction) {
     try {
         const sub = await prisma.workspace_subscriptions.findUnique({
@@ -63,7 +79,7 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
         const expiresAt     = sub.expires_at ? new Date(sub.expires_at) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
 
-        const [payments, addons, effectiveLimits, accessStatus] = await Promise.all([
+        const [payments, addons, effectiveLimits, accessStatus, usageCounts, featureAccess] = await Promise.all([
             prisma.workspace_payments.findMany({
                 where: { workspace_id: req.user!.workspaceId },
                 select: {
@@ -83,6 +99,8 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
             }),
             getEffectiveLimits(req.user!.workspaceId),
             getWorkspaceAccessStatus(req.user!.workspaceId),
+            getWorkspaceUsageCounts(req.user!.workspaceId),
+            getFeatureAccess(req.user!.workspaceId),
         ]);
 
         const plan      = sub.plans;
@@ -112,11 +130,14 @@ export async function getSubscription(req: Request, res: Response, next: NextFun
                 durationDays:   plan.duration_days,
                 maxClients:     effectiveLimits.maxClients,
                 maxTeamSeats:   effectiveLimits.maxTeamSeats,
+                // Real (non-demo, non-deleted) clients — what the sidebar meter and best-fit plan use.
+                clientCount:    usageCounts.clientCount,
                 trialDays:      plan.trial_days,
                 startsAt:       sub.starts_at,
                 expiresAt:      sub.expires_at,
                 daysRemaining,
             },
+            featureAccess,
             addons: addons.map(a => ({
                 id:           a.id,
                 label:        a.addons?.label ?? `+${a.units} ${a.dimension}`,
@@ -321,9 +342,46 @@ async function startCheckoutOrFail(
     }
 }
 
+// Credits the eventual sale to the button that opened checkout, and remembers where to send the
+// coach back to after paying. An unknown source is filed under the plain subscription page.
+async function recordCheckoutStarted(
+    req: Request,
+    opts: { paymentId: string; planId: string; variationId: string; source?: string; returnTo?: string }
+): Promise<void> {
+    const source = UPGRADE_SOURCES.find(known => known === opts.source) ?? 'subscription_page';
+    const workspace = await prisma.workspaces.findUnique({ where: { id: req.user!.workspaceId }, select: { slug: true } });
+    await recordUpgradeEventSafely({
+        workspaceId: req.user!.workspaceId, userId: req.user!.userId, eventType: 'checkout_started',
+        source, planId: opts.planId, variationId: opts.variationId, paymentId: opts.paymentId,
+        returnTo: sanitizeReturnTo(opts.returnTo, workspace?.slug ?? ''),
+    });
+}
+
+const upgradeEventSchema = z.object({
+    eventType:   z.enum(CLIENT_EVENT_TYPES),
+    source:      z.enum(UPGRADE_SOURCES),
+    planId:      z.string().max(100).nullish(),
+    variationId: z.string().max(100).nullish(),
+});
+
+export async function trackUpgradeEvent(req: Request, res: Response, next: NextFunction) {
+    const parsed = upgradeEventSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid upgrade event' });
+
+    try {
+        await recordUpgradeEvent({
+            workspaceId: req.user!.workspaceId, userId: req.user!.userId,
+            eventType: parsed.data.eventType, source: parsed.data.source,
+            planId: parsed.data.planId, variationId: parsed.data.variationId,
+        });
+        res.status(204).end();
+    } catch (err) { next(err); }
+}
+
 export async function createInvoice(req: Request, res: Response, next: NextFunction) {
-    const { planId, variationId, paymentMethod, walletPhoneNumber } = req.body as {
+    const { planId, variationId, paymentMethod, walletPhoneNumber, source, returnTo } = req.body as {
         planId?: string; variationId?: string; paymentMethod?: string; walletPhoneNumber?: string;
+        source?: string; returnTo?: string;
     };
     if (typeof planId !== 'string' || typeof variationId !== 'string' || !planId || !variationId) {
         return res.status(400).json({ error: 'planId and variationId are required' });
@@ -401,6 +459,7 @@ export async function createInvoice(req: Request, res: Response, next: NextFunct
                 credit_applied: creditApplied,
             },
         });
+        await recordCheckoutStarted(req, { paymentId, planId: plan.id, variationId: variation.id, source, returnTo });
 
         // Manual transfer has no gateway to call — just a reference code and the static
         // payment instructions; the payment sits 'pending' until an admin confirms it
@@ -592,6 +651,7 @@ export async function getPaymentStatus(req: Request, res: Response, next: NextFu
         res.json({
             paymentId:   paymentRow.id,
             status:      currentStatus,
+            returnTo:    await findCheckoutReturnTo(paymentRow.id, req.user!.workspaceId),
             planDisplay:   paymentRow.addons ? paymentRow.addons.label : paymentRow.plans.display_name,
             planDisplayAr: paymentRow.addons ? paymentRow.addons.label_ar : paymentRow.plans.display_name_ar,
             amount:      paymentRow.amount,
@@ -755,6 +815,7 @@ export async function applyPayment(paymentId: string, workspaceId: string, start
     // paid_at check, so it fires exactly once. Best-effort — never blocks payment confirmation.
     if (activatedPayment) {
         void notifyMetaPurchase(workspaceId, paymentId, activatedPayment.amount, activatedPayment.currency);
+        void recordPaidUpgradeEvent(paymentId, workspaceId);
     }
     return activatedPayment !== null;
 }

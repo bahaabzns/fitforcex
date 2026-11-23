@@ -539,23 +539,27 @@ export default function ClientOverviewPage({ clientId, readOnly = false }) {
         <div className="flex flex-col gap-6 pb-6">
 
           {/* Header */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <h1 className="text-3xl font-bold text-foreground flex-1 flex items-center gap-3">
+          {/* Phones: the title takes its own row and the buttons sit on the next one. */}
+          <div className="flex items-center gap-x-4 gap-y-3 flex-wrap">
+            <h1 className="w-full md:w-auto md:flex-1 text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3 min-w-0 break-words">
               <span>#{client.code ?? client.client_code} — {client.fname} {client.lname}</span>
               {client.is_archived && <Chip size="sm" variant="soft" color="default">{t('statusArchived')}</Chip>}
             </h1>
+            {/* Phones: the buttons share one full-width row, each taking half. */}
             {readOnly ? null : client.is_archived ? (
-              <Button onClick={handleRestore} variant="primary" size="sm" isDisabled={restoring}>
-                <RotateCcw size={15} />
-                {restoring ? t('restoring') : t('restoreClient')}
-              </Button>
+              <div className="flex w-full gap-2 md:w-auto">
+                <Button onClick={handleRestore} variant="primary" size="sm" isDisabled={restoring} className="flex-1 md:flex-none">
+                  <RotateCcw size={15} />
+                  {restoring ? t('restoring') : t('restoreClient')}
+                </Button>
+              </div>
             ) : (
-              <>
-                <Button onClick={openEdit} variant="primary" size="sm">{tCommon('edit')}</Button>
-                <Button onClick={() => setShowArchiveModal(true)} className="bg-destructive/10 hover:bg-destructive/20 text-destructive" size="sm">
+              <div className="flex w-full gap-2 md:w-auto">
+                <Button onClick={openEdit} variant="primary" size="sm" className="flex-1 md:flex-none">{tCommon('edit')}</Button>
+                <Button onClick={() => setShowArchiveModal(true)} className="flex-1 md:flex-none bg-destructive/10 hover:bg-destructive/20 text-destructive" size="sm">
                   <Archive size={15} />{t('archiveAction')}
                 </Button>
-              </>
+              </div>
             )}
           </div>
 

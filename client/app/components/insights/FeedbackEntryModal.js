@@ -100,7 +100,7 @@ export default function FeedbackEntryModal({ open, onClose, submitUrl, screensho
     }
 
     return (
-        <AppModal open={open} onClose={handleClose} title={t('title')}>
+        <AppModal open={open} onClose={handleClose} title={t('title')} sheetOnMobile>
             {sent ? (
                 <div className="flex flex-col items-center text-center gap-2 py-6">
                     <p className="text-base font-medium text-foreground">{t('sentTitle')}</p>

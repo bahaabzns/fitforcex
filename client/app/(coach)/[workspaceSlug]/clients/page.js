@@ -37,6 +37,8 @@ import { today, getLocalTimeZone } from "@internationalized/date";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightBannerGroup";
 import DemoBadge from "@/app/components/demo/DemoBadge";
+import { useUpgrade } from "@/app/components/upgrade/UpgradeProvider";
+import { UPGRADE_SOURCE } from "@/lib/upgradeTracking";
 
 // --- HELPERS ---
 function statusChipColor(status) {
@@ -158,7 +160,7 @@ export default function ClientsPage() {
     const [loadError, setLoadError]       = useState(false); // clients fetch failed — distinct from an empty roster
     const [credsModal, setCredsModal]         = useState(null); // { email, password } | null
     const [credsCopied, setCredsCopied]       = useState(false);
-    const [clientLimitModal, setClientLimitModal] = useState(null); // { limit: number } | null
+    const { openUpgrade } = useUpgrade();
 
     // Add-client wizard
     const [showForm, setShowForm]             = useState(false);
@@ -389,7 +391,7 @@ export default function ClientsPage() {
         try {
             const { data } = await api.get('/api/clients/limit-check');
             if (!data.allowed) {
-                setClientLimitModal({ limit: data.limit });
+                openUpgrade({ source: UPGRADE_SOURCE.LIMIT_POPUP, reason: 'client_limit', limit: data.limit });
                 return;
             }
         } catch {
@@ -501,7 +503,7 @@ export default function ClientsPage() {
             const msg = err.response?.data?.error || '';
             if (err.response?.status === 403 && msg.startsWith('client_limit_reached:')) {
                 const limit = parseInt(msg.split(':')[1]);
-                setClientLimitModal({ limit });
+                openUpgrade({ source: UPGRADE_SOURCE.LIMIT_POPUP, reason: 'client_limit', limit });
             } else if (err.response?.status === 409 && msg === 'duplicate_email') {
                 setCurrentStep(0);
                 setFieldErrors({ email: t('validationDuplicateEmail') });
@@ -1306,40 +1308,6 @@ export default function ClientsPage() {
                         {freezeSaving ? t('saving') : t('addFreeze')}
                     </Button>
                 </form>
-            </Modal>
-
-            {/* Client limit reached modal */}
-            <Modal
-                open={!!clientLimitModal}
-                onClose={() => setClientLimitModal(null)}
-                title={t('clientLimitTitle')}
-            >
-                <div className="flex flex-col gap-5">
-                    <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-                        <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
-                        <div>
-                            <p className="text-sm font-medium text-amber-600">
-                                {t('clientLimitMessage', { limit: clientLimitModal?.limit ?? 0 })}
-                            </p>
-                            <p className="text-xs text-amber-600/70 mt-0.5">
-                                {t('clientLimitUpgrade')}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <p className="text-sm text-muted-foreground">
-                            {t('clientLimitContact')}
-                        </p>
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" onClick={() => setClientLimitModal(null)}>
-                            {t('dismiss')}
-                        </Button>
-                        <Button variant="primary" onClick={() => { setClientLimitModal(null); window.location.href = `/${workspaceSlug}/settings?tab=billing`; }}>
-                            {t('upgradePlan')}
-                        </Button>
-                    </div>
-                </div>
             </Modal>
 
             {/* Bulk transaction modal — one record per selected client; the shared

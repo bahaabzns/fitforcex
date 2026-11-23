@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Power, Save, SaveAll } from "lucide-react";
 import api from "@/lib/axios";
 import { useTrainingPlan } from "@/hooks/useTrainingPlan";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -252,7 +253,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
             return;
         }
         onHeaderActionsChange(
-            <div className="flex items-center gap-2 max-md:flex-1 max-md:min-w-0">
+            <div className="flex items-center gap-2">
                 {selectedPlan?.id && (
                     // Default popover__trigger styling (inline-block) is required here --
                     // it's what gives the trigger a real box for the popover to anchor
@@ -296,13 +297,16 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                     </NewFeatureTooltip>
                 )}
                 {showSaveAll && (
-                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:flex-1 max-md:min-w-0"
+                    <Button variant="outline" isDisabled={!isDirty || isSaving} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
+                        aria-label={t('saveAll')} title={t('saveAll')}
                         onClick={() => actionsRef.current.handleSaveAllDrafts()}>
-                        {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}
+                        <SaveAll size={16} className="md:hidden" aria-hidden="true" />
+                        <span className="max-md:hidden">{isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}</span>
                     </Button>
                 )}
                 {savePlanVisible && (
-                    <Button variant="primary" isDisabled={isSaving} className="max-md:flex-1 max-md:min-w-0"
+                    <Button variant="primary" isDisabled={isSaving} className="max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
+                        aria-label={t('savePlan')} title={t('savePlan')}
                         onClick={() => {
                             if (actionsRef.current.selectedPlanStatus === "active") {
                                 actionsRef.current.setDurationChoicePrompt(true);
@@ -310,16 +314,19 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                             }
                             actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId);
                         }}>
-                        {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
+                        <Save size={16} className="md:hidden" aria-hidden="true" />
+                        <span className="max-md:hidden">{isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}</span>
                     </Button>
                 )}
                 {activateVisible && (
                     <Button
                         isDisabled={isSaving || activating}
                         onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:flex-1 max-md:min-w-0"
+                        aria-label={t('activate')} title={t('activate')}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0"
                     >
-                        {activating ? t('activating') : t('activate')}
+                        <Power size={16} className="md:hidden" aria-hidden="true" />
+                        <span className="max-md:hidden">{activating ? t('activating') : t('activate')}</span>
                     </Button>
                 )}
             </div>

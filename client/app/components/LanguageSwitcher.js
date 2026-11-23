@@ -12,12 +12,53 @@ const LANGS = [
     { code: 'ar', label: 'العربية' },
 ];
 
-export default function LanguageSwitcher() {
-    const locale   = useLocale();
-    const tCommon  = useTranslations('common');
-    const router   = useRouter();
+// Saves the choice to the profile and cookie, then refreshes so the whole app re-renders translated.
+function useSwitchLanguage(onSwitching) {
+    const locale = useLocale();
+    const router = useRouter();
     const [switching, setSwitching] = useState(false);
-    const [open, setOpen]           = useState(false);
+
+    async function switchTo(lang) {
+        if (lang === locale || switching) return;
+        setSwitching(true);
+        onSwitching?.();
+        try {
+            await api.patch('/api/auth/profile', { preferred_language: lang });
+        } catch {}
+        setLocaleCookie(lang);
+        router.refresh();
+        setSwitching(false);
+    }
+
+    return { locale, switching, switchTo };
+}
+
+// The language options as plain rows (no dropdown) — used inside bottom sheets.
+export function LanguageList({ onSwitching }) {
+    const { locale, switchTo } = useSwitchLanguage(onSwitching);
+    return (
+        <div className="flex flex-col">
+            {LANGS.map(lang => (
+                <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => switchTo(lang.code)}
+                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-start text-sm text-foreground transition-colors hover:bg-sidebar-accent"
+                >
+                    <span className="flex w-4 shrink-0 items-center justify-center">
+                        {locale === lang.code && <Check size={14} className="text-primary" />}
+                    </span>
+                    {lang.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+export default function LanguageSwitcher() {
+    const tCommon  = useTranslations('common');
+    const [open, setOpen] = useState(false);
+    const { locale, switching, switchTo } = useSwitchLanguage(() => setOpen(false));
     const ref = useRef(null);
 
     useEffect(() => {
@@ -27,18 +68,6 @@ export default function LanguageSwitcher() {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
-
-    async function switchTo(lang) {
-        if (lang === locale || switching) return;
-        setSwitching(true);
-        setOpen(false);
-        try {
-            await api.patch('/api/auth/profile', { preferred_language: lang });
-        } catch {}
-        setLocaleCookie(lang);
-        router.refresh();
-        setSwitching(false);
-    }
 
     return (
         <div className="relative" ref={ref}>

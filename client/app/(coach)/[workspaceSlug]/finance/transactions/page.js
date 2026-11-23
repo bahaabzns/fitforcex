@@ -9,7 +9,6 @@ import NoAccessState from "@/app/components/NoAccessState";
 import { isAccessDenied } from "@/lib/permissions";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
-import KpiCardGroup from "@/app/components/KpiCardGroup";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
@@ -21,8 +20,6 @@ import TriggerInsightBannerGroup from "@/app/components/insights/TriggerInsightB
 import DemoBadge from "@/app/components/demo/DemoBadge";
 
 // --- HELPERS ---
-const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
-const DISPLAY_CURRENCIES = Object.keys(EXCHANGE_RATES);
 
 function statusColor(status) {
     switch (status) {
@@ -43,12 +40,9 @@ function subStatusColor(s) {
     }
 }
 
-function convert(amount, fromCurrency, toCurrency) {
-    if (fromCurrency === toCurrency) return amount;
-    return (amount * (EXCHANGE_RATES[fromCurrency] || 1)) / (EXCHANGE_RATES[toCurrency] || 1);
-}
 
 function parseTransactionDate(dateStr) { return new Date(dateStr); }
+
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 
 
@@ -56,6 +50,7 @@ function todayStr() { return new Date().toISOString().split("T")[0]; }
 function TransactionsTable({ transactions, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
+    const locale = useLocale();
     const { formatDate } = useDateFormatter();
     const fmtDate = (d) => formatDate(d) || "—";
     const STATUS_LABELS = { completed: t('completed'), refunded: t('refunded') };
@@ -64,32 +59,8 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
         Frozen: t('statusFrozen'), 'Pre-start': t('statusPreStart'),
         Refunded: t('statusRefunded'),
     };
-    const [filteredRows, setFilteredRows] = useState(transactions);
-    const [displayCurrency, setDisplayCurrency] = useState("EGP");
-
     const packageVariations = [...new Set([...allPackageVariations, ...transactions.map(tx => tx.packageVariation).filter(Boolean)])];
     const paymentMethods    = [...new Set([...allPaymentMethods,    ...transactions.map(tx => tx.paymentMethod).filter(Boolean)])];
-
-    function convertedSum(rows) {
-        return rows.reduce((sum, tx) => sum + convert(tx.amount, tx.currency, displayCurrency), 0);
-    }
-
-    // Demo-client sample payments are listed (labelled "Demo") but never added into any money total.
-    const realRows = filteredRows.filter(tx => !tx.isDemo);
-    const totalCompleted = convertedSum(realRows.filter(tx => tx.status === "completed"));
-    const totalRefunded  = convertedSum(realRows.filter(tx => tx.status === "refunded"));
-
-    const byPaymentMethod = {};
-    for (const tx of realRows) {
-        if (!byPaymentMethod[tx.paymentMethod]) byPaymentMethod[tx.paymentMethod] = 0;
-        byPaymentMethod[tx.paymentMethod] += convert(tx.amount, tx.currency, displayCurrency);
-    }
-
-    const byCurrency = {};
-    for (const tx of realRows) {
-        if (!byCurrency[tx.currency]) byCurrency[tx.currency] = 0;
-        byCurrency[tx.currency] += tx.amount;
-    }
 
     const columns = [
         {
@@ -240,41 +211,12 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
 
     return (
         <>
-            {/* Currency selector */}
-            <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-xs font-medium uppercase">{t('displayCurrency')}</span>
-                <select
-                    value={displayCurrency}
-                    onChange={(e) => setDisplayCurrency(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                >
-                    {DISPLAY_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-            </div>
-
-            {/* KPI groups */}
-            <div className="flex flex-wrap gap-3 items-stretch">
-                <KpiCardGroup items={[
-                    { key: "completed", label: t('completed'), value: Math.round(totalCompleted).toLocaleString(), unit: displayCurrency },
-                    { key: "refunded", label: t('refunded'), value: Math.round(totalRefunded).toLocaleString(), unit: displayCurrency },
-                ]} />
-
-                <KpiCardGroup items={Object.entries(byPaymentMethod).map(([method, total]) => (
-                    { key: method, label: method, value: Math.round(total).toLocaleString(), unit: displayCurrency }
-                ))} />
-
-                <KpiCardGroup items={Object.entries(byCurrency).map(([currency, total]) => (
-                    { key: currency, label: currency, value: total.toLocaleString(), unit: currency }
-                ))} />
-            </div>
-
             <DataTable
                 columns={columns}
                 data={transactions}
                 rowKey="id"
                 mobileListView
                 dateParser={parseTransactionDate}
-                onFilteredDataChange={setFilteredRows}
                 quickSearch={{ fields: ["clientName", "packageVariation"], placeholder: t('searchPlaceholder') }}
                 toolbarEnd={toolbarEnd}
             />

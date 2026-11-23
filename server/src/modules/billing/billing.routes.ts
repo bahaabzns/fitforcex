@@ -104,6 +104,30 @@ router.use((req, res, next) => {
  *       200:
  *         description: Checkout created — paymentUrl is a card iframe URL or a wallet redirect URL, or referenceCode is set for Fawry cash payments
  *
+ * /billing/upgrade-events:
+ *   post:
+ *     summary: Record an upgrade-funnel step (shown / click / plan_selected) for the admin conversion report
+ *     tags: [Billing]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [eventType, source]
+ *             properties:
+ *               eventType:   { type: string, enum: [shown, click, plan_selected] }
+ *               source:      { type: string, enum: [topbar, sidebar_meter, limit_popup, lock_branding, expiry_banner, subscription_page] }
+ *               planId:      { type: string, nullable: true }
+ *               variationId: { type: string, nullable: true }
+ *     responses:
+ *       204:
+ *         description: Recorded
+ *       400:
+ *         description: Invalid event
+ *
  * /billing/payment-status/{paymentId}:
  *   get:
  *     summary: Poll the status of a payment
@@ -121,6 +145,7 @@ router.get('/plans',                     billingController.getPlans);
 router.post('/create-invoice',           billingController.createInvoice);
 router.get('/addons',                    billingController.getAvailableAddons);
 router.post('/create-addon-invoice',     billingController.createAddonInvoice);
+router.post('/upgrade-events',           billingController.trackUpgradeEvent);
 router.get('/payment-status/:paymentId', billingController.getPaymentStatus);
 
 export default router;

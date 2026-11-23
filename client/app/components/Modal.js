@@ -1,5 +1,6 @@
 'use client';
 import { Modal } from "@heroui/react/modal";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
  * Standard modal footer: a right-aligned action row. Convention matching the
@@ -22,6 +23,9 @@ export function ModalFooter({ children, className = "" }) {
 }
 
 export default function AppModal({ open, onClose, title, children, footer, wide, size, dialogClassName, sheetOnMobile = false }) {
+    // The sheet styles below are max-sm only, so the bottom placement must be too — otherwise a
+    // "sheet on mobile" dialog sat docked at the bottom of a desktop screen as well.
+    const isPhoneWidth = useMediaQuery("(max-width: 639px)");
     // Width is controlled on Modal.Dialog (the Container is sm:w-fit; the Dialog carries max-w).
     // dialogClassName overrides the size-based default when a custom width is needed.
     // size="cover" is HeroUI's own Modal.Container variant (width/height:100% of the
@@ -48,7 +52,7 @@ export default function AppModal({ open, onClose, title, children, footer, wide,
                     !element.closest(".popover, .tooltip")
                 }
             >
-                <Modal.Container size={isCover ? "cover" : undefined} placement={sheetOnMobile ? "bottom" : undefined} className={sheetContainerClass}>
+                <Modal.Container size={isCover ? "cover" : undefined} placement={sheetOnMobile && isPhoneWidth ? "bottom" : undefined} className={sheetContainerClass}>
                     <Modal.Dialog className={`${isCover ? dialogClassName ?? "" : dialogClass} ${sheetDialogClass}`.trim()}>
                         {sheetOnMobile && <div aria-hidden="true" className="sm:hidden mx-auto -mt-3 mb-3 h-1 w-9 rounded-full bg-border" />}
                         <Modal.Header>

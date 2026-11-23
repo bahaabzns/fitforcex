@@ -8,6 +8,8 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Tabs } from "@heroui/react/tabs";
 import { Separator } from "@heroui/react/separator";
 import SettingsPageHeader from "./_components/SettingsPageHeader";
+import LockedFeatureIcon from "@/app/components/upgrade/LockedFeatureIcon";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const TAB_KEYS = ["account", "workspace", "subscription", "client-experience", "branding", "pdf", "advanced"];
 
@@ -22,6 +24,8 @@ export default function SettingsLayout({ children, params }) {
     const pathname = usePathname();
     const tNav = useTranslations("nav");
     const tSettings = useTranslations("settings");
+    // Phones get the section tabs as a scrolling row on top instead of a column beside the content.
+    const isPhone = useMediaQuery("(max-width: 767px)");
     const [me, setMe] = useState(null);
     const [workspace, setWorkspace] = useState(null);
     const [members, setMembers] = useState([]);
@@ -78,7 +82,7 @@ export default function SettingsLayout({ children, params }) {
 
     if (loading) {
         return (
-            <div className="p-8 max-w-full flex flex-col gap-6">
+            <div className="p-4 md:p-8 max-w-full flex flex-col gap-6">
                 <Skeleton className="h-9 w-28 rounded-lg mb-6" />
                 <div className="flex gap-2 mb-6">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-9 w-24 rounded" />)}
@@ -102,16 +106,16 @@ export default function SettingsLayout({ children, params }) {
     }
 
     return (
-        <div className="p-8 max-w-full flex flex-col gap-8">
+        <div className="p-4 md:p-8 max-w-full flex flex-col gap-6 md:gap-8">
             <SettingsPageHeader title={tSettings("pageTitle")} description={tSettings("pageDescription")} />
 
             <Separator className="bg-border" />
 
-            <div className="flex gap-8 items-start">
-                <div className="w-55 shrink-0">
-                    <Tabs orientation="vertical" variant="secondary" selectedKey={activeKey} onSelectionChange={handleSelectionChange}>
+            <div className="flex flex-col md:flex-row gap-4 md:gap-8 md:items-start">
+                <div className="w-full md:w-55 md:shrink-0 max-md:overflow-x-auto">
+                    <Tabs orientation={isPhone ? "horizontal" : "vertical"} variant="secondary" selectedKey={activeKey} onSelectionChange={handleSelectionChange}>
                         <Tabs.ListContainer>
-                            <Tabs.List aria-label={tSettings("pageTitle")}>
+                            <Tabs.List aria-label={tSettings("pageTitle")} className="max-md:w-max">
                                 <Tabs.Tab id="account">
                                     {tNav("account")}
                                     <Tabs.Indicator />
@@ -133,6 +137,7 @@ export default function SettingsLayout({ children, params }) {
                                 {canManageBranding && (
                                     <Tabs.Tab id="branding">
                                         {tNav("branding")}
+                                        <LockedFeatureIcon featureKey="custom_branding" />
                                         <Tabs.Indicator />
                                     </Tabs.Tab>
                                 )}

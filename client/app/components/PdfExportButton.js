@@ -11,7 +11,7 @@ import { MenuTrigger, Popover as AriaPopover } from "react-aria-components";
 // pick which profile to export with (the default one is marked). Menu markup
 // mirrors CardActionsMenu / QuestionsPanel.
 // Phone: icon only (the label moves to aria-label) so the header action row fits one line.
-const COMPACT_BUTTON_CLASS = "max-md:min-w-0 max-md:px-2.5";
+const COMPACT_BUTTON_CLASS = "max-md:size-10 max-md:min-w-10 max-md:rounded-full max-md:p-0";
 
 export default function PdfExportButton({
     profiles = [],
