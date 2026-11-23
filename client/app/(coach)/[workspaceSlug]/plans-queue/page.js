@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useTranslations } from "next-intl";
@@ -10,11 +10,11 @@ import AutoAssignMenu from "@/app/components/plansQueue/AutoAssignMenu";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
 import ArchivedSubmissionsTable from "@/app/components/plansQueue/ArchivedSubmissionsTable";
 import AutoAssignRulesModal from "@/app/components/plansQueue/AutoAssignRulesModal";
-import PlansQueueSkeleton from "@/app/components/plansQueue/PlansQueueSkeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
-// The server already sends postAction/formType on every row; the form list is only a fallback for older rows.
+// The server already sends postAction/formType on every row; the form list is a fallback for older rows and
+// supplies the titles the Form filter shows.
 function normalizeForms(rawForms) {
     return (rawForms || []).map((form) => ({
         ...form,
@@ -23,25 +23,11 @@ function normalizeForms(rawForms) {
     }));
 }
 
-function normalizeQueueItems(rawItems, forms) {
-    const formsById = new Map(forms.map((form) => [form.id, form]));
-    return (rawItems || []).map((item) => {
-        const matchingForm = formsById.get(item.formId);
-        return {
-            ...item,
-            postAction: item.postAction || matchingForm?.postAction || "nothing",
-            formType: item.formType || matchingForm?.type || "check-in",
-            scheduledAt: item.scheduledAt || null,
-        };
-    });
-}
-
 export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
     const searchParams = useSearchParams();
     const router = useRouter();
     const { workspaceSlug } = useParams();
-    const [queueItems, setQueueItems] = useState([]);
     const [forms, setForms] = useState([]);
     const [members, setMembers] = useState([]);
     const [labels, setLabels] = useState([]);
@@ -80,29 +66,25 @@ export default function PlansQueuePage() {
     // Instant badge updates between reloads: `${clientId}:${planType}` -> { id, agentName } | null. Wins over
     // what the queue row came with (rows are a one-time snapshot).
     const [autoRuleOverrides, setAutoRuleOverrides] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    // True once the table has its first page, which is when a remembered scroll position can be restored.
+    const [queueLoaded, setQueueLoaded] = useState(false);
+    // The row the coach just finished in a builder (?justActioned=), read once at mount: the table asks the server
+    // for it on its first load so the completion animation can play even though the row is no longer need-action.
+    const [justActionedId] = useState(() => searchParams.get("justActioned"));
     const [showHistory, setShowHistory] = useState(false);
     usePageTitle(showHistory ? t('historyTitle') : t('title'));
     const [archivedItems, setArchivedItems] = useState([]);
     const [archivedLoading, setArchivedLoading] = useState(false);
-    // Submission History needs every status, which the main view deliberately doesn't load (it only asks the
-    // server for need-action rows). So History fetches its own full list the first time it is opened, and again
-    // on each later open so it never shows rows the Main view has since changed. null = not loaded yet.
-    const [historyItems, setHistoryItems] = useState(null);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [historyError, setHistoryError] = useState("");
-    const [historyReloadToken, setHistoryReloadToken] = useState(0);
-    // Bumped after a restore to re-run the queue-loading effect below, so a
-    // restored submission reappears in the active queue without a full page reload.
-    const [queueReloadToken, setQueueReloadToken] = useState(0);
+    // Bumped after a restore (or turning off auto-assign rules in bulk) so the tables refetch their rows and
+    // the archived list reloads.
+    const [reloadToken, setReloadToken] = useState(0);
 
     // ── Just-completed submission (?justActioned=<id>&returnTo=main|history) ──
     // Set once by the builder's "return to queue" redirect (see
     // nutrition/training page.js's handleActivateAndMark). Claimed here,
     // once, rather than inside PlansQueueTable — this page also needs to know
-    // when it's safe to drop the item from the Main queue's data (see
-    // completingItem below), which PlansQueueTable alone can't decide.
+    // when its exit animation has finished (onCompletionDone), which
+    // PlansQueueTable alone can't decide.
     //
     // returnTo decides which view to land on — NOT the item's status. Main
     // structurally excludes action-done items, so if the coach was on Main
@@ -169,7 +151,7 @@ export default function PlansQueuePage() {
     }
 
     useEffect(() => {
-        if (loading || scrollRestoredRef.current || !scrollStorageKey) return;
+        if (!queueLoaded || scrollRestoredRef.current || !scrollStorageKey) return;
         scrollRestoredRef.current = true;
         const saved = Number(sessionStorage.getItem(scrollStorageKey));
         if (!saved) return;
@@ -177,7 +159,7 @@ export default function PlansQueuePage() {
         requestAnimationFrame(() => {
             if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = saved;
         });
-    }, [loading, scrollStorageKey]);
+    }, [queueLoaded, scrollStorageKey]);
 
     useEffect(() => {
         async function loadMembers() {
@@ -213,7 +195,7 @@ export default function PlansQueuePage() {
     // could show out-of-sync label lists after a create/rename/delete in
     // whichever view's Manage Labels modal was used. refreshLabels bumps the
     // token below rather than calling setLabels directly, matching this
-    // file's existing queueReloadToken pattern for the same reason: an
+    // file's existing reloadToken pattern for the same reason: an
     // effect should synchronize with a dependency, not be invoked as a bare
     // imperative function.
     const [labelsReloadToken, setLabelsReloadToken] = useState(0);
@@ -246,13 +228,12 @@ export default function PlansQueuePage() {
         refreshAutoAssignCount();
     }
 
-    // "Turn off all matching" can touch thousands of rows, so reload the queue (remounts the table with
-    // fresh rows) instead of patching badges one by one.
+    // "Turn off all matching" can touch thousands of rows, so refetch the queue instead of patching badges
+    // one by one.
     function handleRulesTurnedOffInBulk() {
         setAutoRuleOverrides({});
         refreshAutoAssignCount();
-        setQueueReloadToken((n) => n + 1);
-        setHistoryReloadToken((n) => n + 1);
+        setReloadToken((n) => n + 1);
     }
 
     useEffect(() => {
@@ -267,36 +248,19 @@ export default function PlansQueuePage() {
         loadLabels();
     }, [labelsReloadToken]);
 
+    // Only the form list is loaded here (it is a fallback for older rows and gives the Form filter its titles).
+    // The queue's rows are fetched by the table itself, a page at a time (see usePlansQueue.js).
     useEffect(() => {
-        async function loadQueue() {
-            setLoading(true);
-            setError("");
+        async function loadForms() {
             try {
-                // Main only shows rows the coach still has to act on, so only those are requested — and without
-                // their answers (rows carry a count; the preview fetches one request's answers when opened).
-                // A row the coach just finished in a builder is no longer need-action, but it comes back once
-                // (includeId) so its completion animation can still play.
-                const justActionedId = searchParams.get("justActioned");
-                const [queueRes, formsRes] = await Promise.all([
-                    api.get("/api/forms/queue", {
-                        params: { view: "need-action", answers: "lazy", ...(justActionedId ? { includeId: justActionedId } : {}) },
-                    }),
-                    api.get("/api/forms"),
-                ]);
-
-                const loadedForms = normalizeForms(formsRes.data);
-                setQueueItems(normalizeQueueItems(queueRes.data, loadedForms));
-                setForms(loadedForms);
-            } catch (err) {
-                setError(err.response?.data?.error || "Failed to load plans queue");
-            } finally {
-                setLoading(false);
+                const res = await api.get("/api/forms");
+                setForms(normalizeForms(res.data));
+            } catch {
+                // forms are optional here — rows already carry their own post action and type
             }
         }
-
-        loadQueue();
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on the token; searchParams is read once per load
-    }, [queueReloadToken]);
+        loadForms();
+    }, []);
 
     useEffect(() => {
         if (!showHistory) return;
@@ -313,94 +277,13 @@ export default function PlansQueuePage() {
         }
 
         loadArchived();
-    }, [showHistory, historyReloadToken]);
+    }, [showHistory, reloadToken]);
 
-    useEffect(() => {
-        if (!showHistory) return;
-        let cancelled = false;
-
-        async function loadHistory() {
-            setHistoryLoading(true);
-            setHistoryError("");
-            try {
-                const res = await api.get("/api/forms/queue", { params: { answers: "lazy" } });
-                if (!cancelled) setHistoryItems(res.data || []);
-            } catch (err) {
-                if (!cancelled) setHistoryError(err.response?.data?.error || "Failed to load plans queue");
-            } finally {
-                if (!cancelled) setHistoryLoading(false);
-            }
-        }
-
-        loadHistory();
-        return () => { cancelled = true; };
-    }, [showHistory, historyReloadToken]);
-
-    // Restoring moves an item back into the active queue — refresh both lists so it
+    // Restoring moves an item back into the active queue — refresh the lists so it
     // reappears there without requiring a manual page reload.
     function handleRestored(ids) {
         setArchivedItems((prev) => prev.filter((item) => !ids.includes(item.id)));
-        setQueueReloadToken((n) => n + 1);
-        setHistoryReloadToken((n) => n + 1);
-    }
-
-    // Full, unfiltered buckets — used by the Submission History view, which shows
-    // every status alongside archived items.
-    const normalizedHistory = useMemo(
-        () => normalizeQueueItems(historyItems, forms),
-        [historyItems, forms]
-    );
-
-    const awaiting = useMemo(
-        () => normalizedHistory.filter((item) => item.status === "awaiting" || item.status === "scheduled"),
-        [normalizedHistory]
-    );
-
-    const submissions = useMemo(
-        () => normalizedHistory.filter((item) => item.status !== "awaiting" && item.status !== "scheduled"),
-        [normalizedHistory]
-    );
-
-    // The main page is scoped to just what the coach needs to act on today.
-    const needActionItems = useMemo(
-        () => queueItems.filter((item) => item.status === "need-action"),
-        [queueItems]
-    );
-
-    // Full row data for the just-completed item (its status has already
-    // flipped to action-done by the time we're back here, so it's no longer
-    // in needActionItems above). Passed down as a prop rather than folded
-    // into needActionItems/initialSubmissions — PlansQueueTable captures
-    // `initialSubmissions` into local state exactly once on mount
-    // (useState(initialSubmissions), never re-synced, so it can carry its
-    // own optimistic updates from markReviewed etc. without a parent refetch
-    // clobbering them) and would never pick up a later change to this array.
-    // PlansQueueTable injects this directly into what it renders instead.
-    const completingItem = useMemo(
-        () => (completingId ? queueItems.find((item) => item.id === completingId) ?? null : null),
-        [queueItems, completingId]
-    );
-
-    // PlansQueueTable keeps its rows in state captured once on mount, so a table must never mount before its
-    // data is here: Main waits for `loading`, History for its own full list.
-    const historyPending = showHistory && !historyError && (historyLoading || historyItems === null);
-    if (loading || historyPending) {
-        return (
-            <PlansQueueSkeleton
-                title={showHistory ? t('historyTitle') : undefined}
-                description={showHistory ? t('historyDescription') : undefined}
-            />
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="p-8">
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive shadow-sm p-6">
-                    {error}
-                </div>
-            </div>
-        );
+        setReloadToken((n) => n + 1);
     }
 
     const historyToggle = (
@@ -433,18 +316,12 @@ export default function PlansQueuePage() {
                 respondUrlPrefix="/api/insights/prompts"
                 dismissUrlPrefix="/api/insights/prompts"
             />
-            {showHistory && historyError ? (
-                <div className="flex flex-col gap-4">
-                    <div>{historyToggle}</div>
-                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive shadow-sm p-6">
-                        {historyError}
-                    </div>
-                </div>
-            ) : showHistory ? (
+            {showHistory ? (
                 <div className="flex flex-col gap-10">
                     <PlansQueueTable
-                        initialSubmissions={submissions}
-                        awaiting={awaiting}
+                        key="history"
+                        view="all"
+                        reloadToken={reloadToken}
                         forms={forms}
                         members={members}
                         labels={labels}
@@ -460,6 +337,7 @@ export default function PlansQueuePage() {
                         headerAction={historyToggle}
                         completingId={completingId}
                         onCompletionDone={handleCompletionDone}
+                        onLoaded={() => setQueueLoaded(true)}
                     />
 
                     <div>
@@ -476,8 +354,10 @@ export default function PlansQueuePage() {
                 </div>
             ) : (
                 <PlansQueueTable
-                    initialSubmissions={needActionItems}
-                    awaiting={[]}
+                    key="main"
+                    view="need-action"
+                    includeId={justActionedId}
+                    reloadToken={reloadToken}
                     forms={forms}
                     members={members}
                     labels={labels}
@@ -492,8 +372,8 @@ export default function PlansQueuePage() {
                     hideActionTakenColumn
                     headerAction={historyToggle}
                     completingId={completingId}
-                    completingItem={completingItem}
                     onCompletionDone={handleCompletionDone}
+                    onLoaded={() => setQueueLoaded(true)}
                 />
             )}
             <AutoAssignRulesModal

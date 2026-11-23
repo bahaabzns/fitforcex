@@ -41,6 +41,18 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 //   emptyState — first-time (no data at all) config: { icon, title, description, action }.
 //                action = { label, onPress, icon }. Omit for tables the user can't
 //                populate themselves. Search/filter empties are handled automatically.
+//   serverSide — opt-in (default off, zero change for existing callers): the server does the searching,
+//                filtering, sorting and paging, and `data` is just the current page of rows.
+//                { totalCount, isFetching, onQueryChange }
+//                  totalCount     — rows matching the current search/filters across ALL pages, or null until
+//                                   the first response arrives
+//                  isFetching     — a request is in flight; the rows on screen are dimmed, not replaced
+//                  onQueryChange  — ({ search, filters, sortKey, sortDirection, page, pageSize }) => void,
+//                                   called whenever any of those change (search after a short pause) and once
+//                                   on mount, so the caller always fetches what the table is showing. `filters`
+//                                   is the table's own rule list: [{ id, colKey, value }].
+//                In this mode a column's `options`, `filterValue`, `sortValue` and the `dateParser` are not
+//                used for filtering/sorting — the server owns those — and `highlightKey` does not page-jump.
 //   mobileListView — opt-in (default false, zero change for existing callers): below
 //                `lg`, renders compact divided list rows instead of cards (no card
 //                borders, no "+N more" — secondary columns show inline), the Filter
@@ -256,6 +268,7 @@ export default function DataTable({
     // from `data` once the exit transition has had time to finish.
     rowTransition,
     mobileListView,
+    serverSide,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -375,6 +388,15 @@ export default function DataTable({
     }
 
     // ── Filtered + sorted data ────────────────────────────────
+    const isServerSide = !!serverSide;
+    // The search box answers instantly; the server is only asked once typing pauses.
+    const [debouncedSearch, setDebouncedSearch] = useState(() => quickSearchValue.trim());
+    useEffect(() => {
+        if (!isServerSide) return;
+        const timer = setTimeout(() => setDebouncedSearch(quickSearchValue.trim()), 300);
+        return () => clearTimeout(timer);
+    }, [isServerSide, quickSearchValue]);
+
     const baseData = quickSearch && quickSearchValue
         ? data.filter(row => {
             const q = quickSearchValue.toLowerCase();
@@ -384,7 +406,8 @@ export default function DataTable({
         })
         : data;
 
-    const filteredData = baseData.filter(row => {
+    // Server mode: `data` is already searched, filtered, sorted and paged, so none of the below applies.
+    const filteredData = isServerSide ? data : baseData.filter(row => {
         for (const rule of filterRules) {
             const col = columns.find(c => c.key === rule.colKey);
             if (!col) continue;
@@ -414,7 +437,7 @@ export default function DataTable({
     // name) instead of the raw cell value (e.g. their id), when the two differ.
     const sortCol = sortKey ? columns.find(c => c.key === sortKey) : null;
 
-    const sortedData = sortKey
+    const sortedData = sortKey && !isServerSide
         ? [...filteredData].sort((a, b) => {
             const valA = sortCol?.sortValue ? sortCol.sortValue(a) : a[sortKey];
             const valB = sortCol?.sortValue ? sortCol.sortValue(b) : b[sortKey];
@@ -440,17 +463,34 @@ export default function DataTable({
     const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
     const [pageSize, setPageSize]       = useState(() => persisted?.pageSize ?? 10);
     const [currentPage, setCurrentPage] = useState(() => persisted?.currentPage ?? 1);
-    const [prevFilterId, setPrevFilterId]   = useState(filteredIds);
+    // Back to page 1 whenever what is being shown changes. Client side that is "the filtered ids changed"; in
+    // server mode `data` changes on every page turn, so it is the query (minus the page) that is compared.
+    const resetKey = isServerSide ? JSON.stringify([debouncedSearch, filterRules, sortKey, sortDirection]) : filteredIds;
+    const [prevFilterId, setPrevFilterId]   = useState(resetKey);
     const [prevPageSize, setPrevPageSize]   = useState(pageSize);
-    if (filteredIds !== prevFilterId || pageSize !== prevPageSize) {
+    if (resetKey !== prevFilterId || pageSize !== prevPageSize) {
         setCurrentPage(1);
-        setPrevFilterId(filteredIds);
+        setPrevFilterId(resetKey);
         setPrevPageSize(pageSize);
     }
 
-    const totalPages   = Math.max(1, Math.ceil(sortedData.length / pageSize));
-    const safePage     = Math.min(currentPage, totalPages);
-    const paginatedData = sortedData.slice((safePage - 1) * pageSize, safePage * pageSize);
+    const totalRows    = isServerSide ? (serverSide.totalCount ?? 0) : sortedData.length;
+    const totalPages   = Math.max(1, Math.ceil(totalRows / pageSize));
+    // Until the server has said how many rows there are, trust the page we were asked to restore.
+    const isTotalKnown = !isServerSide || serverSide.totalCount != null;
+    const safePage     = isTotalKnown ? Math.min(currentPage, totalPages) : currentPage;
+    const paginatedData = isServerSide ? sortedData : sortedData.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    // Server mode: tell the owner what to fetch. One call per committed change (a page reset made during render
+    // is folded into the same commit), and one on mount, which carries any restored search/filters/page.
+    const serverQuerySignature = isServerSide
+        ? JSON.stringify([debouncedSearch, filterRules.map(rule => [rule.colKey, rule.value]), sortKey, sortDirection, safePage, pageSize])
+        : null;
+    useEffect(() => {
+        if (!isServerSide) return;
+        serverSide.onQueryChange({ search: debouncedSearch, filters: filterRules, sortKey, sortDirection, page: safePage, pageSize });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- the signature covers every input; onQueryChange identity may change freely
+    }, [serverQuerySignature]);
 
     // mobileListView only — the list's stand-in for the desktop table's header
     // checkbox, which HeroUI's Table wires to "select all rows on this page" for
@@ -488,7 +528,8 @@ export default function DataTable({
     // still counts as a "change" and triggers the jump.
     const [prevHighlightKey, setPrevHighlightKey] = useState(() => Symbol("unset"));
     if (highlightKey !== prevHighlightKey) {
-        if (highlightKey != null) {
+        // Server mode can't page-jump: the row may be on a page that isn't loaded.
+        if (highlightKey != null && !isServerSide) {
             const idx = sortedData.findIndex(row => row[rowKey] === highlightKey);
             if (idx !== -1) setCurrentPage(Math.floor(idx / pageSize) + 1);
         }
@@ -711,7 +752,10 @@ export default function DataTable({
                  useMediaQuery("(max-width: 1023px)") in the coach layout), so
                  the whole page switches to its mobile treatment together
                  instead of the table going desktop-dense mid-tablet. */}
-            <div className={`hidden lg:block mt-4 ${scrollable ? "overflow-x-auto" : ""}`}>
+            <div
+                className={`hidden lg:block mt-4 ${scrollable ? "overflow-x-auto" : ""} ${isServerSide && serverSide.isFetching ? "opacity-60 transition-opacity" : ""}`}
+                aria-busy={isServerSide && serverSide.isFetching ? "true" : undefined}
+            >
                 <Table>
                     <Table.ScrollContainer>
                         <Table.Content
@@ -992,7 +1036,7 @@ export default function DataTable({
                     <div className="flex items-center gap-3 px-3">
                         {selectable && (
                             <span className="text-sm text-muted-foreground">
-                                {t('selectedCount', { n: selectedKeys?.size ?? 0, total: sortedData.length })}
+                                {t('selectedCount', { n: selectedKeys?.size ?? 0, total: totalRows })}
                             </span>
                         )}
                         <Button
@@ -1016,7 +1060,10 @@ export default function DataTable({
             </div>
 
             {/* ── Mobile: list (mobileListView) or cards (default) ── (see the lg: note above) */}
-            <div className="lg:hidden mt-4">
+            <div
+                className={`lg:hidden mt-4 ${isServerSide && serverSide.isFetching ? "opacity-60 transition-opacity" : ""}`}
+                aria-busy={isServerSide && serverSide.isFetching ? "true" : undefined}
+            >
                 {mobileListView ? (
                     <>
                         {/* Select-all-on-page + sort — the list row's stand-in for the desktop
@@ -1217,7 +1264,7 @@ export default function DataTable({
                  numbered-page row and rows-per-page select) is hidden here; this
                  is a condensed Prev/Next equivalent so paged data stays reachable
                  below lg, where it would otherwise be stuck on page 1 forever. */}
-            {sortedData.length > 0 && (
+            {totalRows > 0 && (
                 <div className="lg:hidden mt-3 flex items-center justify-between gap-2">
                     <Button
                         size="sm"
@@ -1241,8 +1288,10 @@ export default function DataTable({
                 </div>
             )}
 
-            {sortedData.length === 0 && (
-                data.length === 0 ? (
+            {/* Server mode: an empty page with no search/filter active means no rows exist at all (first-time state);
+                with one active it means nothing matched. A request still in flight shows neither. */}
+            {totalRows === 0 && !(isServerSide && serverSide.isFetching) && (
+                (isServerSide ? !(debouncedSearch || hasActiveFilters) : data.length === 0) ? (
                     // First-time: no data exists at all. Prominent state + creation CTA
                     // when the page supplies one; a quiet placeholder otherwise.
                     <EmptyState

@@ -7,29 +7,18 @@ import { useTranslations } from "next-intl";
 const SKELETON_ROW_COUNT = 8;
 const SKELETON_ROW_KEYS = Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => index);
 
-// Stand-in for the Plans Queue while its data loads. The title and description are known immediately, so they
-// render for real; only the parts that depend on the request (toolbar buttons, table rows) are placeholders.
-// Mirrors the real layout (header row, search + filter toolbar, table with the same column order) so nothing
-// jumps when the data arrives. Columns beyond the client and form collapse on small screens, like the real table.
-export default function PlansQueueSkeleton({ title, description }) {
+// Stand-in for the Plans Queue's search bar and table while the first page of rows loads. The page title and
+// description are known immediately, so the table component renders those for real above this. Mirrors the
+// real layout (search + filter toolbar, table with the same column order) so nothing jumps when the rows
+// arrive. Columns beyond the client and form collapse on small screens, like the real table.
+export default function PlansQueueSkeleton() {
     const t = useTranslations("plansQueue");
 
     return (
-        <div className="p-8 overflow-auto h-full" role="status" aria-busy="true" aria-live="polite">
+        <div role="status" aria-busy="true" aria-live="polite">
             <span className="sr-only">{t("loadingQueue")}</span>
 
-            <div className="flex items-center justify-between gap-4 flex-wrap" aria-hidden="true">
-                <div>
-                    <h1 className="text-3xl font-bold">{title ?? t("title")}</h1>
-                    <p className="text-muted-foreground text-sm mt-1">{description ?? t("description")}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Skeleton className="h-8 w-28 rounded-lg" />
-                    <Skeleton className="h-8 w-36 rounded-lg" />
-                </div>
-            </div>
-
-            <div className="mt-6 flex items-center gap-2" aria-hidden="true">
+            <div className="mt-4 flex items-center gap-2" aria-hidden="true">
                 <Skeleton className="h-9 w-full max-w-xs rounded-lg" />
                 <Skeleton className="hidden sm:block h-9 w-24 rounded-lg" />
                 <Skeleton className="hidden sm:block h-9 w-24 rounded-lg" />

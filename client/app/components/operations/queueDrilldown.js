@@ -2,7 +2,8 @@
 // DataTable restores its filters from sessionStorage (`datatable:<persistKey>`,
 // see DataTable.js's persistKey), so seeding that entry before navigating
 // opens the queue already narrowed, with no extra query-param plumbing.
-// The key must match PlansQueueTable's persistKey for the Main view.
+// The key must match PlansQueueTable's persistKey for the Main view, so both use plansQueuePersistKey.
+import { plansQueuePersistKey } from "../plansQueue/persistKey";
 
 const ACTION_TO_POST_ACTION = { nutrition: "nutrition-plan", workout: "workout-plan" };
 
@@ -18,7 +19,7 @@ export function openQueueWithFilters(router, workspaceSlug, { assignedTo, packag
 
     try {
         sessionStorage.setItem(
-            `datatable:plans-queue-main-${workspaceSlug}`,
+            `datatable:${plansQueuePersistKey({ isMainView: true, workspaceSlug })}`,
             JSON.stringify({ filterRules: rules, currentPage: 1 }),
         );
     } catch {
