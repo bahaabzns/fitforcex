@@ -950,6 +950,21 @@ function autoAssignFields(row: Record<string, unknown>) {
     };
 }
 
+// Statuses that are NOT "need action": awaiting/scheduled (nothing submitted yet) and reviewed (done). Anything
+// else — in practice 'submitted' — is need-action, exactly as the row mapping in getQueue decides. Kept as
+// literals in the SQL (not bind params) so the planner can match the partial index in migration 114.
+const QUEUE_NON_ACTION_STATUSES = ['pending', 'scheduled', 'sent', 'reviewed'] as const;
+const QUEUE_NON_ACTION_SQL_LIST = QUEUE_NON_ACTION_STATUSES.map((status) => `'${status}'`).join(', ');
+
+// ?view=need-action keeps only rows the coach still has to act on (plus ?includeId=<id>, the row they just
+// finished, so the page can still play its completion animation). The default (no view) is every active row.
+function queueViewFilter(req: Request) {
+    if (req.query.view !== 'need-action') return Prisma.sql`TRUE`;
+    const needAction = Prisma.sql`(fr.status IS NULL OR fr.status NOT IN (${Prisma.raw(QUEUE_NON_ACTION_SQL_LIST)}))`;
+    const includeId = typeof req.query.includeId === 'string' ? req.query.includeId : '';
+    return includeId ? Prisma.sql`(${needAction} OR fr.id = ${includeId})` : needAction;
+}
+
 export async function getQueue(req: Request, res: Response, next: NextFunction) {
     try {
         await ensureWaitingDemoCheckIn(req.user!.workspaceId);
@@ -962,6 +977,12 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
         const archivedFilter = wantsArchived
             ? Prisma.sql`fr.archived_at IS NOT NULL`
             : Prisma.sql`fr.archived_at IS NULL`;
+        // ?answers=lazy: rows carry only `responseCount`; the answers themselves are fetched per row when the
+        // coach opens the preview (getQueueItemResponses). Answers are ~90% of this response's bytes.
+        const lazyAnswers = req.query.answers === 'lazy';
+        const responseCountColumn = lazyAnswers
+            ? Prisma.sql`(SELECT COUNT(*)::int FROM form_responses fresp WHERE fresp.request_id = fr.id) AS response_count,`
+            : Prisma.empty;
 
         const rows = await prisma.$queryRaw<RequestRow[]>`
             SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
@@ -974,6 +995,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                    c.current_package AS client_package,
                    pql.name AS label_name, pql.color AS label_color,
                    caa.id AS auto_assign_rule_id, aau.fname AS auto_assign_fname, aau.lname AS auto_assign_lname,
+                   ${responseCountColumn}
                    NULL::text AS subscription_status
             FROM form_requests fr
             JOIN forms f ON f.id = fr.form_id
@@ -986,6 +1008,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
             LEFT JOIN users aau ON aau.id = caa.agent_user_id
             WHERE fr.workspace_id = ${req.user!.workspaceId}
               AND ${archivedFilter}
+              AND ${queueViewFilter(req)}
             ORDER BY fr.requested_at DESC
         `;
 
@@ -998,7 +1021,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
             .filter((row) => row.status !== 'pending' && row.status !== 'scheduled' && row.status !== 'sent')
             .map((row) => row.id as string);
 
-        const allResponses = answerableIds.length > 0
+        const allResponses = answerableIds.length > 0 && !lazyAnswers
             ? await prisma.form_responses.findMany({
                 where:  { request_id: { in: answerableIds } },
                 select: { request_id: true, question_id: true, answer: true },
@@ -1037,7 +1060,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     labelName: row.label_name ?? null,
                     labelColor: row.label_color ?? null,
                     ...autoAssignFields(row),
-                    responses: [],
+                    responses: [], responseCount: 0,
                     isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
                 };
             }
@@ -1063,11 +1086,32 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 labelColor: row.label_color ?? null,
                 ...autoAssignFields(row),
                 responses: requestResponses,
+                responseCount: lazyAnswers ? Number(row.response_count ?? 0) : requestResponses.length,
                 isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
             };
         });
 
         res.json(queueItems);
+    } catch (err) {
+        next(err);
+    }
+}
+
+// One queue row's answers, for the preview a coach opens from a list loaded with ?answers=lazy. Same shape as
+// the `responses` array getQueue sends by default.
+export async function getQueueItemResponses(req: Request, res: Response, next: NextFunction) {
+    try {
+        const request = await prisma.form_requests.findFirst({
+            where:  { id: req.params.requestId as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!request) return res.status(404).json({ error: 'Queue item not found' });
+
+        const responses = await prisma.form_responses.findMany({
+            where:  { request_id: request.id },
+            select: { request_id: true, question_id: true, answer: true },
+        });
+        res.json(await enrichResponsesWithQuestionInfo(responses));
     } catch (err) {
         next(err);
     }

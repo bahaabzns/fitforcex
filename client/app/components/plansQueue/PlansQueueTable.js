@@ -13,6 +13,7 @@ import { Chip } from "@heroui/react/chip";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Separator } from "@heroui/react/separator";
+import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
 import { toast } from "@heroui/react/toast";
 import { useLocale, useTranslations } from "next-intl";
@@ -134,6 +135,12 @@ function renderAssigneeOptions({ members, needActionCountByAssignee, t }) {
     ];
 }
 
+// A row has answers to preview when the server counted some (list loaded with ?answers=lazy), or when it
+// arrived with the answers themselves (the full-list shape).
+function hasAnswers(row) {
+    return (row.responseCount ?? row.responses?.length ?? 0) > 0;
+}
+
 // Wide enough for a name plus its "Need Action · n" line, with a slim scrollbar that doesn't sit on the rounded edge.
 const ASSIGNEE_POPOVER_CLASS = "min-w-60 [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]";
 
@@ -145,11 +152,60 @@ const ASSIGNEE_POPOVER_CLASS = "min-w-60 [scrollbar-width:thin] [scrollbar-color
 // scheduled rows have none yet (see getQueue in forms.controller.ts). One
 // instance for the whole table, driven by previewOpenId, so opening one
 // row's preview implicitly closes any other row's.
-function AnswerPreviewModal({ open, onClose, responses, locale, heading, formTitle }) {
+//
+// The queue list is loaded with ?answers=lazy (rows carry only a count), so a row's answers usually aren't in
+// `responses` yet: this modal fetches them for that one request when it opens. Rows that already carry their
+// answers (the older full-list shape) skip the request.
+function AnswerPreviewModal({ open, onClose, requestId, responses, locale, heading, formTitle }) {
+    const t = useTranslations('plansQueue');
+    const needsFetch = responses.length === 0;
+    const [loaded, setLoaded] = useState({ requestId: null, responses: [], failed: false });
+    const [retryToken, setRetryToken] = useState(0);
+    const isLoaded = loaded.requestId === requestId;
+
+    useEffect(() => {
+        if (!needsFetch) return;
+        let cancelled = false;
+        api.get(`/api/forms/queue/${requestId}/responses`)
+            .then((res) => { if (!cancelled) setLoaded({ requestId, responses: res.data || [], failed: false }); })
+            .catch(() => { if (!cancelled) setLoaded({ requestId, responses: [], failed: true }); });
+        return () => { cancelled = true; };
+    }, [needsFetch, requestId, retryToken]);
+
+    const shown = needsFetch ? (isLoaded ? loaded.responses : []) : responses;
+    const failed = needsFetch && isLoaded && loaded.failed;
+    const isLoading = needsFetch && !isLoaded;
+
     return (
         <Modal open={open} onClose={onClose} title={formTitle ? `${heading} — ${formTitle}` : heading} size="xl">
             <div className="flex flex-col gap-4">
-                {responses.map((r, i) => (
+                {isLoading && (
+                    <div role="status" aria-busy="true" className="flex flex-col gap-4">
+                        <span className="sr-only">{t('loadingAnswers')}</span>
+                        {[0, 1, 2].map((i) => (
+                            <div key={i} className="flex flex-col gap-1.5" aria-hidden="true">
+                                <Skeleton className="h-3 w-40 rounded" />
+                                <Skeleton className="h-4 w-full rounded" />
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {failed && (
+                    <div className="flex flex-col items-start gap-2">
+                        <p className="text-sm text-destructive">{t('answersLoadFailed')}</p>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                setLoaded({ requestId: null, responses: [], failed: false });
+                                setRetryToken((n) => n + 1);
+                            }}
+                        >
+                            {t('answersRetry')}
+                        </Button>
+                    </div>
+                )}
+                {shown.map((r, i) => (
                     <div key={r.id ?? i} className="flex flex-col gap-1.5">
                         <span className="text-muted-foreground text-xs font-medium">{getLocalizedField(r, 'label', locale) || `Q${i + 1}`}</span>
                         <AnswerBody response={r} />
@@ -1035,12 +1091,12 @@ export default function PlansQueueTable({
                                 <Undo2 size={15} />
                             </IconAction>
                         )}
-                        {row.responses?.length > 0 && (
+                        {hasAnswers(row) && (
                             <>
                                 {/* One-time hint pointing at the new answer-preview icon — only on
                                     the first eligible row, dismissed once (same pattern as the
                                     assignee-workload hint above). */}
-                                {row.id === allItems.find((r) => r.responses?.length > 0)?.id && (
+                                {row.id === allItems.find(hasAnswers)?.id && (
                                     <NewFeatureTooltip
                                         featureKey="answer_preview_hint"
                                         active
@@ -1167,7 +1223,8 @@ export default function PlansQueueTable({
                     <AnswerPreviewModal
                         open
                         onClose={() => setPreviewOpenId(null)}
-                        responses={previewRow.responses}
+                        requestId={previewRow.id}
+                        responses={previewRow.responses ?? []}
                         locale={locale}
                         heading={t('submissionAnswers')}
                         formTitle={getLocalizedField(previewRow, 'formTitle', locale)}

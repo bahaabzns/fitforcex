@@ -10,8 +10,31 @@ import AutoAssignMenu from "@/app/components/plansQueue/AutoAssignMenu";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
 import ArchivedSubmissionsTable from "@/app/components/plansQueue/ArchivedSubmissionsTable";
 import AutoAssignRulesModal from "@/app/components/plansQueue/AutoAssignRulesModal";
+import PlansQueueSkeleton from "@/app/components/plansQueue/PlansQueueSkeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
+
+// The server already sends postAction/formType on every row; the form list is only a fallback for older rows.
+function normalizeForms(rawForms) {
+    return (rawForms || []).map((form) => ({
+        ...form,
+        postAction: form.postAction || form.post_action || "nothing",
+        type: form.type || "check-in",
+    }));
+}
+
+function normalizeQueueItems(rawItems, forms) {
+    const formsById = new Map(forms.map((form) => [form.id, form]));
+    return (rawItems || []).map((item) => {
+        const matchingForm = formsById.get(item.formId);
+        return {
+            ...item,
+            postAction: item.postAction || matchingForm?.postAction || "nothing",
+            formType: item.formType || matchingForm?.type || "check-in",
+            scheduledAt: item.scheduledAt || null,
+        };
+    });
+}
 
 export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
@@ -63,6 +86,13 @@ export default function PlansQueuePage() {
     usePageTitle(showHistory ? t('historyTitle') : t('title'));
     const [archivedItems, setArchivedItems] = useState([]);
     const [archivedLoading, setArchivedLoading] = useState(false);
+    // Submission History needs every status, which the main view deliberately doesn't load (it only asks the
+    // server for need-action rows). So History fetches its own full list the first time it is opened, and again
+    // on each later open so it never shows rows the Main view has since changed. null = not loaded yet.
+    const [historyItems, setHistoryItems] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState("");
+    const [historyReloadToken, setHistoryReloadToken] = useState(0);
     // Bumped after a restore to re-run the queue-loading effect below, so a
     // restored submission reappears in the active queue without a full page reload.
     const [queueReloadToken, setQueueReloadToken] = useState(0);
@@ -222,6 +252,7 @@ export default function PlansQueuePage() {
         setAutoRuleOverrides({});
         refreshAutoAssignCount();
         setQueueReloadToken((n) => n + 1);
+        setHistoryReloadToken((n) => n + 1);
     }
 
     useEffect(() => {
@@ -241,44 +272,21 @@ export default function PlansQueuePage() {
             setLoading(true);
             setError("");
             try {
+                // Main only shows rows the coach still has to act on, so only those are requested — and without
+                // their answers (rows carry a count; the preview fetches one request's answers when opened).
+                // A row the coach just finished in a builder is no longer need-action, but it comes back once
+                // (includeId) so its completion animation can still play.
+                const justActionedId = searchParams.get("justActioned");
                 const [queueRes, formsRes] = await Promise.all([
-                    api.get("/api/forms/queue"),
+                    api.get("/api/forms/queue", {
+                        params: { view: "need-action", answers: "lazy", ...(justActionedId ? { includeId: justActionedId } : {}) },
+                    }),
                     api.get("/api/forms"),
                 ]);
 
-                const formsWithQuestions = await Promise.all(
-                    (formsRes.data || []).map(async (form) => {
-                        try {
-                            const questionsRes = await api.get(`/api/forms/${form.id}/questions`);
-                            return {
-                                ...form,
-                                postAction: form.postAction || form.post_action || "nothing",
-                                type: form.type || "check-in",
-                                questions: questionsRes.data || [],
-                            };
-                        } catch {
-                            return {
-                                ...form,
-                                postAction: form.postAction || form.post_action || "nothing",
-                                type: form.type || "check-in",
-                                questions: [],
-                            };
-                        }
-                    })
-                );
-
-                const normalizedQueue = (queueRes.data || []).map((item) => {
-                    const matchingForm = formsWithQuestions.find((f) => f.id === item.formId);
-                    return {
-                        ...item,
-                        postAction: item.postAction || matchingForm?.postAction || "nothing",
-                        formType: item.formType || matchingForm?.type || "check-in",
-                        scheduledAt: item.scheduledAt || null,
-                    };
-                });
-
-                setQueueItems(normalizedQueue);
-                setForms(formsWithQuestions);
+                const loadedForms = normalizeForms(formsRes.data);
+                setQueueItems(normalizeQueueItems(queueRes.data, loadedForms));
+                setForms(loadedForms);
             } catch (err) {
                 setError(err.response?.data?.error || "Failed to load plans queue");
             } finally {
@@ -287,6 +295,7 @@ export default function PlansQueuePage() {
         }
 
         loadQueue();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on the token; searchParams is read once per load
     }, [queueReloadToken]);
 
     useEffect(() => {
@@ -295,7 +304,7 @@ export default function PlansQueuePage() {
         async function loadArchived() {
             setArchivedLoading(true);
             try {
-                const res = await api.get("/api/forms/queue", { params: { archived: "true" } });
+                const res = await api.get("/api/forms/queue", { params: { archived: "true", answers: "lazy" } });
                 setArchivedItems(res.data || []);
             } catch {
                 // archived section is secondary — leave empty on failure
@@ -304,25 +313,52 @@ export default function PlansQueuePage() {
         }
 
         loadArchived();
-    }, [showHistory]);
+    }, [showHistory, historyReloadToken]);
+
+    useEffect(() => {
+        if (!showHistory) return;
+        let cancelled = false;
+
+        async function loadHistory() {
+            setHistoryLoading(true);
+            setHistoryError("");
+            try {
+                const res = await api.get("/api/forms/queue", { params: { answers: "lazy" } });
+                if (!cancelled) setHistoryItems(res.data || []);
+            } catch (err) {
+                if (!cancelled) setHistoryError(err.response?.data?.error || "Failed to load plans queue");
+            } finally {
+                if (!cancelled) setHistoryLoading(false);
+            }
+        }
+
+        loadHistory();
+        return () => { cancelled = true; };
+    }, [showHistory, historyReloadToken]);
 
     // Restoring moves an item back into the active queue — refresh both lists so it
     // reappears there without requiring a manual page reload.
     function handleRestored(ids) {
         setArchivedItems((prev) => prev.filter((item) => !ids.includes(item.id)));
         setQueueReloadToken((n) => n + 1);
+        setHistoryReloadToken((n) => n + 1);
     }
 
     // Full, unfiltered buckets — used by the Submission History view, which shows
     // every status alongside archived items.
+    const normalizedHistory = useMemo(
+        () => normalizeQueueItems(historyItems, forms),
+        [historyItems, forms]
+    );
+
     const awaiting = useMemo(
-        () => queueItems.filter((item) => item.status === "awaiting" || item.status === "scheduled"),
-        [queueItems]
+        () => normalizedHistory.filter((item) => item.status === "awaiting" || item.status === "scheduled"),
+        [normalizedHistory]
     );
 
     const submissions = useMemo(
-        () => queueItems.filter((item) => item.status !== "awaiting" && item.status !== "scheduled"),
-        [queueItems]
+        () => normalizedHistory.filter((item) => item.status !== "awaiting" && item.status !== "scheduled"),
+        [normalizedHistory]
     );
 
     // The main page is scoped to just what the coach needs to act on today.
@@ -345,11 +381,15 @@ export default function PlansQueuePage() {
         [queueItems, completingId]
     );
 
-    if (loading) {
+    // PlansQueueTable keeps its rows in state captured once on mount, so a table must never mount before its
+    // data is here: Main waits for `loading`, History for its own full list.
+    const historyPending = showHistory && !historyError && (historyLoading || historyItems === null);
+    if (loading || historyPending) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">{t('loadingQueue')}</p>
-            </div>
+            <PlansQueueSkeleton
+                title={showHistory ? t('historyTitle') : undefined}
+                description={showHistory ? t('historyDescription') : undefined}
+            />
         );
     }
 
@@ -393,7 +433,14 @@ export default function PlansQueuePage() {
                 respondUrlPrefix="/api/insights/prompts"
                 dismissUrlPrefix="/api/insights/prompts"
             />
-            {showHistory ? (
+            {showHistory && historyError ? (
+                <div className="flex flex-col gap-4">
+                    <div>{historyToggle}</div>
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive shadow-sm p-6">
+                        {historyError}
+                    </div>
+                </div>
+            ) : showHistory ? (
                 <div className="flex flex-col gap-10">
                     <PlansQueueTable
                         initialSubmissions={submissions}

@@ -263,9 +263,28 @@ router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestio
  *     tags: [Forms]
  *     security:
  *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: archived, schema: { type: boolean }, description: "true returns the archived view instead of the active queue" }
+ *       - { in: query, name: view, schema: { type: string, enum: [need-action] }, description: "need-action returns only rows the coach still has to act on (no awaiting/scheduled/reviewed rows)" }
+ *       - { in: query, name: includeId, schema: { type: string }, description: "With view=need-action, also return this one row (the one the coach just finished)" }
+ *       - { in: query, name: answers, schema: { type: string, enum: [lazy] }, description: "lazy leaves responses empty and sends responseCount; fetch answers per row from /forms/queue/{requestId}/responses" }
  *     responses:
  *       200:
  *         description: Array of submitted form responses
+ *
+ * /forms/queue/{requestId}/responses:
+ *   get:
+ *     summary: One queue item's submitted answers (for the answer preview when the list was loaded with answers=lazy)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: requestId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Array of answers, each with its question label and type
+ *       404:
+ *         description: Queue item not found in this workspace
  *
  * /forms/queue/review:
  *   patch:
@@ -488,6 +507,8 @@ router.patch('/queue/auto-assign/:id/off',    autoAssignController.turnOffAutoAs
 router.patch('/queue/archive',                formsController.archiveQueue);
 router.delete('/queue/cancel',                formsController.cancelQueue);
 router.get('/queue/labels',                   formsController.getQueueLabels);
+// After every fixed '/queue/<word>' GET above so this two-segment pattern can never shadow one of them.
+router.get('/queue/:requestId/responses',     formsController.getQueueItemResponses);
 router.post('/queue/labels',                  formsController.createQueueLabel);
 router.patch('/queue/labels/:id',             formsController.updateQueueLabel);
 router.delete('/queue/labels/:id',            formsController.deleteQueueLabel);
