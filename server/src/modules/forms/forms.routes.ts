@@ -4,6 +4,7 @@ import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import { ensureFormsQueueSchema } from './forms.controller';
 import * as formsController from './forms.controller';
+import * as autoAssignController from './autoAssign.controller';
 
 const router = Router();
 
@@ -277,13 +278,124 @@ router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestio
  *
  * /forms/queue/assign:
  *   patch:
- *     summary: Assign queue items to a team member (or unassign when assignedTo is null)
+ *     summary: Assign queue items to a team member (or unassign when assignedTo is null). Owners/managers can send autoAssign=true to also make each affected client's future forms of that plan type go to the same person — works for one row or a whole bulk selection.
  *     tags: [Forms]
  *     security:
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: Items assigned
+ *         description: Items assigned (autoAssign reports how many rules were set, the rule ids, or why none were)
+ *
+ * /forms/queue/auto-assign:
+ *   get:
+ *     summary: One page of clients with active auto-assign rules, newest first — one row per client with its nutrition and workout agent
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: search, schema: { type: string }, description: Client name, email or code contains }
+ *       - { in: query, name: planType, schema: { type: string, enum: [nutrition-plan, workout-plan] } }
+ *       - { in: query, name: agentUserId, schema: { type: string } }
+ *       - { in: query, name: status, schema: { type: string, enum: [unavailable] }, description: Only rules whose agent can no longer receive plans }
+ *       - { in: query, name: sortBy, schema: { type: string, enum: [client, nutritionAgent, workoutAgent, setBy, enabledAt] } }
+ *       - { in: query, name: sortDir, schema: { type: string, enum: [asc, desc] } }
+ *       - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+ *       - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100 } }
+ *     responses:
+ *       200:
+ *         description: "{ items, total, totalRules, page, pageSize } — total counts clients, totalRules the rules matching the filters; each item has a nutrition and a workout cell (or null) with the agent and whether they are still available"
+ *
+ *   post:
+ *     summary: Turn on auto-assign for a queue row (workspace owner/manager only) — the client's future forms of that plan type go to the row's current assignee
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Rule turned on (outcome enabled) or already on (outcome already_on)
+ *       400:
+ *         description: Row is unassigned, is not a plan form, or the assignee cannot receive plans
+ *       403:
+ *         description: Caller is not the owner or a manager
+ *       404:
+ *         description: Queue item not found
+ *
+ * /forms/queue/auto-assign/off-matching:
+ *   post:
+ *     summary: Turn off every active rule matching the filters (workspace owner/manager only), e.g. all rules of an agent who left. Needs at least one filter, or all=true.
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ turnedOff } — number of rules switched off"
+ *       400:
+ *         description: Invalid filter, or no filter and all is not true
+ *       403:
+ *         description: Caller is not the owner or a manager
+ *
+ * /forms/queue/auto-assign/agents:
+ *   get:
+ *     summary: Who the agent dropdowns may offer, per plan type (owner and managers for both, trainers for workout, nutritionists for nutrition)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ nutrition: [{ id, name }], workout: [{ id, name }] }"
+ *
+ * /forms/queue/auto-assign/clients/{clientId}/off:
+ *   patch:
+ *     summary: Turn off both of a client's auto-assign rules (workspace owner/manager only)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ turnedOff } — number of rules switched off"
+ *       403:
+ *         description: Caller is not the owner or a manager
+ *       404:
+ *         description: The client has no active rules
+ *
+ * /forms/queue/auto-assign/clients/{clientId}/{planType}:
+ *   put:
+ *     summary: Set (or with agentUserId null, turn off) one client's auto-assign agent for one plan type (workspace owner/manager only)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [agentUserId]
+ *             properties:
+ *               agentUserId: { type: string, nullable: true }
+ *     responses:
+ *       200:
+ *         description: "{ outcome: set | turned_off | unchanged, rule }"
+ *       400:
+ *         description: Invalid plan type, or that person cannot receive this type of plan
+ *       403:
+ *         description: Caller is not the owner or a manager
+ *       404:
+ *         description: Client not found
+ *
+ * /forms/queue/auto-assign/{id}/off:
+ *   patch:
+ *     summary: Turn off one auto-assign rule (workspace owner/manager only); the rule row is kept as history
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Rule turned off
+ *       403:
+ *         description: Caller is not the owner or a manager
+ *       404:
+ *         description: Rule not found or already off
  *
  * /forms/queue/cancel:
  *   delete:
@@ -365,6 +477,13 @@ router.delete('/requests/:request_id',        formsController.deleteRequest);
 router.get('/queue',                          formsController.getQueue);
 router.patch('/queue/review',                 formsController.reviewQueue);
 router.patch('/queue/assign',                 formsController.assignQueue);
+router.get('/queue/auto-assign',              autoAssignController.getAutoAssignRules);
+router.get('/queue/auto-assign/agents',       autoAssignController.getAutoAssignAgents);
+router.post('/queue/auto-assign',             autoAssignController.enableAutoAssignRule);
+router.post('/queue/auto-assign/off-matching', autoAssignController.turnOffMatchingAutoAssignRules);
+router.patch('/queue/auto-assign/clients/:clientId/off', autoAssignController.turnOffAutoAssignClient);
+router.put('/queue/auto-assign/clients/:clientId/:planType', autoAssignController.setAutoAssignClientAgent);
+router.patch('/queue/auto-assign/:id/off',    autoAssignController.turnOffAutoAssignRule);
 router.patch('/queue/archive',                formsController.archiveQueue);
 router.delete('/queue/cancel',                formsController.cancelQueue);
 router.get('/queue/labels',                   formsController.getQueueLabels);

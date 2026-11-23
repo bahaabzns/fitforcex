@@ -1769,6 +1769,26 @@ model capacity_history {
   @@index([workspace_id, user_id, changed_at(sort: Desc)], map: "capacity_history_ws_user_changed_idx")
 }
 
+// Plans Queue "auto-assign next time" rules: one client + one plan type -> one agent. Rows are never
+// deleted (turning a rule off stamps disabled_*), so the table doubles as the audit trail. The
+// unique-while-active index is a partial index and lives in migration 112, not here.
+model client_auto_assign {
+  id               String    @id
+  workspace_id     String
+  client_id        String
+  plan_type        String
+  agent_user_id    String
+  enabled_by       String?
+  enabled_at       DateTime  @default(now()) @db.Timestamptz(6)
+  disabled_at      DateTime? @db.Timestamptz(6)
+  disabled_by      String?
+  disabled_reason  String?
+  last_skipped_at  DateTime? @db.Timestamptz(6)
+  last_skip_reason String?
+
+  @@index([workspace_id, agent_user_id], map: "client_auto_assign_agent_idx")
+}
+
 // First time each demo-client funnel step happened for a workspace (opened / edited / viewed in
 // the app / welcome seen / deleted). One row per (workspace, step), so repeats are ignored.
 model demo_client_events {

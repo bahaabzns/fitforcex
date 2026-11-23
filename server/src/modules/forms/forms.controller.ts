@@ -5,6 +5,7 @@ import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
 import { resolveWritableVersion, sealVersionForAssignment } from './forms.service';
+import { setRulesForRequests, SetRulesResult } from './autoAssign.service';
 import { isValidQuestionType, isMetricConvertibleType, normalizeQuestionOptions } from './questionTypes';
 import { fetchAndParseGoogleForm, parseGoogleFormHtml } from './googleFormsImport';
 import { attachEditHistory } from '../../utils/formResponseHistory';
@@ -36,7 +37,7 @@ export const QUEUE_LABEL_COLORS = ['pink', 'cyan', 'orange', 'teal', 'indigo', '
 // workspace-wide taxonomy, not a per-item action. Applying an EXISTING label
 // to a queue item (assignQueueLabel, below) stays under the normal 'forms'
 // write gate already enforced by this router's blanket middleware.
-function isManagerOrOwner(req: Request): boolean {
+export function isManagerOrOwner(req: Request): boolean {
     return !!req.user && (req.user.isOwner || req.user.role === 'manager');
 }
 
@@ -940,6 +941,15 @@ export async function getRequestsByClient(req: Request, res: Response, next: Nex
     }
 }
 
+// The row's current auto-assign rule, if any (see the LEFT JOIN in getQueue).
+function autoAssignFields(row: Record<string, unknown>) {
+    const agentName = `${row.auto_assign_fname ?? ''} ${row.auto_assign_lname ?? ''}`.trim();
+    return {
+        autoAssignRuleId:    (row.auto_assign_rule_id as string | null) ?? null,
+        autoAssignAgentName: row.auto_assign_rule_id ? (agentName || null) : null,
+    };
+}
+
 export async function getQueue(req: Request, res: Response, next: NextFunction) {
     try {
         await ensureWaitingDemoCheckIn(req.user!.workspaceId);
@@ -963,12 +973,17 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                    au.fname AS assignee_fname, au.lname AS assignee_lname,
                    c.current_package AS client_package,
                    pql.name AS label_name, pql.color AS label_color,
+                   caa.id AS auto_assign_rule_id, aau.fname AS auto_assign_fname, aau.lname AS auto_assign_lname,
                    NULL::text AS subscription_status
             FROM form_requests fr
             JOIN forms f ON f.id = fr.form_id
             JOIN clients c ON c.id = fr.client_id
             LEFT JOIN users au ON au.id = fr.assigned_to
             LEFT JOIN plans_queue_labels pql ON pql.id = fr.label_id
+            -- At most one current rule per client + plan type (partial unique index), so this never duplicates a row.
+            LEFT JOIN client_auto_assign caa ON caa.workspace_id = fr.workspace_id AND caa.client_id = fr.client_id
+                   AND caa.plan_type = COALESCE(NULLIF(fr.post_action, ''), f.post_action) AND caa.disabled_at IS NULL
+            LEFT JOIN users aau ON aau.id = caa.agent_user_id
             WHERE fr.workspace_id = ${req.user!.workspaceId}
               AND ${archivedFilter}
             ORDER BY fr.requested_at DESC
@@ -1021,6 +1036,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     labelId: row.label_id ?? null,
                     labelName: row.label_name ?? null,
                     labelColor: row.label_color ?? null,
+                    ...autoAssignFields(row),
                     answers: {}, responses: [],
                     isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
                 };
@@ -1045,6 +1061,7 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 labelId: row.label_id ?? null,
                 labelName: row.label_name ?? null,
                 labelColor: row.label_color ?? null,
+                ...autoAssignFields(row),
                 answers,
                 responses: requestResponses,
                 isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
@@ -1108,7 +1125,7 @@ export async function reviewQueue(req: Request, res: Response, next: NextFunctio
 }
 
 export async function assignQueue(req: Request, res: Response, next: NextFunction) {
-    const { ids, assignedTo } = req.body as { ids?: unknown[]; assignedTo?: string | null };
+    const { ids, assignedTo, autoAssign } = req.body as { ids?: unknown[]; assignedTo?: string | null; autoAssign?: boolean };
     if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ error: 'ids array is required' });
     }
@@ -1157,9 +1174,28 @@ export async function assignQueue(req: Request, res: Response, next: NextFunctio
             })));
         }
 
-        res.json({ updatedIds: updated.map(r => r.id), assignedTo: assigneeId });
+        // "Auto-assign when I assign" is a manager/owner decision; for anyone else the flag is ignored
+        // and the plain assignment above still stands (the UI hides the switch from them anyway).
+        const autoAssignResult = autoAssign === true && assigneeId && isManagerOrOwner(req)
+            ? await applyAutoAssignRules(req, updated.map(r => r.id), assigneeId)
+            : null;
+
+        res.json({ updatedIds: updated.map(r => r.id), assignedTo: assigneeId, autoAssign: autoAssignResult });
     } catch (err) {
         next(err);
+    }
+}
+
+// The assignment is already saved by the time this runs, so a failure here must not turn the whole
+// request into an error — the UI would show the assignment as failed when it actually worked.
+async function applyAutoAssignRules(req: Request, requestIds: string[], agentUserId: string): Promise<SetRulesResult> {
+    try {
+        return await setRulesForRequests({
+            workspaceId: req.user!.workspaceId, requestIds, agentUserId, actorUserId: req.user!.userId,
+        });
+    } catch (err) {
+        console.error('[autoAssign] could not save auto-assign rules:', err);
+        return { rulesSet: 0, skipped: 'error', rules: [] };
     }
 }
 
