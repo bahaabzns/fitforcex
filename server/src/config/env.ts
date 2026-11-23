@@ -13,6 +13,12 @@ export const env = {
     // dev server from a physical device on the LAN (mobile testing).
     HOST:                 process.env.HOST ?? '127.0.0.1',
 
+    // In-process caches for per-request lookups that repeat on every poll. 0 disables a cache.
+    // Default off under test so existing tests see fresh data on every request.
+    CLIENT_ACCESS_CACHE_TTL_MS: parseInt(process.env.CLIENT_ACCESS_CACHE_TTL_MS ?? (process.env.NODE_ENV === 'test' ? '0' : '30000'), 10),
+    SESSION_CACHE_TTL_MS:       parseInt(process.env.SESSION_CACHE_TTL_MS ?? (process.env.NODE_ENV === 'test' ? '0' : '30000'), 10),
+    CLIENT_STATUS_CACHE_TTL_MS: parseInt(process.env.CLIENT_STATUS_CACHE_TTL_MS ?? (process.env.NODE_ENV === 'test' ? '0' : '30000'), 10),
+
     // Auth
     JWT_SECRET:           requireEnv('JWT_SECRET'),
     ADMIN_JWT_SECRET:     process.env.ADMIN_JWT_SECRET ?? '',

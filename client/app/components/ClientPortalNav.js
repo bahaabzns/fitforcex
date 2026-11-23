@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import PortalLogo from "@/app/components/portal/PortalLogo";
 import { usePathname } from "next/navigation";
@@ -9,9 +9,12 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 import { useClientPortal } from "@/app/components/ClientPortalProvider";
 import { useNavBadges } from "@/hooks/useNavBadges";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import api from "@/lib/axios";
 
-const UNREAD_POLL_MS = 15000;
+// Only polled while the tab is visible (see useVisiblePolling); the bell does not need
+// to-the-second freshness.
+const UNREAD_POLL_MS = 30000;
 
 export default function ClientPortalNav() {
     const pathname = usePathname();
@@ -28,11 +31,7 @@ export default function ClientPortalNav() {
             .catch(() => {});
     }, []);
 
-    useEffect(() => {
-        fetchUnread();
-        const interval = setInterval(fetchUnread, UNREAD_POLL_MS);
-        return () => clearInterval(interval);
-    }, [fetchUnread]);
+    useVisiblePolling(fetchUnread, UNREAD_POLL_MS);
 
     const getInitials = (c) => {
         if (!c) return "?";
@@ -74,6 +73,7 @@ export default function ClientPortalNav() {
                 <div className="flex justify-start">
                     <Link
                         href="/portal/profile"
+                        prefetch={false}
                         className={`rounded-full transition-opacity ${
                             isProfileActive
                                 ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -95,6 +95,7 @@ export default function ClientPortalNav() {
                 <div className="flex justify-end">
                     <Link
                         href="/portal/notifications"
+                        prefetch={false}
                         className={`relative p-2 rounded-xl transition-colors ${
                             isNotificationsActive
                                 ? "text-primary bg-sidebar-accent"
@@ -136,6 +137,9 @@ export default function ClientPortalNav() {
                                 <Link
                                     key={href}
                                     href={href}
+                                    // The nav is on every portal page; prefetching all 7 targets on each view
+                                    // multiplied server renders (the ?_rsc= request flood seen in prod logs).
+                                    prefetch={false}
                                     title={hasUnread ? tPortal('unreadTooltip', { label }) : label}
                                     className="flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 transition-transform duration-100 active:scale-95"
                                 >

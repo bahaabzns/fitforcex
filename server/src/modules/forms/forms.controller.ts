@@ -1037,14 +1037,14 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     labelName: row.label_name ?? null,
                     labelColor: row.label_color ?? null,
                     ...autoAssignFields(row),
-                    answers: {}, responses: [],
+                    responses: [],
                     isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
                 };
             }
 
+            // `responses` already carries every answer (with its question id); nothing reads a separate
+            // `answers` map, so it is no longer sent (it duplicated every answer in the payload).
             const requestResponses = responsesByRequestId.get(row.id as string) ?? [];
-            const answers: Record<string, unknown> = {};
-            for (const r of requestResponses) { if (r.question_id) answers[r.question_id] = r.answer; }
 
             return {
                 id: row.id, clientId: row.client_id, clientCode: row.client_code,
@@ -1062,7 +1062,6 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 labelName: row.label_name ?? null,
                 labelColor: row.label_color ?? null,
                 ...autoAssignFields(row),
-                answers,
                 responses: requestResponses,
                 isArchived: !!row.archived_at, archivedAt: row.archived_at ?? null,
             };

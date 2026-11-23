@@ -8,6 +8,7 @@ import { DEMO_EVENT, recordDemoEvent } from '../demoClient/demoClient.service';
 import { logSubscriptionAudit } from '../subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, teamRecipients } from '../../lib/events';
 import { prisma } from '../../lib/prisma';
+import { invalidateClientAccess } from '../subscriptionPolicies/clientAccessCache';
 import { toPublicUrl, deleteFile } from '../../lib/storage';
 import {
     summarizeLog,
@@ -288,6 +289,7 @@ export async function archiveClient(req: Request, res: Response, next: NextFunct
             where: { id: clientId },
             data:  { archived_at: new Date(), archived_by: req.user!.userId },
         });
+        invalidateClientAccess(wsId, clientId);
 
         await logSubscriptionAudit({
             workspaceId: wsId,
@@ -320,6 +322,7 @@ export async function restoreClient(req: Request, res: Response, next: NextFunct
             where: { id: clientId },
             data:  { archived_at: null, archived_by: null, restored_at: new Date(), restored_by: req.user!.userId },
         });
+        invalidateClientAccess(wsId, clientId);
 
         await logSubscriptionAudit({
             workspaceId: wsId,
@@ -542,6 +545,7 @@ export async function createFreeze(req: Request, res: Response, next: NextFuncti
                 notes:                (notes as string | undefined)?.trim() || null,
             },
         });
+        invalidateClientAccess(req.user!.workspaceId, req.params.id as string);
 
         await logSubscriptionAudit({
             workspaceId: req.user!.workspaceId,
@@ -583,6 +587,7 @@ export async function updateFreeze(req: Request, res: Response, next: NextFuncti
                 freeze_duration_days: days,
             },
         });
+        invalidateClientAccess(req.user!.workspaceId, req.params.id as string);
 
         await logSubscriptionAudit({
             workspaceId: req.user!.workspaceId,
@@ -617,6 +622,7 @@ export async function deleteFreeze(req: Request, res: Response, next: NextFuncti
         if (!existing) return res.status(404).json({ error: 'Freeze not found' });
 
         await prisma.subscription_freezes.delete({ where: { id: existing.id } });
+        invalidateClientAccess(req.user!.workspaceId, req.params.id as string);
 
         await logSubscriptionAudit({
             workspaceId: req.user!.workspaceId,

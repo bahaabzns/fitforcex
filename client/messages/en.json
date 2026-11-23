@@ -2477,6 +2477,8 @@
     "passwordMismatch": "New passwords do not match",
     "passwordLength": "Password must be at least 8 characters",
     "failedToLoad": "Failed to load",
+    "noAccessTitle": "You don't have access to this page",
+    "noAccessHint": "Ask the workspace owner to give you access. If you were just given access, sign out and sign back in.",
     "failedToUpdate": "Failed to update",
     "failedToDelete": "Failed to delete",
     "failedToCreate": "Failed to create"

@@ -8,7 +8,12 @@ import { buildPortalUrl } from "@/lib/coachSlug";
 import { demoPortalHref } from "@/lib/demoClient";
 import { useGettingStartedContext } from "@/app/components/gettingStarted/GettingStartedProvider";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
+import { financeNavAccess } from "@/lib/permissions";
+
+// Only polled while the tab is visible; refreshes once more when the coach returns to the tab.
+const UNREAD_POLL_MS = 15000;
 import {
     LayoutDashboard,
     Users,
@@ -86,19 +91,16 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
             .catch(() => setUser(null));
     }, []);
 
-    useEffect(() => {
-        function fetchUnread() {
-            api.get('/api/messenger/threads')
-                .then(res => {
-                    const count = res.data.reduce((sum, t) => sum + (t.unread_count || 0), 0);
-                    setTotalUnread(count);
-                })
-                .catch(() => {});
-        }
-        fetchUnread();
-        const interval = setInterval(fetchUnread, 5000);
-        return () => clearInterval(interval);
+    // Badge total comes from a single COUNT endpoint. This used to download the whole
+    // GET /messenger/threads list (every client, with status maths) every 5 seconds on every
+    // coach page just to add up one number — the heaviest repeated call for big workspaces.
+    const fetchUnread = useCallback(() => {
+        api.get('/api/messenger/unread-count')
+            .then(res => setTotalUnread(res.data?.count ?? 0))
+            .catch(() => {});
     }, []);
+
+    useVisiblePolling(fetchUnread, UNREAD_POLL_MS);
 
     useEffect(() => {
         function handler(e) {
@@ -167,6 +169,9 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
     }, [collapsed]);
 
     const currentWs = user?.currentWorkspace;
+    // What the signed-in role may open under Finance. Hidden until the workspace has loaded, so a page the
+    // server would answer 403 for is never offered (the server still enforces it either way).
+    const financeAccess = financeNavAccess(currentWs);
     const slug = user?.currentWorkspace?.slug ?? '';
     const allWorkspaces = user?.workspaces ?? [];
     const pendingCount = user?.pendingInvitationsCount ?? 0;
@@ -237,8 +242,8 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                         </Link>
                     </li>
 
-                    {/* Expandable menu: Finance */}
-                    <li>
+                    {/* Expandable menu: Finance (only for roles that may open at least one of its pages) */}
+                    {financeAccess.any && <li>
                         <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
                             <Disclosure.Heading>
                                 <Disclosure.Trigger data-guide="nav-finance" className={`${navLink(pathname.includes('/finance'))} w-full cursor-pointer`} disabled={collapsed}>
@@ -254,26 +259,32 @@ export default function Sidebar({ collapsed: collapsedProp, isMobile = false, mo
                             <Disclosure.Content>
                                 <Disclosure.Body>
                                     <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
-                                        <li>
-                                            <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
-                                                {tNav('transactions')}
-                                            </Link>
-                                        </li>
-                                        <li>
-                                            <Link href={`/${slug}/finance/packages`} className={subLink(pathname.includes('/finance/packages'))}>
-                                                {tNav('packages')}
-                                            </Link>
-                                        </li>
-                                        <li>
-                                            <Link href={`/${slug}/finance/payment-methods`} className={subLink(pathname.includes('/finance/payment-methods'))}>
-                                                {tNav('paymentMethods')}
-                                            </Link>
-                                        </li>
+                                        {financeAccess.transactions && (
+                                            <li>
+                                                <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
+                                                    {tNav('transactions')}
+                                                </Link>
+                                            </li>
+                                        )}
+                                        {financeAccess.packages && (
+                                            <li>
+                                                <Link href={`/${slug}/finance/packages`} className={subLink(pathname.includes('/finance/packages'))}>
+                                                    {tNav('packages')}
+                                                </Link>
+                                            </li>
+                                        )}
+                                        {financeAccess.paymentMethods && (
+                                            <li>
+                                                <Link href={`/${slug}/finance/payment-methods`} className={subLink(pathname.includes('/finance/payment-methods'))}>
+                                                    {tNav('paymentMethods')}
+                                                </Link>
+                                            </li>
+                                        )}
                                     </ul>
                                 </Disclosure.Body>
                             </Disclosure.Content>
                         </Disclosure>
-                    </li>
+                    </li>}
 
                     <li>
                         <Link

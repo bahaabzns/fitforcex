@@ -3,6 +3,7 @@ import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import { ensureFormsQueueSchema } from './forms.controller';
+import { heavyListGate } from '../../middleware/heavyRequestGate';
 import * as formsController from './forms.controller';
 import * as autoAssignController from './autoAssign.controller';
 
@@ -474,7 +475,7 @@ router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestio
 router.post('/requests',                      formsController.createRequests);
 router.get('/requests/client/:client_id',     formsController.getRequestsByClient);
 router.delete('/requests/:request_id',        formsController.deleteRequest);
-router.get('/queue',                          formsController.getQueue);
+router.get('/queue',                          heavyListGate, formsController.getQueue);
 router.patch('/queue/review',                 formsController.reviewQueue);
 router.patch('/queue/assign',                 formsController.assignQueue);
 router.get('/queue/auto-assign',              autoAssignController.getAutoAssignRules);

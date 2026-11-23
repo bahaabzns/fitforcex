@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
+import { heavyListGate } from '../../middleware/heavyRequestGate';
 import * as transactionsController from './transactions.controller';
 
 const router = Router();
@@ -109,7 +110,7 @@ router.get('/by-client/:clientId', transactionsController.getByClient);
  *       200:
  *         description: Transaction deleted
  */
-router.get('/',     transactionsController.getTransactions);
+router.get('/',     heavyListGate, transactionsController.getTransactions);
 router.post('/',    transactionsController.createTransaction);
 router.put('/:id',  transactionsController.updateTransaction);
 router.delete('/:id', transactionsController.deleteTransaction);

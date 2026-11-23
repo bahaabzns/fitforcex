@@ -801,3 +801,19 @@ Format:
 **Why it matters:** (1) a broken step shows no arrow and nobody notices; (2) one cheap request per owner per 5 s; (3) a misleading table name; (4) a placeholder price could be mistaken for a real one; (5) feedback is delayed for new coaches.
 **Effort:** M (1: component tests), S (2), S (3: rename), S (4), S (5)
 **Priority:** M (1), L (2-5)
+
+## 2026-11-18 — In-process caches assume a single API process
+
+**Type:** Shortcut / Risk
+**What:** The portal access cache and the coach session cache live in the API process's memory. Writes clear them in the same process; other processes would only see a change after the TTL (30 s by default). Cache hits also skip a database check on revoked sessions for up to that long if a revoke happens outside `revokeSession`.
+**Why it matters:** The day the API runs as several processes (or behind a cluster), a logout or access change can take up to 30 s to apply on the other ones. Set the TTLs to 0, or move to a shared store, before scaling out.
+**Effort:** M (shared store or pub/sub invalidation)
+**Priority:** L (single instance today)
+
+## 2026-11-18 — Full-list pages load every row (limit at about 10,000 clients)
+
+**Type:** Shortcut
+**What:** The Clients page loads `/clients?limit=10000` on open and again after every create, archive or restore; Finance loads `/transactions?limit=10000` and all clients; Messenger loads `/messenger/threads` (every client); the Plans queue loads every non-archived request. Search, filters and sorting then run in the browser. Measured on 10,000 clients: 0.5-1.5 s and 4-10 MB per load (server), about 1 s of Node CPU each, and a burst of several at once peaks the API's memory (mitigated by the heap cap and the request gate, not removed).
+**Why it matters:** Big workspaces stay the slowest and the likeliest to trigger memory restarts; cost grows with client count. Browsers also hold all rows in memory.
+**Effort:** L (server-side pagination, filtering and sorting per page, with UI changes; the status filter needs the status computed in SQL or kept per client)
+**Priority:** H for workspaces above a few thousand clients, M otherwise

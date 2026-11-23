@@ -5,6 +5,8 @@ import { useTranslations, useLocale } from "next-intl";
 import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import ErrorState from "@/app/components/ErrorState";
+import NoAccessState from "@/app/components/NoAccessState";
+import { isAccessDenied } from "@/lib/permissions";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
 import api from "@/lib/axios";
@@ -236,6 +238,7 @@ export default function TransactionsPage() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [loading, setLoading]               = useState(true);
     const [loadError, setLoadError]           = useState(false); // transactions fetch failed — distinct from "no transactions"
+    const [accessDenied, setAccessDenied]     = useState(false); // server answered 403: this role may not open Finance
     // The shared TransactionModal owns the form; this page only tracks open/edit state.
     const [showForm, setShowForm]   = useState(false);
     const [editingTx, setEditingTx] = useState(null);
@@ -244,8 +247,13 @@ export default function TransactionsPage() {
     // own error state, so a failure shows a retry card rather than an empty table.
     const loadTransactions = useCallback(() => {
         api.get("/api/transactions?limit=10000")
-            .then(({ data }) => { setTransactions(data?.data ?? []); setLoadError(false); })
-            .catch((err) => { console.error("Failed to load transactions:", err); setLoadError(true); })
+            .then(({ data }) => { setTransactions(data?.data ?? []); setLoadError(false); setAccessDenied(false); })
+            .catch((err) => {
+                // A 403 is a permission decision, not a failure: retrying cannot help, so say so instead.
+                if (isAccessDenied(err)) { setAccessDenied(true); return; }
+                console.error("Failed to load transactions:", err);
+                setLoadError(true);
+            })
             .finally(() => setLoading(false));
     }, []);
 
@@ -270,6 +278,7 @@ export default function TransactionsPage() {
     // Retry handler for the error card — reset to the loading state, then re-fetch.
     const retryLoad = useCallback(() => {
         setLoadError(false);
+        setAccessDenied(false);
         setLoading(true);
         loadTransactions();
         loadReferenceData();
@@ -338,6 +347,10 @@ export default function TransactionsPage() {
                 </div>
             </div>
         );
+    }
+
+    if (accessDenied) {
+        return <NoAccessState />;
     }
 
     // The transactions request failed — offer a retry instead of an empty table

@@ -17,6 +17,7 @@ import { getInitials } from "@/utils/initials";
 import api from "@/lib/axios";
 import AppModal from "@/app/components/Modal";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 
 const UNREAD_POLL_MS = 15000;
 const LIST_LIMIT     = 15;
@@ -210,12 +211,8 @@ export default function NotificationBell() {
             .catch(() => {});
     }, []);
 
-    // Badge poll — cheap COUNT, runs whether or not the panel is open.
-    useEffect(() => {
-        fetchUnread();
-        const interval = setInterval(fetchUnread, UNREAD_POLL_MS);
-        return () => clearInterval(interval);
-    }, [fetchUnread]);
+    // Badge poll — cheap COUNT, runs whether or not the panel is open, but only while the tab is visible.
+    useVisiblePolling(fetchUnread, UNREAD_POLL_MS);
 
     // Outside-click close (mirrors the Sidebar workspace-switcher pattern).
     useEffect(() => {

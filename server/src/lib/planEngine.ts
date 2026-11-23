@@ -2,6 +2,7 @@ import { Pool, PoolClient } from 'pg';
 import { createId } from '@paralleldrive/cuid2';
 import { sealVersionForAssignment } from '../modules/forms/forms.service';
 import { normalizePostAction } from '../utils/postAction';
+import { invalidateWorkspaceClientAccess } from '../modules/subscriptionPolicies/clientAccessCache';
 
 type PlainRecord = Record<string, unknown>;
 
@@ -50,17 +51,33 @@ export async function insertOrderedChildren<T extends PlainRecord>({
     return insertedRows;
 }
 
+// Plan activation changes a client's live subscription status and portal access (first plan
+// activation can start the paid period), so the status/access caches must be cleared. Inside
+// withTransaction that has to wait for COMMIT: clearing earlier would let a concurrent request
+// re-cache the pre-commit state. Workspaces are collected per transaction client and flushed after.
+const workspacesChangedInTransaction = new WeakMap<object, Set<string>>();
+
+function noteWorkspaceStatusChange(db: Pool | PoolClient, workspaceId: string): void {
+    const pending = workspacesChangedInTransaction.get(db);
+    if (pending) pending.add(workspaceId);
+    else invalidateWorkspaceClientAccess(workspaceId); // standalone statement: already committed
+}
+
 export async function withTransaction<T>(pool: Pool, work: (client: PoolClient) => Promise<T>): Promise<T> {
     const dbClient = await pool.connect();
+    const changedWorkspaces = new Set<string>();
+    workspacesChangedInTransaction.set(dbClient, changedWorkspaces);
     try {
         await dbClient.query('BEGIN');
         const result = await work(dbClient);
         await dbClient.query('COMMIT');
+        for (const workspaceId of changedWorkspaces) invalidateWorkspaceClientAccess(workspaceId);
         return result;
     } catch (error) {
         await dbClient.query('ROLLBACK');
         throw error;
     } finally {
+        workspacesChangedInTransaction.delete(dbClient);
         dbClient.release();
     }
 }
@@ -192,6 +209,7 @@ export async function activateSinglePlan({
          RETURNING *`,
         [plan.id, activatedAt, resolvedCycleDays, cycleEndAt, resolvedReviewOffset]
     );
+    noteWorkspaceStatusChange(db, coachId);
 
     // A client's request for "a nutrition/workout plan" is satisfied the
     // moment ANY plan of that type goes active for them -- mirrors the

@@ -412,6 +412,7 @@ model form_requests {
   @@index([form_id], map: "form_requests_form_id_index")
   @@index([form_version_id], map: "form_requests_form_version_id_index")
   @@index([label_id])
+  @@index([client_id], map: "idx_form_requests_client")
 }
 
 model plans_queue_labels {
@@ -605,6 +606,9 @@ model nutrition_meal_item_alternatives {
   alt_order            Int                   @default(1)
   food_items           food_items?           @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nutrition_meal_items nutrition_meal_items? @relation(fields: [meal_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([meal_item_id], map: "idx_nutrition_meal_item_alternatives_meal_item")
+  @@index([food_item_id], map: "idx_nutrition_meal_item_alternatives_food_item")
 }
 
 model nutrition_meal_items {
@@ -1197,6 +1201,8 @@ model subscription_freezes {
   notes                String?
   created_at           DateTime @default(now()) @db.Timestamptz(6)
   clients              clients  @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([client_id], map: "idx_subscription_freezes_client")
 }
 
 model threads {
@@ -1321,6 +1327,7 @@ model transactions {
 
   @@unique([workspace_id, transaction_code], map: "transactions_workspace_code_key")
   @@index([package_variation_id], map: "idx_transactions_package_variation")
+  @@index([client_id], map: "idx_transactions_client")
 }
 
 model users {

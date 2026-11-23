@@ -22,6 +22,8 @@ import { Input } from "@heroui/react/input";
 import { ComboBox } from "@heroui/react/combo-box";
 import { ListBox } from "@heroui/react/list-box";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import NoAccessState from "@/app/components/NoAccessState";
+import { isAccessDenied } from "@/lib/permissions";
 import TriggerInsightBanner from "@/app/components/insights/TriggerInsightBanner";
 
 // --- CURRENCY LIST ---
@@ -206,6 +208,7 @@ export default function PackagesPage() {
     const [addVariationTarget, setAddVariationTarget] = useState(null); // package | null
     const [newVariation, setNewVariation] = useState(emptyVariation());
     const [error, setError] = useState("");
+    const [accessDenied, setAccessDenied] = useState(false); // server answered 403 for the package list
 
     const searchRef = useRef(null);
     const [creatingStarter, setCreatingStarter] = useState(false);
@@ -225,13 +228,23 @@ export default function PackagesPage() {
     }
 
     useEffect(() => {
-        Promise.all([
+        Promise.allSettled([
             api.get("/api/packages"),
             api.get("/api/forms"),
         ]).then(([pkgRes, formsRes]) => {
-            setPackages(pkgRes.data ?? []);
-            setAvailableForms((formsRes.data ?? []).filter(f => f.status === "active" || f.active));
-        }).catch(() => setPackages([])).finally(() => setLoading(false));
+            if (pkgRes.status === "fulfilled") {
+                setPackages(pkgRes.value.data ?? []);
+            } else {
+                setPackages([]);
+                // A 403 is a permission decision: say so instead of showing an empty catalog.
+                if (isAccessDenied(pkgRes.reason)) setAccessDenied(true);
+            }
+            // The forms list only feeds the form picker: a failure there (e.g. a role without forms access)
+            // must not blank the packages themselves.
+            setAvailableForms(formsRes.status === "fulfilled"
+                ? (formsRes.value.data ?? []).filter(f => f.status === "active" || f.active)
+                : []);
+        }).finally(() => setLoading(false));
     }, []);
 
     // Forms store localized titles (title_en / title_ar); resolve by active locale.
@@ -683,6 +696,10 @@ export default function PackagesPage() {
                 </div>
             </div>
         );
+    }
+
+    if (accessDenied) {
+        return <NoAccessState />;
     }
 
     return (
