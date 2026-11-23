@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { RouterProvider } from '@heroui/react';
+import { Toast } from '@heroui/react/toast';
 import { I18nProvider } from 'react-aria-components';
 import { ThemeProvider } from 'next-themes';
 import { NextIntlClientProvider } from 'next-intl';
@@ -37,6 +38,8 @@ export function Providers({ children, defaultTheme = 'system', locale = 'en', me
                         {!inDemo && <VisitorTracker />}
                         {!inDemo && <ClarityTracker />}
                         {children}
+                        {/* Success/failure confirmations (e.g. the auto-assign rules table). */}
+                        <Toast.Provider placement="bottom end" />
                     </RouterProvider>
                 </ThemeProvider>
             </I18nProvider>

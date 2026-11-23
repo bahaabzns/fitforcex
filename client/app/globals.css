@@ -975,3 +975,9 @@
   left: auto;
   right: 0;
 }
+
+/* Toasts must show above an open modal: both the toast region and HeroUI's modal backdrop are z-50, and the
+   modal is appended to <body> later, so it would otherwise cover a toast fired from inside it. */
+.toast-region {
+  z-index: 100;
+}

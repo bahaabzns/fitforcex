@@ -1,4 +1,8 @@
-{
+{
+
+
+
+
   "guide": {
     "close": "Close",
     "goClients": "Click Clients",
@@ -37,7 +41,12 @@
     "questionNew": "Click New question",
     "formItem": "Pick your form from the list",
     "formSave": "Click Save so the questions are stored"
-  },
+  },
+
+
+
+
+
   "gettingStarted": {
     "title": "Get started",
     "subtitle": "Get started in a few steps",
@@ -1129,6 +1138,55 @@
     "unlabeled": "No label",
     "manageLabels": "Manage Labels",
     "manageLabelsDesc": "Create, rename, or delete labels for organizing queue items.",
+    "autoAssignBadgeTip": "Auto-assign is on: this client's future {plan} forms go to {name}",
+    "autoAssignOnTip": "Auto-assign is on: this client's future {plan} forms go to {name}. Click to turn off.",
+    "autoAssignOffTip": "Auto-assign is off. Click to send this client's future {plan} forms to {name} automatically.",
+    "autoAssignNeedsAssignee": "Assign this form to someone first, then you can turn on auto-assign.",
+    "autoAssignNoticeSaved": "Assigned to {name}. Auto-assign is on for {count} client plan(s).",
+    "autoAssignNoticeNotEligible": "Assigned, but auto-assign was not turned on: that person can't receive plans.",
+    "autoAssignSearchPlaceholder": "Search by client name or code",
+    "autoAssignFilterAgent": "Agent",
+    "autoAssignFilterStatus": "Status",
+    "autoAssignAllAgents": "All agents",
+    "autoAssignStatusAll": "All statuses",
+    "autoAssignStatusUnavailable": "Agent unavailable",
+    "autoAssignNoMatches": "No rules match these filters.",
+    "autoAssignRange": "{from}–{to} of {total}",
+    "autoAssignPrev": "Previous page",
+    "autoAssignNext": "Next page",
+    "autoAssignLoadFailed": "Could not load the rules. Please try again.",
+    "autoAssignTurnOffMatching": "Turn off the {count} rules matching these filters",
+    "autoAssignTurnOffMatchingConfirm": "Turn off {count} auto-assign rules? Those clients' next forms will go back to the shared queue.",
+    "autoAssignColClient": "Client",
+    "autoAssignColAgent": "Agent",
+    "autoAssignColSetBy": "Set by",
+    "autoAssignColSetOn": "Set on",
+    "autoAssignColAction": "Action",
+    "autoAssignColNutrition": "Nutrition agent",
+    "autoAssignColWorkout": "Training agent",
+    "autoAssignAgentNone": "None",
+    "autoAssignClientsTotal": "{count, plural, one {# client} other {# clients}}",
+    "autoAssignAgentSet": "{plan} agent for {client} is now {agent}",
+    "autoAssignAgentCleared": "Auto-assign turned off for {client}'s {plan} plans",
+    "autoAssignClientOff": "Auto-assign turned off for {client}",
+    "autoAssignAgentFailed": "Could not change the agent. Please try again.",
+    "autoAssignMenu": "Auto-assign",
+    "autoAssignMenuLabel": "Auto-assign, {count} rules",
+    "autoAssignMenuOnLabel": "Auto-assign is on, {count} rules",
+    "autoAssignOn": "On",
+    "autoAssignMenuSwitch": "Remember who I assign to",
+    "autoAssignMenuHint": "When on, assigning a form (one or many) also sends that client's future forms of the same plan type to the same person. Stays on until you switch it off.",
+    "autoAssignManageRules": "Manage rules ({count})",
+    "autoAssignBarOn": "Auto-assign on",
+    "autoAssignBarOnHint": "This assignment will also set auto-assign rules for these clients",
+    "autoAssignRules": "Auto-assign rules",
+    "autoAssignRulesCount": "Auto-assign rules ({count})",
+    "autoAssignRulesDesc": "For these clients, the next form goes straight to the chosen agent instead of waiting in the queue.",
+    "autoAssignNone": "No auto-assign rules yet. Turn on \"Auto-assign when I assign\" and assign forms, or use the ↻ button next to an assigned form.",
+    "autoAssignTurnOff": "Turn off",
+    "autoAssignTurnOffFailed": "Could not turn this rule off. Please try again.",
+    "autoAssignAgentUnavailable": "Agent unavailable — forms go to the shared queue",
+    "autoAssignNoticeError": "Could not change auto-assign. The assignee may not be able to receive plans. Please try again.",
     "addLabel": "Add Label",
     "labelName": "Name",
     "labelNamePlaceholder": "e.g. Urgent",
@@ -1734,7 +1792,8 @@
     "statusFrozen": "Frozen",
     "statusPreStart": "Pre-start",
     "statusRefunded": "Refunded"
-  },
+  },
+
   "packages": {
     "title": "Packages",
     "subtitle": "Create and manage pricing packages for your coaching services.",

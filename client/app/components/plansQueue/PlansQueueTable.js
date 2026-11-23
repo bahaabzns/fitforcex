@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity, Eye, Tag, Settings } from "lucide-react";
+import { Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X, Archive, Target, FileText, ClipboardList, Package, Users, Activity, Eye, Tag, Settings, Repeat, UserX } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
@@ -14,6 +14,7 @@ import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
+import { toast } from "@heroui/react/toast";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { getInitials } from "@/utils/initials";
@@ -34,6 +35,9 @@ function titleCaseType(type) {
 // for Type and Action chips in this table, so a package chip never reads as
 // one of those. Cycles (reused) once distinct package count exceeds this —
 // there's no way to guarantee uniqueness past a finite palette.
+// Plan types an "auto-assign next time" rule can cover (same values as client_auto_assign.plan_type).
+const PLAN_ACTIONS = ["nutrition-plan", "workout-plan"];
+
 const PACKAGE_CHIP_COLORS = [
     "bg-pink-500/20 text-pink-400",
     "bg-cyan-500/20 text-cyan-400",
@@ -100,6 +104,39 @@ function MemberOptionLabel({ name, count, needActionLabel }) {
     );
 }
 
+// "Unassigned" shown with an avatar-sized slot like the people below it, so every option's text starts on the
+// same edge instead of "Unassigned" sitting further left than the names.
+function UnassignedOptionLabel({ label }) {
+    return (
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="flex w-6 h-6 shrink-0 items-center justify-center rounded-full bg-default text-muted-foreground">
+                <UserX size={13} />
+            </span>
+            <span className="truncate">{label}</span>
+        </div>
+    );
+}
+
+// The option list shared by the row's "Assigned" dropdown and the bulk bar's assign dropdown. A plain function
+// (not a component) so the ListBox sees the items directly.
+function renderAssigneeOptions({ members, needActionCountByAssignee, t }) {
+    return [
+        <ListBox.Item key="none" id="none" textValue={t('unassigned')}>
+            <UnassignedOptionLabel label={t('unassigned')} />
+            <ListBox.ItemIndicator />
+        </ListBox.Item>,
+        ...members.map((m) => (
+            <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
+                <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
+                <ListBox.ItemIndicator />
+            </ListBox.Item>
+        )),
+    ];
+}
+
+// Wide enough for a name plus its "Need Action · n" line, with a slim scrollbar that doesn't sit on the rounded edge.
+const ASSIGNEE_POPOVER_CLASS = "min-w-60 [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]";
+
 // Full-detail preview of a row's submitted answers, opened from a single
 // icon button in the actions column (between the primary/undo action and
 // Archive) — a large modal rather than a popover since answers can include
@@ -126,6 +163,10 @@ function AnswerPreviewModal({ open, onClose, responses, locale, heading, formTit
 export default function PlansQueueTable({
     initialSubmissions, awaiting, forms, members = [],
     labels = [], canManageLabels = false, onLabelsChange = async () => {},
+    // "Auto-assign next time" (see AutoAssignRulesModal). Each row arrives with its own rule (autoAssignRuleId /
+    // autoAssignAgentName); the page owns the switch and the instant-update overrides so Main and History agree.
+    autoAssignOnAssign = false, autoRuleOverrides = {}, onAutoRuleOverrides = () => {},
+    canManageAutoAssign = false, onAutoAssignChange = () => {},
     hideStatusColumn = false, hideActionTakenColumn = false,
     title, description, headerAction,
     // The just-completed submission id, already claimed once (Strict-Mode-safe,
@@ -301,6 +342,8 @@ export default function PlansQueueTable({
     // strategy as removedIds, kept separate so the two actions stay easy to reason about.
     const [archivedIds, setArchivedIds] = useState(new Set());
     const [bulkAssigning, setBulkAssigning] = useState(false);
+    // Row currently toggling auto-assign (disables its button). The outcome is announced with a toast.
+    const [autoAssignBusyId, setAutoAssignBusyId] = useState(null);
     const [cancelling, setCancelling] = useState(false);
     // Which row's answer-preview popover is open (row id or null) — lifted
     // here rather than local to AnswerPreviewTrigger so opening one row's
@@ -308,7 +351,96 @@ export default function PlansQueueTable({
     const [previewOpenId, setPreviewOpenId] = useState(null);
     const [archiving, setArchiving] = useState(false);
 
+    const isPlanRow = (row) => PLAN_ACTIONS.includes(row.postAction) && !!row.clientId;
+    const planTypeLabel = (postAction) => (postAction === "nutrition-plan" ? t('nutrition') : t('workout')).toLocaleLowerCase(locale);
+    // One current rule per client + plan type, so a client's nutrition and workout rows show their own badge.
+    // An override (set by a toggle, a bulk assign or the rules modal) wins over the row's snapshot.
+    const autoRuleKey = (row) => `${row.clientId}:${row.postAction}`;
+    const autoRuleFor = (row) => {
+        const key = autoRuleKey(row);
+        if (Object.prototype.hasOwnProperty.call(autoRuleOverrides, key)) return autoRuleOverrides[key];
+        return row.autoAssignRuleId ? { id: row.autoAssignRuleId, agentName: row.autoAssignAgentName } : null;
+    };
+
+    // One click on a row's auto-assign button: off -> on (rule points at the row's current assignee),
+    // on -> off. Updates the badge straight away from the server's answer.
+    async function toggleAutoAssign(row) {
+        setAutoAssignBusyId(row.id);
+        try {
+            const rule = autoRuleFor(row);
+            if (rule) {
+                await api.patch(`/api/forms/queue/auto-assign/${rule.id}/off`);
+                onAutoRuleOverrides([[autoRuleKey(row), null]]);
+            } else {
+                const res = await api.post("/api/forms/queue/auto-assign", { requestId: row.id });
+                onAutoRuleOverrides([[autoRuleKey(row), { id: res.data.rule.id, agentName: row.assignedToName }]]);
+            }
+            onAutoAssignChange();
+        } catch {
+            toast.warning(t('autoAssignNoticeError'));
+        }
+        setAutoAssignBusyId(null);
+    }
+
+    // After an assignment made with the "Auto-assign when I assign" switch on: show the new rules on the rows
+    // straight away and say what happened (including when the assignee couldn't be given rules).
+    function handleAutoAssignResult(result, member) {
+        if (!result) return;
+        if (result.skipped === "error") return toast.warning(t('autoAssignNoticeError'));
+        if (result.skipped === "agent_not_eligible") return toast.warning(t('autoAssignNoticeNotEligible'));
+        onAutoRuleOverrides(result.rules.map((rule) => [`${rule.clientId}:${rule.planType}`, { id: rule.id, agentName: member?.name ?? null }]));
+        onAutoAssignChange();
+        if (result.rulesSet > 0) toast.success(t('autoAssignNoticeSaved', { count: result.rulesSet, name: member?.name ?? "" }));
+    }
+
+    // Per-row control next to the assignee. Managers/owners get a toggle button; everyone else just sees
+    // a small marker when a rule exists (so an agent can tell why a form landed on them).
+    function renderAutoAssignControl(row) {
+        if (!isPlanRow(row)) return null;
+        const rule = autoRuleFor(row);
+        const plan = planTypeLabel(row.postAction);
+        if (!canManageAutoAssign) {
+            if (!rule) return null;
+            return (
+                <Tooltip>
+                    <span className="shrink-0 inline-flex text-accent" tabIndex={0} aria-label={t('autoAssignRules')}>
+                        <Repeat size={12} />
+                    </span>
+                    <Tooltip.Content>{t('autoAssignBadgeTip', { plan, name: rule.agentName || "—" })}</Tooltip.Content>
+                </Tooltip>
+            );
+        }
+        // Nobody to point a new rule at until the form is assigned to someone.
+        const needsAssignee = !rule && !row.assignedTo;
+        const tip = rule
+            ? t('autoAssignOnTip', { plan, name: rule.agentName || "—" })
+            : needsAssignee
+                ? t('autoAssignNeedsAssignee')
+                : t('autoAssignOffTip', { plan, name: row.assignedToName || "—" });
+        return (
+            <Tooltip>
+                <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    aria-label={tip}
+                    aria-pressed={!!rule}
+                    isDisabled={needsAssignee || autoAssignBusyId === row.id}
+                    className={`shrink-0 ${rule ? "text-accent" : "text-muted-foreground"}`}
+                    onClick={(e) => { e.stopPropagation(); toggleAutoAssign(row); }}
+                >
+                    <Repeat size={14} />
+                </Button>
+                <Tooltip.Content>{tip}</Tooltip.Content>
+            </Tooltip>
+        );
+    }
+
+    // The page's switch decides whether assigning ALSO turns on auto-assign (one step, for one row or a bulk selection).
+    const shouldAutoAssign = (userId) => autoAssignOnAssign && canManageAutoAssign && !!userId;
+
     async function assignTo(rowId, userId) {
+        const wantsAutoAssign = shouldAutoAssign(userId);
         const member = members.find((m) => m.id === userId);
         // Optimistic — reflect the new assignee immediately, then persist.
         setAssignMap((prev) => ({
@@ -316,7 +448,8 @@ export default function PlansQueueTable({
             [rowId]: { assignedTo: userId || null, assignedToName: member?.name || null },
         }));
         try {
-            await api.patch("/api/forms/queue/assign", { ids: [rowId], assignedTo: userId || null });
+            const res = await api.patch("/api/forms/queue/assign", { ids: [rowId], assignedTo: userId || null, autoAssign: wantsAutoAssign || undefined });
+            handleAutoAssignResult(res.data?.autoAssign, member);
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -426,6 +559,7 @@ export default function PlansQueueTable({
     async function bulkAssignTo(userId) {
         const ids = [...selectedIds];
         if (ids.length === 0) return;
+        const wantsAutoAssign = shouldAutoAssign(userId);
         const member = members.find((m) => m.id === userId);
         setAssignMap((prev) => {
             const next = { ...prev };
@@ -434,7 +568,8 @@ export default function PlansQueueTable({
         });
         setBulkAssigning(true);
         try {
-            await api.patch("/api/forms/queue/assign", { ids, assignedTo: userId || null });
+            const res = await api.patch("/api/forms/queue/assign", { ids, assignedTo: userId || null, autoAssign: wantsAutoAssign || undefined });
+            handleAutoAssignResult(res.data?.autoAssign, member);
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -756,21 +891,11 @@ export default function PlansQueueTable({
                             <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
                             <Select.Indicator />
                         </Select.Trigger>
-                        <Select.Popover>
-                            <ListBox>
-                                <ListBox.Item id="none" textValue={t('unassigned')}>
-                                    {t('unassigned')}
-                                    <ListBox.ItemIndicator />
-                                </ListBox.Item>
-                                {members.map((m) => (
-                                    <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
-                                        <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
-                                        <ListBox.ItemIndicator />
-                                    </ListBox.Item>
-                                ))}
-                            </ListBox>
+                        <Select.Popover className={ASSIGNEE_POPOVER_CLASS}>
+                            <ListBox>{renderAssigneeOptions({ members, needActionCountByAssignee, t })}</ListBox>
                         </Select.Popover>
                     </Select>
+                    {renderAutoAssignControl(row)}
                 </div>
             ),
         },
@@ -1016,7 +1141,7 @@ export default function PlansQueueTable({
                             dismissLabel={t('manageLabelsHintDismiss')}
                             badgeLabel={t('manageLabelsHintBadge')}
                         >
-                            <Button variant="ghost" size="sm" onClick={() => setManageLabelsOpen(true)}>
+                            <Button variant="outline" size="sm" onClick={() => setManageLabelsOpen(true)}>
                                 <Settings className="w-4 h-4" />
                                 <span>{t('manageLabels')}</span>
                             </Button>
@@ -1097,6 +1222,14 @@ export default function PlansQueueTable({
                 </ActionBar.Prefix>
                 <Separator orientation="vertical" className="h-6" />
                 <ActionBar.Content>
+                    {/* The switch lives in the header, out of sight while the manager is picking an assignee, so say
+                        here that this assignment will also create auto-assign rules. */}
+                    {autoAssignOnAssign && canManageAutoAssign && (
+                        <Chip size="sm" variant="soft" color="accent" title={t('autoAssignBarOnHint')} className="shrink-0">
+                            <Repeat className="w-3 h-3" />
+                            <Chip.Label className="action-bar__label">{t('autoAssignBarOn')}</Chip.Label>
+                        </Chip>
+                    )}
                     <Select
                         aria-label={t('assignTo')}
                         value="none"
@@ -1108,19 +1241,8 @@ export default function PlansQueueTable({
                             <UserPlus size={14} className="shrink-0" />
                             <span className="action-bar__label text-sm">{t('bulkAssign')}</span>
                         </Select.Trigger>
-                        <Select.Popover>
-                            <ListBox>
-                                <ListBox.Item id="none" textValue={t('unassigned')}>
-                                    {t('unassigned')}
-                                    <ListBox.ItemIndicator />
-                                </ListBox.Item>
-                                {members.map((m) => (
-                                    <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
-                                        <MemberOptionLabel name={m.name} count={needActionCountByAssignee.get(m.id) ?? 0} needActionLabel={t('needAction')} />
-                                        <ListBox.ItemIndicator />
-                                    </ListBox.Item>
-                                ))}
-                            </ListBox>
+                        <Select.Popover className={ASSIGNEE_POPOVER_CLASS}>
+                            <ListBox>{renderAssigneeOptions({ members, needActionCountByAssignee, t })}</ListBox>
                         </Select.Popover>
                     </Select>
 
