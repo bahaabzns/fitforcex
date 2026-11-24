@@ -286,8 +286,11 @@ export default function PlansQueuePage() {
         setReloadToken((n) => n + 1);
     }
 
+    // `contents` on a phone: this wrapper disappears so its buttons join the table header's action row
+    // (PlansQueueTable) as siblings of the Manage labels button, giving one evenly shared row instead of
+    // a second wrapping row inside it. From `sm` up it is the same wrapping row as before.
     const historyToggle = (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="contents sm:flex sm:items-center sm:gap-2 sm:flex-wrap">
             {(canManageLabels || autoAssignTotal > 0) && (
                 <AutoAssignMenu
                     total={autoAssignTotal}
@@ -300,10 +303,11 @@ export default function PlansQueuePage() {
             <Button
                 variant="outline"
                 size="sm"
+                className="max-sm:flex-1 max-sm:min-w-0 max-sm:px-2"
                 onClick={() => setShowHistory((prev) => !prev)}
             >
-                {showHistory ? <ListTodo className="w-4 h-4" /> : <History className="w-4 h-4" />}
-                <span>{showHistory ? t('backToQueue') : t('submissionHistory')}</span>
+                {showHistory ? <ListTodo className="w-4 h-4 shrink-0" /> : <History className="w-4 h-4 shrink-0" />}
+                <span className="max-sm:truncate">{showHistory ? t('backToQueue') : t('submissionHistory')}</span>
             </Button>
         </div>
     );

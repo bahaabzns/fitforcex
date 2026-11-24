@@ -1248,7 +1248,10 @@ export default function PlansQueueTable({
                     <h1 className="text-3xl font-bold">{title ?? t('title')}</h1>
                     <p className="text-muted-foreground text-sm mt-1">{description ?? t('description')}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                {/* On a phone the action buttons take the full width as ONE row (the page's headerAction wrapper
+                    dissolves into this row, see plans-queue/page.js): the compact auto-assign button keeps its size
+                    and the labelled buttons split the rest equally, instead of wrapping into uneven rows. */}
+                <div className="flex items-center gap-2 max-sm:w-full">
                     {canManageLabels && (
                         <NewFeatureTooltip
                             featureKey="plans_queue_labels_hint"
@@ -1256,10 +1259,11 @@ export default function PlansQueueTable({
                             message={t('manageLabelsHint')}
                             dismissLabel={t('manageLabelsHintDismiss')}
                             badgeLabel={t('manageLabelsHintBadge')}
+                            triggerClassName="max-sm:flex-1 max-sm:min-w-0"
                         >
-                            <Button variant="outline" size="sm" onClick={() => setManageLabelsOpen(true)}>
-                                <Settings className="w-4 h-4" />
-                                <span>{t('manageLabels')}</span>
+                            <Button variant="outline" size="sm" className="max-sm:w-full max-sm:px-2" onClick={() => setManageLabelsOpen(true)}>
+                                <Settings className="w-4 h-4 shrink-0" />
+                                <span className="max-sm:truncate">{t('manageLabels')}</span>
                             </Button>
                         </NewFeatureTooltip>
                     )}
