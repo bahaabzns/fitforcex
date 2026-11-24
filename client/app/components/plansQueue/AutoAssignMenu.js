@@ -18,7 +18,7 @@ export default function AutoAssignMenu({ total, canManage, isOn, onIsOnChange, o
 
     if (!canManage) {
         return (
-            <Button variant="outline" size="sm" onPress={onOpenRules}>
+            <Button variant="outline" size="sm" className="max-sm:shrink-0" onPress={onOpenRules}>
                 <Repeat className="w-4 h-4" />
                 <span>{t("autoAssignRulesCount", { count: total })}</span>
             </Button>
@@ -31,7 +31,7 @@ export default function AutoAssignMenu({ total, canManage, isOn, onIsOnChange, o
                 variant="outline"
                 size="sm"
                 aria-label={isOn ? t("autoAssignMenuOnLabel", { count: total }) : t("autoAssignMenuLabel", { count: total })}
-                className={isOn ? "text-accent" : ""}
+                className={`max-sm:shrink-0 ${isOn ? "text-accent" : ""}`}
             >
                 <Repeat className="w-4 h-4" />
                 {/* The label drops out on phones so the button stays an icon with its count (and the On dot). */}

@@ -69,6 +69,9 @@ export const heavyRequestSlots = new RequestSlots(HEAVY_REQUESTS_MAX_CONCURRENT)
 
 export const heavyListGate: RequestHandler = gateRequests(heavyRequestSlots);
 
+/** The plans queue is only heavy as one full list; a single page (?page=) is small and must not wait behind the big requests. */
+export const heavyQueueListGate: RequestHandler = gateRequests(heavyRequestSlots, (req) => req.query.page === undefined);
+
 /** The clients list is only heavy when the page asks for a lot of rows (the web app loads 10,000). */
 export const heavyClientListGate: RequestHandler = gateRequests(
     heavyRequestSlots,
