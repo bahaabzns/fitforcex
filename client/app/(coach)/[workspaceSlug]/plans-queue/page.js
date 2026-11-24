@@ -313,7 +313,12 @@ export default function PlansQueuePage() {
     );
 
     return (
-        <div className="p-8 overflow-auto h-full" ref={scrollContainerRef} onScroll={handleQueueScroll}>
+        // relative: this div is the page's own scroller, nested inside the layout's scrolling <main>. Without a
+        // positioned ancestor here, the visually-hidden absolute elements the rows contain (one checkbox input per
+        // row) are positioned against <main> instead, outside this scroller — so they inflate <main>'s scroll
+        // height and give a second scrollbar plus a blank stretch at the bottom (see the same note in the
+        // coach layout, where <main> got its own `relative` for this reason).
+        <div className="relative p-8 overflow-auto h-full" ref={scrollContainerRef} onScroll={handleQueueScroll}>
             <TriggerInsightBanner
                 triggerEvent="first_checkin_reviewed"
                 checkUrl="/api/insights/prompts/for-trigger/first_checkin_reviewed"
