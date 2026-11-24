@@ -29,6 +29,17 @@ import PlansQueueSkeleton from "@/app/components/plansQueue/PlansQueueSkeleton";
 import { plansQueuePersistKey } from "@/app/components/plansQueue/persistKey";
 import { fetchMatchingQueueRows, usePlansQueueRows, usePlansQueueSummary } from "@/app/components/plansQueue/usePlansQueue";
 
+// A chip whose text comes from data (a package name, a form type, a label) can be longer than the room it
+// has. It never grows past its container and cuts the text with an ellipsis instead, rather than being
+// squeezed to a clipped sliver beside its neighbours or pushing the row wider.
+function TruncatingChip({ className = "", children, ...props }) {
+    return (
+        <Chip size="sm" className={`max-w-full min-w-0 ${className}`} {...props}>
+            <Chip.Label className="min-w-0 truncate">{children}</Chip.Label>
+        </Chip>
+    );
+}
+
 // "assessment" → "Assessment", "check-in" → "Check-in"
 function titleCaseType(type) {
     if (!type) return "";
@@ -839,7 +850,7 @@ export default function PlansQueueTable({
             width: "150px",
             cardPriority: "secondary",
             render: (row) => row.clientPackage
-                ? <Chip size="sm" className={`whitespace-nowrap ${packageColors[row.clientPackage]}`}>{row.clientPackage}</Chip>
+                ? <TruncatingChip title={row.clientPackage} className={packageColors[row.clientPackage]}>{row.clientPackage}</TruncatingChip>
                 : <span className="text-muted-foreground text-sm">-</span>,
         },
         {
@@ -860,21 +871,23 @@ export default function PlansQueueTable({
             render: (row) => (
                 <div className="min-w-0">
                     <p className="text-foreground text-sm font-medium truncate">{getLocalizedField(row, 'formTitle', locale)}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                        <Chip size="sm" className={`whitespace-nowrap ${
+                    {/* flex-wrap: when the two chips don't fit side by side the second drops to its own line
+                        (each still truncates if it alone is too long), rather than both being squeezed. */}
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                        <TruncatingChip className={
                             row.formType === "assessment"
                                 ? "bg-purple-500/20 text-purple-400"
                                 : "bg-accent/15 text-accent"
-                        }`}>
+                        }>
                             {titleCaseType(row.formType)}
-                        </Chip>
-                        <Chip size="sm" className={`whitespace-nowrap ${
+                        </TruncatingChip>
+                        <TruncatingChip className={
                             row.postAction === "nutrition-plan" ? "bg-amber-500/20 text-amber-400"
                                 : row.postAction === "workout-plan" ? "bg-accent/15 text-accent"
                                 : "bg-zinc-500/20 text-zinc-400"
-                        }`}>
+                        }>
                             {actionTypeLabel(row.postAction)}
-                        </Chip>
+                        </TruncatingChip>
                     </div>
                 </div>
             ),
@@ -1039,9 +1052,9 @@ export default function PlansQueueTable({
                     {/* pl-2!/pr-6!, not px-2! — see the assignedTo Select.Trigger above for why. */}
                     <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! pl-2! pr-6! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
                         {row.labelName ? (
-                            <Chip size="sm" className={`whitespace-nowrap ${LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}`}>
+                            <TruncatingChip title={row.labelName} className={LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}>
                                 {row.labelName}
-                            </Chip>
+                            </TruncatingChip>
                         ) : (
                             <>
                                 <Tag size={13} className="shrink-0" />
@@ -1217,7 +1230,7 @@ export default function PlansQueueTable({
 
                 <div className="flex flex-col gap-1.5">
                     {cell("formTitle_en").render(row)}
-                    {row.clientPackage && <div className="flex">{cell("clientPackage").render(row)}</div>}
+                    {row.clientPackage && <div className="flex min-w-0">{cell("clientPackage").render(row)}</div>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
