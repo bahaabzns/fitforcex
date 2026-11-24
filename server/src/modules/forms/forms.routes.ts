@@ -3,7 +3,7 @@ import authMiddleware from '../../middleware/auth';
 import subscriptionAccessGate from '../../middleware/subscriptionAccessGate';
 import requirePermission from '../../middleware/requirePermission';
 import { ensureFormsQueueSchema } from './forms.controller';
-import { heavyListGate } from '../../middleware/heavyRequestGate';
+import { heavyQueueListGate } from '../../middleware/heavyRequestGate';
 import * as formsController from './forms.controller';
 import * as autoAssignController from './autoAssign.controller';
 
@@ -263,9 +263,60 @@ router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestio
  *     tags: [Forms]
  *     security:
  *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: archived, schema: { type: boolean }, description: "true returns the archived view instead of the active queue" }
+ *       - { in: query, name: view, schema: { type: string, enum: [need-action] }, description: "need-action returns only rows the coach still has to act on (no awaiting/scheduled/reviewed rows)" }
+ *       - { in: query, name: includeId, schema: { type: string }, description: "With view=need-action, also return this one row (the one the coach just finished)" }
+ *       - { in: query, name: answers, schema: { type: string, enum: [lazy] }, description: "lazy leaves responses empty and sends responseCount; fetch answers per row from /forms/queue/{requestId}/responses" }
+ *       - { in: query, name: page, schema: { type: integer, minimum: 1 }, description: "Presence switches to paged mode: the response is { items, total, page, pageSize, includedItem } instead of an array, answers are never included, and the parameters below apply" }
+ *       - { in: query, name: pageSize, schema: { type: integer, enum: [10, 25, 50, 100] }, description: "Paged mode only. Default 25" }
+ *       - { in: query, name: search, schema: { type: string }, description: "Paged mode. Matches client name, email, code, or form title (contains, case-insensitive)" }
+ *       - { in: query, name: filters, schema: { type: string }, description: "Paged mode. JSON object keyed by column: clientCode/clientName (text), clientPackage/formId/formType/postAction/status/assignedTo/label (lists; null in assignedTo/label = none), requestedAt/submittedAt/actionTakenAt ({from,to} as YYYY-MM-DD). Unknown keys or malformed values return 400" }
+ *       - { in: query, name: sort, schema: { type: string, enum: [clientCode, clientName, clientPackage, formTitle, requestedAt, submittedAt, actionTakenAt, assignedTo, label] }, description: "Paged mode. Default newest first" }
+ *       - { in: query, name: dir, schema: { type: string, enum: [asc, desc] }, description: "Paged mode, with sort" }
  *     responses:
  *       200:
- *         description: Array of submitted form responses
+ *         description: Array of submitted form responses, or one page of them in paged mode
+ *       400:
+ *         description: Paged mode with an invalid filters value
+ *
+ * /forms/queue/summary:
+ *   get:
+ *     summary: Per-assignee need-action counts plus the package and form options for the queue's filters
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: view, schema: { type: string, enum: [need-action, all] }, description: "Which rows the package and form options are drawn from (default all)" }
+ *     responses:
+ *       200:
+ *         description: "{ needActionByAssignee, unassignedNeedAction, packages, formIds }"
+ *
+ * /forms/queue/ids:
+ *   get:
+ *     summary: Id, status and post action of every row matching the same view/search/filters as the paged list, for "select all matching" (capped at 5000)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ items: [{ id, status, postAction }], capped }"
+ *       400:
+ *         description: Invalid filters value
+ *
+ * /forms/queue/{requestId}/responses:
+ *   get:
+ *     summary: One queue item's submitted answers (for the answer preview when the list was loaded with answers=lazy)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: requestId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Array of answers, each with its question label and type
+ *       404:
+ *         description: Queue item not found in this workspace
  *
  * /forms/queue/review:
  *   patch:
@@ -475,7 +526,9 @@ router.post('/:id/questions/:qid/track-as-metric',  formsController.trackQuestio
 router.post('/requests',                      formsController.createRequests);
 router.get('/requests/client/:client_id',     formsController.getRequestsByClient);
 router.delete('/requests/:request_id',        formsController.deleteRequest);
-router.get('/queue',                          heavyListGate, formsController.getQueue);
+router.get('/queue',                          heavyQueueListGate, formsController.getQueue);
+router.get('/queue/summary',                  formsController.getQueueSummaryHandler);
+router.get('/queue/ids',                      formsController.getQueueIds);
 router.patch('/queue/review',                 formsController.reviewQueue);
 router.patch('/queue/assign',                 formsController.assignQueue);
 router.get('/queue/auto-assign',              autoAssignController.getAutoAssignRules);
@@ -488,6 +541,8 @@ router.patch('/queue/auto-assign/:id/off',    autoAssignController.turnOffAutoAs
 router.patch('/queue/archive',                formsController.archiveQueue);
 router.delete('/queue/cancel',                formsController.cancelQueue);
 router.get('/queue/labels',                   formsController.getQueueLabels);
+// After every fixed '/queue/<word>' GET above so this two-segment pattern can never shadow one of them.
+router.get('/queue/:requestId/responses',     formsController.getQueueItemResponses);
 router.post('/queue/labels',                  formsController.createQueueLabel);
 router.patch('/queue/labels/:id',             formsController.updateQueueLabel);
 router.delete('/queue/labels/:id',            formsController.deleteQueueLabel);

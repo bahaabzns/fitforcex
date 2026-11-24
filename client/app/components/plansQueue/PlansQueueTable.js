@@ -13,6 +13,7 @@ import { Chip } from "@heroui/react/chip";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { Separator } from "@heroui/react/separator";
+import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
 import { toast } from "@heroui/react/toast";
 import { useLocale, useTranslations } from "next-intl";
@@ -24,6 +25,20 @@ import AnswerBody from "@/app/components/forms/AnswerBody";
 import Modal from "@/app/components/Modal";
 import DemoBadge from "@/app/components/demo/DemoBadge";
 import ManageLabelsModal, { LABEL_COLOR_CLASSES, LABEL_COLOR_SWATCH } from "@/app/components/plansQueue/ManageLabelsModal";
+import PlansQueueSkeleton from "@/app/components/plansQueue/PlansQueueSkeleton";
+import { plansQueuePersistKey } from "@/app/components/plansQueue/persistKey";
+import { fetchMatchingQueueRows, usePlansQueueRows, usePlansQueueSummary } from "@/app/components/plansQueue/usePlansQueue";
+
+// A chip whose text comes from data (a package name, a form type, a label) can be longer than the room it
+// has. It never grows past its container and cuts the text with an ellipsis instead, rather than being
+// squeezed to a clipped sliver beside its neighbours or pushing the row wider.
+function TruncatingChip({ className = "", children, ...props }) {
+    return (
+        <Chip size="sm" className={`max-w-full min-w-0 ${className}`} {...props}>
+            <Chip.Label className="min-w-0 truncate">{children}</Chip.Label>
+        </Chip>
+    );
+}
 
 // "assessment" → "Assessment", "check-in" → "Check-in"
 function titleCaseType(type) {
@@ -134,6 +149,12 @@ function renderAssigneeOptions({ members, needActionCountByAssignee, t }) {
     ];
 }
 
+// A row has answers to preview when the server counted some (list loaded with ?answers=lazy), or when it
+// arrived with the answers themselves (the full-list shape).
+function hasAnswers(row) {
+    return (row.responseCount ?? row.responses?.length ?? 0) > 0;
+}
+
 // Wide enough for a name plus its "Need Action · n" line, with a slim scrollbar that doesn't sit on the rounded edge.
 const ASSIGNEE_POPOVER_CLASS = "min-w-60 [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent]";
 
@@ -145,11 +166,60 @@ const ASSIGNEE_POPOVER_CLASS = "min-w-60 [scrollbar-width:thin] [scrollbar-color
 // scheduled rows have none yet (see getQueue in forms.controller.ts). One
 // instance for the whole table, driven by previewOpenId, so opening one
 // row's preview implicitly closes any other row's.
-function AnswerPreviewModal({ open, onClose, responses, locale, heading, formTitle }) {
+//
+// The queue list is loaded with ?answers=lazy (rows carry only a count), so a row's answers usually aren't in
+// `responses` yet: this modal fetches them for that one request when it opens. Rows that already carry their
+// answers (the older full-list shape) skip the request.
+function AnswerPreviewModal({ open, onClose, requestId, responses, locale, heading, formTitle }) {
+    const t = useTranslations('plansQueue');
+    const needsFetch = responses.length === 0;
+    const [loaded, setLoaded] = useState({ requestId: null, responses: [], failed: false });
+    const [retryToken, setRetryToken] = useState(0);
+    const isLoaded = loaded.requestId === requestId;
+
+    useEffect(() => {
+        if (!needsFetch) return;
+        let cancelled = false;
+        api.get(`/api/forms/queue/${requestId}/responses`)
+            .then((res) => { if (!cancelled) setLoaded({ requestId, responses: res.data || [], failed: false }); })
+            .catch(() => { if (!cancelled) setLoaded({ requestId, responses: [], failed: true }); });
+        return () => { cancelled = true; };
+    }, [needsFetch, requestId, retryToken]);
+
+    const shown = needsFetch ? (isLoaded ? loaded.responses : []) : responses;
+    const failed = needsFetch && isLoaded && loaded.failed;
+    const isLoading = needsFetch && !isLoaded;
+
     return (
         <Modal open={open} onClose={onClose} title={formTitle ? `${heading} — ${formTitle}` : heading} size="xl">
             <div className="flex flex-col gap-4">
-                {responses.map((r, i) => (
+                {isLoading && (
+                    <div role="status" aria-busy="true" className="flex flex-col gap-4">
+                        <span className="sr-only">{t('loadingAnswers')}</span>
+                        {[0, 1, 2].map((i) => (
+                            <div key={i} className="flex flex-col gap-1.5" aria-hidden="true">
+                                <Skeleton className="h-3 w-40 rounded" />
+                                <Skeleton className="h-4 w-full rounded" />
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {failed && (
+                    <div className="flex flex-col items-start gap-2">
+                        <p className="text-sm text-destructive">{t('answersLoadFailed')}</p>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                setLoaded({ requestId: null, responses: [], failed: false });
+                                setRetryToken((n) => n + 1);
+                            }}
+                        >
+                            {t('answersRetry')}
+                        </Button>
+                    </div>
+                )}
+                {shown.map((r, i) => (
                     <div key={r.id ?? i} className="flex flex-col gap-1.5">
                         <span className="text-muted-foreground text-xs font-medium">{getLocalizedField(r, 'label', locale) || `Q${i + 1}`}</span>
                         <AnswerBody response={r} />
@@ -161,7 +231,13 @@ function AnswerPreviewModal({ open, onClose, responses, locale, heading, formTit
 }
 
 export default function PlansQueueTable({
-    initialSubmissions, awaiting, forms, members = [],
+    // Which rows this table lists: "need-action" (Main) or "all" (Submission History). The table fetches them
+    // itself, one page at a time, with the search/filters/sort the coach picks done on the server.
+    view,
+    // The row the coach just finished in a builder (asked for once, so its completion animation can play), and a
+    // counter the page bumps to make the table refetch (after a restore, or turning off auto-assign rules in bulk).
+    includeId = null, reloadToken = 0,
+    forms, members = [],
     labels = [], canManageLabels = false, onLabelsChange = async () => {},
     // "Auto-assign next time" (see AutoAssignRulesModal). Each row arrives with its own rule (autoAssignRuleId /
     // autoAssignAgentName); the page owns the switch and the instant-update overrides so Main and History agree.
@@ -175,21 +251,30 @@ export default function PlansQueueTable({
     // of this row, so it needs to know when the exit animation below has
     // actually finished, not just when the row started reacting to it.
     completingId = null,
-    // Full row data for completingId, only needed on Main: its status has
-    // already flipped to action-done by the time we're back here, so it's
-    // structurally excluded from `initialSubmissions` — spliced into
-    // `allItems` below (not merged into `submissions` state) so it can still
-    // be found and animated without needing a resync of state that's meant
-    // to stay a one-time snapshot (see `submissions` below).
-    completingItem = null,
     onCompletionDone,
+    // Called once the first page of rows has arrived (the page uses it to restore a remembered scroll position).
+    onLoaded,
 }) {
     const t = useTranslations('plansQueue');
     const locale = useLocale();
     const { formatDateTime } = useDateFormatter();
     // On a phone the assignee and label pickers (and the dialogs) open as bottom sheets.
     useSheetUi();
-    const [submissions, setSubmissions] = useState(initialSubmissions);
+
+    // One page of rows from the server, plus the numbers the table used to derive from "every row" (per-assignee
+    // workload, the package/form filter options). Edits made here (assign, label, review) are layered on top of
+    // the fetched rows as the overlays below, so they show instantly without a refetch.
+    const { rows, total, includedItem, error: loadError, isFetching, onQueryChange, refetch } = usePlansQueueRows({ view, includeId, reloadToken });
+    const { summary, refresh: refreshSummary } = usePlansQueueSummary({ view, reloadToken });
+    // Full row data for completingId, only needed on Main: its status has already flipped to action-done by the
+    // time we're back here, so the need-action list doesn't contain it — the server returns it on the first load.
+    const completingItem = hideStatusColumn ? includedItem : null;
+    useEffect(() => {
+        if (total !== null) onLoaded?.();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fires when the first page lands; onLoaded identity changes every render
+    }, [total !== null]);
+    // Per-row review overrides (id → { status, actionTakenAt }), same idea as assignMap below.
+    const [statusMap, setStatusMap] = useState({});
     const [marking, setMarking] = useState(false);
     // Per-row assignee overrides applied on top of the server data (id → { assignedTo, assignedToName }).
     const [assignMap, setAssignMap] = useState({});
@@ -329,16 +414,57 @@ export default function PlansQueueTable({
 
     // Bulk selection (mirrors the Clients datatable's selection + Action Bar pattern).
     const [selectedIds, setSelectedIds] = useState(new Set());
-    // Full filtered+sorted row set from the table (across all pages) — powers "select all filtered".
+    // The rows on the current page, in display order. The completion-transition effect's timeout closures
+    // (above) read it through a ref to find "the next item" without re-running that effect every time the
+    // filters or sort change.
     const [filteredItems, setFilteredItems] = useState([]);
-    // Mirrored into a ref so the completion-transition effect's timeout
-    // closures (above) can read the current filtered order to find "the next
-    // item" without re-running that effect every time filters/sort change.
     useEffect(() => { filteredItemsRef.current = filteredItems; }, [filteredItems]);
-    // Ids cancelled via the bulk "Cancel Request" action — filtered out client-side
-    // until the next load, since `awaiting` (unlike `submissions`) isn't local state.
+
+    // What each row the coach may have selected is (id → { id, status, postAction }), kept as pages load so the
+    // bulk bar can still tell which actions apply after paging away, and filled by "select all matching" for rows
+    // that were never loaded.
+    const [rowInfo, setRowInfo] = useState(() => new Map());
+    // Adjusted during render (not in an effect) when a new page of rows arrives — the same pattern as
+    // prevCompletingId above.
+    const [prevRows, setPrevRows] = useState(rows);
+    if (rows !== prevRows) {
+        setPrevRows(rows);
+        setRowInfo((prev) => {
+            const next = new Map(prev);
+            for (const row of rows) next.set(row.id, { id: row.id, status: row.status, postAction: row.postAction });
+            return next;
+        });
+    }
+
+    // The query the table is showing right now, so "select all matching" asks for exactly the same rows.
+    const currentQueryRef = useRef(null);
+    function handleQueryChange(query) {
+        currentQueryRef.current = query;
+        onQueryChange(query);
+    }
+
+    const [selectingAll, setSelectingAll] = useState(false);
+    async function selectAllMatching() {
+        if (!currentQueryRef.current) return;
+        setSelectingAll(true);
+        try {
+            const { items, capped } = await fetchMatchingQueueRows({ view, ...currentQueryRef.current });
+            setRowInfo((prev) => {
+                const next = new Map(prev);
+                for (const item of items) next.set(item.id, item);
+                return next;
+            });
+            setSelectedIds(new Set(items.map((item) => item.id)));
+            if (capped) toast.warning(t('selectAllCapped', { count: items.length }));
+        } catch {
+            toast.warning(t('selectAllFailed'));
+        }
+        setSelectingAll(false);
+    }
+
+    // Ids cancelled via the bulk "Cancel Request" action — hidden at once, until the refetch drops them.
     const [removedIds, setRemovedIds] = useState(new Set());
-    // Ids archived via the row/bulk "Archive" action — same client-side hide-until-reload
+    // Ids archived via the row/bulk "Archive" action — same hide-until-refetch
     // strategy as removedIds, kept separate so the two actions stay easy to reason about.
     const [archivedIds, setArchivedIds] = useState(new Set());
     const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -450,6 +576,7 @@ export default function PlansQueueTable({
         try {
             const res = await api.patch("/api/forms/queue/assign", { ids: [rowId], assignedTo: userId || null, autoAssign: wantsAutoAssign || undefined });
             handleAutoAssignResult(res.data?.autoAssign, member);
+            refreshSummary();
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -496,38 +623,29 @@ export default function PlansQueueTable({
             labelId: effectiveLabel ? effectiveLabel.id : null,
             labelName: effectiveLabel ? effectiveLabel.name : null,
             labelColor: effectiveLabel ? effectiveLabel.color : null,
+            ...(statusMap[item.id] ?? {}),
         };
     };
 
-    const mergedSubmissions = submissions.map(withDerived);
-    const mergedAwaiting = awaiting.map(withDerived);
-
-    const baseItems = [...mergedAwaiting, ...mergedSubmissions].filter((r) => !removedIds.has(r.id) && !archivedIds.has(r.id));
+    // Rows hidden since the page was fetched (cancelled or archived here) stay hidden until the refetch lands.
+    const baseItems = rows.map(withDerived).filter((r) => !removedIds.has(r.id) && !archivedIds.has(r.id));
     // Splice the just-completed row in for the duration of its animation
-    // (Main only — History already has it naturally, since it keeps every
-    // status). Appended, not merged into submissions/mergedSubmissions
-    // state, so it disappears cleanly the instant completingItem clears
-    // (handleCompletionDone in page.js) with no risk of it lingering behind
-    // a stale optimistic update the way folding it into local state could.
+    // (Main only — it is no longer need-action, so the list doesn't hold it).
+    // Appended rather than merged into the fetched rows, so it disappears
+    // cleanly the instant completingItem clears (handleCompletionDone in
+    // page.js) with no risk of it lingering behind a stale optimistic update.
     const allItems = completingItem && !baseItems.some((r) => r.id === completingItem.id)
         ? [...baseItems, withDerived(completingItem)]
         : baseItems;
 
-    // Per-member "Need Action" workload, straight from this table's own live
-    // rows (already carries assignMap's optimistic overrides) — no extra
-    // request, so reassigning a row updates every member's count immediately.
-    // Only "need-action" counts (not the awaiting/scheduled/action-done rows
-    // also present in allItems on the History view) match what the Assigned
-    // dropdown's example describes: how much a member still needs to act on.
-    const needActionCountByAssignee = new Map();
-    for (const row of allItems) {
-        if (row.status !== "need-action" || !row.assignedTo) continue;
-        needActionCountByAssignee.set(row.assignedTo, (needActionCountByAssignee.get(row.assignedTo) ?? 0) + 1);
-    }
+    // Per-member "Need Action" workload for the assignee pickers. Counted by the server over every need-action
+    // row (not just this page), and re-read after each assignment/review below.
+    const needActionCountByAssignee = new Map(Object.entries(summary.needActionByAssignee));
 
-    // Sorted (not insertion order) so a given package name always lands on the
-    // same color regardless of which row it first appears in.
-    const packageNames = [...new Set(allItems.map((r) => r.clientPackage).filter(Boolean))].sort();
+    // Sorted so a given package name always lands on the same color. Drawn from the server's list of packages
+    // (every package with rows in this view), not just the ones on this page, so a chip's color never shifts
+    // as the coach pages or filters.
+    const packageNames = summary.packages;
     const packageColors = Object.fromEntries(
         packageNames.map((name, i) => [name, PACKAGE_CHIP_COLORS[i % PACKAGE_CHIP_COLORS.length]])
     );
@@ -536,18 +654,18 @@ export default function PlansQueueTable({
         setMarking(true);
         try {
             const res = await api.patch("/api/forms/queue/review", { ids, action });
-            const updatedIds = res.data?.updatedIds || ids;
-            setSubmissions((prev) =>
-                prev.map((s) =>
-                    updatedIds.includes(s.id) || updatedIds.includes(String(s.id))
-                        ? {
-                            ...s,
-                            status: action === "undo" ? "need-action" : "action-done",
-                            actionTakenAt: action === "undo" ? null : new Date().toISOString(),
-                        }
-                        : s
-                )
-            );
+            const updatedIds = (res.data?.updatedIds || ids).map(String);
+            setStatusMap((prev) => {
+                const next = { ...prev };
+                for (const id of updatedIds) {
+                    next[id] = {
+                        status: action === "undo" ? "need-action" : "action-done",
+                        actionTakenAt: action === "undo" ? null : new Date().toISOString(),
+                    };
+                }
+                return next;
+            });
+            refreshSummary();
         } catch {
             // silent
         }
@@ -570,6 +688,7 @@ export default function PlansQueueTable({
         try {
             const res = await api.patch("/api/forms/queue/assign", { ids, assignedTo: userId || null, autoAssign: wantsAutoAssign || undefined });
             handleAutoAssignResult(res.data?.autoAssign, member);
+            refreshSummary();
         } catch {
             // silent — leave the optimistic value; a reload reconciles with the server
         }
@@ -600,7 +719,13 @@ export default function PlansQueueTable({
     // Only rows the corresponding action is actually valid for — see the Plans Queue
     // bulk-actions analysis: marking a nutrition/workout submission "reviewed" in bulk
     // would silently skip building the plan, so that action is scoped to plain check-ins.
-    const selectedItems = allItems.filter((r) => selectedIds.has(r.id));
+    // A selection can span pages (and "select all matching" reaches rows that were never loaded), so what each
+    // selected row is comes from rowInfo — remembered per row as pages load, or filled by select-all — with the
+    // review overlay applied on top, rather than from the rows currently on screen.
+    const selectedItems = [...selectedIds]
+        .map((id) => rowInfo.get(id))
+        .filter(Boolean)
+        .map((info) => ({ ...info, ...(statusMap[info.id]?.status ? { status: statusMap[info.id].status } : {}) }));
     const eligibleReviewIds = selectedItems.filter((r) => r.status === "need-action" && r.postAction === "nothing").map((r) => r.id);
     const eligibleUndoIds = selectedItems.filter((r) => r.status === "action-done").map((r) => r.id);
     const eligibleCancelIds = selectedItems.filter((r) => r.status === "awaiting" || r.status === "scheduled").map((r) => r.id);
@@ -619,8 +744,8 @@ export default function PlansQueueTable({
     }
 
     // Cancels pending/scheduled requests — the only queue statuses the backend allows
-    // deleting. No local state exists for `awaiting` (unlike `submissions`), so cancelled
-    // ids are tracked in `removedIds` and filtered out of `allItems` client-side.
+    // deleting. The cancelled ids are hidden straight away (removedIds) and the page is
+    // refetched, so the rows after them move up and the total count stays right.
     async function bulkCancelRequests() {
         if (eligibleCancelIds.length === 0) return;
         if (!confirm(t('cancelRequestConfirm', { count: eligibleCancelIds.length }))) return;
@@ -629,6 +754,8 @@ export default function PlansQueueTable({
             await api.delete("/api/forms/queue/cancel", { data: { ids: eligibleCancelIds } });
             setRemovedIds((prev) => new Set([...prev, ...eligibleCancelIds]));
             setSelectedIds(new Set());
+            refetch();
+            refreshSummary();
         } catch {
             // silent
         }
@@ -644,17 +771,12 @@ export default function PlansQueueTable({
             await api.patch("/api/forms/queue/archive", { ids, action: "archive" });
             setArchivedIds((prev) => new Set([...prev, ...ids]));
             setSelectedIds(new Set());
+            refetch();
+            refreshSummary();
         } catch {
             // silent
         }
         setArchiving(false);
-    }
-
-    function parseQueueDate(dateStr) {
-        if (!dateStr) return new Date(0);
-        const parsed = new Date(dateStr);
-        if (!Number.isNaN(parsed.getTime())) return parsed;
-        return new Date(0);
     }
 
     function shortDate(dateStr) {
@@ -728,14 +850,19 @@ export default function PlansQueueTable({
             width: "150px",
             cardPriority: "secondary",
             render: (row) => row.clientPackage
-                ? <Chip size="sm" className={`whitespace-nowrap ${packageColors[row.clientPackage]}`}>{row.clientPackage}</Chip>
+                ? <TruncatingChip title={row.clientPackage} className={packageColors[row.clientPackage]}>{row.clientPackage}</TruncatingChip>
                 : <span className="text-muted-foreground text-sm">-</span>,
         },
         {
             key: "formTitle_en",
             label: t('form'),
             filterType: "multi",
-            options: [...new Set(allItems.map((s) => getLocalizedField(s, 'formTitle', locale)).filter(Boolean))],
+            // Filters by form id (the server matches on it); only forms that have rows in this view are offered.
+            options: summary.formIds,
+            optionLabel: (formId) => {
+                const form = forms.find((f) => f.id === formId);
+                return form ? getLocalizedField(form, 'title', locale) || formId : formId;
+            },
             pinned: true,
             icon: ClipboardList,
             sortable: true,
@@ -744,21 +871,23 @@ export default function PlansQueueTable({
             render: (row) => (
                 <div className="min-w-0">
                     <p className="text-foreground text-sm font-medium truncate">{getLocalizedField(row, 'formTitle', locale)}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                        <Chip size="sm" className={`whitespace-nowrap ${
+                    {/* flex-wrap: when the two chips don't fit side by side the second drops to its own line
+                        (each still truncates if it alone is too long), rather than both being squeezed. */}
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                        <TruncatingChip className={
                             row.formType === "assessment"
                                 ? "bg-purple-500/20 text-purple-400"
                                 : "bg-accent/15 text-accent"
-                        }`}>
+                        }>
                             {titleCaseType(row.formType)}
-                        </Chip>
-                        <Chip size="sm" className={`whitespace-nowrap ${
+                        </TruncatingChip>
+                        <TruncatingChip className={
                             row.postAction === "nutrition-plan" ? "bg-amber-500/20 text-amber-400"
                                 : row.postAction === "workout-plan" ? "bg-accent/15 text-accent"
                                 : "bg-zinc-500/20 text-zinc-400"
-                        }`}>
+                        }>
                             {actionTypeLabel(row.postAction)}
-                        </Chip>
+                        </TruncatingChip>
                     </div>
                 </div>
             ),
@@ -923,9 +1052,9 @@ export default function PlansQueueTable({
                     {/* pl-2!/pr-6!, not px-2! — see the assignedTo Select.Trigger above for why. */}
                     <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! pl-2! pr-6! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
                         {row.labelName ? (
-                            <Chip size="sm" className={`whitespace-nowrap ${LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}`}>
+                            <TruncatingChip title={row.labelName} className={LABEL_COLOR_CLASSES[row.labelColor] || "bg-zinc-500/20 text-zinc-400"}>
                                 {row.labelName}
-                            </Chip>
+                            </TruncatingChip>
                         ) : (
                             <>
                                 <Tag size={13} className="shrink-0" />
@@ -1035,12 +1164,12 @@ export default function PlansQueueTable({
                                 <Undo2 size={15} />
                             </IconAction>
                         )}
-                        {row.responses?.length > 0 && (
+                        {hasAnswers(row) && (
                             <>
                                 {/* One-time hint pointing at the new answer-preview icon — only on
                                     the first eligible row, dismissed once (same pattern as the
                                     assignee-workload hint above). */}
-                                {row.id === allItems.find((r) => r.responses?.length > 0)?.id && (
+                                {row.id === allItems.find(hasAnswers)?.id && (
                                     <NewFeatureTooltip
                                         featureKey="answer_preview_hint"
                                         active
@@ -1101,7 +1230,7 @@ export default function PlansQueueTable({
 
                 <div className="flex flex-col gap-1.5">
                     {cell("formTitle_en").render(row)}
-                    {row.clientPackage && <div className="flex">{cell("clientPackage").render(row)}</div>}
+                    {row.clientPackage && <div className="flex min-w-0">{cell("clientPackage").render(row)}</div>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
@@ -1132,7 +1261,10 @@ export default function PlansQueueTable({
                     <h1 className="text-3xl font-bold">{title ?? t('title')}</h1>
                     <p className="text-muted-foreground text-sm mt-1">{description ?? t('description')}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                {/* On a phone the action buttons take the full width as ONE row (the page's headerAction wrapper
+                    dissolves into this row, see plans-queue/page.js): the compact auto-assign button keeps its size
+                    and the labelled buttons split the rest equally, instead of wrapping into uneven rows. */}
+                <div className="flex items-center gap-2 max-sm:w-full">
                     {canManageLabels && (
                         <NewFeatureTooltip
                             featureKey="plans_queue_labels_hint"
@@ -1140,10 +1272,11 @@ export default function PlansQueueTable({
                             message={t('manageLabelsHint')}
                             dismissLabel={t('manageLabelsHintDismiss')}
                             badgeLabel={t('manageLabelsHintBadge')}
+                            triggerClassName="max-sm:flex-1 max-sm:min-w-0"
                         >
-                            <Button variant="outline" size="sm" onClick={() => setManageLabelsOpen(true)}>
-                                <Settings className="w-4 h-4" />
-                                <span>{t('manageLabels')}</span>
+                            <Button variant="outline" size="sm" className="max-sm:w-full max-sm:px-2 max-sm:gap-1 max-sm:text-xs" onClick={() => setManageLabelsOpen(true)}>
+                                <Settings className="w-4 h-4 shrink-0" />
+                                <span className="max-sm:truncate">{t('manageLabels')}</span>
                             </Button>
                         </NewFeatureTooltip>
                     )}
@@ -1167,7 +1300,8 @@ export default function PlansQueueTable({
                     <AnswerPreviewModal
                         open
                         onClose={() => setPreviewOpenId(null)}
-                        responses={previewRow.responses}
+                        requestId={previewRow.id}
+                        responses={previewRow.responses ?? []}
                         locale={locale}
                         heading={t('submissionAnswers')}
                         formTitle={getLocalizedField(previewRow, 'formTitle', locale)}
@@ -1175,12 +1309,25 @@ export default function PlansQueueTable({
                 );
             })()}
 
+            {loadError && (
+                <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive shadow-sm p-4">
+                    <span>{loadError}</span>
+                    <Button size="sm" variant="outline" onClick={refetch}>{t('loadRetry')}</Button>
+                </div>
+            )}
+            {/* Until the first response arrives (total is null) the table stays mounted but hidden: mounting is what
+                reports the query to fetch (including a search/filter restored from this tab's last visit). */}
+            {total === null && !loadError && <PlansQueueSkeleton />}
+            <div className={total === null ? "hidden" : ""}>
             <DataTable
                 columns={columns}
                 data={allItems}
                 rowKey="id"
                 scrollable
-                dateParser={parseQueueDate}
+                // The server searches, filters, sorts and pages; `data` is only the current page.
+                serverSide={{ totalCount: total, isFetching, onQueryChange: handleQueryChange }}
+                // Eight filter buttons: an even two-column grid on phones instead of rows of 3, 3 and 2.
+                evenFilterGridOnMobile
                 quickSearch={{
                     fields: ["clientName", "clientEmail", "clientCode", "formTitle_en", "formTitle_ar"],
                     placeholder: t('searchPlaceholder'),
@@ -1196,12 +1343,13 @@ export default function PlansQueueTable({
                 // columns over different datasets, so sharing one key meant a
                 // filter/sort saved in one view would silently misapply (or just
                 // do nothing) when restored into the other's incompatible columns.
-                persistKey={`plans-queue-${hideStatusColumn ? "main" : "history"}-${workspaceSlug}`}
+                persistKey={plansQueuePersistKey({ isMainView: hideStatusColumn, workspaceSlug })}
                 highlightKey={highlightId}
                 filterButtonLabel={t('otherFilters')}
                 rowClassName={(row) => row.id === highlightId ? "bg-emerald-500/10 outline outline-2 -outline-offset-1 outline-emerald-500/40 transition-colors duration-1000" : ""}
                 rowTransition={rowTransition}
             />
+            </div>
 
             {/* Floating bulk action bar — same component/pattern as the Clients datatable. */}
             <ActionBar isOpen={selectedIds.size > 0} aria-label={t('selectedBar', { count: selectedIds.size })}>
@@ -1209,14 +1357,15 @@ export default function PlansQueueTable({
                     <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-default px-1.5 text-xs font-semibold text-foreground">
                         {selectedIds.size}
                     </span>
-                    {filteredItems.length > selectedIds.size && (
+                    {(total ?? 0) > selectedIds.size && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedIds(new Set(filteredItems.map((r) => r.id)))}
+                            onClick={selectAllMatching}
+                            isDisabled={selectingAll}
                         >
                             <ListChecks className="w-4 h-4" />
-                            <span className="action-bar__label">{t('selectAllFiltered', { count: filteredItems.length })}</span>
+                            <span className="action-bar__label">{t('selectAllFiltered', { count: total })}</span>
                         </Button>
                     )}
                 </ActionBar.Prefix>
