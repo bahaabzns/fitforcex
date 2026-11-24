@@ -53,6 +53,10 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 //                                   is the table's own rule list: [{ id, colKey, value }].
 //                In this mode a column's `options`, `filterValue`, `sortValue` and the `dateParser` are not
 //                used for filtering/sorting — the server owns those — and `highlightKey` does not page-jump.
+//   evenFilterGridOnMobile — opt-in (default false, zero change for existing callers): below `sm`, the pinned
+//                filter buttons and the Filter button form an even two-column grid of equal-width buttons
+//                (a leftover odd one spans both columns) instead of a ragged wrapping row. For tables with
+//                many pinned filters, like the Plans Queue.
 //   mobileListView — opt-in (default false, zero change for existing callers): below
 //                `lg`, renders compact divided list rows instead of cards (no card
 //                borders, no "+N more" — secondary columns show inline), the Filter
@@ -192,7 +196,10 @@ function FilterModalField({ col, filterRules, upsertFilter }) {
 // it's reachable in one click instead of two. Reads/writes straight from the
 // shared filterRules (via upsertFilter) — no local draft state needed since,
 // unlike the general dropdown, each instance is permanently scoped to one column.
-function PinnedFilterButton({ col, filterRules, upsertFilter }) {
+// fillCell (evenFilterGridOnMobile): below `sm` the button fills its grid cell, and `isSecondColumn` makes the
+// panel open toward the end edge instead of the start, so a panel opened from the right-hand column can't run
+// off the screen.
+function PinnedFilterButton({ col, filterRules, upsertFilter, fillCell = false, isSecondColumn = false }) {
     const [open, setOpen] = useState(false);
     const existingRule = filterRules.find(r => r.colKey === col.key);
     const defaultValue = col.filterType === "multi" ? [] : col.filterType === "dateRange" ? { from: "", to: "" } : "";
@@ -206,7 +213,7 @@ function PinnedFilterButton({ col, filterRules, upsertFilter }) {
                 size="sm"
                 variant="secondary"
                 onClick={() => setOpen(v => !v)}
-                className={existingRule ? "ring-1 ring-primary/50 text-primary" : ""}
+                className={`${existingRule ? "ring-1 ring-primary/50 text-primary" : ""} ${fillCell ? "max-sm:w-full" : ""}`}
             >
                 {Icon && <Icon size={14} />}
                 {col.label}
@@ -217,7 +224,7 @@ function PinnedFilterButton({ col, filterRules, upsertFilter }) {
                 // sm:end-0: anchors to the trigger's end edge from `sm` up, where pinned
                 // filters cluster near the toolbar's right side (see the general Filter
                 // button's comment above for why this doesn't apply below `sm`).
-                <div className="absolute z-50 top-full sm:end-0 mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56 max-w-[85vw]">
+                <div className={`absolute z-50 top-full sm:end-0 ${fillCell && isSecondColumn ? "max-sm:end-0" : ""} mt-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56 max-w-[85vw]`}>
                     {renderFilterFields(col, value, (next) => upsertFilter(col.key, next))}
                 </div>
             )}
@@ -269,6 +276,7 @@ export default function DataTable({
     rowTransition,
     mobileListView,
     serverSide,
+    evenFilterGridOnMobile = false,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -633,11 +641,21 @@ export default function DataTable({
                 {/* Actions row — pinned filters, the general Filter button, and
                     toolbarEnd stay together on their own line so stacking on
                     mobile (see above) doesn't scatter them across the row. */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className={evenFilterGridOnMobile
+                    ? "grid grid-cols-2 gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2 sm:flex sm:items-center sm:flex-wrap"
+                    : "flex items-center gap-2 flex-wrap"}
+                >
                     {/* Pinned filters — opt-in per column (col.pinned), reachable in one
                         click instead of living inside the general dropdown below. */}
-                    {columns.filter(c => c.filterType && c.pinned).map(col => (
-                        <PinnedFilterButton key={col.key} col={col} filterRules={filterRules} upsertFilter={upsertFilter} />
+                    {columns.filter(c => c.filterType && c.pinned).map((col, index) => (
+                        <PinnedFilterButton
+                            key={col.key}
+                            col={col}
+                            filterRules={filterRules}
+                            upsertFilter={upsertFilter}
+                            fillCell={evenFilterGridOnMobile}
+                            isSecondColumn={index % 2 === 1}
+                        />
                     ))}
 
                     {/* Filter — every remaining (non-pinned) filterable column */}
@@ -649,6 +667,7 @@ export default function DataTable({
                             <Button
                                 size="sm"
                                 variant="secondary"
+                                className={evenFilterGridOnMobile ? "max-sm:w-full" : ""}
                                 onClick={() => {
                                     if (mobileListView && isMobile) setFilterModalOpen(true);
                                     else setAddFilterOpen(v => !v);

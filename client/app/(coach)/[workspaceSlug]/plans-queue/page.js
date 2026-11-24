@@ -303,7 +303,7 @@ export default function PlansQueuePage() {
             <Button
                 variant="outline"
                 size="sm"
-                className="max-sm:flex-1 max-sm:min-w-0 max-sm:px-2"
+                className="max-sm:flex-1 max-sm:min-w-0 max-sm:px-2 max-sm:gap-1 max-sm:text-xs"
                 onClick={() => setShowHistory((prev) => !prev)}
             >
                 {showHistory ? <ListTodo className="w-4 h-4 shrink-0" /> : <History className="w-4 h-4 shrink-0" />}

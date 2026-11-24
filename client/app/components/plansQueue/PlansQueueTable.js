@@ -1261,7 +1261,7 @@ export default function PlansQueueTable({
                             badgeLabel={t('manageLabelsHintBadge')}
                             triggerClassName="max-sm:flex-1 max-sm:min-w-0"
                         >
-                            <Button variant="outline" size="sm" className="max-sm:w-full max-sm:px-2" onClick={() => setManageLabelsOpen(true)}>
+                            <Button variant="outline" size="sm" className="max-sm:w-full max-sm:px-2 max-sm:gap-1 max-sm:text-xs" onClick={() => setManageLabelsOpen(true)}>
                                 <Settings className="w-4 h-4 shrink-0" />
                                 <span className="max-sm:truncate">{t('manageLabels')}</span>
                             </Button>
@@ -1313,6 +1313,8 @@ export default function PlansQueueTable({
                 scrollable
                 // The server searches, filters, sorts and pages; `data` is only the current page.
                 serverSide={{ totalCount: total, isFetching, onQueryChange: handleQueryChange }}
+                // Eight filter buttons: an even two-column grid on phones instead of rows of 3, 3 and 2.
+                evenFilterGridOnMobile
                 quickSearch={{
                     fields: ["clientName", "clientEmail", "clientCode", "formTitle_en", "formTitle_ar"],
                     placeholder: t('searchPlaceholder'),
